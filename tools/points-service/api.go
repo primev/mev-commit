@@ -152,6 +152,7 @@ func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blo
 		p.logger.Error("failed to get unique pubkey count by vault", "error", err)
 		return 0, nil, err
 	}
+	//nolint:errcheck
 	defer rows.Close()
 
 	for rows.Next() {
@@ -174,6 +175,7 @@ func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blo
 	if err != nil {
 		return 0, nil, err
 	}
+	//nolint:errcheck
 	defer rows.Close()
 
 	for rows.Next() {
@@ -241,6 +243,7 @@ func (p *PointsAPI) GetTotalPointsStats(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "DB query failed", http.StatusInternalServerError)
 		return
 	}
+	//nolint:errcheck
 	defer rows.Close()
 
 	var totalPoints int64
@@ -341,6 +344,7 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "DB query failed", http.StatusInternalServerError)
 		return
 	}
+	//nolint:errcheck
 	defer rows.Close()
 
 	var result []map[string]interface{}

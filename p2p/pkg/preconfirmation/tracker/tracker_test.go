@@ -147,9 +147,9 @@ func TestTracker(t *testing.T) {
 		}
 
 		err = publishUnopenedCommitment(evtMgr, &pcABI, preconf.PreconfmanagerUnopenedCommitmentStored{
-			Committer:           common.BytesToAddress(c.PreConfirmation.ProviderAddress),
+			Committer:           common.BytesToAddress(c.ProviderAddress),
 			CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", i+1)),
-			CommitmentDigest:    common.BytesToHash(c.EncryptedPreConfirmation.Commitment),
+			CommitmentDigest:    common.BytesToHash(c.Commitment),
 			CommitmentSignature: c.EncryptedPreConfirmation.Signature,
 			DispatchTimestamp:   uint64(1),
 		})
@@ -158,28 +158,28 @@ func TestTracker(t *testing.T) {
 		}
 	}
 
-	amount, ok := new(big.Int).SetString(commitments[4].PreConfirmation.Bid.BidAmount, 10)
+	amount, ok := new(big.Int).SetString(commitments[4].Bid.BidAmount, 10)
 	if !ok {
-		t.Fatalf("failed to parse bid amount %s", commitments[4].PreConfirmation.Bid.BidAmount)
+		t.Fatalf("failed to parse bid amount %s", commitments[4].Bid.BidAmount)
 	}
-	slashAmt, ok := new(big.Int).SetString(commitments[4].PreConfirmation.Bid.SlashAmount, 10)
+	slashAmt, ok := new(big.Int).SetString(commitments[4].Bid.SlashAmount, 10)
 	if !ok {
-		t.Fatalf("failed to parse slash amount %s", commitments[4].PreConfirmation.Bid.SlashAmount)
+		t.Fatalf("failed to parse slash amount %s", commitments[4].Bid.SlashAmount)
 	}
 
 	// this commitment should not be opened again
 	err = publishOpenedCommitment(evtMgr, &pcABI, preconf.PreconfmanagerOpenedCommitmentStored{
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
-		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
+		Committer:           common.BytesToAddress(commitments[4].ProviderAddress),
 		BidAmt:              amount,
 		SlashAmt:            slashAmt,
-		BlockNumber:         uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
-		DecayStartTimeStamp: uint64(commitments[4].PreConfirmation.Bid.DecayStartTimestamp),
-		DecayEndTimeStamp:   uint64(commitments[4].PreConfirmation.Bid.DecayEndTimestamp),
-		TxnHash:             commitments[4].PreConfirmation.Bid.TxHash,
-		RevertingTxHashes:   commitments[4].PreConfirmation.Bid.RevertingTxHashes,
-		CommitmentDigest:    common.BytesToHash(commitments[4].PreConfirmation.Digest),
+		BlockNumber:         uint64(commitments[4].Bid.BlockNumber),
+		DecayStartTimeStamp: uint64(commitments[4].Bid.DecayStartTimestamp),
+		DecayEndTimeStamp:   uint64(commitments[4].Bid.DecayEndTimestamp),
+		TxnHash:             commitments[4].Bid.TxHash,
+		RevertingTxHashes:   commitments[4].Bid.RevertingTxHashes,
+		CommitmentDigest:    common.BytesToHash(commitments[4].Digest),
 		DispatchTimestamp:   uint64(1),
 	})
 
@@ -203,39 +203,39 @@ func TestTracker(t *testing.T) {
 
 	for _, c := range opened {
 		oc := <-contract.openedCommitments
-		if !bytes.Equal(c.EncryptedPreConfirmation.Commitment, oc.encryptedCommitmentIndex[:]) {
+		if !bytes.Equal(c.Commitment, oc.encryptedCommitmentIndex[:]) {
 			t.Fatalf(
 				"expected commitment index %x, got %x",
-				c.EncryptedPreConfirmation.CommitmentIndex,
+				c.CommitmentIndex,
 				oc.encryptedCommitmentIndex,
 			)
 		}
-		if c.PreConfirmation.Bid.BidAmount != oc.bid.String() {
-			t.Fatalf("expected bid %s, got %d", c.PreConfirmation.Bid.BidAmount, oc.bid)
+		if c.Bid.BidAmount != oc.bid.String() {
+			t.Fatalf("expected bid %s, got %d", c.Bid.BidAmount, oc.bid)
 		}
-		if c.PreConfirmation.Bid.SlashAmount != oc.slashAmt.String() {
-			t.Fatalf("expected slash amount %s, got %d", c.PreConfirmation.Bid.SlashAmount, oc.slashAmt)
+		if c.Bid.SlashAmount != oc.slashAmt.String() {
+			t.Fatalf("expected slash amount %s, got %d", c.Bid.SlashAmount, oc.slashAmt)
 		}
-		if c.PreConfirmation.Bid.BlockNumber != int64(oc.blockNumber) {
-			t.Fatalf("expected block number %d, got %d", c.PreConfirmation.Bid.BlockNumber, oc.blockNumber)
+		if c.Bid.BlockNumber != int64(oc.blockNumber) {
+			t.Fatalf("expected block number %d, got %d", c.Bid.BlockNumber, oc.blockNumber)
 		}
-		if c.PreConfirmation.Bid.TxHash != oc.txnHash {
-			t.Fatalf("expected txn hash %s, got %s", c.PreConfirmation.Bid.TxHash, oc.txnHash)
+		if c.Bid.TxHash != oc.txnHash {
+			t.Fatalf("expected txn hash %s, got %s", c.Bid.TxHash, oc.txnHash)
 		}
-		if c.PreConfirmation.Bid.DecayStartTimestamp != int64(oc.decayStartTimeStamp) {
+		if c.Bid.DecayStartTimestamp != int64(oc.decayStartTimeStamp) {
 			t.Fatalf(
 				"expected decay start timestamp %d, got %d",
-				c.PreConfirmation.Bid.DecayStartTimestamp,
+				c.Bid.DecayStartTimestamp,
 				oc.decayStartTimeStamp,
 			)
 		}
-		if c.PreConfirmation.Bid.DecayEndTimestamp != int64(oc.decayEndTimeStamp) {
-			t.Fatalf("expected decay end timestamp %d, got %d", c.PreConfirmation.Bid.DecayEndTimestamp, oc.decayEndTimeStamp)
+		if c.Bid.DecayEndTimestamp != int64(oc.decayEndTimeStamp) {
+			t.Fatalf("expected decay end timestamp %d, got %d", c.Bid.DecayEndTimestamp, oc.decayEndTimeStamp)
 		}
-		if !bytes.Equal(c.PreConfirmation.Bid.Signature, oc.bidSignature) {
+		if !bytes.Equal(c.Bid.Signature, oc.bidSignature) {
 			t.Fatalf(
 				"expected bid signature %x, got %x",
-				c.PreConfirmation.Bid.Signature,
+				c.Bid.Signature,
 				oc.bidSignature,
 			)
 		}
@@ -265,39 +265,39 @@ func TestTracker(t *testing.T) {
 
 	for _, c := range opened {
 		oc := <-contract.openedCommitments
-		if !bytes.Equal(c.EncryptedPreConfirmation.Commitment, oc.encryptedCommitmentIndex[:]) {
+		if !bytes.Equal(c.Commitment, oc.encryptedCommitmentIndex[:]) {
 			t.Fatalf(
 				"expected commitment index %x, got %x",
-				c.EncryptedPreConfirmation.CommitmentIndex,
+				c.CommitmentIndex,
 				oc.encryptedCommitmentIndex,
 			)
 		}
-		if c.PreConfirmation.Bid.BidAmount != oc.bid.String() {
-			t.Fatalf("expected bid %s, got %d", c.PreConfirmation.Bid.BidAmount, oc.bid)
+		if c.Bid.BidAmount != oc.bid.String() {
+			t.Fatalf("expected bid %s, got %d", c.Bid.BidAmount, oc.bid)
 		}
-		if c.PreConfirmation.Bid.BlockNumber != int64(oc.blockNumber) {
-			t.Fatalf("expected block number %d, got %d", c.PreConfirmation.Bid.BlockNumber, oc.blockNumber)
+		if c.Bid.BlockNumber != int64(oc.blockNumber) {
+			t.Fatalf("expected block number %d, got %d", c.Bid.BlockNumber, oc.blockNumber)
 		}
-		if c.PreConfirmation.Bid.TxHash != oc.txnHash {
-			t.Fatalf("expected txn hash %s, got %s", c.PreConfirmation.Bid.TxHash, oc.txnHash)
+		if c.Bid.TxHash != oc.txnHash {
+			t.Fatalf("expected txn hash %s, got %s", c.Bid.TxHash, oc.txnHash)
 		}
-		if c.PreConfirmation.Bid.DecayStartTimestamp != int64(oc.decayStartTimeStamp) {
+		if c.Bid.DecayStartTimestamp != int64(oc.decayStartTimeStamp) {
 			t.Fatalf(
 				"expected decay start timestamp %d, got %d",
-				c.PreConfirmation.Bid.DecayStartTimestamp,
+				c.Bid.DecayStartTimestamp,
 				oc.decayStartTimeStamp,
 			)
 		}
-		if c.PreConfirmation.Bid.RevertingTxHashes != oc.revertingTxHashes {
-			t.Fatalf("expected reverting tx hashes %s, got %s", c.PreConfirmation.Bid.RevertingTxHashes, oc.revertingTxHashes)
+		if c.Bid.RevertingTxHashes != oc.revertingTxHashes {
+			t.Fatalf("expected reverting tx hashes %s, got %s", c.Bid.RevertingTxHashes, oc.revertingTxHashes)
 		}
-		if c.PreConfirmation.Bid.DecayEndTimestamp != int64(oc.decayEndTimeStamp) {
-			t.Fatalf("expected decay end timestamp %d, got %d", c.PreConfirmation.Bid.DecayEndTimestamp, oc.decayEndTimeStamp)
+		if c.Bid.DecayEndTimestamp != int64(oc.decayEndTimeStamp) {
+			t.Fatalf("expected decay end timestamp %d, got %d", c.Bid.DecayEndTimestamp, oc.decayEndTimeStamp)
 		}
-		if !bytes.Equal(c.PreConfirmation.Bid.Signature, oc.bidSignature) {
+		if !bytes.Equal(c.Bid.Signature, oc.bidSignature) {
 			t.Fatalf(
 				"expected bid signature %x, got %x",
-				c.PreConfirmation.Bid.Signature,
+				c.Bid.Signature,
 				oc.bidSignature,
 			)
 		}

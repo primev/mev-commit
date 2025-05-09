@@ -813,7 +813,7 @@ func NewNode(opts *Options) (*Node, error) {
 					return
 				}
 				w.WriteHeader(http.StatusOK)
-				fmt.Fprintln(w, "ok")
+				_, _ = fmt.Fprintln(w, "ok")
 			},
 		),
 	)

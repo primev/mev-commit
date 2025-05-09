@@ -54,23 +54,16 @@ func main() {
 		return
 	}
 
-	for {
-		select {
-		case bid, more := <-bidS:
-			if !more {
-				logger.Warn("closed bid stream")
-				return
-			}
-			logger.Info("received new bid", "bid", bid)
-			err := providerClient.SendBidResponse(context.Background(), &providerapiv1.BidResponse{
-				BidDigest: bid.BidDigest,
-				Status:    providerapiv1.BidResponse_STATUS_ACCEPTED,
-			})
-			if err != nil {
-				logger.Error("failed to send bid response", "error", err)
-				return
-			}
-			logger.Info("accepted bid")
+	for bid := range bidS {
+		logger.Info("received new bid", "bid", bid)
+		err := providerClient.SendBidResponse(context.Background(), &providerapiv1.BidResponse{
+			BidDigest: bid.BidDigest,
+			Status:    providerapiv1.BidResponse_STATUS_ACCEPTED,
+		})
+		if err != nil {
+			logger.Error("failed to send bid response", "error", err)
+			return
 		}
+		logger.Info("accepted bid")
 	}
 }
