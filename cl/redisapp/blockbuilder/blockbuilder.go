@@ -2,9 +2,11 @@ package blockbuilder
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/primev/mev-commit/cl/redisapp/state"
 	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/primev/mev-commit/cl/redisapp/util"
 	"github.com/vmihailenco/msgpack/v5"
@@ -30,10 +31,18 @@ type EngineClient interface {
 		payloadAttributes *engine.PayloadAttributes) (engine.ForkChoiceResponse, error)
 
 	GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
+
+	HeaderByNumber(ctx context.Context, number *big.Int) (*etypes.Header, error)
+}
+
+type stateManager interface {
+	SaveBlockStateAndPublishToStream(ctx context.Context, state *types.BlockBuildState) error
+	GetBlockBuildState(ctx context.Context) types.BlockBuildState
+	ResetBlockState(ctx context.Context) error
 }
 
 type BlockBuilder struct {
-	stateManager          state.StateManager
+	stateManager          stateManager
 	engineCl              EngineClient
 	logger                *slog.Logger
 	buildDelay            time.Duration
@@ -42,10 +51,17 @@ type BlockBuilder struct {
 	LastCallTime          time.Time
 	lastBlockTime         time.Time
 	feeRecipient          common.Address
-	ctx                   context.Context
+	executionHead         *types.ExecutionHead
 }
 
-func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, logger *slog.Logger, buildDelay, buildDelayEmptyBlocks time.Duration, feeReceipt string) *BlockBuilder {
+func NewBlockBuilder(
+	stateManager stateManager,
+	engineCl EngineClient,
+	logger *slog.Logger,
+	buildDelay,
+	buildDelayEmptyBlocks time.Duration,
+	feeReceipt string,
+) *BlockBuilder {
 	return &BlockBuilder{
 		stateManager:          stateManager,
 		engineCl:              engineCl,
@@ -55,6 +71,13 @@ func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, log
 		buildEmptyBlocksDelay: buildDelayEmptyBlocks,
 		feeRecipient:          common.HexToAddress(feeReceipt),
 		lastBlockTime:         time.Now().Add(-buildDelayEmptyBlocks),
+	}
+}
+
+func NewMemberBlockBuilder(engineCL EngineClient, logger *slog.Logger) *BlockBuilder {
+	return &BlockBuilder{
+		engineCl: engineCL,
+		logger:   logger,
 	}
 }
 
@@ -95,7 +118,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	currentCallTime := time.Now()
 
 	// Load execution head to get previous block timestamp
-	head, err := bb.stateManager.LoadExecutionHead(ctx)
+	head, err := bb.loadExecutionHead(ctx)
 	if err != nil {
 		return fmt.Errorf("latest execution block: %w", err)
 	}
@@ -132,7 +155,10 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
 		response, err := bb.startBuild(ctx, head, ts)
 		if err != nil {
-			bb.logger.Warn("Failed to build new EVM payload, will retry", "error", err)
+			bb.logger.Warn(
+				"Failed to build new EVM payload, will retry",
+				"error", err,
+			)
 			return err // Will retry
 		} else if response.PayloadStatus.Status != engine.VALID {
 			return backoff.Permanent(fmt.Errorf("invalid payload status: %s", response.PayloadStatus.Status))
@@ -170,7 +196,10 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		if isUnknownPayload(err) {
 			return backoff.Permanent(err)
 		} else if err != nil {
-			bb.logger.Warn("Failed to get payload, retrying...", "error", err)
+			bb.logger.Warn(
+				"Failed to get payload, retrying...",
+				"error", err,
+			)
 			return err // Will retry
 		}
 
@@ -185,7 +214,10 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	now := time.Now()
 	timeSinceLastBlock := now.Sub(bb.lastBlockTime)
 	if !hasTransactions && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
-		bb.logger.Info("Leader: Skipping empty block", "timeSinceLastBlock", timeSinceLastBlock)
+		bb.logger.Info(
+			"Leader: Skipping empty block",
+			"timeSinceLastBlock", timeSinceLastBlock,
+		)
 		return nil
 	}
 
@@ -194,18 +226,23 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
+	encodedPayload := base64.StdEncoding.EncodeToString(payloadData)
+
 	payloadIDStr := payloadID.String()
 
 	err = bb.stateManager.SaveBlockStateAndPublishToStream(ctx, &types.BlockBuildState{
 		CurrentStep:      types.StepFinalizeBlock,
 		PayloadID:        payloadIDStr,
-		ExecutionPayload: string(payloadData),
+		ExecutionPayload: encodedPayload,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to save state after GetPayload: %w", err)
 	}
 
-	bb.logger.Info("Leader: BuildBlock completed and block is distributed", "PayloadID", payloadIDStr)
+	bb.logger.Info(
+		"Leader: BuildBlock completed and block is distributed",
+		"PayloadID", payloadIDStr,
+	)
 
 	bb.lastBlockTime = now
 	return nil
@@ -246,16 +283,27 @@ func (bb *BlockBuilder) ProcessLastPayload(ctx context.Context) error {
 						bb.logger.Warn("Follower: Block already pushed to EVM, resetting state to StepBuildBlock")
 						return nil // Success
 					} else {
-						bb.logger.Warn("Follower: Invalid block height, exit", "invalid_height", invalidHeight, "expected_height", expectedHeight)
+						bb.logger.Warn(
+							"Follower: Invalid block height, exit", 
+							"invalid_height", invalidHeight, 
+							"expected_height", expectedHeight,
+						)
 						return backoff.Permanent(err)
 					}
 				} else {
 					// Impossible to reach, unless geth changes the error message response
-					bb.logger.Warn("Conversion error", "error1", err1, "error2", err2)
+					bb.logger.Warn(
+						"Conversion error",
+						"error1", err1,
+						"error2", err2,
+					)
 					return backoff.Permanent(fmt.Errorf("conversion error1: %w, error2: %w", err1, err2))
 				}
 			} else {
-				bb.logger.Warn("Follower: Failed to finalize block, retrying...", "error", err)
+				bb.logger.Warn(
+					"Follower: Failed to finalize block, retrying...",
+					"error", err,
+				)
 				return err // Will retry
 			}
 		}
@@ -272,7 +320,10 @@ func (bb *BlockBuilder) ProcessLastPayload(ctx context.Context) error {
 		bb.logger.Info("Follower: Resetting state to StepBuildBlock for next block")
 		err := bb.stateManager.ResetBlockState(ctx)
 		if err != nil {
-			bb.logger.Warn("Follower: Failed to reset block state, retrying...", "error", err)
+			bb.logger.Warn(
+				"Follower: Failed to reset block state, retrying...",
+				"error", err,
+			)
 			return err // Will retry
 		}
 		return nil // Success
@@ -325,12 +376,16 @@ func (bb *BlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, executi
 		return errors.New("PayloadID or ExecutionPayload is missing in build state")
 	}
 
-	var executionPayload engine.ExecutableData
-	if err := msgpack.Unmarshal([]byte(executionPayloadStr), &executionPayload); err != nil {
-		return fmt.Errorf("failed to deserialize ExecutionPayload: %w", err)
+	executionPayloadBytes, err := base64.StdEncoding.DecodeString(executionPayloadStr)
+	if err != nil {
+		return fmt.Errorf("failed to decode ExecutionPayload: %w", err)
 	}
 
-	head, err := bb.stateManager.LoadExecutionHead(ctx)
+	var executionPayload engine.ExecutableData
+	if err := msgpack.Unmarshal(executionPayloadBytes, &executionPayload); err != nil {
+		return fmt.Errorf("failed to deserialize ExecutionPayload: %w", err)
+	}
+	head, err := bb.loadExecutionHead(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load execution head: %w", err)
 	}
@@ -347,25 +402,18 @@ func (bb *BlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, executi
 	}
 
 	fcs := engine.ForkchoiceStateV1{
-		HeadBlockHash:      hash,
-		SafeBlockHash:      hash,
-		FinalizedBlockHash: hash,
+		HeadBlockHash:      executionPayload.BlockHash,
+		SafeBlockHash:      executionPayload.BlockHash,
+		FinalizedBlockHash: executionPayload.BlockHash,
 	}
 
 	if err := bb.updateForkChoice(ctx, fcs, retryFunc); err != nil {
 		return fmt.Errorf("failed to finalize fork choice update: %w", err)
 	}
 
-	executionHead := &types.ExecutionHead{
-		BlockHeight: executionPayload.Number,
-		BlockHash:   executionPayload.BlockHash[:],
-		BlockTime:   executionPayload.Timestamp,
-	}
-
-	if err := bb.saveExecutionHead(ctx, executionHead, msgID); err != nil {
+	if err := bb.saveExecutionHead(executionPayload); err != nil {
 		return fmt.Errorf("failed to save execution head: %w", err)
 	}
-
 	return nil
 }
 
@@ -435,9 +483,31 @@ func (bb *BlockBuilder) updateForkChoice(ctx context.Context, fcs engine.Forkcho
 	})
 }
 
-func (bb *BlockBuilder) saveExecutionHead(ctx context.Context, executionHead *types.ExecutionHead, msgID string) error {
-	if msgID == "" {
-		return bb.stateManager.SaveExecutionHead(ctx, executionHead)
+func (bb *BlockBuilder) loadExecutionHead(ctx context.Context) (*types.ExecutionHead, error) {
+	if bb.executionHead != nil {
+		return bb.executionHead, nil
 	}
-	return bb.stateManager.SaveExecutionHeadAndAck(ctx, executionHead, msgID)
+
+	header, err := bb.engineCl.HeaderByNumber(ctx, nil) // nil for the latest block
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the latest block header: %w", err)
+	}
+
+	bb.executionHead = &types.ExecutionHead{
+		BlockHeight: header.Number.Uint64(),
+		BlockHash:   header.Hash().Bytes(),
+		BlockTime:   header.Time,
+	}
+
+	return bb.executionHead, nil
+}
+
+func (bb *BlockBuilder) saveExecutionHead(executionPayload engine.ExecutableData) error {
+	bb.executionHead = &types.ExecutionHead{
+		BlockHeight: executionPayload.Number,
+		BlockHash:   executionPayload.BlockHash[:],
+		BlockTime:   executionPayload.Timestamp,
+	}
+
+	return nil
 }

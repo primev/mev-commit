@@ -24,9 +24,11 @@ type MevCommitChain struct {
 	lfm          *leaderfollower.LeaderFollowerManager
 }
 
-func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr, feeReceipt string,
+func NewMevCommitChain(
+	instanceID, ecURL, jwtSecret, redisAddr, feeReceipt string,
 	logger *slog.Logger,
-	buildDelay, buildDelayEmptyBlocks time.Duration) (*MevCommitChain, error) {
+	buildDelay, buildDelayEmptyBlocks time.Duration,
+) (*MevCommitChain, error) {
 	// Create a context for cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -34,14 +36,20 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr
 	bytes, err := hex.DecodeString(jwtSecret)
 	if err != nil {
 		cancel()
-		logger.Error("Error decoding JWT secret", "error", err)
+		logger.Error(
+			"Error decoding JWT secret", 
+			"error", err,
+		)
 		return nil, err
 	}
 
 	engineCL, err := ethclient.NewAuthClient(ctx, ecURL, bytes)
 	if err != nil {
 		cancel()
-		logger.Error("Error creating engine client", "error", err)
+		logger.Error(
+			"Error creating engine client", 
+			"error", err,
+		)
 		return nil, err
 	}
 
@@ -52,32 +60,41 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr
 	err = redisClient.ConfigSet(ctx, "min-replicas-to-write", "1").Err()
 	if err != nil {
 		cancel()
-		logger.Error("Error setting min-replicas-to-write", "error", err)
+		logger.Error(
+			"Error setting min-replicas-to-write", 
+			"error", err,
+		)
 		return nil, err
 	}
 
-	stateManager, err := state.NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
+	coordinator, err := state.NewRedisCoordinator(instanceID, redisClient, logger)
 	if err != nil {
 		cancel()
-		logger.Error("Error creating state manager", "error", err)
+		logger.Error(
+			"Error creating state manager", 
+			"error", err,
+		)
 		return nil, err
 	}
-	blockBuilder := blockbuilder.NewBlockBuilder(stateManager, engineCL, logger, buildDelay, buildDelayEmptyBlocks, feeReceipt)
+	blockBuilder := blockbuilder.NewBlockBuilder(coordinator, engineCL, logger, buildDelay, buildDelayEmptyBlocks, feeReceipt)
 
 	lfm, err := leaderfollower.NewLeaderFollowerManager(
 		instanceID,
 		logger,
 		redisClient,
-		stateManager,
+		coordinator,
 		blockBuilder,
 	)
 	if err != nil {
 		cancel()
-		logger.Error("Error creating lfm", "error", err)
+		logger.Error(
+			"Error creating lfm", 
+			"error", err,
+		)
 		return nil, err
 	}
 	app := &MevCommitChain{
-		stateManager: stateManager,
+		stateManager: coordinator,
 		blockBuilder: blockBuilder,
 		logger:       logger,
 		cancel:       cancel,
@@ -98,7 +115,10 @@ func (app *MevCommitChain) Stop() {
 	app.stateManager.Stop()
 	err := app.lfm.WaitForGoroutinesToStop()
 	if err != nil {
-		app.logger.Error("Error waiting for goroutines to stop", "error", err)
+		app.logger.Error(
+			"Error waiting for goroutines to stop", 
+			"error", err,
+		)
 	}
 	app.logger.Info("MevCommitChain stopped gracefully")
 }
