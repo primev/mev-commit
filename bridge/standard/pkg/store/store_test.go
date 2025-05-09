@@ -64,6 +64,7 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to connect to PostgreSQL container: %s", err)
 	}
+	//nolint:errcheck
 	defer db.Close()
 
 	err = db.Ping()

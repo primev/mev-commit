@@ -82,9 +82,9 @@ jobs:
           git reset --hard HEAD
 
       - name: Run Lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.61
+          version: v2.1
           args: --timeout 15m --verbose ${{ env.GO_LINT_MODULES }}
 
       - name: Run Build

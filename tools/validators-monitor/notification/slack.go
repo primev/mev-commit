@@ -89,6 +89,7 @@ func (n *SlackNotifier) SendMessage(ctx context.Context, message SlackMessage) e
 	if err != nil {
 		return fmt.Errorf("failed to send slack notification: %w", err)
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {

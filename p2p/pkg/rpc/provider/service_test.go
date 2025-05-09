@@ -505,10 +505,8 @@ func TestBidHandling(t *testing.T) {
 			}()
 
 			activeReceiverTimeout := time.Now().Add(2 * time.Second)
-			for {
-				if svc.ActiveReceivers() > 0 {
-					break
-				}
+			for svc.ActiveReceivers() <= 0 {
+				// Check for timeout on each iteration
 				if time.Now().After(activeReceiverTimeout) {
 					t.Fatalf("timed out waiting for active receivers")
 				}

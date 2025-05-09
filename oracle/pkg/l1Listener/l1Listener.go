@@ -289,6 +289,7 @@ func (m *RelayQueryEngine) Query(ctx context.Context, blockNumber int64, blockHa
 				m.logger.Error("failed to fetch data from relay", "url", baseURL.String(), "error", err)
 				return
 			}
+			//nolint:errcheck
 			defer resp.Body.Close()
 			m.logger.Info("received response from relay", "url", baseURL.String(), "status", resp.Status)
 

@@ -82,10 +82,7 @@ func TestTxMonitor(t *testing.T) {
 	evm.blockNumC <- 1
 	evm.nonceC <- 5
 
-	for {
-		if saver.count() == 4 {
-			break
-		}
+	for saver.count() != 4 {
 		time.Sleep(10 * time.Millisecond)
 	}
 
@@ -101,10 +98,7 @@ func TestTxMonitor(t *testing.T) {
 	evm.blockNumC <- 2
 	evm.nonceC <- 11
 
-	for {
-		if saver.count() == 10 {
-			break
-		}
+	for saver.count() != 10 {
 		time.Sleep(10 * time.Millisecond)
 	}
 

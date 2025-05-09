@@ -100,6 +100,7 @@ func (d *Discovery) BroadcastPeers(
 		d.logger.Error("failed to create stream", "err", err, "to_peer", peer)
 		return err
 	}
+	//nolint:errcheck
 	defer stream.Close()
 
 	peersToSend := make([]*discoverypb.PeerInfo, 0, len(peers))

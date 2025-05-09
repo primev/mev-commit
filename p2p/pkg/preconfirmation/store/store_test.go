@@ -37,8 +37,8 @@ func TestStore_AddCommitment(t *testing.T) {
 		t.Fatalf("expected 1 commitment, got %d", len(commitments))
 	}
 
-	if !bytes.Equal(commitments[0].EncryptedPreConfirmation.Commitment, []byte("commitment")) {
-		t.Fatalf("expected commitment, got %s", commitments[0].EncryptedPreConfirmation.Commitment)
+	if !bytes.Equal(commitments[0].Commitment, []byte("commitment")) {
+		t.Fatalf("expected commitment, got %s", commitments[0].Commitment)
 	}
 }
 
@@ -185,8 +185,8 @@ func TestStore_SetCommitmentIndexByDigest(t *testing.T) {
 		t.Fatalf("expected 1 commitment, got %d", len(commitments))
 	}
 
-	if !bytes.Equal(commitments[0].EncryptedPreConfirmation.CommitmentIndex, index[:]) {
-		t.Fatalf("expected index, got %s", commitments[0].EncryptedPreConfirmation.CommitmentIndex)
+	if !bytes.Equal(commitments[0].CommitmentIndex, index[:]) {
+		t.Fatalf("expected index, got %s", commitments[0].CommitmentIndex)
 	}
 }
 
@@ -281,8 +281,8 @@ func TestStore_GetCommitments_Order(t *testing.T) {
 	expectedOrder := []string{"commitment1", "commitment2", "commitment3"}
 	for i, commitment := range commitments {
 		expectedCommitment := expectedOrder[i]
-		if !bytes.Equal(commitment.EncryptedPreConfirmation.Commitment, []byte(expectedCommitment)) {
-			t.Fatalf("expected commitment %s at position %d, got %s", expectedCommitment, i, commitment.EncryptedPreConfirmation.Commitment)
+		if !bytes.Equal(commitment.Commitment, []byte(expectedCommitment)) {
+			t.Fatalf("expected commitment %s at position %d, got %s", expectedCommitment, i, commitment.Commitment)
 		}
 	}
 }

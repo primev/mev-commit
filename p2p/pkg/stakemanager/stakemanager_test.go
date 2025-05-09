@@ -217,7 +217,7 @@ func TestStakeManager(t *testing.T) {
 		}
 	}
 
-	for addr, _ := range providerStakes {
+	for addr := range providerStakes {
 		if !stakeMgr.CheckProviderRegistered(context.Background(), addr) {
 			t.Errorf("provider should be registered")
 		}

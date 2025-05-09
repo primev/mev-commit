@@ -77,6 +77,7 @@ func (c *DashboardClient) GetBlockInfo(
 	if err != nil {
 		return nil, fmt.Errorf("calling dashboard service: %w", err)
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 
 	// check HTTP status
