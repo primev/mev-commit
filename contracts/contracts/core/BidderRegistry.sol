@@ -85,8 +85,9 @@ contract BidderRegistry is
 
         // Calculate the maximum bid per block for the given window
         maxBidPerBlock[msg.sender][window] = newLockedFunds / WindowFromBlockNumber.BLOCKS_PER_WINDOW;
-
+        
         emit BidderRegistered(msg.sender, newLockedFunds, window);
+        emit BidderDepositedForWindow(msg.sender, window, msg.value, newLockedFunds, maxBidPerBlock[msg.sender][window]);
     }
 
     /**
@@ -114,8 +115,9 @@ contract BidderRegistry is
             maxBidPerBlock[msg.sender][window] =
                 newLockedFunds /
                 WindowFromBlockNumber.BLOCKS_PER_WINDOW;
-
+            
             emit BidderRegistered(msg.sender, newLockedFunds, window);
+            emit BidderDepositedForWindow(msg.sender, window, amountToDeposit, newLockedFunds, maxBidPerBlock[msg.sender][window]);
         }
     }
 
