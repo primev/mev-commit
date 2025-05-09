@@ -1398,6 +1398,15 @@ func (t *testWinnerRegister) AddEncryptedCommitment(
 	return nil
 }
 
+func (t *testWinnerRegister) UpdateFailedSettlement(
+	ctx context.Context,
+	commitmentIdx []byte,
+	postingTxnHash []byte,
+	nonce uint64,
+) error {
+	return nil
+}
+
 type testEVMClient struct {
 	blocks   map[int64]*types.Block
 	receipts map[string]*types.Receipt

@@ -212,6 +212,7 @@ func (s *Store) GetFailedSettlements(
 	if err != nil {
 		return nil, err
 	}
+	//nolint:errcheck
 	defer rows.Close()
 
 	var settlements []updater.Settlement
