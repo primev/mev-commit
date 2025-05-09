@@ -117,8 +117,7 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		//nolint:errcheck
-		fmt.Fprintln(app.ErrWriter, err)
+		_, _ = fmt.Fprintln(app.ErrWriter, err)
 	}
 }
 

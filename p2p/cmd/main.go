@@ -530,18 +530,15 @@ func main() {
 	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigc
-		//nolint:errcheck
-		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
+		_, _ = fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
 		cancel()
 		<-sigc
-		//nolint:errcheck
-		fmt.Fprintln(app.Writer, "force exiting...")
+		_, _ = fmt.Fprintln(app.Writer, "force exiting...")
 		os.Exit(1)
 	}()
 
 	if err := app.RunContext(ctx, os.Args); err != nil {
-		//nolint:errcheck
-		fmt.Fprintln(app.Writer, "exited with error:", err)
+		_, _ = fmt.Fprintln(app.Writer, "exited with error:", err)
 	}
 
 	os.Exit(0)
