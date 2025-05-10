@@ -9,6 +9,10 @@ data:
 {{ tpl (.Files.Get "files/init-genesis.sh") . | indent 4 }}
   init-nodekey.sh: |
 {{ tpl (.Files.Get "files/init-nodekey.sh") . | indent 4 }}
+  {{- if eq .Values.role "signer" }}
+  init-keystore.sh: |
+{{ tpl (.Files.Get "files/init-keystore.sh") . | indent 4 }}
+  {{- end }}
   config.toml: |
 {{ tpl (.Files.Get "files/config.toml") . | indent 4 }}
   

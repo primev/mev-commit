@@ -1,38 +1,45 @@
 role: signer
 
 signer:
-  passwordSecretName: devnet-poa-password
-  privateKeySecretName: devnet-poa-signer-key
-
-  passwordExternalSecret:
-    enabled: true
-    awsSecretName: devnet-poa-password
-    refreshInterval: 1h
-    secretStoreRef:
-      name: aws-cluster-secret-store
-      kind: ClusterSecretStore
-
-  privateKeyExternalSecret:
-    enabled: true
-    awsSecretName: devnet-poa-signer-key
-    refreshInterval: 1h
-    secretStoreRef:
-      name: aws-cluster-secret-store
-      kind: ClusterSecretStore
-
+  # Signer address (required for both methods)
+  address: ""
   
+  # Bootstrap method selection
+  nodeBootstrapMethod: "signerPrivateKey"  # Options: "signerPrivateKey" or "signerKeystore"
+  
+  # Password configuration (required for both methods)
+  password:
+    secretName: devnet-password
+    externalSecret:
+      enabled: true
+      awsSecretName: devnet-password
+      refreshInterval: 1h
+      secretStoreRef:
+        name: aws-cluster-secret-store
+        kind: ClusterSecretStore
+  
+  # Keystore method configuration (used when nodeBootstrapMethod: "signerKeystore")
+  signerKeystore:
+    url: "https://<url>/UTC--2025-05-09T13-39-26.776260766Z--<node-id>"
+  
+  # Private key method configuration (used when nodeBootstrapMethod: "signerPrivateKey")
+  signerPrivateKey:
+    secretName: devnet-signer-key
+    externalSecret:
+      enabled: true
+      awsSecretName: devnet-signer-key
+      refreshInterval: 1h
+      secretStoreRef:
+        name: aws-cluster-secret-store
+        kind: ClusterSecretStore
 
-chainId: 1121
+# Rest of the configuration remains the same
+chainId: 
 
 ports:
   p2p: 30303
   http: 8545
   ws: 8546
-
-
-resources: {}
-persistence:
-  size: 5Gi
 
 terminationGracePeriodSeconds: 60
 
@@ -47,26 +54,12 @@ probes:
     successThreshold: 3
     failureThreshold: 5
 
-
 extraArgs:
   - --bootnodes
-  - "enode://acaa1111842b0a3ca9e27984eea0f5e7feb4defb09825e0f27af00dd763b32106c48a873c83d29b4586065a7cbacd88ed855a87648b2b9b3314cf870229e3c5f@poa-bootnode-ethereum-poa-bootnode:30303"
-  - --unlock
-  - "0xe95949f20284049a6006153ff3223b92a5776c9f"  # signer address
-  - --password=/geth/password/password.txt
-  - --mine
-  - --miner.etherbase
-  - "0xe95949f20284049a6006153ff3223b92a5776c9f"  # signer address
-  - --allow-insecure-unlock
+  - "enode://<node-id>@poa-bootnode-ethereum-poa-bootnode:30303"
 
 nodeConfig:
   httpApi: "eth,net,web3,clique"
   wsApi: "eth,net,web3,clique"
   staticPeers:
-    - "enode://acaa1111842b0a3ca9e27984eea0f5e7feb4defb09825e0f27af00dd763b32106c48a873c83d29b4586065a7cbacd88ed855a87648b2b9b3314cf870229e3c5f@poa-bootnode-ethereum-poa-bootnode:30303"
-
-
-#additionalAnnotations:
- # annotation-key1: "annotation-value1"
- # annotation-key2: "annotation-value2"
- # kubernetes.io/example-annotation: "example-value"
+    - "enode://<node-id>@poa-bootnode-ethereum-poa-bootnode:30303"

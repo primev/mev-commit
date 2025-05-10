@@ -1,7 +1,14 @@
 chainId: 
-genesisUrl: "https://raw.githubusercontent.com/harshsingh-cs/ethereum-poa/refs/heads/main/devnet/gensis.json"
+genesisUrl: ""
 
 replicas: 1
+
+signer:
+  passwordExternalSecret:
+    enabled: false
+
+  privateKeyExternalSecret:
+    enabled: false
 
 image:
   repository: harshsingh07/flood

@@ -46,6 +46,7 @@ spec:
               mountPath: /geth/data
             - name: genesis-scripts
               mountPath: /geth/genesis
+
         - name: init-nodekey
           image: {{ .Values.init.image.repository }}:{{ .Values.init.image.tag }}
           command: ["/bin/sh", "/geth/genesis/init-nodekey.sh"]
@@ -59,22 +60,31 @@ spec:
               mountPath: /geth/data
             - name: genesis-scripts
               mountPath: /geth/genesis
+
         {{- if eq .Values.role "signer" }}
-        - name: import-key
-          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-          command:
-            [
-              "/bin/sh",
-              "-c",
-              "if [ -z \"$(ls /geth/data/keystore 2>/dev/null)\" ]; then echo '🔑 Importing key...' && geth --datadir /geth/data account import --password /geth/password/password.txt /geth/keys/signer-key; else echo '✅ Key already exists, skipping import.'; fi"
-            ]
+        - name: init-keystore
+          image: {{ .Values.init.image.repository }}:{{ .Values.init.image.tag }}
+          command: ["/bin/sh", "/geth/genesis/init-keystore.sh"]
+          env:
+            - name: NODE_BOOTSTRAP_METHOD
+              value: {{ .Values.signer.nodeBootstrapMethod | quote }}
+            - name: DATADIR
+              value: "/geth/data"
+            {{- if eq .Values.signer.nodeBootstrapMethod "signerKeystore" }}
+            - name: KEYSTORE_URL
+              value: {{ .Values.signer.signerKeystore.url | quote }}
+            {{- end }}
           volumeMounts:
             - name: data
               mountPath: /geth/data
+            - name: genesis-scripts
+              mountPath: /geth/genesis
             - name: password
               mountPath: /geth/password
+            {{- if eq .Values.signer.nodeBootstrapMethod "signerPrivateKey" }}
             - name: signer-key
               mountPath: /geth/keys
+            {{- end }}
         {{- end }}
 
       containers:
@@ -91,7 +101,7 @@ spec:
             - --http.addr
             - 0.0.0.0
             - --http.port
-            - "{{ .Values.ports.http }}" 
+            - "{{ .Values.ports.http }}"
             - --http.api
             - "{{ .Values.nodeConfig.httpApi }}"
             - --ws
@@ -101,6 +111,15 @@ spec:
             - "{{ .Values.ports.ws }}"
             - --ws.api
             - "{{ .Values.nodeConfig.wsApi }}"
+            {{- if eq .Values.role "signer" }}
+            - --unlock
+            - "{{ .Values.signer.address }}"
+            - --password=/geth/password/password.txt
+            - --mine
+            - --miner.etherbase
+            - "{{ .Values.signer.address }}"
+            - --allow-insecure-unlock
+            {{- end }}
             {{- range .Values.extraArgs }}
             - {{ . | quote }}
             {{- end }}
@@ -123,6 +142,10 @@ spec:
             {{- if eq .Values.role "signer" }}
             - name: password
               mountPath: /geth/password
+            {{- if eq .Values.signer.nodeBootstrapMethod "signerPrivateKey" }}
+            - name: signer-key
+              mountPath: /geth/keys
+            {{- end }}
             {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
@@ -145,16 +168,17 @@ spec:
             name: {{ include "ethereum-poa.fullnameWithRole" . }}-scripts
         - name: config
           configMap:
-            name: {{ include "ethereum-poa.fullnameWithRole" . }}-scripts  
+            name: {{ include "ethereum-poa.fullnameWithRole" . }}-scripts
         {{- if eq .Values.role "signer" }}
         - name: password
           secret:
-            secretName: {{ .Values.signer.passwordSecretName }}
+            secretName: {{ .Values.signer.password.secretName }}
+        {{- if eq .Values.signer.nodeBootstrapMethod "signerPrivateKey" }}
         - name: signer-key
           secret:
-            secretName: {{ .Values.signer.privateKeySecretName }}
+            secretName: {{ .Values.signer.signerPrivateKey.secretName }}
         {{- end }}
-
+        {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -169,4 +193,3 @@ spec:
         {{- if .Values.persistence.storageClassName }}
         storageClassName: {{ .Values.persistence.storageClassName }}
         {{- end }}
- 
