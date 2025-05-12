@@ -70,6 +70,8 @@ spec:
               value: {{ .Values.signer.nodeBootstrapMethod | quote }}
             - name: DATADIR
               value: "/geth/data"
+            - name: SIGNER_ADDRESS
+              value: {{ .Values.signer.address | quote }}
             {{- if eq .Values.signer.nodeBootstrapMethod "signerKeystore" }}
             - name: KEYSTORE_URL
               value: {{ .Values.signer.signerKeystore.url | quote }}

@@ -1,5 +1,6 @@
 role: signer
 
+genesisUrl: ""
 signer:
   # Signer address (required for both methods)
   address: ""
@@ -54,12 +55,10 @@ probes:
     successThreshold: 3
     failureThreshold: 5
 
-extraArgs:
-  - --bootnodes
-  - "enode://<node-id>@poa-bootnode-ethereum-poa-bootnode:30303"
-
 nodeConfig:
   httpApi: "eth,net,web3,clique"
   wsApi: "eth,net,web3,clique"
+  bootstrapNodes:
+    - "enode://<node-id>@poa-bootnode-ethereum-poa-bootnode:30303"
   staticPeers:
     - "enode://<node-id>@poa-bootnode-ethereum-poa-bootnode:30303"

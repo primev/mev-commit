@@ -1,11 +1,22 @@
 {{- if ne .Values.role "bootnode" }}
 [Node.P2P]
-StaticNodes = [
-  {{- range $index, $peer := .Values.nodeConfig.staticPeers }}
-  {{- if $index }},{{ end }}
-  "{{ $peer }}"
-  {{- end }}
-]
+{{- if .Values.nodeConfig.bootstrapNodes }}
+  BootstrapNodes = [
+{{- range $index, $peer := .Values.nodeConfig.bootstrapNodes }}
+    {{- if $index }},{{ end }}
+    "{{ $peer }}"
+{{- end }}
+  ]
+{{- end }}
+{{- if .Values.nodeConfig.staticPeers }}
+  StaticNodes = [
+{{- range $index, $peer := .Values.nodeConfig.staticPeers }}
+    {{- if $index }},{{ end }}
+    "{{ $peer }}"
+{{- end }}
+  ]
+{{- end }}
 {{- else }}
-# No static peers needed for bootnode
+# No bootstrap or static peers needed for bootnode
+[Node.P2P]
 {{- end }}
