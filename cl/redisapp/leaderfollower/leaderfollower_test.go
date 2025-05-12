@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/primev/mev-commit/cl/mocks"
-	"github.com/primev/mev-commit/cl/redisapp/types"
+	"github.com/primev/mev-commit/cl/types"
 	"github.com/redis/go-redis/v9"
 )
 

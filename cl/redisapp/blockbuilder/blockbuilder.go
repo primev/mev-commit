@@ -16,8 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/primev/mev-commit/cl/redisapp/util"
+	"github.com/primev/mev-commit/cl/types"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -284,8 +284,8 @@ func (bb *BlockBuilder) ProcessLastPayload(ctx context.Context) error {
 						return nil // Success
 					} else {
 						bb.logger.Warn(
-							"Follower: Invalid block height, exit", 
-							"invalid_height", invalidHeight, 
+							"Follower: Invalid block height, exit",
+							"invalid_height", invalidHeight,
 							"expected_height", expectedHeight,
 						)
 						return backoff.Permanent(err)

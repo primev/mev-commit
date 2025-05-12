@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
-	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/primev/mev-commit/cl/redisapp/util"
+	"github.com/primev/mev-commit/cl/types"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -270,7 +270,7 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 				}
 				// otherwise there is a problem with redis/payload, so we just log it and continue
 				lfm.logger.Error(
-					"Leader: Error in leader work", 
+					"Leader: Error in leader work",
 					"error", err,
 				)
 			}

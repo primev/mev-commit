@@ -14,7 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/primev/mev-commit/cl/mocks"
 	"github.com/primev/mev-commit/cl/redisapp/state"
-	"github.com/primev/mev-commit/cl/redisapp/types"
+	"github.com/primev/mev-commit/cl/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

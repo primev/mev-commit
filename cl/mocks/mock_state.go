@@ -11,7 +11,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	state "github.com/primev/mev-commit/cl/redisapp/state"
-	types "github.com/primev/mev-commit/cl/redisapp/types"
+	types "github.com/primev/mev-commit/cl/types"
 	redis "github.com/redis/go-redis/v9"
 )
 

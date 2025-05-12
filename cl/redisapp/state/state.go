@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/primev/mev-commit/cl/redisapp/types"
+	"github.com/primev/mev-commit/cl/types"
 	"github.com/redis/go-redis/v9"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -150,7 +150,7 @@ func (s *RedisStateManager) loadOrInitializeBlockState(ctx context.Context) erro
 	}
 
 	s.logger.Info(
-		"Loaded leader block build state", 
+		"Loaded leader block build state",
 		"CurrentStep", state.CurrentStep.String(),
 	)
 	s.blockBuildState = &state
@@ -190,7 +190,7 @@ func (s *RedisStateManager) GetBlockBuildState(ctx context.Context) types.BlockB
 		s.logger.Error("Leader blockBuildState is not initialized")
 		if err := s.loadOrInitializeBlockState(ctx); err != nil {
 			s.logger.Warn(
-				"Failed to load/init state", 
+				"Failed to load/init state",
 				"error", err,
 			)
 			return types.BlockBuildState{}
@@ -203,7 +203,7 @@ func (s *RedisStateManager) GetBlockBuildState(ctx context.Context) types.BlockB
 	}
 
 	s.logger.Info(
-		"Leader blockBuildState retrieved", 
+		"Leader blockBuildState retrieved",
 		"CurrentStep", s.blockBuildState.CurrentStep.String(),
 	)
 	// Return a copy of the state to prevent external modification
@@ -289,7 +289,7 @@ func (s *RedisStreamManager) publishToStreamFunc(ctx context.Context, bsState *t
 func (s *RedisStreamManager) Stop() {
 	if err := s.redisClient.Close(); err != nil {
 		s.logger.Error(
-			"Error closing Redis client in StreamManager", 
+			"Error closing Redis client in StreamManager",
 			"error", err,
 		)
 	}
@@ -329,7 +329,7 @@ func (c *RedisCoordinator) AckMessage(ctx context.Context, messageID string) err
 func (c *RedisCoordinator) Stop() {
 	if err := c.redisClient.Close(); err != nil {
 		c.logger.Error(
-			"Error closing Redis client in StateManager", 
+			"Error closing Redis client in StateManager",
 			"error", err,
 		)
 	}
