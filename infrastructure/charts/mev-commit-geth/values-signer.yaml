@@ -11,6 +11,8 @@ signer:
   # Password configuration (required for both methods)
   password:
     secretName: devnet-password
+    # Insecure: provide password directly in values
+    value: ""
     externalSecret:
       enabled: true
       awsSecretName: devnet-password
@@ -26,6 +28,8 @@ signer:
   # Private key method configuration (used when nodeBootstrapMethod: "signerPrivateKey")
   signerPrivateKey:
     secretName: devnet-signer-key
+    # Insecure: provide password directly in values
+    value: ""
     externalSecret:
       enabled: true
       awsSecretName: devnet-signer-key
