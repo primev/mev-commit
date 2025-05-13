@@ -173,6 +173,7 @@ func main() {
 		logger.Error("failed to connect to server", "err", err)
 		return
 	}
+	//nolint:errcheck
 	defer conn.Close()
 
 	bidderClient := pb.NewBidderClient(conn)

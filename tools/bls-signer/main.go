@@ -62,7 +62,7 @@ func run(c *cli.Context) error {
 	hashedMessage := crypto.Keccak256(common.HexToAddress(payload).Bytes())
 	privateKey := new(bls.PrivateKey[bls.G1])
 	if err := privateKey.UnmarshalBinary(privKeyBytes); err != nil {
-		fmt.Fprintf(c.App.Writer, "Failed to unmarshal private key: %v\n", err)
+		_, _ = fmt.Fprintf(c.App.Writer, "Failed to unmarshal private key: %v\n", err)
 		return err
 	}
 
@@ -71,20 +71,20 @@ func run(c *cli.Context) error {
 
 	// Verify the signature
 	if !bls.Verify(publicKey, hashedMessage, signature) {
-		fmt.Fprintln(c.App.Writer, "Failed to verify generated BLS signature")
+		_, _ = fmt.Fprintln(c.App.Writer, "Failed to verify generated BLS signature")
 		return fmt.Errorf("failed to verify generated BLS signature")
 	}
 
 	pubkeyb, err := publicKey.MarshalBinary()
 	if err != nil {
-		fmt.Fprintf(c.App.Writer, "Failed to marshal public key: %v\n", err)
+		_, _ = fmt.Fprintf(c.App.Writer, "Failed to marshal public key: %v\n", err)
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Generated BLS signature:\n")
-	fmt.Fprintf(c.App.Writer, "Payload: %s\n", payload)
-	fmt.Fprintf(c.App.Writer, "Public key: %s\n", hex.EncodeToString(pubkeyb))
-	fmt.Fprintf(c.App.Writer, "Signature: %s\n", hex.EncodeToString(signature))
+	_, _ = fmt.Fprintf(c.App.Writer, "Generated BLS signature:\n")
+	_, _ = fmt.Fprintf(c.App.Writer, "Payload: %s\n", payload)
+	_, _ = fmt.Fprintf(c.App.Writer, "Public key: %s\n", hex.EncodeToString(pubkeyb))
+	_, _ = fmt.Fprintf(c.App.Writer, "Signature: %s\n", hex.EncodeToString(signature))
 
 	return nil
 }

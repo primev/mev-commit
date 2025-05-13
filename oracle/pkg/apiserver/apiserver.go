@@ -254,7 +254,13 @@ func (s *Service) RegisterHealthCheck(hc health.Health) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, "ok")
+			_, err := fmt.Fprintln(w, "ok")
+			if err != nil {
+				s.logger.Error(
+					"failed to write health check response",
+					"error", err,
+				)
+			}
 		},
 	)
 }

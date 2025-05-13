@@ -34,6 +34,7 @@ func setupMockDB(t *testing.T) (*PostgresDB, sqlmock.Sqlmock) {
 
 func TestInitSchema(t *testing.T) {
 	postgresDB, mock := setupMockDB(t)
+	//nolint:errcheck
 	defer postgresDB.Close()
 
 	ctx := context.Background()
@@ -53,6 +54,7 @@ func TestInitSchema(t *testing.T) {
 
 func TestSaveRelayData(t *testing.T) {
 	postgresDB, mock := setupMockDB(t)
+	//nolint:errcheck
 	defer postgresDB.Close()
 
 	ctx := context.Background()
@@ -102,6 +104,7 @@ func TestSaveRelayData(t *testing.T) {
 
 func TestGetRelayDataByBlock(t *testing.T) {
 	postgresDB, mock := setupMockDB(t)
+	//nolint:errcheck
 	defer postgresDB.Close()
 
 	ctx := context.Background()

@@ -111,6 +111,7 @@ func TestManualPointsEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open in-memory database: %v", err)
 	}
+	//nolint:errcheck
 	defer db.Close()
 
 	if _, err := db.Exec(createTableValidatorRecordsQuery); err != nil {

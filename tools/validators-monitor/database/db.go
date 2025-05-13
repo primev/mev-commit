@@ -70,6 +70,7 @@ func NewPostgresDB(
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
+		//nolint:errcheck
 		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
@@ -183,6 +184,7 @@ func (p *PostgresDB) GetRelayDataByBlock(
 	if err != nil {
 		return nil, fmt.Errorf("failed to query relay data: %w", err)
 	}
+	//nolint:errcheck
 	defer rows.Close()
 
 	var records []*RelayRecord

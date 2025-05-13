@@ -191,10 +191,11 @@ func main() {
 				if err != nil {
 					return err
 				}
+				//nolint:errcheck
 				defer conn.Close()
 
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "connected to %s\n", c.String(optionRPCURL.Name))
+					_, _ = fmt.Fprintf(app.Writer, "connected to %s\n", c.String(optionRPCURL.Name))
 				}
 
 				client := pb.NewBidderClient(conn)
@@ -203,7 +204,7 @@ func main() {
 				if blkNum == 0 {
 					client, err := ethclient.Dial(c.String(optionL1RPCURL.Name))
 					if err != nil {
-						return fmt.Errorf("Failed to connect to the Ethereum client: %v", err)
+						return fmt.Errorf("failed to connect to the Ethereum client: %v", err)
 					}
 
 					bNo, err := client.BlockNumber(c.Context)
@@ -212,7 +213,7 @@ func main() {
 					}
 					blkNum = int64(bNo) + 1
 					if c.Bool(optionVerbose.Name) {
-						fmt.Fprintf(app.Writer, "using latest block number: %d\n", blkNum)
+						_, _ = fmt.Fprintf(app.Writer, "using latest block number: %d\n", blkNum)
 					}
 				}
 
@@ -230,7 +231,7 @@ func main() {
 					return err
 				}
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintln(app.Writer, "sent bid", "bid", prettyPrintMsg(bid))
+					_, _ = fmt.Fprintln(app.Writer, "sent bid", "bid", prettyPrintMsg(bid))
 				}
 
 				for {
@@ -241,7 +242,7 @@ func main() {
 						}
 						return fmt.Errorf("failed to receive preconfirmation: %w", err)
 					}
-					fmt.Fprintln(app.Writer, prettyPrintMsg(preConfirmation))
+					_, _ = fmt.Fprintln(app.Writer, prettyPrintMsg(preConfirmation))
 				}
 			},
 		},
@@ -268,11 +269,11 @@ func main() {
 
 				client, err := ethclient.Dial(c.String(optionL1RPCURL.Name))
 				if err != nil {
-					return fmt.Errorf("Failed to connect to the Ethereum client: %v", err)
+					return fmt.Errorf("failed to connect to the Ethereum client: %v", err)
 				}
 
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "connected to %s\n", c.String(optionL1RPCURL.Name))
+					_, _ = fmt.Fprintf(app.Writer, "connected to %s\n", c.String(optionL1RPCURL.Name))
 				}
 
 				// Get the public address of the sender
@@ -283,7 +284,7 @@ func main() {
 				}
 				fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "from address: %s\n", fromAddress.Hex())
+					_, _ = fmt.Fprintf(app.Writer, "from address: %s\n", fromAddress.Hex())
 				}
 
 				// Define transaction parameters
@@ -292,7 +293,7 @@ func main() {
 					return fmt.Errorf("failed getting account nonce: %w", err)
 				}
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "nonce: %d\n", nonce)
+					_, _ = fmt.Fprintf(app.Writer, "nonce: %d\n", nonce)
 				}
 
 				gasLimit := uint64(21000) // basic gas limit for Ether transfer
@@ -319,8 +320,8 @@ func main() {
 					new(big.Int).Mul(head.BaseFee, big.NewInt(basefeeWiggleMultiplier)),
 				)
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "tip: %s\n", tip.String())
-					fmt.Fprintf(app.Writer, "fee cap: %s\n", feeCap.String())
+					_, _ = fmt.Fprintf(app.Writer, "tip: %s\n", tip.String())
+					_, _ = fmt.Fprintf(app.Writer, "fee cap: %s\n", feeCap.String())
 				}
 
 				value, ok := big.NewInt(0).SetString(c.String(optionAmount.Name), 10)
@@ -330,7 +331,7 @@ func main() {
 
 				to := common.HexToAddress(c.String(optionTo.Name))
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "to address: %s\n", to.Hex())
+					_, _ = fmt.Fprintf(app.Writer, "to address: %s\n", to.Hex())
 				}
 
 				txData := &types.DynamicFeeTx{
@@ -361,7 +362,7 @@ func main() {
 					return fmt.Errorf("failed to encode signed transaction payload: %w", err)
 				}
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "signed transaction: %s\n", hex.EncodeToString(txHex))
+					_, _ = fmt.Fprintf(app.Writer, "signed transaction: %s\n", hex.EncodeToString(txHex))
 				}
 
 				creds := insecure.NewCredentials()
@@ -369,10 +370,11 @@ func main() {
 				if err != nil {
 					return err
 				}
+				//nolint:errcheck
 				defer conn.Close()
 
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "connected to bidder node %s\n", c.String(optionRPCURL.Name))
+					_, _ = fmt.Fprintf(app.Writer, "connected to bidder node %s\n", c.String(optionRPCURL.Name))
 				}
 
 				rpcClient := pb.NewBidderClient(conn)
@@ -386,7 +388,7 @@ func main() {
 
 					blkNum = int64(bNo) + 1
 					if c.Bool(optionVerbose.Name) {
-						fmt.Fprintf(app.Writer, "using latest block number: %d\n", blkNum)
+						_, _ = fmt.Fprintf(app.Writer, "using latest block number: %d\n", blkNum)
 					}
 				}
 
@@ -405,7 +407,7 @@ func main() {
 				}
 
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "sent bid: %s\n", prettyPrintMsg(bid))
+					_, _ = fmt.Fprintf(app.Writer, "sent bid: %s\n", prettyPrintMsg(bid))
 				}
 
 				for {
@@ -416,7 +418,7 @@ func main() {
 						}
 						return fmt.Errorf("failed to receive preconfirmation: %w", err)
 					}
-					fmt.Fprintln(app.Writer, prettyPrintMsg(preConfirmation))
+					_, _ = fmt.Fprintln(app.Writer, prettyPrintMsg(preConfirmation))
 				}
 			},
 		},
@@ -439,11 +441,11 @@ func main() {
 
 				client, err := ethclient.Dial(c.String(optionL1RPCURL.Name))
 				if err != nil {
-					return fmt.Errorf("Failed to connect to the Ethereum client: %v", err)
+					return fmt.Errorf("failed to connect to the Ethereum client: %v", err)
 				}
 
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "connected to %s\n", c.String(optionL1RPCURL.Name))
+					_, _ = fmt.Fprintf(app.Writer, "connected to %s\n", c.String(optionL1RPCURL.Name))
 				}
 
 				// Get the public address of the sender
@@ -454,7 +456,7 @@ func main() {
 				}
 				fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "from address: %s\n", fromAddress.Hex())
+					_, _ = fmt.Fprintf(app.Writer, "from address: %s\n", fromAddress.Hex())
 				}
 
 				// Define transaction parameters
@@ -463,7 +465,7 @@ func main() {
 					return fmt.Errorf("failed getting account nonce: %w", err)
 				}
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "nonce: %d\n", nonce)
+					_, _ = fmt.Fprintf(app.Writer, "nonce: %d\n", nonce)
 				}
 
 				gasLimit := uint64(21000) // basic gas limit for Ether transfer
@@ -483,8 +485,8 @@ func main() {
 					new(big.Int).Mul(head.BaseFee, big.NewInt(basefeeWiggleMultiplier)),
 				)
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "tip: %s\n", tip.String())
-					fmt.Fprintf(app.Writer, "fee cap: %s\n", feeCap.String())
+					_, _ = fmt.Fprintf(app.Writer, "tip: %s\n", tip.String())
+					_, _ = fmt.Fprintf(app.Writer, "fee cap: %s\n", feeCap.String())
 				}
 
 				value, ok := big.NewInt(0).SetString(c.String(optionAmount.Name), 10)
@@ -494,7 +496,7 @@ func main() {
 
 				to := common.HexToAddress(c.String(optionTo.Name))
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "to address: %s\n", to.Hex())
+					_, _ = fmt.Fprintf(app.Writer, "to address: %s\n", to.Hex())
 				}
 
 				req, err := http.NewRequest(
@@ -581,7 +583,7 @@ func main() {
 					return fmt.Errorf("failed to encode signed transaction payload: %w", err)
 				}
 				if c.Bool(optionVerbose.Name) {
-					fmt.Fprintf(app.Writer, "signed transaction: %s\n", hex.EncodeToString(txHex))
+					_, _ = fmt.Fprintf(app.Writer, "signed transaction: %s\n", hex.EncodeToString(txHex))
 				}
 
 				buf := new(bytes.Buffer)
@@ -611,13 +613,13 @@ func main() {
 				if err != nil {
 					return fmt.Errorf("failed to send bridge request: %w", err)
 				}
+				//nolint:errcheck
 				defer resp.Body.Close()
 
 				if resp.StatusCode != http.StatusOK {
 					return fmt.Errorf("failed to bridge: %s", resp.Status)
 				}
-
-				fmt.Fprintf(
+				_, _ = fmt.Fprintf(
 					app.Writer,
 					"bridged %s ETH to %s on MEV-COMMIT\n",
 					c.String(optionAmount.Name),
@@ -630,7 +632,7 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		fmt.Fprintf(app.Writer, "exited with error: %v\n", err)
+		_, _ = fmt.Fprintf(app.Writer, "exited with error: %v\n", err)
 	}
 }
 

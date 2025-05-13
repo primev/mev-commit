@@ -156,6 +156,7 @@ func (p *P2PTest) NewStream(
 	out, in := NewDuplexStream()
 
 	go func() {
+		//nolint:errcheck
 		defer in.Close()
 
 		err := handler(context.Background(), *p.self, in)
