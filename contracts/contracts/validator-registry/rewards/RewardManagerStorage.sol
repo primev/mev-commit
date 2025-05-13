@@ -21,6 +21,9 @@ contract RewardManagerStorage {
 
     /// @dev Addresses with auto-claim enabled.
     mapping(address addr => bool enabled) public autoClaim;
+
+    /// @dev Addresses which are blacklisted from auto-claim.
+    mapping(address addr => bool blacklisted) public autoClaimBlacklist;
     
     /// @dev Unclaimed rewards by address.
     mapping(address addr => uint256 amount) public unclaimedRewards;

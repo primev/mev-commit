@@ -70,10 +70,10 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         if (overriddenAddr != address(0)) {
             toPay = overriddenAddr;
         }
-        if (autoClaim[toPay]) {
+        if (autoClaim[toPay] && !autoClaimBlacklist[toPay]) {
             (bool success, ) = payable(toPay).call{value: msg.value, gas: autoClaimGasLimit}("");
             if (!success) {
-                autoClaim[toPay] = false; // AutoClaim disabled after first failed transfer
+                autoClaimBlacklist[toPay] = true;
                 unclaimedRewards[toPay] += msg.value;
                 emit AutoClaimTransferFailed(toPay);
                 return;
@@ -137,6 +137,12 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         if (!success) {
             revert OrphanedRewardsClaimFailed();
         }
+        emit OrphanedRewardsClaimed(toPay, totalAmount);
+    }
+
+    function removeFromAutoClaimBlacklist(address addr) external onlyOwner {
+        autoClaimBlacklist[addr] = false;
+        emit RemovedFromAutoClaimBlacklist(addr);
     }
 
     /// @dev Allows the owner to set the vanilla registry address.

@@ -12,6 +12,8 @@ interface IRewardManager {
     event AutoClaimGasLimitSet(uint256 autoClaimGasLimit);
     event AutoClaimTransferFailed(address toPay);
     event OrphanedRewardsAccumulated(address indexed provider, bytes indexed pubkey, uint256 amount);
+    event OrphanedRewardsClaimed(address indexed toPay, uint256 amount);
+    event RemovedFromAutoClaimBlacklist(address indexed addr);
     event OverrideClaimAddressSet(address indexed provider, address indexed newClaimAddress);
     event OverrideClaimAddressRemoved(address indexed provider);
     event AutoClaimEnabled(address indexed caller);
