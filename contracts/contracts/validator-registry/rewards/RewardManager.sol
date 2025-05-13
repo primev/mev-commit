@@ -58,6 +58,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     /// @dev Allows providers to pay opted-in proposers. 
+    /// @notice It is assumed the validator pubkey being paid is opted-in to mev-commit.
     function payProposer(bytes calldata pubkey) external payable { // Intentionally don't allow pausing.
         address toPay = _findAddrToPay(pubkey);
         if (toPay == address(0)) {
