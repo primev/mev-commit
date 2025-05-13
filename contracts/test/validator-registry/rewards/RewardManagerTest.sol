@@ -53,6 +53,8 @@ contract RewardManagerTest is Test {
     event AutoClaimEnabled(address indexed caller);
     event PaymentStored(address indexed provider, address indexed toPay, uint256 amount);
     event RewardsClaimed(address indexed toPay, uint256 amount);
+    event OverrideClaimAddressSet(address indexed msgSender, address indexed newClaimAddress);
+    event OverrideClaimAddressRemoved(address indexed msgSender);
 
     function setUp() public {
         owner = address(0x123456);
@@ -308,5 +310,44 @@ contract RewardManagerTest is Test {
         emit RewardsClaimed(podOwnerFromAVSTest, 10 ether);
         rewardManager.claimRewards();
         assertEq(podOwnerFromAVSTest.balance, balanceBefore + 10 ether);
+    }
+
+    function testOverrideClaimAddress() public {
+        mevCommitMiddlewareTest.test_registerValidators();
+        address operatorFromMiddlewareTest = vm.addr(0x1117);
+        bytes memory pubkey2 = mevCommitMiddlewareTest.sampleValPubkey2();
+
+        address overrideAddr = vm.addr(0x999999977777777);
+        vm.prank(operatorFromMiddlewareTest);
+        vm.expectEmit();
+        emit OverrideClaimAddressSet(operatorFromMiddlewareTest, overrideAddr);
+        rewardManager.overrideClaimAddress(overrideAddr);
+
+        vm.deal(user3, 2 ether);
+        vm.expectEmit();
+        emit PaymentStored(user3, overrideAddr, 2 ether);
+        vm.prank(user3);
+        rewardManager.payProposer{value: 2 ether}(pubkey2);
+
+        vm.prank(operatorFromMiddlewareTest);
+        vm.expectEmit();
+        emit OverrideClaimAddressRemoved(operatorFromMiddlewareTest);
+        rewardManager.removeOverriddenClaimAddress();
+
+        vm.deal(user3, 4 ether);
+        vm.expectEmit();
+        emit PaymentStored(user3, operatorFromMiddlewareTest, 4 ether);
+        vm.prank(user3);
+        rewardManager.payProposer{value: 4 ether}(pubkey2);
+
+        vm.prank(operatorFromMiddlewareTest);
+        vm.expectEmit();
+        emit RewardsClaimed(operatorFromMiddlewareTest, 4 ether);
+        rewardManager.claimRewards();
+
+        vm.prank(overrideAddr);
+        vm.expectEmit();
+        emit RewardsClaimed(overrideAddr, 2 ether);
+        rewardManager.claimRewards();
     }
 }

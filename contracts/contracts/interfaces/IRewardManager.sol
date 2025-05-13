@@ -14,11 +14,11 @@ interface IRewardManager {
     event OrphanedRewardsAccumulated(address indexed provider, bytes indexed pubkey, uint256 amount);
     event OrphanedRewardsClaimed(address indexed toPay, uint256 amount);
     event RemovedFromAutoClaimBlacklist(address indexed addr);
-    event OverrideClaimAddressSet(address indexed provider, address indexed newClaimAddress);
-    event OverrideClaimAddressRemoved(address indexed provider);
-    event AutoClaimEnabled(address indexed caller);
-    event AutoClaimDisabled(address indexed caller);
-    event RewardsClaimed(address indexed claimer, uint256 amount);
+    event OverrideClaimAddressSet(address indexed msgSender, address indexed newClaimAddress);
+    event OverrideClaimAddressRemoved(address indexed msgSender);
+    event AutoClaimEnabled(address indexed msgSender);
+    event AutoClaimDisabled(address indexed msgSender);
+    event RewardsClaimed(address indexed msgSender, uint256 amount);
     error NoEthPayable();
     error InvalidAddress();
     error InvalidAutoClaimGasLimit();
