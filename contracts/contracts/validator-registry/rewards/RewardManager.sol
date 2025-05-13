@@ -65,8 +65,9 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
             emit OrphanedRewardsAccumulated(msg.sender, pubkey, msg.value);
             return;
         }
-        if (overriddenClaimAddresses[toPay] != address(0)) {
-            toPay = overriddenClaimAddresses[toPay];
+        address overriddenAddr = overriddenClaimAddresses[toPay];
+        if (overriddenAddr != address(0)) {
+            toPay = overriddenAddr;
         }
         if (autoClaim[toPay]) {
             (bool success, ) = payable(toPay).call{value: msg.value, gas: autoClaimGasLimit}("");
@@ -185,16 +186,16 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     function _findAddrToPay(bytes calldata pubkey) internal view returns (address) {
-        (,address operatorAddr,,) = _mevCommitMiddleware.validatorRecords(pubkey);
-        if (operatorAddr != address(0)) {
+        (,address operatorAddr,bool existsMiddleware,) = _mevCommitMiddleware.validatorRecords(pubkey);
+        if (existsMiddleware && operatorAddr != address(0)) {
             return operatorAddr;
         }
-        (,address vanillaWithdrawalAddr,,) = _vanillaRegistry.stakedValidators(pubkey);
-        if (vanillaWithdrawalAddr != address(0)) {
+        (bool existsVanilla,address vanillaWithdrawalAddr,,) = _vanillaRegistry.stakedValidators(pubkey);
+        if (existsVanilla && vanillaWithdrawalAddr != address(0)) {
             return vanillaWithdrawalAddr;
         }
-        (,address podOwner,,) = _mevCommitAVS.validatorRegistrations(pubkey);
-        if (podOwner != address(0)) {
+        (bool existsAvs,address podOwner,,) = _mevCommitAVS.validatorRegistrations(pubkey);
+        if (existsAvs && podOwner != address(0)) {
             return podOwner;
         }
         return address(0);
