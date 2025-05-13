@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/primev/mev-commit/cl/ethclient"
-	"github.com/primev/mev-commit/cl/redisapp/blockbuilder"
+	"github.com/primev/mev-commit/cl/blockbuilder"
 	"github.com/primev/mev-commit/cl/redisapp/leaderfollower"
 	"github.com/primev/mev-commit/cl/redisapp/state"
 	"github.com/redis/go-redis/v9"

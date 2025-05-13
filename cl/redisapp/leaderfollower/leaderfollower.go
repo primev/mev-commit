@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
-	"github.com/primev/mev-commit/cl/redisapp/util"
+	"github.com/primev/mev-commit/cl/util"
 	"github.com/primev/mev-commit/cl/types"
 	"github.com/redis/go-redis/v9"
 )
