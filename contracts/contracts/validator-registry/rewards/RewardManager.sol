@@ -57,8 +57,9 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         _unpause();
     }
 
-    /// @dev Allows providers to pay opted-in proposers. 
+    /// @dev Allows providers to pay the opted-in proposer for a block. 
     /// @notice It is assumed the validator pubkey being paid is opted-in to mev-commit.
+    /// Otherwise the rewards are accumulated as "orphaned" and must be handled by the owner.
     function payProposer(bytes calldata pubkey) external payable { // Intentionally don't allow pausing.
         address toPay = _findAddrToPay(pubkey);
         if (toPay == address(0)) {
@@ -192,6 +193,9 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         emit AutoClaimGasLimitSet(limit);
     }
 
+    /// @dev Finds the address to pay for a given validator pubkey,
+    /// corresponding to state that'd exist in each type of registry if the pubkey were opted-in through that registry.
+    /// @notice Zero address is returned if the pubkey is not opted-in to mev-commit.
     function _findAddrToPay(bytes calldata pubkey) internal view returns (address) {
         (,address operatorAddr,bool existsMiddleware,) = _mevCommitMiddleware.validatorRecords(pubkey);
         if (existsMiddleware && operatorAddr != address(0)) {
