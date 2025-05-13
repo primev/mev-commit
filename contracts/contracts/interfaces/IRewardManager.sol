@@ -19,6 +19,7 @@ interface IRewardManager {
     event AutoClaimEnabled(address indexed caller);
     event AutoClaimDisabled(address indexed caller);
     event RewardsClaimed(address indexed claimer, uint256 amount);
+    error NoEthPayable();
     error InvalidAddress();
     error InvalidAutoClaimGasLimit();
     error RewardsClaimFailed();
