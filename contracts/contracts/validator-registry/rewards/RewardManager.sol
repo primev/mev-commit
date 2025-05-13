@@ -163,25 +163,25 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     function _setVanillaRegistry(address vanillaRegistry) internal {
         require(vanillaRegistry != address(0), InvalidAddress());
         _vanillaRegistry = VanillaRegistryStorage(vanillaRegistry);
-        emit VanillaRegistrySet(address(vanillaRegistry), vanillaRegistry);
+        emit VanillaRegistrySet(vanillaRegistry);
     }
 
     function _setMevCommitAVS(address mevCommitAVS) internal {
         require(mevCommitAVS != address(0), InvalidAddress());
         _mevCommitAVS = MevCommitAVSStorage(mevCommitAVS);
-        emit MevCommitAVSSet(address(mevCommitAVS), mevCommitAVS);
+        emit MevCommitAVSSet(mevCommitAVS);
     }
 
     function _setMevCommitMiddleware(address mevCommitMiddleware) internal {
         require(mevCommitMiddleware != address(0), InvalidAddress());
         _mevCommitMiddleware = MevCommitMiddlewareStorage(mevCommitMiddleware);
-        emit MevCommitMiddlewareSet(address(mevCommitMiddleware), mevCommitMiddleware);
+        emit MevCommitMiddlewareSet(mevCommitMiddleware);
     }
 
-    function _setAutoClaimGasLimit(uint256 autoClaimGasLimit) internal {
-        require(autoClaimGasLimit > 0, InvalidAutoClaimGasLimit());
-        autoClaimGasLimit = autoClaimGasLimit;
-        emit AutoClaimGasLimitSet(autoClaimGasLimit);
+    function _setAutoClaimGasLimit(uint256 limit) internal {
+        require(limit > 0, InvalidAutoClaimGasLimit());
+        autoClaimGasLimit = limit;
+        emit AutoClaimGasLimitSet(limit);
     }
 
     function _findAddrToPay(bytes calldata pubkey) internal view returns (address) {
