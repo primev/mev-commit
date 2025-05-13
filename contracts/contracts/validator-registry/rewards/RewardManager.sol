@@ -95,7 +95,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         emit AutoClaimDisabled(msg.sender);
     }
 
-    /// @dev Allows the any reward recipient to delegate their rewards to another address.
+    /// @dev Allows any reward recipient to delegate their rewards to another address.
     function overrideClaimAddress(address newClaimAddress) external whenNotPaused {
         require(newClaimAddress != address(0) && newClaimAddress != msg.sender, InvalidAddress());
         overriddenClaimAddresses[msg.sender] = newClaimAddress;
