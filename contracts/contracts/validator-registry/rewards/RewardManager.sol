@@ -117,9 +117,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         require(amount > 0, NoRewardsToClaim());
         unclaimedRewards[msg.sender] = 0;
         (bool success, ) = payable(msg.sender).call{value: amount}("");
-        if (!success) {
-            revert RewardsClaimFailed();
-        }
+        require(success, RewardsClaimFailed());
         emit RewardsClaimed(msg.sender, amount);
     }
 
@@ -135,9 +133,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
             totalAmount += amount;
         }
         (bool success, ) = payable(toPay).call{value: totalAmount}("");
-        if (!success) {
-            revert OrphanedRewardsClaimFailed();
-        }
+        require(success, OrphanedRewardsClaimFailed());
         emit OrphanedRewardsClaimed(toPay, totalAmount);
     }
 
