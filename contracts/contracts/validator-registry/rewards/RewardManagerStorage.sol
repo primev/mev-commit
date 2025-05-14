@@ -19,20 +19,20 @@ contract RewardManagerStorage {
     /// @dev Gas limit for forwarded auto-claim calls.
     uint256 public autoClaimGasLimit;
 
-    /// @dev Addresses with auto-claim enabled.
-    mapping(address addr => bool enabled) public autoClaim;
+    /// @dev Receiver addresses with auto-claim enabled.
+    mapping(address receiver => bool enabled) public autoClaim;
 
-    /// @dev Addresses which are blacklisted from auto-claim.
-    mapping(address addr => bool blacklisted) public autoClaimBlacklist;
+    /// @dev Receiver addresses which are blacklisted from auto-claim.
+    mapping(address receiver => bool blacklisted) public autoClaimBlacklist;
     
-    /// @dev Unclaimed rewards by address.
+    /// @dev Unclaimed rewards by (receiver or override) address.
     mapping(address addr => uint256 amount) public unclaimedRewards;
 
     /// @dev Orphaned rewards by validator pubkey.
     mapping(bytes pubkey => uint256 amount) public orphanedRewards;
 
-    /// @dev Overridden claim addresses.
-    mapping(address delegator => address overrideAddress) public overriddenClaimAddresses;
+    /// @dev Override addresses associated to receivers.
+    mapping(address receiver => address overrideAddress) public overrideAddresses;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;

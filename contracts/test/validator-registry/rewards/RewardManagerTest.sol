@@ -52,12 +52,12 @@ contract RewardManagerTest is Test {
     event RemovedFromAutoClaimBlacklist(address indexed addr);
     event AutoClaimEnabled(address indexed caller);
     event AutoClaimDisabled(address indexed caller);
-    event PaymentStored(address indexed provider, address indexed toPay, uint256 amount);
+    event PaymentStored(address indexed provider, address indexed receiver, address indexed toPay, uint256 amount);
     event RewardsClaimed(address indexed toPay, uint256 amount);
-    event OverrideClaimAddressSet(address indexed msgSender, address indexed newClaimAddress);
-    event OverrideClaimAddressRemoved(address indexed msgSender);
-    event AutoClaimed(address indexed provider, address indexed toPay, uint256 amount);
-    event AutoClaimTransferFailed(address toPay);
+    event OverrideAddressSet(address indexed receiver, address indexed overrideAddress);
+    event OverrideAddressRemoved(address indexed receiver);
+    event AutoClaimed(address indexed provider, address indexed receiver, address indexed toPay, uint256 amount);
+    event AutoClaimTransferFailed(address indexed provider, address receiver, address toPay);
 
     function setUp() public {
         owner = address(0x123456);
@@ -154,11 +154,11 @@ contract RewardManagerTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        rewardManager.overrideClaimAddress(user2, false);
+        rewardManager.overrideReceiver(user2, false);
 
         vm.prank(user1);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        rewardManager.removeOverriddenClaimAddress(false);
+        rewardManager.removeOverrideAddress(false);
 
         vm.prank(user1);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
@@ -263,7 +263,7 @@ contract RewardManagerTest is Test {
 
         vm.deal(user2, 4 ether);
         vm.expectEmit();
-        emit PaymentStored(user2, vanillaTestUser, 4 ether);
+        emit PaymentStored(user2, vanillaTestUser, vanillaTestUser, 4 ether);
         vm.prank(user2);
         rewardManager.payProposer{value: 4 ether}(vanillaTestUserPubkey);
 
@@ -283,7 +283,7 @@ contract RewardManagerTest is Test {
 
         vm.deal(user3, 7 ether);
         vm.expectEmit();
-        emit PaymentStored(user3, operatorFromMiddlewareTest, 7 ether);
+        emit PaymentStored(user3, operatorFromMiddlewareTest, operatorFromMiddlewareTest, 7 ether);
         vm.prank(user3);
         rewardManager.payProposer{value: 7 ether}(pubkey2);
 
@@ -303,7 +303,7 @@ contract RewardManagerTest is Test {
 
         vm.deal(user4, 10 ether);
         vm.expectEmit();
-        emit PaymentStored(user4, podOwnerFromAVSTest, 10 ether);
+        emit PaymentStored(user4, podOwnerFromAVSTest, podOwnerFromAVSTest, 10 ether);
         vm.prank(user4);
         rewardManager.payProposer{value: 10 ether}(pubkey);
 
@@ -323,23 +323,23 @@ contract RewardManagerTest is Test {
         address overrideAddr = vm.addr(0x999999977777777);
         vm.prank(operatorFromMiddlewareTest);
         vm.expectEmit();
-        emit OverrideClaimAddressSet(operatorFromMiddlewareTest, overrideAddr);
-        rewardManager.overrideClaimAddress(overrideAddr, false);
+        emit OverrideAddressSet(operatorFromMiddlewareTest, overrideAddr);
+        rewardManager.overrideReceiver(overrideAddr, false);
 
         vm.deal(user3, 2 ether);
         vm.expectEmit();
-        emit PaymentStored(user3, overrideAddr, 2 ether);
+        emit PaymentStored(user3, operatorFromMiddlewareTest, overrideAddr, 2 ether);
         vm.prank(user3);
         rewardManager.payProposer{value: 2 ether}(pubkey2);
 
         vm.prank(operatorFromMiddlewareTest);
         vm.expectEmit();
-        emit OverrideClaimAddressRemoved(operatorFromMiddlewareTest);
-        rewardManager.removeOverriddenClaimAddress(false);
+        emit OverrideAddressRemoved(operatorFromMiddlewareTest);
+        rewardManager.removeOverrideAddress(false);
 
         vm.deal(user3, 4 ether);
         vm.expectEmit();
-        emit PaymentStored(user3, operatorFromMiddlewareTest, 4 ether);
+        emit PaymentStored(user3, operatorFromMiddlewareTest, operatorFromMiddlewareTest, 4 ether);
         vm.prank(user3);
         rewardManager.payProposer{value: 4 ether}(pubkey2);
 
@@ -361,7 +361,7 @@ contract RewardManagerTest is Test {
 
         vm.deal(user2, 4 ether);
         vm.expectEmit();
-        emit PaymentStored(user2, vanillaTestUser, 4 ether);
+        emit PaymentStored(user2, vanillaTestUser, vanillaTestUser, 4 ether);
         vm.prank(user2);
         rewardManager.payProposer{value: 4 ether}(vanillaTestUserPubkey);
 
@@ -369,9 +369,9 @@ contract RewardManagerTest is Test {
         assertEq(user4.balance, 0 ether);
 
         vm.expectEmit();
-        emit OverrideClaimAddressSet(vanillaTestUser, user4);
+        emit OverrideAddressSet(vanillaTestUser, user4);
         vm.prank(vanillaTestUser);
-        rewardManager.overrideClaimAddress(user4, true);
+        rewardManager.overrideReceiver(user4, true);
 
         assertEq(rewardManager.unclaimedRewards(vanillaTestUser), 0 ether);
         assertEq(rewardManager.unclaimedRewards(user4), 4 ether);
@@ -384,7 +384,7 @@ contract RewardManagerTest is Test {
 
         vm.deal(user2, 9 ether);
         vm.expectEmit();
-        emit PaymentStored(user2, user4, 9 ether);
+        emit PaymentStored(user2, vanillaTestUser, user4, 9 ether);
         vm.prank(user2);
         rewardManager.payProposer{value: 9 ether}(vanillaTestUserPubkey);
 
@@ -392,9 +392,9 @@ contract RewardManagerTest is Test {
         assertEq(rewardManager.unclaimedRewards(vanillaTestUser), 0 ether);
         
         vm.expectEmit();
-        emit OverrideClaimAddressRemoved(vanillaTestUser);
+        emit OverrideAddressRemoved(vanillaTestUser);
         vm.prank(vanillaTestUser);
-        rewardManager.removeOverriddenClaimAddress(true);
+        rewardManager.removeOverrideAddress(true);
 
         assertEq(rewardManager.unclaimedRewards(user4), 0 ether);
         assertEq(rewardManager.unclaimedRewards(vanillaTestUser), 9 ether);
@@ -415,7 +415,7 @@ contract RewardManagerTest is Test {
 
         vm.deal(user4, 10 ether);
         vm.expectEmit();
-        emit PaymentStored(user4, podOwnerFromAVSTest, 10 ether);
+        emit PaymentStored(user4, podOwnerFromAVSTest, podOwnerFromAVSTest, 10 ether);
         vm.prank(user4);
         rewardManager.payProposer{value: 10 ether}(pubkey);
 
@@ -431,7 +431,7 @@ contract RewardManagerTest is Test {
         balanceBefore = podOwnerFromAVSTest.balance;
         vm.deal(user5, 11 ether);
         vm.expectEmit();
-        emit AutoClaimed(user5, podOwnerFromAVSTest, 11 ether);
+        emit AutoClaimed(user5, podOwnerFromAVSTest, podOwnerFromAVSTest, 11 ether);
         vm.prank(user5);
         rewardManager.payProposer{value: 11 ether}(pubkey);
         assertEq(podOwnerFromAVSTest.balance, balanceBefore + 11 ether);
@@ -444,10 +444,54 @@ contract RewardManagerTest is Test {
         balanceBefore = podOwnerFromAVSTest.balance;
         vm.deal(user5, 12 ether);
         vm.expectEmit();
-        emit PaymentStored(user5, podOwnerFromAVSTest, 12 ether);
+        emit PaymentStored(user5, podOwnerFromAVSTest, podOwnerFromAVSTest, 12 ether);
         vm.prank(user5);
         rewardManager.payProposer{value: 12 ether}(pubkey);
         assertEq(podOwnerFromAVSTest.balance, balanceBefore);
+    }
+
+    function testOverrideDoesntAffectAutoClaim() public { 
+        vanillaRegistryTest.testSelfStake();
+        address vanillaTestUser = vanillaRegistryTest.user1();
+        bytes memory vanillaTestUserPubkey = vanillaRegistryTest.user1BLSKey();
+
+        vm.prank(vanillaTestUser);
+        vm.expectEmit();
+        emit AutoClaimEnabled(vanillaTestUser);
+        rewardManager.enableAutoClaim(true);
+
+        uint256 balanceBefore = vanillaTestUser.balance;
+        vm.deal(user2, 4 ether);
+        vm.expectEmit();
+        emit AutoClaimed(user2, vanillaTestUser, vanillaTestUser, 4 ether);
+        vm.prank(user2);
+        rewardManager.payProposer{value: 4 ether}(vanillaTestUserPubkey);
+        assertEq(vanillaTestUser.balance, balanceBefore + 4 ether);
+
+        address overrideAddr = vm.addr(0x999999911111111);
+        vm.prank(vanillaTestUser);
+        vm.expectEmit();
+        emit OverrideAddressSet(vanillaTestUser, overrideAddr);
+        rewardManager.overrideReceiver(overrideAddr, false);
+
+        balanceBefore = overrideAddr.balance;
+        vm.deal(user2, 5 ether);
+        vm.expectEmit();
+        emit AutoClaimed(user2, vanillaTestUser, overrideAddr, 5 ether);
+        vm.prank(user2);
+        rewardManager.payProposer{value: 5 ether}(vanillaTestUserPubkey);
+        assertEq(overrideAddr.balance, balanceBefore + 5 ether);
+
+        vm.prank(vanillaTestUser);
+        vm.expectEmit();
+        emit AutoClaimDisabled(vanillaTestUser);
+        rewardManager.disableAutoClaim();
+
+        vm.deal(user2, 6 ether);
+        vm.expectEmit();
+        emit PaymentStored(user2, vanillaTestUser, overrideAddr, 6 ether);
+        vm.prank(user2);
+        rewardManager.payProposer{value: 6 ether}(vanillaTestUserPubkey);
     }
 
     function testAutoClaimBlacklist() public {
@@ -473,7 +517,7 @@ contract RewardManagerTest is Test {
         assertEq(rewardManager.unclaimedRewards(address(canRevert)), 0 ether);
         vm.deal(user4, 2 ether);
         vm.expectEmit();
-        emit AutoClaimTransferFailed(address(canRevert));
+        emit AutoClaimTransferFailed(user4, address(canRevert), address(canRevert));
         vm.prank(user4);
         rewardManager.payProposer{value: 2 ether}(sampleValPubkey4);
         assertEq(rewardManager.unclaimedRewards(address(canRevert)), 2 ether);
@@ -483,7 +527,7 @@ contract RewardManagerTest is Test {
 
         vm.deal(user4, 3 ether);
         vm.expectEmit();
-        emit PaymentStored(user4, address(canRevert), 3 ether);
+        emit PaymentStored(user4, address(canRevert), address(canRevert), 3 ether);
         vm.prank(user4);
         rewardManager.payProposer{value: 3 ether}(sampleValPubkey4);
         assertEq(rewardManager.unclaimedRewards(address(canRevert)), 5 ether);
@@ -500,7 +544,7 @@ contract RewardManagerTest is Test {
         // Auto claim should not work, blacklist is still active
         vm.deal(user4, 4 ether);
         vm.expectEmit();
-        emit PaymentStored(user4, address(canRevert), 4 ether);
+        emit PaymentStored(user4, address(canRevert), address(canRevert), 4 ether);
         vm.prank(user4);
         rewardManager.payProposer{value: 4 ether}(sampleValPubkey4);
         assertEq(rewardManager.unclaimedRewards(address(canRevert)), 4 ether);
@@ -514,7 +558,7 @@ contract RewardManagerTest is Test {
         uint256 balanceBefore = address(canRevert).balance;
         vm.deal(user4, 19 ether);
         vm.expectEmit();
-        emit AutoClaimed(user4, address(canRevert), 19 ether);
+        emit AutoClaimed(user4, address(canRevert), address(canRevert), 19 ether);
         vm.prank(user4);
         rewardManager.payProposer{value: 19 ether}(sampleValPubkey4);
         assertEq(address(canRevert).balance, balanceBefore + 19 ether);

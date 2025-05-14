@@ -62,33 +62,34 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     /// Otherwise the rewards are accumulated as "orphaned" and must be handled by the owner.
     function payProposer(bytes calldata pubkey) external payable { // Intentionally don't allow pausing.
         require(msg.value > 0, NoEthPayable());
-        address toPay = _findAddrToPay(pubkey);
-        if (toPay == address(0)) {
+        address receiver = _findReceiver(pubkey);
+        if (receiver == address(0)) {
             orphanedRewards[pubkey] += msg.value;
             emit OrphanedRewardsAccumulated(msg.sender, pubkey, msg.value);
             return;
         }
-        address overriddenAddr = overriddenClaimAddresses[toPay];
-        if (overriddenAddr != address(0)) {
-            toPay = overriddenAddr;
+        address toPay = receiver;
+        address overrideAddr = overrideAddresses[receiver];
+        if (overrideAddr != address(0)) {
+            toPay = overrideAddr;
         }
-        if (autoClaim[toPay] && !autoClaimBlacklist[toPay]) {
+        if (autoClaim[receiver] && !autoClaimBlacklist[receiver]) {
             (bool success, ) = payable(toPay).call{value: msg.value, gas: autoClaimGasLimit}("");
             if (!success) {
-                autoClaim[toPay] = false;
-                autoClaimBlacklist[toPay] = true;
+                autoClaim[receiver] = false;
+                autoClaimBlacklist[receiver] = true;
                 unclaimedRewards[toPay] += msg.value;
-                emit AutoClaimTransferFailed(toPay);
+                emit AutoClaimTransferFailed(msg.sender, receiver, toPay);
                 return;
             }
-            emit AutoClaimed(msg.sender, toPay, msg.value);
+            emit AutoClaimed(msg.sender, receiver, toPay, msg.value);
         } else {
             unclaimedRewards[toPay] += msg.value;
-            emit PaymentStored(msg.sender, toPay, msg.value);
+            emit PaymentStored(msg.sender, receiver, toPay, msg.value);
         }
     }
 
-    /// @dev Enables auto-claim for a reward recipient.
+    /// @dev Enables auto-claim for a receiver address.
     /// @param claimExistingRewards If true, existing rewards will be claimed atomically before enabling auto-claim.
     function enableAutoClaim(bool claimExistingRewards) external whenNotPaused {
         if (claimExistingRewards) { _claimRewards(); }
@@ -96,29 +97,29 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         emit AutoClaimEnabled(msg.sender);
     }
 
-    /// @dev Disables auto-claim for a reward recipient.
+    /// @dev Disables auto-claim for a receiver address.
     function disableAutoClaim() external whenNotPaused {
         autoClaim[msg.sender] = false;
         emit AutoClaimDisabled(msg.sender);
     }
 
-    /// @dev Allows any reward recipient to delegate their rewards to another address.
+    /// @dev Allows any receiver address to set an override address for their rewards.
     /// @param migrateExistingRewards If true, existing msg.sender rewards will be migrated atomically to the new claim address.
-    function overrideClaimAddress(address newClaimAddress, bool migrateExistingRewards) external whenNotPaused {
-        if (migrateExistingRewards) { _migrateRewards(msg.sender, newClaimAddress); }
-        require(newClaimAddress != address(0) && newClaimAddress != msg.sender, InvalidAddress());
-        overriddenClaimAddresses[msg.sender] = newClaimAddress;
-        emit OverrideClaimAddressSet(msg.sender, newClaimAddress);
+    function overrideReceiver(address overrideAddress, bool migrateExistingRewards) external whenNotPaused {
+        if (migrateExistingRewards) { _migrateRewards(msg.sender, overrideAddress); }
+        require(overrideAddress != address(0) && overrideAddress != msg.sender, InvalidAddress());
+        overrideAddresses[msg.sender] = overrideAddress;
+        emit OverrideAddressSet(msg.sender, overrideAddress);
     }
 
-    /// @dev Removes the override claim address for a reward recipient.
+    /// @dev Removes the override address for a receiver.
     /// @param migrateExistingRewards If true, existing rewards for the overridden address will be migrated atomically to the msg.sender.
-    function removeOverriddenClaimAddress(bool migrateExistingRewards) external whenNotPaused {
-        address toBeRemoved = overriddenClaimAddresses[msg.sender];
+    function removeOverrideAddress(bool migrateExistingRewards) external whenNotPaused {
+        address toBeRemoved = overrideAddresses[msg.sender];
         require(toBeRemoved != address(0), NoOverriddenAddressToRemove());
         if (migrateExistingRewards) { _migrateRewards(toBeRemoved, msg.sender); }
-        overriddenClaimAddresses[msg.sender] = address(0);
-        emit OverrideClaimAddressRemoved(msg.sender);
+        overrideAddresses[msg.sender] = address(0);
+        emit OverrideAddressRemoved(msg.sender);
     }
 
     /// @dev Allows a reward recipient to claim their rewards.
@@ -218,10 +219,10 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         emit AutoClaimGasLimitSet(limit);
     }
 
-    /// @dev Finds the address to pay for a given validator pubkey,
+    /// @dev Finds the receiver address for a given validator pubkey,
     /// corresponding to state that'd exist in each type of registry if the pubkey were opted-in through that registry.
     /// @notice Zero address is returned if the pubkey is not opted-in to mev-commit.
-    function _findAddrToPay(bytes calldata pubkey) internal view returns (address) {
+    function _findReceiver(bytes calldata pubkey) internal view returns (address) {
         (,address operatorAddr,bool existsMiddleware,) = _mevCommitMiddleware.validatorRecords(pubkey);
         if (existsMiddleware && operatorAddr != address(0)) {
             return operatorAddr;
