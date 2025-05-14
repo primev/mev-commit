@@ -57,6 +57,7 @@ contract RewardManagerTest is Test {
     event OverrideClaimAddressSet(address indexed msgSender, address indexed newClaimAddress);
     event OverrideClaimAddressRemoved(address indexed msgSender);
     event AutoClaimed(address indexed provider, address indexed toPay, uint256 amount);
+    event AutoClaimTransferFailed(address toPay);
 
     function setUp() public {
         owner = address(0x123456);
@@ -450,6 +451,95 @@ contract RewardManagerTest is Test {
     }
 
     function testAutoClaimBlacklist() public {
-        // blacklist and then removeFromAutoClaimBlacklist
+        CanRevert canRevert = new CanRevert();
+
+        vm.deal(address(canRevert), 9 ether);
+        assertEq(address(canRevert).balance, 9 ether);
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = sampleValPubkey4;
+        vm.startPrank(address(canRevert));
+        vanillaRegistryTest.validatorRegistry().stake{value: 9 ether}(validators);
+        vm.stopPrank();
+        assertTrue(vanillaRegistryTest.validatorRegistry().isValidatorOptedIn(sampleValPubkey4));
+
+        vm.expectEmit();
+        emit AutoClaimEnabled(address(canRevert));
+        vm.prank(address(canRevert));
+        rewardManager.enableAutoClaim(false);
+
+        assertFalse(rewardManager.autoClaimBlacklist(address(canRevert)));
+        assertTrue(rewardManager.autoClaim(address(canRevert)));
+
+        assertEq(rewardManager.unclaimedRewards(address(canRevert)), 0 ether);
+        vm.deal(user4, 2 ether);
+        vm.expectEmit();
+        emit AutoClaimTransferFailed(address(canRevert));
+        vm.prank(user4);
+        rewardManager.payProposer{value: 2 ether}(sampleValPubkey4);
+        assertEq(rewardManager.unclaimedRewards(address(canRevert)), 2 ether);
+
+        assertTrue(rewardManager.autoClaimBlacklist(address(canRevert)));
+        assertFalse(rewardManager.autoClaim(address(canRevert)));
+
+        vm.deal(user4, 3 ether);
+        vm.expectEmit();
+        emit PaymentStored(user4, address(canRevert), 3 ether);
+        vm.prank(user4);
+        rewardManager.payProposer{value: 3 ether}(sampleValPubkey4);
+        assertEq(rewardManager.unclaimedRewards(address(canRevert)), 5 ether);
+
+        canRevert.setRevertOnReceive(false);
+
+        vm.prank(address(canRevert));
+        vm.expectEmit();
+        emit RewardsClaimed(address(canRevert), 5 ether);
+        vm.expectEmit();
+        emit AutoClaimEnabled(address(canRevert));
+        rewardManager.enableAutoClaim(true);
+
+        // Auto claim should not work, blacklist is still active
+        vm.deal(user4, 4 ether);
+        vm.expectEmit();
+        emit PaymentStored(user4, address(canRevert), 4 ether);
+        vm.prank(user4);
+        rewardManager.payProposer{value: 4 ether}(sampleValPubkey4);
+        assertEq(rewardManager.unclaimedRewards(address(canRevert)), 4 ether);
+
+        vm.prank(owner);
+        vm.expectEmit();
+        emit RemovedFromAutoClaimBlacklist(address(canRevert));
+        rewardManager.removeFromAutoClaimBlacklist(address(canRevert));
+        assertFalse(rewardManager.autoClaimBlacklist(address(canRevert)));
+
+        uint256 balanceBefore = address(canRevert).balance;
+        vm.deal(user4, 19 ether);
+        vm.expectEmit();
+        emit AutoClaimed(user4, address(canRevert), 19 ether);
+        vm.prank(user4);
+        rewardManager.payProposer{value: 19 ether}(sampleValPubkey4);
+        assertEq(address(canRevert).balance, balanceBefore + 19 ether);
+
+        // User still has unclaimed rewards from blacklisted period, this is fine. User can still claim those manually
+        assertEq(rewardManager.unclaimedRewards(address(canRevert)), 4 ether);
+
+        balanceBefore = address(canRevert).balance;
+        vm.expectEmit();
+        emit RewardsClaimed(address(canRevert), 4 ether);
+        vm.prank(address(canRevert));
+        rewardManager.claimRewards();
+        assertEq(address(canRevert).balance, balanceBefore + 4 ether);
+        assertEq(rewardManager.unclaimedRewards(address(canRevert)), 0 ether);
+    }
+}
+
+contract CanRevert {
+    bool public revertOnReceive = true;
+    receive() external payable {
+        if (revertOnReceive) {
+            revert("AlwaysReverts");
+        }
+    }
+    function setRevertOnReceive(bool revertOnReceive_) external {
+        revertOnReceive = revertOnReceive_;
     }
 }

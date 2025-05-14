@@ -75,6 +75,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         if (autoClaim[toPay] && !autoClaimBlacklist[toPay]) {
             (bool success, ) = payable(toPay).call{value: msg.value, gas: autoClaimGasLimit}("");
             if (!success) {
+                autoClaim[toPay] = false;
                 autoClaimBlacklist[toPay] = true;
                 unclaimedRewards[toPay] += msg.value;
                 emit AutoClaimTransferFailed(toPay);
@@ -170,7 +171,10 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
 
     function _claimRewards() internal {
         uint256 amount = unclaimedRewards[msg.sender];
-        require(amount > 0, NoRewardsToClaim());
+        if (amount == 0) {
+            emit NoRewards(msg.sender);
+            return;
+        }
         unclaimedRewards[msg.sender] = 0;
         (bool success, ) = payable(msg.sender).call{value: amount}("");
         require(success, RewardsClaimFailed());
@@ -181,7 +185,10 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     /// with careful attention to parameter order.
     function _migrateRewards(address from, address to) internal {
         uint256 amount = unclaimedRewards[from];
-        require(amount > 0, NoRewardsToClaim());
+        if (amount == 0) {
+            emit NoRewards(from);
+            return;
+        }
         unclaimedRewards[from] = 0;
         unclaimedRewards[to] += amount;
         emit RewardsMigrated(from, to, amount);

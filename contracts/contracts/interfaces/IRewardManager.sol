@@ -20,12 +20,12 @@ interface IRewardManager {
     event AutoClaimDisabled(address indexed msgSender);
     event RewardsClaimed(address indexed msgSender, uint256 amount);
     event RewardsMigrated(address indexed from, address indexed to, uint256 amount);
+    event NoRewards(address addr);
     error NoEthPayable();
     error InvalidAddress();
     error NoOverriddenAddressToRemove();
     error InvalidAutoClaimGasLimit();
     error RewardsClaimFailed();
-    error NoRewardsToClaim();
     error NoOrphanedRewards();
     error OrphanedRewardsClaimFailed();
     /// @dev Allows providers to pay opted-in proposers.
