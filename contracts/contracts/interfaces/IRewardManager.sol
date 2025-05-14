@@ -29,7 +29,7 @@ interface IRewardManager {
     /// @dev Allows providers to pay opted-in proposers.
     function payProposer(bytes calldata pubkey) external payable;
     /// @dev Enables auto-claim for a reward recipient.
-    function enableAutoClaim() external;
+    function enableAutoClaim(bool claimExistingRewards) external;
     /// @dev Disables auto-claim for a reward recipient.
     function disableAutoClaim() external;
     /// @dev Allows a reward recipient to delegate their rewards to another address.

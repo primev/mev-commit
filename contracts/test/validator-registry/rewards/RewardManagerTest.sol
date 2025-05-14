@@ -143,7 +143,7 @@ contract RewardManagerTest is Test {
         // User functions should not work when paused
         vm.prank(user1);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        rewardManager.enableAutoClaim();
+        rewardManager.enableAutoClaim(true);
 
         vm.prank(user1);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
@@ -214,7 +214,7 @@ contract RewardManagerTest is Test {
         vm.expectEmit();
         emit AutoClaimEnabled(user1);
         vm.prank(user1);
-        rewardManager.enableAutoClaim();
+        rewardManager.enableAutoClaim(false);
     }
 
     function testPayProposerNoEthPayable() public {

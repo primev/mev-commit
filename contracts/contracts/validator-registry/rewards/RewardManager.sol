@@ -88,7 +88,8 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     /// @dev Enables auto-claim for a reward recipient.
-    function enableAutoClaim() external whenNotPaused {
+    function enableAutoClaim(bool claimExistingRewards) external whenNotPaused {
+        if (claimExistingRewards) { _claimRewards(); }
         autoClaim[msg.sender] = true;
         emit AutoClaimEnabled(msg.sender);
     }
@@ -113,14 +114,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     /// @dev Allows a reward recipient to claim their rewards.
-    function claimRewards() external whenNotPaused {
-        uint256 amount = unclaimedRewards[msg.sender];
-        require(amount > 0, NoRewardsToClaim());
-        unclaimedRewards[msg.sender] = 0;
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
-        require(success, RewardsClaimFailed());
-        emit RewardsClaimed(msg.sender, amount);
-    }
+    function claimRewards() external whenNotPaused { _claimRewards(); }
 
     /// @dev Allows the owner to claim orphaned rewards to appropriate addresses.
     function claimOrphanedRewards(bytes[] calldata pubkeys, address toPay) external onlyOwner {
@@ -165,6 +159,15 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
 
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    function _claimRewards() internal {
+        uint256 amount = unclaimedRewards[msg.sender];
+        require(amount > 0, NoRewardsToClaim());
+        unclaimedRewards[msg.sender] = 0;
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, RewardsClaimFailed());
+        emit RewardsClaimed(msg.sender, amount);
+    }
 
     function _setVanillaRegistry(address vanillaRegistry) internal {
         require(vanillaRegistry != address(0), InvalidAddress());
