@@ -88,6 +88,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     /// @dev Enables auto-claim for a reward recipient.
+    /// @param claimExistingRewards If true, existing rewards will be claimed atomically before enabling auto-claim.
     function enableAutoClaim(bool claimExistingRewards) external whenNotPaused {
         if (claimExistingRewards) { _claimRewards(); }
         autoClaim[msg.sender] = true;
@@ -101,14 +102,20 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     /// @dev Allows any reward recipient to delegate their rewards to another address.
-    function overrideClaimAddress(address newClaimAddress) external whenNotPaused {
+    /// @param migrateExistingRewards If true, existing msg.sender rewards will be migrated atomically to the new claim address.
+    function overrideClaimAddress(address newClaimAddress, bool migrateExistingRewards) external whenNotPaused {
+        if (migrateExistingRewards) { _migrateRewards(msg.sender, newClaimAddress); }
         require(newClaimAddress != address(0) && newClaimAddress != msg.sender, InvalidAddress());
         overriddenClaimAddresses[msg.sender] = newClaimAddress;
         emit OverrideClaimAddressSet(msg.sender, newClaimAddress);
     }
 
     /// @dev Removes the override claim address for a reward recipient.
-    function removeOverriddenClaimAddress() external whenNotPaused {
+    /// @param migrateExistingRewards If true, existing rewards for the overridden address will be migrated atomically to the msg.sender.
+    function removeOverriddenClaimAddress(bool migrateExistingRewards) external whenNotPaused {
+        address toBeRemoved = overriddenClaimAddresses[msg.sender];
+        require(toBeRemoved != address(0), NoOverriddenAddressToRemove());
+        if (migrateExistingRewards) { _migrateRewards(toBeRemoved, msg.sender); }
         overriddenClaimAddresses[msg.sender] = address(0);
         emit OverrideClaimAddressRemoved(msg.sender);
     }
@@ -132,6 +139,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         emit OrphanedRewardsClaimed(toPay, totalAmount);
     }
 
+    /// @dev Allows the owner to remove an address from the auto claim blacklist.
     function removeFromAutoClaimBlacklist(address addr) external onlyOwner {
         autoClaimBlacklist[addr] = false;
         emit RemovedFromAutoClaimBlacklist(addr);
@@ -167,6 +175,16 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         (bool success, ) = payable(msg.sender).call{value: amount}("");
         require(success, RewardsClaimFailed());
         emit RewardsClaimed(msg.sender, amount);
+    }
+
+    /// @dev DANGER: This function should ONLY be called from overrideClaimAddress or removeOverriddenClaimAddress
+    /// with careful attention to parameter order.
+    function _migrateRewards(address from, address to) internal {
+        uint256 amount = unclaimedRewards[from];
+        require(amount > 0, NoRewardsToClaim());
+        unclaimedRewards[from] = 0;
+        unclaimedRewards[to] += amount;
+        emit RewardsMigrated(from, to, amount);
     }
 
     function _setVanillaRegistry(address vanillaRegistry) internal {

@@ -19,8 +19,10 @@ interface IRewardManager {
     event AutoClaimEnabled(address indexed msgSender);
     event AutoClaimDisabled(address indexed msgSender);
     event RewardsClaimed(address indexed msgSender, uint256 amount);
+    event RewardsMigrated(address indexed from, address indexed to, uint256 amount);
     error NoEthPayable();
     error InvalidAddress();
+    error NoOverriddenAddressToRemove();
     error InvalidAutoClaimGasLimit();
     error RewardsClaimFailed();
     error NoRewardsToClaim();
@@ -33,9 +35,9 @@ interface IRewardManager {
     /// @dev Disables auto-claim for a reward recipient.
     function disableAutoClaim() external;
     /// @dev Allows a reward recipient to delegate their rewards to another address.
-    function overrideClaimAddress(address newClaimAddress) external;
+    function overrideClaimAddress(address newClaimAddress, bool migrateExistingRewards) external;
     /// @dev Removes the override claim address for a reward recipient.
-    function removeOverriddenClaimAddress() external;
+    function removeOverriddenClaimAddress(bool migrateExistingRewards) external;
     /// @dev Allows a reward recipient to claim their rewards.
     function claimRewards() external;
     /// @dev Allows the owner to claim orphaned rewards to appropriate addresses.
