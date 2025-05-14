@@ -51,10 +51,12 @@ contract RewardManagerTest is Test {
     event OrphanedRewardsClaimed(address indexed toPay, uint256 amount);
     event RemovedFromAutoClaimBlacklist(address indexed addr);
     event AutoClaimEnabled(address indexed caller);
+    event AutoClaimDisabled(address indexed caller);
     event PaymentStored(address indexed provider, address indexed toPay, uint256 amount);
     event RewardsClaimed(address indexed toPay, uint256 amount);
     event OverrideClaimAddressSet(address indexed msgSender, address indexed newClaimAddress);
     event OverrideClaimAddressRemoved(address indexed msgSender);
+    event AutoClaimed(address indexed provider, address indexed toPay, uint256 amount);
 
     function setUp() public {
         owner = address(0x123456);
@@ -405,7 +407,46 @@ contract RewardManagerTest is Test {
     }
 
     function testAutoClaim() public { 
-        // enable and disable again. Also test behavior of true/false with claiming existing rewards
+        mevCommitAVSTest.testRegisterValidatorsByPodOwners();
+
+        address podOwnerFromAVSTest = address(0x420);
+        bytes memory pubkey = mevCommitAVSTest.sampleValPubkey2();
+
+        vm.deal(user4, 10 ether);
+        vm.expectEmit();
+        emit PaymentStored(user4, podOwnerFromAVSTest, 10 ether);
+        vm.prank(user4);
+        rewardManager.payProposer{value: 10 ether}(pubkey);
+
+        uint256 balanceBefore = podOwnerFromAVSTest.balance;
+        vm.expectEmit();
+        emit RewardsClaimed(podOwnerFromAVSTest, 10 ether);
+        vm.expectEmit();
+        emit AutoClaimEnabled(podOwnerFromAVSTest);
+        vm.prank(podOwnerFromAVSTest);
+        rewardManager.enableAutoClaim(true);
+        assertEq(podOwnerFromAVSTest.balance, balanceBefore + 10 ether);
+
+        balanceBefore = podOwnerFromAVSTest.balance;
+        vm.deal(user5, 11 ether);
+        vm.expectEmit();
+        emit AutoClaimed(user5, podOwnerFromAVSTest, 11 ether);
+        vm.prank(user5);
+        rewardManager.payProposer{value: 11 ether}(pubkey);
+        assertEq(podOwnerFromAVSTest.balance, balanceBefore + 11 ether);
+        
+        vm.expectEmit();
+        emit AutoClaimDisabled(podOwnerFromAVSTest);
+        vm.prank(podOwnerFromAVSTest);
+        rewardManager.disableAutoClaim();
+
+        balanceBefore = podOwnerFromAVSTest.balance;
+        vm.deal(user5, 12 ether);
+        vm.expectEmit();
+        emit PaymentStored(user5, podOwnerFromAVSTest, 12 ether);
+        vm.prank(user5);
+        rewardManager.payProposer{value: 12 ether}(pubkey);
+        assertEq(podOwnerFromAVSTest.balance, balanceBefore);
     }
 
     function testAutoClaimBlacklist() public {
