@@ -48,9 +48,10 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         _setMevCommitAVS(mevCommitAVS);
         _setMevCommitMiddleware(mevCommitMiddleware);
         _setAutoClaimGasLimit(autoClaimGasLimit);
+        __Ownable_init(owner);
+        __ReentrancyGuard_init();
         __Pausable_init();
         __UUPSUpgradeable_init();
-        __Ownable_init(owner);
     }
 
     /// @dev Enables the owner to pause the contract.
