@@ -182,6 +182,7 @@ func (ke *KeyExchange) sendMessageToProvider(ctx context.Context, provider p2p.P
 	if err != nil {
 		return fmt.Errorf("failed to create new stream to provider %s: %w", provider.EthAddress, err)
 	}
+	//nolint:errcheck
 	defer stream.Close()
 
 	err = stream.WriteMsg(ctx, ekmWithSignature)

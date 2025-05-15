@@ -285,7 +285,7 @@ func (s *Service) Stake(
 		}
 	}
 
-	for i, _ := range stake.BlsPublicKeys {
+	for i := range stake.BlsPublicKeys {
 		blsPublicKey, err := hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKeys[i], "0x"))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "decoding bls public key: %v", err)

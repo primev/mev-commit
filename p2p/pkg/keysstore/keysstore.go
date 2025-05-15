@@ -68,9 +68,9 @@ func eciesPrivateKeyToBytes(priv *ecies.PrivateKey) []byte {
 func eciesPrivateKeyFromBytes(data []byte) *ecies.PrivateKey {
 	curve := crypto.S256()
 	priv := new(ecies.PrivateKey)
-	priv.PublicKey.Curve = curve
+	priv.Curve = curve
 	priv.D = new(big.Int).SetBytes(data)
-	priv.PublicKey.X, priv.PublicKey.Y = curve.ScalarBaseMult(data)
+	priv.X, priv.Y = curve.ScalarBaseMult(data)
 	return priv
 }
 

@@ -137,6 +137,7 @@ func New(
 			return nil, err
 		}
 		if err := db.InitSchema(context.Background()); err != nil {
+			//nolint:errcheck
 			db.Close()
 			return nil, err
 		}

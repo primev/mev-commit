@@ -36,7 +36,11 @@ func WriteResponse(w http.ResponseWriter, code int, message any) error {
 
 	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintln(w, b.String())
+	_, err := fmt.Fprintln(w, b.String())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return fmt.Errorf("failed to write response: %w", err)
+	}
 	return nil
 }
 
@@ -66,6 +70,7 @@ func BindJSON[T any](w http.ResponseWriter, r *http.Request) (T, error) {
 	if r.Body == nil {
 		return body, errors.New("no body")
 	}
+	//nolint:errcheck
 	defer r.Body.Close()
 
 	return body, json.NewDecoder(r.Body).Decode(&body)

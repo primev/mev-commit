@@ -68,13 +68,22 @@ func TestGetValidators(t *testing.T) {
 		switch r.URL.Path {
 		case "/eth/v1/beacon/genesis":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"data":{"genesis_time":"1672531200"}}`)
+			_, err := fmt.Fprint(w, `{"data":{"genesis_time":"1672531200"}}`)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 		case "/eth/v1/validator/duties/proposer/123":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"1"},{"pubkey":"0xfedcba0987654321","slot":"2"}]}`)
+			_, err := fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"1"},{"pubkey":"0xfedcba0987654321","slot":"2"}]}`)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 		case "/eth/v1/beacon/states/head/finality_checkpoints":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"data":{"previous_justified":{"epoch":"100"},"current_justified":{"epoch":"101"},"finalized":{"epoch":"100"}}}`)
+			_, err := fmt.Fprint(w, `{"data":{"previous_justified":{"epoch":"100"},"current_justified":{"epoch":"101"},"finalized":{"epoch":"100"}}}`)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 		default:
 			http.NotFound(w, r)
 		}
@@ -123,7 +132,10 @@ func TestGetValidators_HTTPError(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/eth/v1/beacon/genesis" {
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"data":{"genesis_time":"1672531200"}}`)
+			_, err := fmt.Fprint(w, `{"data":{"genesis_time":"1672531200"}}`)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -157,13 +169,22 @@ func TestGetValidators_EpochZero(t *testing.T) {
 		switch r.URL.Path {
 		case "/eth/v1/beacon/states/head/finality_checkpoints":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"data":{"previous_justified":{"epoch":"100"},"current_justified":{"epoch":"101"},"finalized":{"epoch":"100"}}}`)
+			_, err := fmt.Fprint(w, `{"data":{"previous_justified":{"epoch":"100"},"current_justified":{"epoch":"101"},"finalized":{"epoch":"100"}}}`)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 		case "/eth/v1/validator/duties/proposer/102":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"1"},{"pubkey":"0xfedcba0987654321","slot":"2"}]}`)
+			_, err := fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"1"},{"pubkey":"0xfedcba0987654321","slot":"2"}]}`)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 		case "/eth/v1/beacon/genesis":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"data":{"genesis_time":"1672531200"}}`)
+			_, err := fmt.Fprint(w, `{"data":{"genesis_time":"1672531200"}}`)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 		default:
 			http.NotFound(w, r)
 		}
@@ -215,7 +236,10 @@ func TestNewService_FetchGenesisTime(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/eth/v1/beacon/genesis" {
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"data":{"genesis_time":"%s"}}`, genesisTimeStr)
+			_, err := fmt.Fprintf(w, `{"data":{"genesis_time":"%s"}}`, genesisTimeStr)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 		} else {
 			http.NotFound(w, r)
 		}
@@ -312,9 +336,15 @@ func TestProcessEpoch(t *testing.T) {
 		}
 
 		if epoch == int(currentEpoch) {
-			fmt.Fprint(w, dutiesJSONEpoch10)
+			_, err := fmt.Fprint(w, dutiesJSONEpoch10)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 		} else if epoch == int(currentEpoch+1) {
-			fmt.Fprint(w, dutiesJSONEpoch11)
+			_, err := fmt.Fprint(w, dutiesJSONEpoch11)
+			if err != nil {
+				t.Fatal("failed to write response:", err)
+			}
 		} else {
 			t.Fatalf("unexpected epoch request: %d", epoch)
 		}
@@ -433,13 +463,19 @@ func TestStart(t *testing.T) {
 		now := time.Now() // Use current time so that s.genesisTime is nearly "now".
 		w.Header().Set("Content-Type", "application/json")
 		// Truncated to whole seconds.
-		fmt.Fprintf(w, `{"data":{"genesis_time":"%d"}}`, now.Unix())
+		_, err := fmt.Fprintf(w, `{"data":{"genesis_time":"%d"}}`, now.Unix())
+		if err != nil {
+			t.Fatal("failed to write response:", err)
+		}
 	})
 	// For any proposer duties request, always return a duty with slot "50".
 	// (This ensures that the notification is scheduled for
 	mux.HandleFunc("/eth/v1/validator/duties/proposer/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"50"}]}`)
+		_, err := fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"50"}]}`)
+		if err != nil {
+			t.Fatal("failed to write response:", err)
+		}
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
@@ -542,12 +578,18 @@ func TestStart_NoDuplicateNotifications(t *testing.T) {
 	mux.HandleFunc("/eth/v1/beacon/genesis", func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now().Unix()
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"data":{"genesis_time":"%d"}}`, now)
+		_, err := fmt.Fprintf(w, `{"data":{"genesis_time":"%d"}}`, now)
+		if err != nil {
+			t.Fatal("failed to write response:", err)
+		}
 	})
 	// Proposer duties always return a duty for slot "1" with a fixed pubkey.
 	mux.HandleFunc("/eth/v1/validator/duties/proposer/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"1"}]}`)
+		_, err := fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"1"}]}`)
+		if err != nil {
+			t.Fatal("failed to write response:", err)
+		}
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()

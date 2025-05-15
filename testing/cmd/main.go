@@ -312,7 +312,7 @@ func run(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
+	//nolint:errcheck
 	defer o.Close()
 
 	// Run test cases

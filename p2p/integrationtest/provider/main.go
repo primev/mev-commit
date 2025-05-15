@@ -158,6 +158,7 @@ func main() {
 		logger.Error("failed to create provider client", "error", err)
 		return
 	}
+	//nolint:errcheck
 	defer providerClient.Close()
 
 	pubKey, err := providerClient.CheckAndStake()
