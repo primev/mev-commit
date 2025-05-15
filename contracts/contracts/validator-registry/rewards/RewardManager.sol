@@ -61,7 +61,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     /// @notice It is assumed the validator pubkey being paid is opted-in to mev-commit.
     /// Otherwise the rewards are accumulated as "orphaned" and must be handled by the owner.
     function payProposer(bytes calldata pubkey) external payable { // Intentionally don't allow pausing.
-        require(msg.value > 0, NoEthPayable());
+        require(msg.value != 0, NoEthPayable());
         address receiver = _findReceiver(pubkey);
         if (receiver == address(0)) {
             orphanedRewards[pubkey] += msg.value;
@@ -214,7 +214,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     function _setAutoClaimGasLimit(uint256 limit) internal {
-        require(limit > 0, InvalidAutoClaimGasLimit());
+        require(limit != 0, InvalidAutoClaimGasLimit());
         autoClaimGasLimit = limit;
         emit AutoClaimGasLimitSet(limit);
     }

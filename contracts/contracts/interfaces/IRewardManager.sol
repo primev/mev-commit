@@ -10,7 +10,7 @@ interface IRewardManager {
     event MevCommitAVSSet(address indexed newMevCommitAVS);
     event MevCommitMiddlewareSet(address indexed newMevCommitMiddleware);
     event AutoClaimGasLimitSet(uint256 autoClaimGasLimit);
-    event AutoClaimTransferFailed(address indexed provider, address receiver, address toPay);
+    event AutoClaimTransferFailed(address indexed provider, address indexed receiver, address indexed toPay);
     event OrphanedRewardsAccumulated(address indexed provider, bytes indexed pubkey, uint256 amount);
     event OrphanedRewardsClaimed(address indexed toPay, uint256 amount);
     event RemovedFromAutoClaimBlacklist(address indexed addr);

@@ -57,7 +57,7 @@ contract RewardManagerTest is Test {
     event OverrideAddressSet(address indexed receiver, address indexed overrideAddress);
     event OverrideAddressRemoved(address indexed receiver);
     event AutoClaimed(address indexed provider, address indexed receiver, address indexed toPay, uint256 amount);
-    event AutoClaimTransferFailed(address indexed provider, address receiver, address toPay);
+    event AutoClaimTransferFailed(address indexed provider, address indexed receiver, address indexed toPay);
 
     function setUp() public {
         owner = address(0x123456);
