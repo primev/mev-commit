@@ -105,7 +105,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     /// @dev Disables auto-claim for a receiver address.
-    function disableAutoClaim() external whenNotPaused {
+    function disableAutoClaim() external whenNotPaused nonReentrant {
         autoClaim[msg.sender] = false;
         emit AutoClaimDisabled(msg.sender);
     }
@@ -113,7 +113,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     /// @dev Allows any receiver address to set an override address for their rewards.
     /// @param migrateExistingRewards If true, existing msg.sender rewards will be migrated atomically to the new claim address.
     /// @notice Onus is on the calling address to ensure the override address does not revert upon receiving eth transfers.
-    function overrideReceiver(address overrideAddress, bool migrateExistingRewards) external whenNotPaused {
+    function overrideReceiver(address overrideAddress, bool migrateExistingRewards) external whenNotPaused nonReentrant {
         if (migrateExistingRewards) { _migrateRewards(msg.sender, overrideAddress); }
         require(overrideAddress != address(0) && overrideAddress != msg.sender, InvalidAddress());
         overrideAddresses[msg.sender] = overrideAddress;
@@ -122,7 +122,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
 
     /// @dev Removes the override address for a receiver.
     /// @param migrateExistingRewards If true, existing rewards for the overridden address will be migrated atomically to the msg.sender.
-    function removeOverrideAddress(bool migrateExistingRewards) external whenNotPaused {
+    function removeOverrideAddress(bool migrateExistingRewards) external whenNotPaused nonReentrant {
         address toBeRemoved = overrideAddresses[msg.sender];
         require(toBeRemoved != address(0), NoOverriddenAddressToRemove());
         if (migrateExistingRewards) { _migrateRewards(toBeRemoved, msg.sender); }
