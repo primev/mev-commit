@@ -21,6 +21,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 
 	redismock "github.com/go-redis/redismock/v9"
@@ -48,8 +49,8 @@ func (m *MockEngineClient) GetPayloadV3(ctx context.Context, payloadID engine.Pa
 	return args.Get(0).(*engine.ExecutionPayloadEnvelope), args.Error(1)
 }
 
-func (m *MockEngineClient) NewPayloadV3(ctx context.Context, executionPayload engine.ExecutableData, versionHashes []common.Hash, randao *common.Hash) (engine.PayloadStatusV1, error) {
-	args := m.Called(ctx, executionPayload, versionHashes, randao)
+func (m *MockEngineClient) NewPayloadV4(ctx context.Context, executionPayload engine.ExecutableData, versionHashes []common.Hash, randao *common.Hash, executionRequests []hexutil.Bytes) (engine.PayloadStatusV1, error) {
+	args := m.Called(ctx, executionPayload, versionHashes, randao, executionRequests)
 	return args.Get(0).(engine.PayloadStatusV1), args.Error(1)
 }
 
@@ -250,7 +251,7 @@ func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 		Status: engine.VALID,
 	}
 
-	mockEngineClient.On("NewPayloadV3", mock.Anything, executionPayload, []common.Hash{}, mock.Anything).Return(payloadStatus, nil)
+	mockEngineClient.On("NewPayloadV4", mock.Anything, executionPayload, []common.Hash{}, mock.Anything, mock.Anything).Return(payloadStatus, nil)
 
 	hash := executionPayload.BlockHash
 	fcs := engine.ForkchoiceStateV1{
@@ -519,7 +520,7 @@ func TestBlockBuilder_FinalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 	payloadStatus := engine.PayloadStatusV1{
 		Status: "INVALID",
 	}
-	mockEngineClient.On("NewPayloadV3", mock.Anything, executionPayload, []common.Hash{}, mock.Anything).Return(payloadStatus, nil)
+	mockEngineClient.On("NewPayloadV4", mock.Anything, executionPayload, []common.Hash{}, mock.Anything, mock.Anything).Return(payloadStatus, nil)
 	blockBuilder.executionHead = executionHead
 	err = blockBuilder.FinalizeBlock(ctx, payloadIDStr, executionPayloadEncoded, "")
 
@@ -578,7 +579,7 @@ func TestBlockBuilder_FinalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 	payloadStatus := engine.PayloadStatusV1{
 		Status: engine.VALID,
 	}
-	mockEngineClient.On("NewPayloadV3", mock.Anything, executionPayload, []common.Hash{}, mock.Anything).Return(payloadStatus, nil)
+	mockEngineClient.On("NewPayloadV4", mock.Anything, executionPayload, []common.Hash{}, mock.Anything, mock.Anything).Return(payloadStatus, nil)
 
 	fcs := engine.ForkchoiceStateV1{
 		HeadBlockHash:      executionPayload.BlockHash,

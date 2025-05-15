@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
-	"github.com/primev/mev-commit/cl/util"
+	"github.com/primev/mev-commit/cl/blockbuilder"
 	"github.com/primev/mev-commit/cl/types"
+	"github.com/primev/mev-commit/cl/util"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -211,6 +212,10 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 				case types.StepBuildBlock:
 					lfm.logger.Info("Leader: StepBuildBlock")
 					if err := lfm.blockBuilder.GetPayload(ctx); err != nil {
+						if errors.Is(err, blockbuilder.ErrEmptyBlock) {
+							lfm.logger.Info("Leader: Empty block, skipping")
+							return nil
+						}
 						lfm.logger.Error(
 							"Leader: GetPayload failed",
 							"error", err,

@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -16,6 +17,7 @@ const (
 
 	newPayloadV2 = "engine_newPayloadV2"
 	newPayloadV3 = "engine_newPayloadV3"
+	newPayloadV4 = "engine_newPayloadV4"
 
 	forkchoiceUpdatedV2 = "engine_forkchoiceUpdatedV2"
 	forkchoiceUpdatedV3 = "engine_forkchoiceUpdatedV3"
@@ -34,7 +36,9 @@ type EngineClient interface {
 	// NewPayloadV3 creates an Eth1 block, inserts it in the chain, and returns the status of the chain.
 	NewPayloadV3(ctx context.Context, params engine.ExecutableData, versionedHashes []common.Hash,
 		beaconRoot *common.Hash) (engine.PayloadStatusV1, error)
-
+	NewPayloadV4(params engine.ExecutableData, versionedHashes []common.Hash, beaconRoot *common.Hash, 
+		executionRequests []hexutil.Bytes) (engine.PayloadStatusV1, error)
+		
 	// ForkchoiceUpdatedV2 has several responsibilities:
 	//  - It sets the chain the head.
 	//  - And/or it sets the chain's finalized block hash.
@@ -101,6 +105,22 @@ func (c engineClient) NewPayloadV3(ctx context.Context, params engine.Executable
 	if err != nil {
 		incError(c.chain, endpoint)
 		return engine.PayloadStatusV1{}, fmt.Errorf("rpc new payload v3: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (c engineClient) NewPayloadV4(ctx context.Context, params engine.ExecutableData, versionedHashes []common.Hash,
+	beaconRoot *common.Hash, executionRequests []hexutil.Bytes,
+) (engine.PayloadStatusV1, error) {
+	const endpoint = "new_payload_v4"
+	defer latency(c.chain, endpoint)()
+
+	var resp engine.PayloadStatusV1
+	err := c.cl.Client().CallContext(ctx, &resp, newPayloadV4, params, versionedHashes, beaconRoot, executionRequests)
+	if err != nil {
+		incError(c.chain, endpoint)
+		return engine.PayloadStatusV1{}, fmt.Errorf("rpc new payload v4: %w", err)
 	}
 
 	return resp, nil

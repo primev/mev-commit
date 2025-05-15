@@ -33,7 +33,6 @@ var (
 	}
 )
 
-// CLI Flags (subset of redisapp, without Redis-specific ones)
 var (
 	configFlag = &cli.StringFlag{
 		Name:    "config",
@@ -71,10 +70,9 @@ var (
 		Name:    "jwt-secret",
 		Usage:   "Hex-encoded JWT secret for Ethereum Execution client Engine API",
 		EnvVars: []string{"SNODE_JWT_SECRET"},
-		// Example default, replace with secure generation or require user input
-		Value: "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c",
+		Value:   "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c",
 		Action: func(_ *cli.Context, s string) error {
-			if len(s) != 64 { // 32 bytes = 64 hex characters
+			if len(s) != 64 {
 				return fmt.Errorf("invalid jwt-secret: must be 64 hex characters (32 bytes)")
 			}
 			if _, err := hex.DecodeString(s); err != nil {
@@ -87,7 +85,7 @@ var (
 	logFmtFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "log-fmt",
 		Usage:    "Log format ('text' or 'json')",
-		EnvVars:  []string{"MEV_COMMIT_LOG_FMT"}, // Keep consistent env var if desired
+		EnvVars:  []string{"MEV_COMMIT_LOG_FMT"},
 		Value:    "text",
 		Action:   stringInCheck("log-fmt", []string{"text", "json"}),
 		Category: categoryDebug,
@@ -96,7 +94,7 @@ var (
 	logLevelFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "log-level",
 		Usage:    "Log level ('debug', 'info', 'warn', 'error')",
-		EnvVars:  []string{"MEV_COMMIT_LOG_LEVEL"}, // Keep consistent
+		EnvVars:  []string{"MEV_COMMIT_LOG_LEVEL"},
 		Value:    "info",
 		Action:   stringInCheck("log-level", []string{"debug", "info", "warn", "error"}),
 		Category: categoryDebug,
@@ -105,7 +103,7 @@ var (
 	logTagsFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "log-tags",
 		Usage:   "Comma-separated <name:value> log tags (e.g., env:prod,service:snode)",
-		EnvVars: []string{"MEV_COMMIT_LOG_TAGS"}, // Keep consistent
+		EnvVars: []string{"MEV_COMMIT_LOG_TAGS"},
 		Action: func(ctx *cli.Context, s string) error {
 			if s == "" {
 				return nil
@@ -124,7 +122,7 @@ var (
 		Name:    "evm-build-delay",
 		Usage:   "Delay after initiating payload construction before calling getPayload (e.g., '200ms')",
 		EnvVars: []string{"SNODE_EVM_BUILD_DELAY"},
-		Value:   200 * time.Millisecond,
+		Value:   100 * time.Millisecond,
 	})
 
 	evmBuildDelayEmptyBlockFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
@@ -135,16 +133,15 @@ var (
 	})
 
 	priorityFeeReceiptFlag = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "priority-fee-recipient", // Changed flag name for clarity
-		Usage:   "Ethereum address for receiving priority fees (block proposer fee)",
-		EnvVars: []string{"SNODE_PRIORITY_FEE_RECIPIENT"},
-		// Value:   "0xYourFeeRecipientAddressHere", // Require this or ensure a safe default/handling
-		Required: true, // Making this required is safer
+		Name:     "priority-fee-recipient",
+		Usage:    "Ethereum address for receiving priority fees (block proposer fee)",
+		EnvVars:  []string{"SNODE_PRIORITY_FEE_RECIPIENT"},
+		Required: true,
 		Action: func(c *cli.Context, s string) error {
 			if !strings.HasPrefix(s, "0x") || len(s) != 42 {
 				return fmt.Errorf("priority-fee-recipient must be a 0x-prefixed 42-character hex string")
 			}
-			// Basic validation, more robust hex address validation could be added
+			// Basic validation
 			if _, err := hex.DecodeString(s[2:]); err != nil {
 				return fmt.Errorf("priority-fee-recipient is not a valid hex string: %v", err)
 			}
@@ -181,7 +178,7 @@ func main() {
 						if configFile != "" {
 							return altsrc.NewYamlSourceFromFile(configFile)
 						}
-						return &altsrc.MapInputSource{}, nil // Empty source if no config file
+						return &altsrc.MapInputSource{}, nil
 					}),
 				Action: func(c *cli.Context) error {
 					return startSingleNodeApplication(c)
@@ -191,7 +188,6 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		// Use app.Writer for logging consistency if logger not yet initialized
 		fmt.Fprintf(app.Writer, "Error running snode: %v\n", err)
 		os.Exit(1)
 	}
@@ -202,7 +198,7 @@ func startSingleNodeApplication(c *cli.Context) error {
 		c.String(logLevelFlag.Name),
 		c.String(logFmtFlag.Name),
 		c.String(logTagsFlag.Name),
-		c.App.Writer, // Use CLI app's writer for logs
+		c.App.Writer,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
@@ -230,13 +226,12 @@ func startSingleNodeApplication(c *cli.Context) error {
 		return err
 	}
 
-	snode.Start() // Start the application's main loop
+	snode.Start()
 
-	// Wait for the application context to be done (e.g., OS signal)
 	<-rootCtx.Done()
 
 	logger.Info("Shutdown signal received, stopping snode...")
-	snode.Stop() // Initiate graceful shutdown of the application
+	snode.Stop()
 
 	logger.Info("SRApp shutdown completed.")
 	return nil

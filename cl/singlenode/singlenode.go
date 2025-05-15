@@ -4,17 +4,19 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/primev/mev-commit/cl/blockbuilder"
 	"github.com/primev/mev-commit/cl/ethclient"
-	"github.com/primev/mev-commit/cl/singlenode/state"
-	"github.com/primev/mev-commit/cl/types"
-	"github.com/primev/mev-commit/cl/util"
+	localstate "github.com/primev/mev-commit/cl/singlenode/state"
+)
+
+const (
+	// Stop Function
+	shutdownTimeout = 5 * time.Second
 )
 
 // Config holds the configuration for the SingleNodeApp.
@@ -33,7 +35,6 @@ type SingleNodeApp struct {
 	cfg          Config
 	blockBuilder *blockbuilder.BlockBuilder
 	stateManager *localstate.LocalStateManager
-	engineClient blockbuilder.EngineClient // Keep a reference if needed for direct calls, though BB handles most
 	appCtx       context.Context
 	cancel       context.CancelFunc
 	wg           sync.WaitGroup
@@ -41,23 +42,29 @@ type SingleNodeApp struct {
 
 // NewSingleNodeApp creates and initializes a new SingleNodeApp.
 func NewSingleNodeApp(
-	appCtx context.Context, // Parent context
+	parentCtx context.Context,
 	cfg Config,
 	logger *slog.Logger,
 ) (*SingleNodeApp, error) {
-	ctx, cancel := context.WithCancel(appCtx)
+	ctx, cancel := context.WithCancel(parentCtx)
 
 	jwtBytes, err := hex.DecodeString(cfg.JWTSecret)
 	if err != nil {
-		cancel()
-		logger.Error("Failed to decode JWT secret", "error", err)
+		cancel() // Cancel the derived context
+		logger.Error(
+			"failed to decode JWT secret",
+			"error", err,
+		)
 		return nil, err
 	}
 
 	engineCL, err := ethclient.NewAuthClient(ctx, cfg.EthClientURL, jwtBytes)
 	if err != nil {
-		cancel()
-		logger.Error("Failed to create Ethereum engine client", "error", err)
+		cancel() // Cancel the derived context
+		logger.Error(
+			"failed to create Ethereum engine client",
+			"error", err,
+		)
 		return nil, err
 	}
 
@@ -76,7 +83,6 @@ func NewSingleNodeApp(
 		cfg:          cfg,
 		blockBuilder: bb,
 		stateManager: stateMgr,
-		engineClient: engineCL, // Stored if needed
 		appCtx:       ctx,
 		cancel:       cancel,
 	}, nil
@@ -93,119 +99,89 @@ func (app *SingleNodeApp) Start() {
 	}()
 }
 
+// shutdownWithError handles errors during the run loop and initiates a shutdown.
+func (app *SingleNodeApp) shutdownWithError(err error, message string, args ...any) {
+	// slog handles key-value pairs directly
+	logArgs := append(args, "error", err)
+	app.logger.Error(message, logArgs...)
+	app.cancel()
+}
+
+// resetBlockProduction clears state and prepares for a new block production cycle.
+// It returns true if a shutdown is initiated due to a reset failure.
+func (app *SingleNodeApp) resetBlockProduction(logMessage string, logArgs ...interface{}) (shutdownInitiated bool) {
+	app.logger.Info(logMessage, logArgs...)
+	if err := app.stateManager.ResetBlockState(app.appCtx); err != nil {
+		app.shutdownWithError(err, "Failed to reset block state during run loop operations")
+		return true
+	}
+	return false
+}
+
 func (app *SingleNodeApp) runLoop() {
 	app.logger.Info("SingleNodeApp run loop started", "instanceID", app.cfg.InstanceID)
 
-	// On startup, process any pending block from a previous (crashed) session.
-	// With LocalStateManager (in-memory), this is mostly for conceptual completeness
-	// unless persistence is added to LocalStateManager.
-	// if err := app.blockBuilder.ProcessLastPayload(app.appCtx); err != nil {
-	// 	// If ProcessLastPayload fails (e.g., after retries on FinalizeBlock),
-	// 	// it might indicate a persistent issue with Geth.
-	// 	if errors.Is(err, util.ErrFailedAfterNAttempts) || errors.Is(err, context.Canceled) {
-	// 		app.logger.Error("Critical error processing last payload at startup. Shutting down.", "error", err)
-	// 		app.cancel() // Trigger shutdown for the rest of the app
-	// 		return
-	// 	}
-	// 	app.logger.Warn("Non-critical error processing last payload at startup. State might be reset.", "error", err)
-	// 	// Attempt to reset state to ensure clean start if ProcessLastPayload had an issue but wasn't critical.
-	// 	if resetErr := app.stateManager.ResetBlockState(app.appCtx); resetErr != nil {
-	// 		app.logger.Error("Failed to reset state after ProcessLastPayload error. Shutting down.", "error", resetErr)
-	// 		app.cancel()
-	// 		return
-	// 	}
-	// }
+	// Make sure we're starting with a clean state
+	if app.resetBlockProduction("Initializing block production state") {
+		return // Shutdown initiated by resetBlockProduction
+	}
 
-	// Main production loop
 	for {
 		select {
 		case <-app.appCtx.Done():
 			app.logger.Info("SingleNodeApp run loop stopping due to context cancellation.")
 			return
 		default:
-			// Determine current step from state
-			currentState := app.stateManager.GetBlockBuildState(app.appCtx)
-			var err error
-
-			switch currentState.CurrentStep {
-			case types.StepBuildBlock:
-				app.logger.Info("RunLoop: StepBuildBlock")
-				err = app.blockBuilder.GetPayload(app.appCtx)
-				if err != nil {
-					app.logger.Error("RunLoop: GetPayload failed", "error", err)
-					// If GetPayload fails, state remains StepBuildBlock.
-					// Retry is handled within GetPayload. If it returns ErrFailedAfterNAttempts,
-					// it's a critical error.
-					if errors.Is(err, util.ErrFailedAfterNAttempts) {
-						app.logger.Error("RunLoop: GetPayload failed critically after retries. Shutting down.", "error", err)
-						app.cancel()
-						return
-					}
-					// For other errors, or if GetPayload skipped an empty block (err == nil but state not changed),
-					// the loop will retry. Add a small delay to prevent tight spin on persistent non-critical errors.
-					time.Sleep(500 * time.Millisecond)
+			// Directly run the block production cycle without steps
+			if err := app.produceBlock(); err != nil {
+				if errors.Is(err, blockbuilder.ErrEmptyBlock) {
+					// Handle empty block error
+					app.logger.Info("empty block produced, waiting for new payload")
+					continue
 				}
-				// If GetPayload was successful and built a block, stateManager would have updated
-				// CurrentStep to StepFinalizeBlock. If it skipped an empty block, CurrentStep remains StepBuildBlock.
-
-			case types.StepFinalizeBlock:
-				app.logger.Info("RunLoop: StepFinalizeBlock", "payload_id", currentState.PayloadID)
-				err = app.blockBuilder.FinalizeBlock(app.appCtx, currentState.PayloadID, currentState.ExecutionPayload, "")
-				if err != nil {
-					app.logger.Error("RunLoop: FinalizeBlock failed", "error", err)
-					// If FinalizeBlock fails, state remains StepFinalizeBlock.
-					// Retry is handled within FinalizeBlock. If it returns ErrFailedAfterNAttempts, critical.
-					if errors.Is(err, util.ErrFailedAfterNAttempts) {
-						app.logger.Error("RunLoop: FinalizeBlock failed critically after retries. Shutting down.", "error", err)
-						app.cancel()
-						return
-					}
-					// If error is due to payload validation (permanent), reset state to avoid retrying same bad payload.
-					var bErr *backoff.PermanentError
-					if errors.As(err, &bErr) && strings.Contains(bErr.Err.Error(), "execution payload validation failed") {
-						app.logger.Error("RunLoop: FinalizeBlock failed due to permanent payload validation error. Resetting state.", "original_error", bErr.Err)
-						if resetErr := app.stateManager.ResetBlockState(app.appCtx); resetErr != nil {
-							app.logger.Error("RunLoop: Failed to reset state after permanent FinalizeBlock error. Shutting down.", "error", resetErr)
-							app.cancel()
-						}
-						return // return from switch case, not entire loop, to re-evaluate state
-					}
-					// For other errors, loop will retry. Add delay.
-					time.Sleep(500 * time.Millisecond)
-				} else {
-					// FinalizeBlock successful, reset state for the next block.
-					app.logger.Info("RunLoop: FinalizeBlock successful. Resetting state for next block.")
-					if resetErr := app.stateManager.ResetBlockState(app.appCtx); resetErr != nil {
-						app.logger.Error("RunLoop: Failed to reset state after successful FinalizeBlock. Shutting down.", "error", resetErr)
-						app.cancel()
-						return
-					}
-				}
-
-			default:
-				app.logger.Warn("RunLoop: Unknown current step in state", "step", currentState.CurrentStep.String())
-				if resetErr := app.stateManager.ResetBlockState(app.appCtx); resetErr != nil {
-					app.logger.Error("RunLoop: Failed to reset state from unknown step. Shutting down.", "error", resetErr)
-					app.cancel()
-					return
-				}
-				time.Sleep(1 * time.Second) // Pause if in unknown state before retrying
+				// Handle errors but continue the loop
+				app.logger.Error(
+					"block production cycle failed",
+					"error", err,
+				)
 			}
-			// A short general delay to prevent extremely tight loops if conditions lead to no state change
-			// For example, if GetPayload consistently skips empty blocks very fast.
-			// This can be tied to blockBuilder.GetBuildDelay() or a fixed minimum.
-			time.Sleep(100 * time.Millisecond)
+			// Successful block production, reset for the next block
+			if app.resetBlockProduction("Block production successful. Resetting state for next block.") {
+				// 0 chance to happen, if in-memory store is used
+				return // Shutdown initiated by resetBlockProduction
+			}
+
 		}
 	}
 }
 
+// produceBlock handles the entire block production cycle in a direct, procedural manner
+func (app *SingleNodeApp) produceBlock() error {
+	// Step 1: Build the block
+	if err := app.blockBuilder.GetPayload(app.appCtx); err != nil {
+		return fmt.Errorf("failed to get payload: %w", err)
+	}
+
+	// Retrieve the current state after payload creation
+	currentState := app.stateManager.GetBlockBuildState(app.appCtx)
+	if currentState.PayloadID == "" {
+		return errors.New("payload ID is empty after GetPayload call")
+	}
+
+	// Step 2: Finalize the block
+	app.logger.Info("Finalizing block", "payload_id", currentState.PayloadID)
+	if err := app.blockBuilder.FinalizeBlock(app.appCtx, currentState.PayloadID, currentState.ExecutionPayload, ""); err != nil {
+		return fmt.Errorf("failed to finalize block: %w", err)
+	}
+
+	return nil
+}
+
 // Stop signals the application to shut down and waits for goroutines to finish.
 func (app *SingleNodeApp) Stop() {
-	app.logger.Info("Stopping SingleNodeApp...")
-	app.cancel() // Signal all operations using app.appCtx to stop
+	app.logger.Info("stopping SingleNodeApp...")
+	app.cancel()
 
-	// Wait for the main run loop to finish
-	// Set a timeout for waiting to prevent indefinite blocking.
 	waitCh := make(chan struct{})
 	go func() {
 		app.wg.Wait()
@@ -215,7 +191,7 @@ func (app *SingleNodeApp) Stop() {
 	select {
 	case <-waitCh:
 		app.logger.Info("SingleNodeApp run loop shut down gracefully.")
-	case <-time.After(5 * time.Second): // Timeout for shutdown
+	case <-time.After(shutdownTimeout):
 		app.logger.Warn("SingleNodeApp shutdown timed out waiting for run loop.")
 	}
 	app.logger.Info("SingleNodeApp stopped.")

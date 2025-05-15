@@ -15,18 +15,20 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/primev/mev-commit/cl/util"
 	"github.com/primev/mev-commit/cl/types"
+	"github.com/primev/mev-commit/cl/util"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 const maxAttempts = 3
 
-type EngineClient interface {
-	NewPayloadV3(ctx context.Context, params engine.ExecutableData, versionedHashes []common.Hash,
-		beaconRoot *common.Hash) (engine.PayloadStatusV1, error)
+var ErrEmptyBlock = errors.New("payloadID is empty")
 
+type EngineClient interface {
+	NewPayloadV4(ctx context.Context, params engine.ExecutableData, versionedHashes []common.Hash,
+		beaconRoot *common.Hash, executionRequests []hexutil.Bytes) (engine.PayloadStatusV1, error)
 	ForkchoiceUpdatedV3(ctx context.Context, update engine.ForkchoiceStateV1,
 		payloadAttributes *engine.PayloadAttributes) (engine.ForkChoiceResponse, error)
 
@@ -210,16 +212,16 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		return fmt.Errorf("failed to get payload: %w", err)
 	}
 
-	hasTransactions := len(payloadResp.ExecutionPayload.Transactions) > 0
+	// hasTransactions := len(payloadResp.ExecutionPayload.Transactions) > 0
 	now := time.Now()
-	timeSinceLastBlock := now.Sub(bb.lastBlockTime)
-	if !hasTransactions && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
-		bb.logger.Info(
-			"Leader: Skipping empty block",
-			"timeSinceLastBlock", timeSinceLastBlock,
-		)
-		return nil
-	}
+	// timeSinceLastBlock := now.Sub(bb.lastBlockTime)
+	// if !hasTransactions && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
+	// 	bb.logger.Info(
+	// 		"Leader: Skipping empty block",
+	// 		"timeSinceLastBlock", timeSinceLastBlock,
+	// 	)
+	// 	return ErrEmptyBlock
+	// }
 
 	payloadData, err := msgpack.Marshal(payloadResp.ExecutionPayload)
 	if err != nil {
@@ -449,7 +451,7 @@ func (bb *BlockBuilder) selectRetryFunction(ctx context.Context, msgID string) f
 func (bb *BlockBuilder) pushNewPayload(ctx context.Context, executionPayload engine.ExecutableData, hash common.Hash, retryFunc func(f func() error) error) error {
 	emptyVersionHashes := []common.Hash{}
 	return retryFunc(func() error {
-		status, err := bb.engineCl.NewPayloadV3(ctx, executionPayload, emptyVersionHashes, &hash)
+		status, err := bb.engineCl.NewPayloadV4(ctx, executionPayload, emptyVersionHashes, &hash, []hexutil.Bytes{})
 		if err != nil || isUnknown(status) {
 			bb.logger.Error("Failed to push new payload", "error", err)
 			return err // Will retry

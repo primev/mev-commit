@@ -34,9 +34,11 @@ func (lsm *LocalStateManager) SaveBlockStateAndPublishToStream(_ context.Context
 	defer lsm.mu.Unlock()
 
 	lsm.blockBuildState = state // Store the provided state
-	lsm.logger.Info("LocalStateManager: Saved block state",
+	lsm.logger.Info(
+		"LocalStateManager: Saved block state",
 		"step", state.CurrentStep.String(),
-		"payload_id", state.PayloadID)
+		"payload_id", state.PayloadID,
+	)
 	return nil
 }
 
@@ -63,6 +65,5 @@ func (lsm *LocalStateManager) ResetBlockState(_ context.Context) error {
 	lsm.blockBuildState = &types.BlockBuildState{
 		CurrentStep: types.StepBuildBlock,
 	}
-	lsm.logger.Info("LocalStateManager: Reset block state to StepBuildBlock")
 	return nil
 }
