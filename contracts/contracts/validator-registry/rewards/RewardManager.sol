@@ -5,6 +5,7 @@ import {Errors} from "../../utils/Errors.sol";
 import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 import {RewardManagerStorage} from "./RewardManagerStorage.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {VanillaRegistryStorage} from "../VanillaRegistryStorage.sol";
@@ -12,7 +13,7 @@ import {MevCommitAVSStorage} from "../avs/MevCommitAVSStorage.sol";
 import {MevCommitMiddlewareStorage} from "../middleware/MevCommitMiddlewareStorage.sol";
 
 contract RewardManager is IRewardManager, RewardManagerStorage,
-    Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+    Ownable2StepUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -60,7 +61,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     /// @dev Allows providers to pay the opted-in proposer for a block. 
     /// @notice It is assumed the validator pubkey being paid is opted-in to mev-commit.
     /// Otherwise the rewards are accumulated as "orphaned" and must be handled by the owner.
-    function payProposer(bytes calldata pubkey) external payable { // Intentionally don't allow pausing.
+    function payProposer(bytes calldata pubkey) external payable nonReentrant { // Intentionally don't allow pausing.
         require(msg.value != 0, NoEthPayable());
         address receiver = _findReceiver(pubkey);
         if (receiver == address(0)) {
@@ -91,7 +92,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
 
     /// @dev Enables auto-claim for a receiver address.
     /// @param claimExistingRewards If true, existing rewards will be claimed atomically before enabling auto-claim.
-    function enableAutoClaim(bool claimExistingRewards) external whenNotPaused {
+    function enableAutoClaim(bool claimExistingRewards) external whenNotPaused nonReentrant {
         if (claimExistingRewards) { _claimRewards(); }
         autoClaim[msg.sender] = true;
         emit AutoClaimEnabled(msg.sender);
@@ -123,10 +124,10 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     /// @dev Allows a reward recipient to claim their rewards.
-    function claimRewards() external whenNotPaused { _claimRewards(); }
+    function claimRewards() external whenNotPaused nonReentrant { _claimRewards(); }
 
     /// @dev Allows the owner to claim orphaned rewards to appropriate addresses.
-    function claimOrphanedRewards(bytes[] calldata pubkeys, address toPay) external onlyOwner {
+    function claimOrphanedRewards(bytes[] calldata pubkeys, address toPay) external onlyOwner nonReentrant {
         uint256 totalAmount = 0;
         uint256 len = pubkeys.length;
         for (uint256 i = 0; i < len; ++i) {
