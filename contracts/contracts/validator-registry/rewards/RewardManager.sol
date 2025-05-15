@@ -112,6 +112,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
 
     /// @dev Allows any receiver address to set an override address for their rewards.
     /// @param migrateExistingRewards If true, existing msg.sender rewards will be migrated atomically to the new claim address.
+    /// @notice Onus is on the calling address to ensure the override address does not revert upon receiving eth transfers.
     function overrideReceiver(address overrideAddress, bool migrateExistingRewards) external whenNotPaused {
         if (migrateExistingRewards) { _migrateRewards(msg.sender, overrideAddress); }
         require(overrideAddress != address(0) && overrideAddress != msg.sender, InvalidAddress());
