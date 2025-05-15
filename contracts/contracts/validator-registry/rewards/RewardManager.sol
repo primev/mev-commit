@@ -15,6 +15,11 @@ import {MevCommitMiddlewareStorage} from "../middleware/MevCommitMiddlewareStora
 contract RewardManager is IRewardManager, RewardManagerStorage,
     Ownable2StepUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
+    modifier onlyValidBLSPubKey(bytes calldata pubkey) {
+        require(pubkey.length == 48, InvalidBLSPubKeyLength(48, pubkey.length));
+        _;
+    }
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -61,7 +66,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     /// @dev Allows providers to pay the opted-in proposer for a block. 
     /// @notice It is assumed the validator pubkey being paid is opted-in to mev-commit.
     /// Otherwise the rewards are accumulated as "orphaned" and must be handled by the owner.
-    function payProposer(bytes calldata pubkey) external payable nonReentrant { // Intentionally don't allow pausing.
+    function payProposer(bytes calldata pubkey) external payable onlyValidBLSPubKey(pubkey) nonReentrant { // Intentionally don't allow pausing.
         require(msg.value != 0, NoEthPayable());
         address receiver = _findReceiver(pubkey);
         if (receiver == address(0)) {

@@ -28,6 +28,7 @@ interface IRewardManager {
     error RewardsClaimFailed();
     error NoOrphanedRewards();
     error OrphanedRewardsClaimFailed();
+    error InvalidBLSPubKeyLength(uint256 expectedLength, uint256 actualLength);
     /// @dev Allows providers to pay opted-in proposers.
     function payProposer(bytes calldata pubkey) external payable;
     /// @dev Enables auto-claim for a reward recipient.
