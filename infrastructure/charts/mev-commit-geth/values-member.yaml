@@ -1,0 +1,13 @@
+role: member
+
+chainId: 
+
+probes:
+  enabled: false
+
+
+replicas: 1
+
+nodeConfig:
+  staticPeers:
+    - "enode://<node-id>@poa-bootnode-ethereum-poa-bootnode:30303"

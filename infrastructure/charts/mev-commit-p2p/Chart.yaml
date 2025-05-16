@@ -1,0 +1,8 @@
+apiVersion: v2
+name: mev-commit-p2p
+description: A Helm chart for MEV-Commit P2P network nodes (bootnode, provider, bidder)
+type: application
+version: 0.1.0
+appVersion: "1.1.1"
+maintainers:
+  - name: MEV-Commit Team
