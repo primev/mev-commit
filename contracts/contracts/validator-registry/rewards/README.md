@@ -14,6 +14,8 @@ To pay a proposer, the mev-commit provider calls `payProposer` with the reward s
 
 Receiver addresses have the ability to set an override address which will accumulate or be transferred rewards instead of the receiver address. Custom reward splitting logic can be implemented by the override address.
 
+It is assumed a receiver address and its override address are the same entity and/or fully trust one another. The ability to set an override address purely exists as a convenience, and for customization/flexibility. 
+
 ## Auto Claim
 
 Receive addresses have the ability to enable and disable auto-claim. When auto-claim is enabled, rewards will automatically be transferred to the receiver or override address during `payProposer`. If an auto-claim transfer fails, the relevant receiver address may be blacklisted from auto-claim. Auto-claim can only be enabled and disabled by the receiver, NOT its override address.
