@@ -16,7 +16,7 @@ type beaconClient struct {
 	client *http.Client
 }
 
-func newBeaconClient(apiURL string, logger *slog.Logger) *beaconClient {
+func NewBeaconClient(apiURL string, logger *slog.Logger) *beaconClient {
 	return &beaconClient{
 		apiURL: apiURL,
 		logger: logger,
@@ -39,7 +39,7 @@ type beaconBlockResponse struct {
 	} `json:"data"`
 }
 
-func (bc *beaconClient) getPayloadDataForSlot(ctx context.Context, slot uint64) (
+func (bc *beaconClient) GetPayloadDataForSlot(ctx context.Context, slot uint64) (
 	blockNumber uint64,
 	timestamp uint64,
 	err error,
