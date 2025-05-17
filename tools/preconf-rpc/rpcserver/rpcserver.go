@@ -32,7 +32,7 @@ type jsonRPCResponse struct {
 	Error   *jsonRPCError    `json:"error,omitempty"`
 }
 
-type methodHandler func(ctx context.Context, params ...json.RawMessage) (json.RawMessage, error)
+type methodHandler func(ctx context.Context, params ...json.RawMessage) (json.RawMessage, bool, error)
 
 type jsonRPCError struct {
 	Code    int    `json:"code"`
@@ -99,9 +99,16 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := handler(r.Context(), req.Params...)
-	if err != nil {
+	resp, proxy, err := handler(r.Context(), req.Params...)
+	switch {
+	case err != nil:
 		s.writeError(w, req.ID, CodeCustomError, err.Error())
+		return
+	case proxy:
+		s.proxyRequest(w, r)
+		return
+	case resp == nil:
+		s.writeError(w, req.ID, CodeCustomError, "No response")
 		return
 	}
 
