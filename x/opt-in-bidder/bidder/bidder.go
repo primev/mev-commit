@@ -3,6 +3,7 @@ package optinbidder
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
@@ -172,7 +173,6 @@ const (
 	BidStatusNoOfProviders BidStatusType = iota
 	BidStatusWaitSecs
 	BidStatusAttempted
-	BidStatusSucceeded
 	BidStatusFailed
 	BidStatusCancelled
 	BidStatusCommitment
@@ -206,9 +206,11 @@ func (b *BidderClient) Bid(
 	res := make(chan BidStatus, 3)
 	b.bigWg.Add(1)
 	go func() {
+		defer fmt.Println("BidderClient goroutine exiting")
 		defer close(res)
 		defer b.bigWg.Done()
 
+		fmt.Println("BidderClient sending no of providers")
 		res <- BidStatus{Type: BidStatusNoOfProviders, Arg: len(providers.Values)}
 
 		nextSlot, err := b.getNextSlot()
