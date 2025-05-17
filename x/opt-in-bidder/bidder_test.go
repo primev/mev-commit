@@ -232,9 +232,8 @@ waitLoop:
 					t.Fatalf("expected block number 11, got %d", status.Arg.(*bidderapiv1.Commitment).BlockNumber)
 				}
 				commitments++
-				if commitments == 2 {
-					break waitLoop
-				}
+			case status.Type == optinbidder.BidStatusDone:
+				break waitLoop
 			}
 		case bid := <-rpcServices.bidChan:
 			if bid.Amount != big.NewInt(1).String() {
@@ -254,6 +253,10 @@ waitLoop:
 			}
 			close(rpcServices.commitmentChan)
 		}
+	}
+
+	if commitments != 2 {
+		t.Fatalf("expected 2 commitments, got %d", commitments)
 	}
 
 	cancel()
