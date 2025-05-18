@@ -97,6 +97,7 @@ func TestHealthHandler(t *testing.T) {
 	app.healthHandler(w, req)
 
 	resp := w.Result()
+	//nolint:errcheck
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected 200 OK for healthy app")
 
@@ -105,6 +106,7 @@ func TestHealthHandler(t *testing.T) {
 	app.healthHandler(w, req)
 
 	resp = w.Result()
+	//nolint:errcheck
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode, "Expected 503 when connection refused")
 
@@ -114,6 +116,7 @@ func TestHealthHandler(t *testing.T) {
 	app.healthHandler(w, req)
 
 	resp = w.Result()
+	//nolint:errcheck
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode, "Expected 503 when context canceled")
 }

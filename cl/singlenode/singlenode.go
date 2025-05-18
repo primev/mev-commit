@@ -146,7 +146,7 @@ func (app *SingleNodeApp) healthHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }
 
 // Start begins the main block production loop and launches the health endpoint.
@@ -168,7 +168,7 @@ func (app *SingleNodeApp) Start() {
 			<-app.appCtx.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 			defer cancel()
-			server.Shutdown(ctx)
+			_ = server.Shutdown(ctx)
 		}()
 
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

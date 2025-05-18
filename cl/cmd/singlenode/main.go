@@ -205,7 +205,7 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintf(app.Writer, "Error running snode: %v\n", err)
+		_, _ = fmt.Fprintf(app.Writer, "Error running snode: %v\n", err)
 		os.Exit(1)
 	}
 }
