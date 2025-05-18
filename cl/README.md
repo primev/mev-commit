@@ -251,6 +251,7 @@ The snode application can be configured via command-line flags, environment vari
 - `--priority-fee-recipient`: **(Required)** Ethereum address for receiving priority fees (block proposer fee).
 - `--evm-build-delay`: Delay after initiating payload construction before calling getPayload (default: `100ms`).
 - `--evm-build-delay-empty-block`: Minimum time since last block to build an empty block (default: `2s`, 0 to disable skipping).
+- `--health-addr`: Address for health check endpoint (default: `:8080`).
 - `--config`: Path to a YAML configuration file.
 - `--log-fmt`: Log format ('text' or 'json') (default: `text`).
 - `--log-level`: Log level ('debug', 'info', 'warn', 'error') (default: `info`).
@@ -264,6 +265,7 @@ The snode application can be configured via command-line flags, environment vari
 - `SNODE_PRIORITY_FEE_RECIPIENT`
 - `SNODE_EVM_BUILD_DELAY`
 - `SNODE_EVM_BUILD_DELAY_EMPTY_BLOCK`
+- `SNODE_HEALTH_ADDR`
 - `SNODE_CONFIG`
 - `MEV_COMMIT_LOG_FMT`
 - `MEV_COMMIT_LOG_LEVEL`
@@ -314,6 +316,7 @@ Run the application with the configuration file:
 ## Additional Notes
 
 - **Graceful Shutdown**: Both applications support graceful shutdown via SIGTERM or Ctrl+C.
+- **Health Endpoint**: The snode application provides a health check endpoint at `/health` that returns a 200 OK response when the application is running normally, or a 503 Service Unavailable if there are connection issues with the Ethereum client.
 
 ## Conclusion
 
