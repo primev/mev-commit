@@ -36,9 +36,9 @@ type EngineClient interface {
 	// NewPayloadV3 creates an Eth1 block, inserts it in the chain, and returns the status of the chain.
 	NewPayloadV3(ctx context.Context, params engine.ExecutableData, versionedHashes []common.Hash,
 		beaconRoot *common.Hash) (engine.PayloadStatusV1, error)
-	NewPayloadV4(params engine.ExecutableData, versionedHashes []common.Hash, beaconRoot *common.Hash, 
+	NewPayloadV4(params engine.ExecutableData, versionedHashes []common.Hash, beaconRoot *common.Hash,
 		executionRequests []hexutil.Bytes) (engine.PayloadStatusV1, error)
-		
+
 	// ForkchoiceUpdatedV2 has several responsibilities:
 	//  - It sets the chain the head.
 	//  - And/or it sets the chain's finalized block hash.

@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/blockbuilder"
+	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/redisapp/leaderfollower"
 	"github.com/primev/mev-commit/cl/redisapp/state"
 	"github.com/redis/go-redis/v9"
@@ -37,7 +37,7 @@ func NewMevCommitChain(
 	if err != nil {
 		cancel()
 		logger.Error(
-			"Error decoding JWT secret", 
+			"Error decoding JWT secret",
 			"error", err,
 		)
 		return nil, err
@@ -47,7 +47,7 @@ func NewMevCommitChain(
 	if err != nil {
 		cancel()
 		logger.Error(
-			"Error creating engine client", 
+			"Error creating engine client",
 			"error", err,
 		)
 		return nil, err
@@ -61,7 +61,7 @@ func NewMevCommitChain(
 	if err != nil {
 		cancel()
 		logger.Error(
-			"Error setting min-replicas-to-write", 
+			"Error setting min-replicas-to-write",
 			"error", err,
 		)
 		return nil, err
@@ -71,7 +71,7 @@ func NewMevCommitChain(
 	if err != nil {
 		cancel()
 		logger.Error(
-			"Error creating state manager", 
+			"Error creating state manager",
 			"error", err,
 		)
 		return nil, err
@@ -88,7 +88,7 @@ func NewMevCommitChain(
 	if err != nil {
 		cancel()
 		logger.Error(
-			"Error creating lfm", 
+			"Error creating lfm",
 			"error", err,
 		)
 		return nil, err
@@ -116,7 +116,7 @@ func (app *MevCommitChain) Stop() {
 	err := app.lfm.WaitForGoroutinesToStop()
 	if err != nil {
 		app.logger.Error(
-			"Error waiting for goroutines to stop", 
+			"Error waiting for goroutines to stop",
 			"error", err,
 		)
 	}
