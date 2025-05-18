@@ -117,8 +117,8 @@ func (bb *BlockBuilder) startBuild(ctx context.Context, head *types.ExecutionHea
 func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	var (
 		payloadID *engine.PayloadID
-		head *types.ExecutionHead
-		err error
+		head      *types.ExecutionHead
+		err       error
 	)
 	currentCallTime := time.Now()
 
