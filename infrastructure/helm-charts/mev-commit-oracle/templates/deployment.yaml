@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mev-oracle.fullname" . }}
+  labels:
+    {{- include "mev-oracle.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "mev-oracle.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "mev-oracle.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if or .Values.keystore.autoGenerate (not .Values.keystore.existingSecret) }}
+      initContainers:
+        - name: init-keystore
+          image: ethereum/client-go:v1.13.5
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "/scripts/init-account.sh"]
+          env:
+            - name: KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.keystore.existingSecret }}
+                  name: {{ .Values.keystore.existingSecret }}
+                  key: password
+                  {{- else }}
+                  name: {{ include "mev-oracle.keystoreSecretName" . }}
+                  key: MEV_ORACLE_KEYSTORE_PASSWORD
+                  {{- end }}
+            {{- if .Values.keystore.existingSecret }}
+            - name: KEYSTORE_SECRET
+              value: {{ .Values.keystore.existingSecret }}
+            {{- end }}
+            - name: KEYSTORE_DIR
+              value: /tmp/keystore-gen
+            - name: OUTPUT_DIR
+              value: /shared-keystore
+          volumeMounts:
+            - name: init-scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: keystore-shared
+              mountPath: /shared-keystore
+            {{- if .Values.keystore.existingSecret }}
+            - name: existing-keystore
+              mountPath: /existing-keystore
+              readOnly: true
+            {{- end }}
+      {{- end }}
+      containers:
+        - name: oracle
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Let the container use its default entrypoint
+          # command: ["/usr/local/bin/mev-oracle", "start"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.oracle.httpPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          env:
+            # PostgreSQL Password from Secret
+            - name: MEV_ORACLE_PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mev-oracle.fullname" . }}-postgresql
+                  key: MEV_ORACLE_PG_PASSWORD
+            
+            # Auth Token from Secret
+            - name: MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mev-oracle.authTokenSecretName" . }}
+                  key: MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN
+            
+            # Keystore Password from Secret
+            - name: MEV_ORACLE_KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.keystore.existingSecret }}
+                  name: {{ .Values.keystore.existingSecret }}
+                  key: password
+                  {{- else }}
+                  name: {{ include "mev-oracle.keystoreSecretName" . }}
+                  key: MEV_ORACLE_KEYSTORE_PASSWORD
+                  {{- end }}
+          envFrom:
+            # All other configuration from ConfigMap
+            - configMapRef:
+                name: {{ include "mev-oracle.fullname" . }}
+          volumeMounts:
+            - name: keystore-shared
+              mountPath: {{ .Values.keystore.mountPath }}
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: {{ include "mev-oracle.fullname" . }}-scripts
+            defaultMode: 0755
+        - name: keystore-shared
+          emptyDir: {}
+        {{- if .Values.keystore.existingSecret }}
+        - name: existing-keystore
+          secret:
+            secretName: {{ .Values.keystore.existingSecret }}
+            defaultMode: 0600
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

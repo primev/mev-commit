@@ -1,0 +1,125 @@
+# Default values for snode-geth chart
+
+nameOverride: ""
+fullnameOverride: ""
+
+genesisUrl: "https://raw.githubusercontent.com/primev/mev-commit/feat/single-node-cl/cl/geth-setup/genesis.json"
+
+# Common labels and annotations
+commonLabels: {}
+commonAnnotations: {}
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8545
+      targetPort: 8545
+    - name: p2p
+      port: 30303
+      targetPort: 30303
+    - name: engine
+      port: 8551
+      targetPort: 8551
+    - name: snode
+      port: 9000
+      targetPort: 9000
+  selector: {}
+
+# Storage configuration
+storage:
+  geth:
+    size: 100Gi
+    storageClassName: "premium-rwo"
+  snode:
+    size: 20Gi
+    storageClassName: "premium-rwo"
+  shared:
+    size: 5Gi
+    storageClassName: "premium-rwo"
+
+# Geth container configuration
+geth:
+  image: harshsingh07/flood:mev-commit-snode-geth
+  imagePullPolicy: IfNotPresent
+  verbosity: 3
+  nodiscover: true
+  datadir: /data/geth
+  http:
+    enabled: true
+    port: 8545
+    addr: 0.0.0.0
+    corsdomain: "*"
+    vhosts: "*"
+    api: "admin,eth,net,web3,engine"
+  p2p:
+    port: 30303
+  authrpc:
+    jwtsecret: /shared/jwt.hex
+    vhosts: "*"
+    port: 8551
+    addr: 0.0.0.0
+  networkid: 141414
+  syncmode: full
+  miner:
+    recommit: 900ms
+  extraArgs: []
+
+# Snode container configuration
+snode:
+  image: harshsingh07/flood:mev-commit-snode
+  imagePullPolicy: IfNotPresent
+  instanceId: snode1
+  ethClientUrl: http://localhost:8551
+  datadir: /data/snode
+  priorityFeeRecipient: "0x0000000000000000000000000000000000000000"
+  evmBuildDelay: 100ms
+  evmBuildDelayEmptyBlock: 2s
+  logLevel: info
+  extraArgs: []
+
+
+secrets:
+  jwtSecret: "6b7dc2b2aa846df3f5e5872878625e8f562c496557fd04f7df9e7848e78a5a18"
+
+# Resources for containers and initContainers
+resources:
+  geth:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+
+  snode:
+    requests:
+      cpu: 300m
+      memory: 512Mi
+    limits:
+      cpu: 600m
+      memory: 1Gi
+
+  initContainers:
+    createJwt:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    downloadGenesis:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+    initGeth:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 400m
+        memory: 1Gi

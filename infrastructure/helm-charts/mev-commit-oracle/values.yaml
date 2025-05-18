@@ -1,0 +1,80 @@
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Deployment settings
+replicaCount: 1
+
+image:
+  repository: harshsingh07/flood
+  pullPolicy: IfNotPresent
+  tag: "mev-commit-oracle-1.1.1"
+
+# Pod annotations for monitoring
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+
+# Resource allocation
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+# Oracle configuration
+oracle:
+  logLevel: "info"
+  logFormat: "json"
+  logTags: "env:production,service:mev-oracle"
+  httpPort: 8080
+  gasLimit: "3000000"
+  gasTipCap: "100000000"  # 0.1 gwei
+  gasFeeCap: "120000000"  # 0.12 gwei
+  laggerdMode: 12
+  authToken: "4af6db58d4c783d76f5af8e8ad806f9c4960c5323793b48632e042a9693770a8"  # Required
+
+# Network configuration
+network:
+  l1RpcUrls:
+    - "https://ethereum.publicnode.com"
+  settlementRpcHttp: "https://chainrpc.testnet.mev-commit.xyz"
+  settlementRpcWs: "wss://chainrpc-wss.testnet.mev-commit.xyz"
+  relayUrls:
+    - "https://mainnet.aestus.live"
+    - "https://mainnet.titanrelay.xyz"
+    - "https://bloxroute.max-profit.blxrbdn.com"
+    - "https://boost-relay.flashbots.net"
+
+# Contract addresses for mainnet
+contracts:
+  oracle: "0xCd27C2Dc26d37Bb17686F709Db438D3Dc546437C"
+  preconf: "0x8420F290a412D87Ae4Aa12be63e1836b91717910" # did not find this address
+  blockTracker: "0x0b3b6Cf113959214E313d6Ad37Ad56831acb1776"
+  bidderRegistry: "0x948eCD70FaeF6746A30a00F30f8b9fB2659e4062"
+  providerRegistry: "0x1C2a592950E5dAd49c0E2F3A402DCF496bdf7b67"
+
+# Keystore configuration
+keystore:
+
+  autoGenerate: true
+  mountPath: "/keystore"
+  password: "securePassword"
+
+# External PostgreSQL configuration
+postgresql:
+  database: mev_oracle
+  host: postgres.default.svc.cluster.local
+  password: mev_oracle_password
+  port: 5432
+  username: mev_oracle

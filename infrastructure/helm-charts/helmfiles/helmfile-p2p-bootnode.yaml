@@ -1,0 +1,8 @@
+releases:
+  - name: mev-commit-p2p-bootnode
+    namespace: default
+    chart: ../mev-commit-p2p
+    values:
+      - ../mev-commit-p2p/values-bootnode.yaml
+      - valuesInline:
+          fullnameOverride: "mev-commit-p2p-bootnode"

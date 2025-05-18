@@ -1,0 +1,77 @@
+{{- include "mev-oracle.validateConfig" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mev-oracle.fullname" . }}-scripts
+  labels:
+    {{- include "mev-oracle.labels" . | nindent 4 }}
+data:
+  init-account.sh: |
+{{ .Files.Get "files/init-account.sh" | indent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mev-oracle.fullname" . }}
+  labels:
+    {{- include "mev-oracle.labels" . | nindent 4 }}
+data:
+  # Logging configuration
+  MEV_ORACLE_LOG_FMT: {{ .Values.oracle.logFormat | quote }}
+  MEV_ORACLE_LOG_LEVEL: {{ .Values.oracle.logLevel | quote }}
+  {{- if .Values.oracle.logTags }}
+  MEV_ORACLE_LOG_TAGS: {{ .Values.oracle.logTags | quote }}
+  {{- end }}
+  
+  # HTTP port
+  MEV_ORACLE_HTTP_PORT: {{ .Values.oracle.httpPort | quote }}
+  
+  # L1 RPC URLs (comma-separated)
+  MEV_ORACLE_L1_RPC_URLS: {{ join "," .Values.network.l1RpcUrls | quote }}
+  
+  # Settlement RPC URLs
+  MEV_ORACLE_SETTLEMENT_RPC_URL_HTTP: {{ .Values.network.settlementRpcHttp | quote }}
+  MEV_ORACLE_SETTLEMENT_RPC_URL_WS: {{ .Values.network.settlementRpcWs | quote }}
+  
+  # Contract addresses
+  {{- if .Values.contracts.oracle }}
+  MEV_ORACLE_ORACLE_CONTRACT_ADDR: {{ .Values.contracts.oracle | quote }}
+  {{- end }}
+  {{- if .Values.contracts.preconf }}
+  MEV_ORACLE_PRECONF_CONTRACT_ADDR: {{ .Values.contracts.preconf | quote }}
+  {{- end }}
+  {{- if .Values.contracts.blockTracker }}
+  MEV_ORACLE_BLOCKTRACKER_CONTRACT_ADDR: {{ .Values.contracts.blockTracker | quote }}
+  {{- end }}
+  {{- if .Values.contracts.bidderRegistry }}
+  MEV_ORACLE_BIDDERREGISTRY_CONTRACT_ADDR: {{ .Values.contracts.bidderRegistry | quote }}
+  {{- end }}
+  {{- if .Values.contracts.providerRegistry }}
+  MEV_ORACLE_PROVIDERREGISTRY_CONTRACT_ADDR: {{ .Values.contracts.providerRegistry | quote }}
+  {{- end }}
+  
+  # PostgreSQL configuration
+  MEV_ORACLE_PG_HOST: {{ .Values.postgresql.host | quote }}
+  MEV_ORACLE_PG_PORT: {{ .Values.postgresql.port | quote }}
+  MEV_ORACLE_PG_USER: {{ .Values.postgresql.username | quote }}
+  MEV_ORACLE_PG_DBNAME: {{ .Values.postgresql.database | quote }}
+  
+  # Other oracle configuration
+  MEV_ORACLE_LAGGERD_MODE: {{ .Values.oracle.laggerdMode | quote }}
+  {{- if .Values.oracle.gasLimit }}
+  MEV_COMMIT_GAS_LIMIT: {{ .Values.oracle.gasLimit | quote }}
+  {{- end }}
+  {{- if .Values.oracle.gasTipCap }}
+  MEV_COMMIT_GAS_TIP_CAP: {{ .Values.oracle.gasTipCap | quote }}
+  {{- end }}
+  {{- if .Values.oracle.gasFeeCap }}
+  MEV_COMMIT_GAS_FEE_CAP: {{ .Values.oracle.gasFeeCap | quote }}
+  {{- end }}
+  
+  # Relay URLs (comma-separated)
+  {{- if .Values.network.relayUrls }}
+  MEV_ORACLE_RELAY_URLS: {{ join "," .Values.network.relayUrls | quote }}
+  {{- end }}
+  
+  # Keystore path
+  MEV_ORACLE_KEYSTORE_PATH: {{ .Values.keystore.mountPath | quote }}

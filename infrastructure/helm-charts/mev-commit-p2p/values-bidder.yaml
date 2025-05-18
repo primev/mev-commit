@@ -1,0 +1,49 @@
+# Override values specific to bidder deployment
+node:
+  type: "bidder"
+  replicas: 1
+  
+  ports:
+    http: 13723
+    p2p: 13722
+    rpc: 13724
+  
+  service:
+    type: ClusterIP
+    # For NodePort exposure
+    # type: NodePort
+    # nodePorts:
+    #   p2p: 30722
+    #   http: 30723
+    #   rpc: 30724
+    annotations: {}
+  
+  # Default credentials 
+  defaultKeystorePassword: "change_me_bidder"
+  defaultP2PSecret: "mev-commit-bidder-secret"
+  
+  # Resource allocation
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2048Mi
+    requests:
+      cpu: 500m
+      memory: 1024Mi
+  
+  # Bootnode connection string - needs to be updated to your bootnode service/IP
+  # Format: /ip4/<bootnode-service-ip>/tcp/<bootnode-p2p-port>/p2p/<bootnode-peer-id>
+  bootnodeConnectionString: "/ip4/34.23.19.82/tcp/13522/p2p/16Uiu2HAkxutuHFTRxS7fWZe7usVUPoJEWTHDtQtVWJiN3Kp7f5R5"
+
+# Bidder-specific configuration
+bidder:
+  # Bid timeout value
+  bidTimeout: "30s"
+  
+  # Auto deposit configuration
+  autodeposit:
+    enabled: false
+    amount: ""
+  
+  # Provider whitelist (comma-separated Ethereum addresses)
+  providerWhitelist: ""
