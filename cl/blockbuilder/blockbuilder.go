@@ -22,7 +22,7 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-const maxAttempts = 3
+const maxAttempts = 10
 
 var ErrEmptyBlock = errors.New("payloadID is empty")
 
@@ -115,12 +115,25 @@ func (bb *BlockBuilder) startBuild(ctx context.Context, head *types.ExecutionHea
 }
 
 func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
-	var payloadID *engine.PayloadID
-
+	var (
+		payloadID *engine.PayloadID
+		head *types.ExecutionHead
+		err error
+	)
 	currentCallTime := time.Now()
 
 	// Load execution head to get previous block timestamp
-	head, err := bb.loadExecutionHead(ctx)
+	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
+		head, err = bb.loadExecutionHead(ctx)
+		if err != nil {
+			bb.logger.Warn(
+				"Failed to load execution head, retrying...",
+				"error", err,
+			)
+			return err // Will retry
+		}
+		return nil // Success
+	})
 	if err != nil {
 		return fmt.Errorf("latest execution block: %w", err)
 	}
@@ -387,13 +400,25 @@ func (bb *BlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, executi
 	if err := msgpack.Unmarshal(executionPayloadBytes, &executionPayload); err != nil {
 		return fmt.Errorf("failed to deserialize ExecutionPayload: %w", err)
 	}
-	head, err := bb.loadExecutionHead(ctx)
+
+	var head *types.ExecutionHead
+	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
+		head, err = bb.loadExecutionHead(ctx)
+		if err != nil {
+			bb.logger.Warn(
+				"Failed to load execution head, retrying...",
+				"error", err,
+			)
+			return err // Will retry
+		}
+		return nil // Success
+	})
 	if err != nil {
 		return fmt.Errorf("failed to load execution head: %w", err)
 	}
 
 	if err := bb.validateExecutionPayload(executionPayload, head); err != nil {
-		return err
+		return fmt.Errorf("failed to validate execution payload: %w", err)
 	}
 
 	hash := common.BytesToHash(head.BlockHash)

@@ -148,6 +148,22 @@ var (
 			return nil
 		},
 	})
+
+	healthAddrPortFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "health-addr",
+		Usage:   "Address for health check endpoint (e.g., ':8080')",
+		EnvVars: []string{"SNODE_HEALTH_ADDR"},
+		Value:   ":8080",
+		Action: func(_ *cli.Context, s string) error {
+			if !strings.HasPrefix(s, ":") {
+				return fmt.Errorf("health-addr must start with ':'")
+			}
+			if _, err := url.Parse(s); err != nil {
+				return fmt.Errorf("invalid health-addr: %v", err)
+			}
+			return nil
+		},
+	})
 )
 
 func main() {
@@ -162,6 +178,7 @@ func main() {
 		evmBuildDelayFlag,
 		evmBuildDelayEmptyBlockFlag,
 		priorityFeeReceiptFlag,
+		healthAddrPortFlag,
 	}
 
 	app := &cli.App{
@@ -212,6 +229,7 @@ func startSingleNodeApplication(c *cli.Context) error {
 		EVMBuildDelay:            c.Duration(evmBuildDelayFlag.Name),
 		EVMBuildDelayEmptyBlocks: c.Duration(evmBuildDelayEmptyBlockFlag.Name),
 		PriorityFeeReceipt:       c.String(priorityFeeReceiptFlag.Name),
+		HealthAddr:               c.String(healthAddrPortFlag.Name),
 	}
 
 	logger.Info("Starting snode with configuration", "config", cfg) // Be careful logging sensitive parts of config
