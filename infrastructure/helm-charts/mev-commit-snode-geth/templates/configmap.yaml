@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "snode-geth.fullname" . }}-scripts
+  labels:
+    {{- include "snode-geth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  create-jwt.sh: |
+{{ tpl (.Files.Get "scripts/create-jwt.sh") . | indent 4 }}
+  download-genesis.sh: |
+{{ tpl (.Files.Get "scripts/download-genesis.sh") . | indent 4 }}
+  init-geth.sh: |
+{{ tpl (.Files.Get "scripts/init-geth.sh") . | indent 4 }}

@@ -1,0 +1,8 @@
+releases:
+  - name: mev-commit-snode-geth
+    namespace: default
+    chart: ../mev-commit-snode-geth
+    values:
+      - ../mev-commit-snode-geth/values.yaml
+      - valuesInline:
+          fullnameOverride: "mev-commit-snode-geth"
