@@ -1,172 +1,147 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
-  name: {{ include "snode-geth.fullname" . }}
+  name: {{ include "mev-oracle.fullname" . }}
   labels:
-    {{- include "snode-geth.labels" . | nindent 4 }}
-  {{- with .Values.commonAnnotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- include "mev-oracle.labels" . | nindent 4 }}
 spec:
-  serviceName: {{ include "snode-geth.fullname" . }}
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "snode-geth.name" . }}
+      {{- include "mev-oracle.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      labels:
-        app: {{ include "snode-geth.name" . }}
-      {{- with .Values.commonAnnotations }}
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "mev-oracle.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if or .Values.keystore.autoGenerate (not .Values.keystore.existingSecret) }}
+      initContainers:
+        - name: init-keystore
+          image: ethereum/client-go:v1.13.5
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "/scripts/init-account.sh"]
+          env:
+            - name: KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.keystore.existingSecret }}
+                  name: {{ .Values.keystore.existingSecret }}
+                  key: password
+                  {{- else }}
+                  name: {{ include "mev-oracle.keystoreSecretName" . }}
+                  key: MEV_ORACLE_KEYSTORE_PASSWORD
+                  {{- end }}
+            {{- if .Values.keystore.existingSecret }}
+            - name: KEYSTORE_SECRET
+              value: {{ .Values.keystore.existingSecret }}
+            {{- end }}
+            - name: KEYSTORE_DIR
+              value: /tmp/keystore-gen
+            - name: OUTPUT_DIR
+              value: /shared-keystore
+          volumeMounts:
+            - name: init-scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: keystore-shared
+              mountPath: /shared-keystore
+            {{- if .Values.keystore.existingSecret }}
+            - name: existing-keystore
+              mountPath: /existing-keystore
+              readOnly: true
+            {{- end }}
+      {{- end }}
+      containers:
+        - name: oracle
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Let the container use its default entrypoint
+          # command: ["/usr/local/bin/mev-oracle", "start"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.oracle.httpPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          env:
+            # PostgreSQL Password from Secret
+            - name: MEV_ORACLE_PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mev-oracle.fullname" . }}-postgresql
+                  key: MEV_ORACLE_PG_PASSWORD
+            
+            # Auth Token from Secret
+            - name: MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mev-oracle.authTokenSecretName" . }}
+                  key: MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN
+            
+            # Keystore Password from Secret
+            - name: MEV_ORACLE_KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.keystore.existingSecret }}
+                  name: {{ .Values.keystore.existingSecret }}
+                  key: password
+                  {{- else }}
+                  name: {{ include "mev-oracle.keystoreSecretName" . }}
+                  key: MEV_ORACLE_KEYSTORE_PASSWORD
+                  {{- end }}
+          envFrom:
+            # All other configuration from ConfigMap
+            - configMapRef:
+                name: {{ include "mev-oracle.fullname" . }}
+          volumeMounts:
+            - name: keystore-shared
+              mountPath: {{ .Values.keystore.mountPath }}
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: {{ include "mev-oracle.fullname" . }}-scripts
+            defaultMode: 0755
+        - name: keystore-shared
+          emptyDir: {}
+        {{- if .Values.keystore.existingSecret }}
+        - name: existing-keystore
+          secret:
+            secretName: {{ .Values.keystore.existingSecret }}
+            defaultMode: 0600
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-    spec:
-      terminationGracePeriodSeconds: 10
-      volumes:
-        - name: scripts-volume
-          configMap:
-            name: {{ include "snode-geth.fullname" . }}-scripts
-            defaultMode: 0755
-        - name: shared-volume
-          persistentVolumeClaim:
-            claimName: shared-volume
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 
-      initContainers:
-        - name: create-jwt
-          image: busybox:latest
-          command: ["/bin/sh", "-c"]
-          args: ["/scripts/create-jwt.sh"]
-          volumeMounts:
-            - name: shared-volume
-              mountPath: /shared
-            - name: scripts-volume
-              mountPath: /scripts
-          resources:
-            {{- toYaml .Values.resources.initContainers.createJwt | nindent 12 }}
-
-        - name: download-genesis
-          image: ethereum/client-go:alltools-latest
-          command: ["/bin/sh", "-c"]
-          args: ["/scripts/download-genesis.sh"]
-          volumeMounts:
-            - name: shared-volume
-              mountPath: /shared
-            - name: scripts-volume
-              mountPath: /scripts
-          resources:
-            {{- toYaml .Values.resources.initContainers.downloadGenesis | nindent 12 }}
-
-        - name: init-geth
-          image: ethereum/client-go:alltools-latest
-          command: ["/bin/sh", "-c"]
-          args: ["/scripts/init-geth.sh"]
-          volumeMounts:
-            - name: geth-volume
-              mountPath: /data/geth
-            - name: shared-volume
-              mountPath: /shared
-            - name: scripts-volume
-              mountPath: /scripts
-          resources:
-            {{- toYaml .Values.resources.initContainers.initGeth | nindent 12 }}
-
-      containers:
-        - name: geth
-          image: {{ .Values.geth.image }}
-          imagePullPolicy: {{ .Values.geth.imagePullPolicy }}
-          command: ["geth"]
-          args:
-          {{- with .Values.geth }}
-            - --verbosity={{ .verbosity }}
-            {{- if .nodiscover }}
-            - --nodiscover
-            {{- end }}
-            - --datadir={{ .datadir }}
-            {{- if .http.enabled }}
-            - --http
-            - --http.port={{ .http.port }}
-            - --http.addr={{ .http.addr }}
-            - --http.corsdomain={{ .http.corsdomain }}
-            - --http.vhosts={{ .http.vhosts }}
-            - --http.api={{ .http.api }}
-            {{- end }}
-            - --port={{ .p2p.port }}
-            - --authrpc.jwtsecret=/shared/jwt
-            - --authrpc.vhosts={{ .authrpc.vhosts }}
-            - --authrpc.port={{ .authrpc.port }}
-            - --authrpc.addr={{ .authrpc.addr }}
-            - --networkid={{ .networkid }}
-            - --syncmode={{ .syncmode }}
-            - --miner.recommit={{ .miner.recommit }}
-            {{- range .extraArgs }}
-            - {{ . }}
-            {{- end }}
-          {{- end }}
-          ports:
-            - containerPort: {{ .Values.geth.http.port }}
-            - containerPort: {{ .Values.geth.p2p.port }}
-            - containerPort: {{ .Values.geth.authrpc.port }}
-          resources:
-            {{- toYaml .Values.resources.geth | nindent 12 }}
-          volumeMounts:
-            - name: geth-volume
-              mountPath: /data/geth
-            - name: shared-volume
-              mountPath: /shared
-
-        - name: snode
-          image: {{ .Values.snode.image }}
-          imagePullPolicy: {{ .Values.snode.imagePullPolicy }}
-          command: ["./snode", "start"]
-          args:
-          {{- with .Values.snode }}
-            - --instance-id={{ .instanceId }}
-            - --eth-client-url={{ .ethClientUrl }}
-            - --jwt-secret={{ $.Values.secrets.jwtSecret }}
-            - --priority-fee-recipient={{ .priorityFeeRecipient }}
-            - --evm-build-delay={{ .evmBuildDelay }}
-            - --evm-build-delay-empty-block={{ .evmBuildDelayEmptyBlock }}
-            - --log-level={{ .logLevel }}
-            {{- range .extraArgs }}
-            - {{ . }}
-            {{- end }}
-          {{- end }}
-          ports:
-            - containerPort: 9000
-          resources:
-            {{- toYaml .Values.resources.snode | nindent 12 }}
-          volumeMounts:
-            - name: snode-volume
-              mountPath: /data/snode
-            - name: shared-volume
-              mountPath: /shared
-
-  volumeClaimTemplates:
-    - metadata:
-        name: geth-volume
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: {{ .Values.storage.geth.size }}
-        storageClassName: {{ .Values.storage.geth.storageClassName }}
-
-    - metadata:
-        name: snode-volume
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: {{ .Values.storage.snode.size }}
-        storageClassName: {{ .Values.storage.snode.storageClassName }}
-
-    - metadata:
-        name: shared-volume
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: {{ .Values.storage.shared.size }}
-        storageClassName: {{ .Values.storage.shared.storageClassName }}

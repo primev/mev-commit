@@ -64,7 +64,10 @@ geth:
   syncmode: full
   miner:
     recommit: 900ms
-  extraArgs: []
+  extraArgs:
+    - --metrics
+    - --metrics.addr=0.0.0.0
+    - --metrics.port=6060
 
 # Snode container configuration
 snode:
@@ -123,3 +126,4 @@ resources:
       limits:
         cpu: 400m
         memory: 1Gi
+
