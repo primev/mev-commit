@@ -176,7 +176,6 @@ const (
 	BidStatusFailed
 	BidStatusCancelled
 	BidStatusCommitment
-	BidStatusDone
 )
 
 type BidStatus struct {
@@ -269,8 +268,7 @@ func (b *BidderClient) Bid(
 			msg, err := pc.Recv()
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					res <- BidStatus{Type: BidStatusDone, Arg: nil}
-					break
+					return
 				}
 				if errors.Is(err, context.Canceled) {
 					res <- BidStatus{Type: BidStatusCancelled, Arg: err.Error()}

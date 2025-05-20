@@ -213,7 +213,10 @@ func TestBidderClient(t *testing.T) {
 waitLoop:
 	for {
 		select {
-		case status := <-statusC:
+		case status, more := <-statusC:
+			if !more {
+				break waitLoop
+			}
 			switch status.Type {
 			case optinbidder.BidStatusNoOfProviders:
 				if status.Arg.(int) != 2 {
@@ -232,9 +235,6 @@ waitLoop:
 					t.Fatalf("expected block number 11, got %d", status.Arg.(*bidderapiv1.Commitment).BlockNumber)
 				}
 				commitments++
-			case optinbidder.BidStatusDone:
-				break waitLoop
-			}
 		case bid := <-rpcServices.bidChan:
 			if bid.Amount != big.NewInt(1).String() {
 				t.Fatalf("expected amount 1, got %s", bid.Amount)

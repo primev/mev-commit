@@ -245,9 +245,6 @@ func NewAPI(
 					fmt.Errorf("bid failed: %s", status.Arg.(string)),
 				)
 				return
-			case bidder.BidStatusDone:
-				a.logger.Info("bid succeeded", "block", status.Arg.(int))
-				break
 			}
 		}
 
