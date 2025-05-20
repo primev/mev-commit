@@ -320,4 +320,4 @@ Run the application with the configuration file:
 
 ## Conclusion
 
-You now have a local Ethereum environment with Geth nodes, optional Redis, and a choice between full consensus or single node operation.
+You now have a local Ethereum environment with Geth nodes offering two consensus options: a Redis-based leader-follower consensus setup or a simplified single node consensus.
