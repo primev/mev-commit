@@ -7,9 +7,9 @@ toolchain go1.24.0
 require (
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/google/go-cmp v0.6.0
-	github.com/primev/mev-commit/bridge/standard v0.0.0-20250519054853-c4dccc38837f
+	github.com/primev/mev-commit/bridge/standard v0.0.1
 	github.com/primev/mev-commit/contracts-abi v0.0.1
-	github.com/primev/mev-commit/p2p v0.0.0-20250519054853-c4dccc38837f
+	github.com/primev/mev-commit/p2p v0.0.1
 	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.28.0
@@ -76,3 +76,7 @@ require (
 )
 
 replace github.com/primev/mev-commit/contracts-abi => ../contracts-abi
+
+replace github.com/primev/mev-commit/bridge/standard => ../bridge/standard
+
+replace github.com/primev/mev-commit/p2p => ../p2p
