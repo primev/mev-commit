@@ -21,10 +21,7 @@ require (
 	google.golang.org/protobuf v1.34.2
 )
 
-require (
-	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/primev/mev-commit/oracle v0.0.1
-)
+require github.com/DATA-DOG/go-sqlmock v1.5.2
 
 require (
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
@@ -39,8 +36,6 @@ replace github.com/primev/mev-commit/x => ../x
 replace github.com/primev/mev-commit/contracts-abi => ../contracts-abi
 
 replace github.com/primev/mev-commit/bridge/standard => ../bridge/standard
-
-replace github.com/primev/mev-commit/oracle => ../oracle
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.32.0-20240221180331-f05a6f4403ce.1 // indirect
@@ -80,7 +75,7 @@ require (
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/net v0.36.0 // indirect
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240814211410-ddb44dafa142 // indirect
