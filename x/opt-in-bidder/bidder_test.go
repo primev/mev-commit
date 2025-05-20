@@ -13,7 +13,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
-	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder/bidder"
+	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
