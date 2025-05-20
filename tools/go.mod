@@ -23,7 +23,7 @@ require (
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/primev/mev-commit/oracle v0.0.0-20250519054853-c4dccc38837f
+	github.com/primev/mev-commit/oracle v0.0.1
 )
 
 require (
@@ -39,6 +39,8 @@ replace github.com/primev/mev-commit/x => ../x
 replace github.com/primev/mev-commit/contracts-abi => ../contracts-abi
 
 replace github.com/primev/mev-commit/bridge/standard => ../bridge/standard
+
+replace github.com/primev/mev-commit/oracle => ../oracle
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.32.0-20240221180331-f05a6f4403ce.1 // indirect
