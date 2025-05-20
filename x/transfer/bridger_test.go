@@ -59,7 +59,7 @@ func (m *MockTransfer) setAmount(amount *big.Int) {
 	m.amount = amount
 }
 
-func (m *MockTransfer) called() int {
+func (m *MockTransfer) calls() int {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	return m.called
@@ -122,7 +122,7 @@ func TestBridger(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("Timeout waiting for transfer to be called")
 		}
-		if txfer.called() == 1 {
+		if txfer.calls() == 1 {
 			break
 		}
 	}
@@ -138,7 +138,7 @@ func TestBridger(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("Timeout waiting for transfer to be called again")
 		}
-		if txfer.called() == 2 {
+		if txfer.calls() == 2 {
 			break
 		}
 	}
