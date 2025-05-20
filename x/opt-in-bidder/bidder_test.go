@@ -235,6 +235,7 @@ waitLoop:
 					t.Fatalf("expected block number 11, got %d", status.Arg.(*bidderapiv1.Commitment).BlockNumber)
 				}
 				commitments++
+			}
 		case bid := <-rpcServices.bidChan:
 			if bid.Amount != big.NewInt(1).String() {
 				t.Fatalf("expected amount 1, got %s", bid.Amount)
