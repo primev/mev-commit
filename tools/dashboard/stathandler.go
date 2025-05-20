@@ -23,6 +23,7 @@ type statHandler struct {
 	providerStakes            *lru.Cache[string, *ProviderBalances]
 	bidderAllowances          *lru.Cache[uint64, []*BidderAllowance]
 	commitments               *lru.Cache[[32]byte, *preconf.PreconfmanagerOpenedCommitmentStored]
+	commitmentsByBlock        *lru.Cache[uint64, []*preconf.PreconfmanagerOpenedCommitmentStored]
 	totalEncryptedCommitments uint64
 	totalOpenedCommitments    uint64
 	totalRewards              uint64
@@ -103,13 +104,19 @@ func newStatHandler(evtMgr events.EventManager, blocksPerWindow uint64) (*statHa
 		return nil, err
 	}
 
+	commitmentsByBlock, err := lru.New[uint64, []*preconf.PreconfmanagerOpenedCommitmentStored](10000)
+	if err != nil {
+		return nil, err
+	}
+
 	st := &statHandler{
-		blocksPerWindow:  blocksPerWindow,
-		blockStats:       blockStats,
-		providerStakes:   providerStakes,
-		bidderAllowances: bidderAllowances,
-		commitments:      commitments,
-		evtMgr:           evtMgr,
+		blocksPerWindow:    blocksPerWindow,
+		blockStats:         blockStats,
+		providerStakes:     providerStakes,
+		bidderAllowances:   bidderAllowances,
+		commitments:        commitments,
+		commitmentsByBlock: commitmentsByBlock,
+		evtMgr:             evtMgr,
 	}
 
 	if err := st.configureDashboard(); err != nil {
@@ -177,6 +184,14 @@ func (s *statHandler) configureDashboard() error {
 				s.totalOpenedCommitments++
 				_ = s.blockStats.Add(upd.BlockNumber, existing)
 				_ = s.commitments.Add(upd.CommitmentIndex, upd)
+
+				blockCommitments, ok := s.commitmentsByBlock.Get(upd.BlockNumber)
+				if !ok {
+					blockCommitments = make([]*preconf.PreconfmanagerOpenedCommitmentStored, 0)
+				}
+				blockCommitments = append(blockCommitments, upd)
+				_ = s.commitmentsByBlock.Add(upd.BlockNumber, blockCommitments)
+
 				p, ok := s.providerStakes.Get(upd.Committer.Hex())
 				if !ok {
 					return
@@ -563,4 +578,16 @@ func (s *statHandler) getBlocks(page, limit int) []*BlockStats {
 	}
 
 	return blocks
+}
+
+func (s *statHandler) getOpenCommitmentsByBlock(blockNumber uint64) []*preconf.PreconfmanagerOpenedCommitmentStored {
+	s.statMu.RLock()
+	defer s.statMu.RUnlock()
+
+	commitments, ok := s.commitmentsByBlock.Get(blockNumber)
+	if !ok {
+		return make([]*preconf.PreconfmanagerOpenedCommitmentStored, 0)
+	}
+
+	return commitments
 }

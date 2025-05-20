@@ -42,6 +42,7 @@ type RelayClient interface {
 
 type DashboardClient interface {
 	GetBlockInfo(ctx context.Context, blockNumber uint64) (*api.DashboardResponse, error)
+	GetCommitmentsByBlock(ctx context.Context, blockNumber uint64) ([]api.CommitmentData, error)
 }
 
 type ValidatorOptInChecker interface {
@@ -65,6 +66,7 @@ type SlackNotifier interface {
 
 type Database interface {
 	SaveRelayData(ctx context.Context, record *database.RelayRecord) error
+	SaveBlockCommitments(ctx context.Context, commitments []*database.CommitmentRecord) error
 	InitSchema(ctx context.Context) error
 	Close() error
 }
@@ -400,6 +402,9 @@ func (m *DutyMonitor) processBlockData(
 	/* dashboard info (optional) */
 	blockInfo := m.fetchBlockInfoFromDashboard(ctx, blockNumber)
 
+	/* fetch and save commitments to db */
+	m.fetchAndSaveCommitments(ctx, blockNumber)
+
 	/* notifications & DB */
 	m.sendNotification(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)
 
@@ -520,6 +525,80 @@ func (m *DutyMonitor) saveRelayData(
 			record.ID,
 		)
 	}
+}
+
+// fetchAndSaveCommitments fetches block commitments from the dashboard and saves them
+func (m *DutyMonitor) fetchAndSaveCommitments(
+	ctx context.Context,
+	blockNumber uint64,
+) {
+	if m.db == nil || m.dashboard == nil {
+		return
+	}
+
+	m.logger.Info(
+		"fetching block commitments",
+		"block_number", blockNumber,
+	)
+
+	commitments, err := m.dashboard.GetCommitmentsByBlock(ctx, blockNumber)
+	if err != nil {
+		m.logger.Error(
+			"fetch commitments error",
+			"block_number", blockNumber,
+			"err", err,
+		)
+		return
+	}
+
+	if len(commitments) == 0 {
+		m.logger.Debug(
+			"no commitments found for block",
+			"block_number", blockNumber,
+		)
+		return
+	}
+
+	// Convert API commitments to database records
+	dbCommitments := make([]*database.CommitmentRecord, len(commitments))
+	for i, c := range commitments {
+		bidAmt := new(big.Int)
+		bidAmt.SetString(c.BidAmt, 10)
+
+		slashAmt := new(big.Int)
+		slashAmt.SetString(c.SlashAmt, 10)
+
+		dbCommitments[i] = &database.CommitmentRecord{
+			BlockNumber:         blockNumber,
+			CommitmentIndex:     c.CommitmentIndex[:],
+			Bidder:              c.Bidder,
+			Committer:           c.Committer,
+			BidAmount:           bidAmt,
+			SlashAmount:         slashAmt,
+			DecayStartTimestamp: c.DecayStartTimeStamp,
+			DecayEndTimestamp:   c.DecayEndTimeStamp,
+			TxnHash:             c.TxnHash,
+			RevertingTxHashes:   c.RevertingTxHashes,
+			CommitmentDigest:    c.CommitmentDigest[:],
+			DispatchTimestamp:   c.DispatchTimestamp,
+		}
+	}
+
+	if err := m.db.SaveBlockCommitments(ctx, dbCommitments); err != nil {
+		m.logger.Error(
+			"save commitments error",
+			"block_number", blockNumber,
+			"count", len(dbCommitments),
+			"err", err,
+		)
+		return
+	}
+
+	m.logger.Info(
+		"commitments saved",
+		"block_number", blockNumber,
+		"count", len(dbCommitments),
+	)
 }
 
 func (m *DutyMonitor) cleanupCaches() {
