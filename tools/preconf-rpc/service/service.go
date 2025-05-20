@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
+	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,13 +16,13 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
-	"github.com/primev/mev-commit/tools/instant-bridge/accountsync"
-	"github.com/primev/mev-commit/tools/instant-bridge/api"
-	"github.com/primev/mev-commit/tools/instant-bridge/bidder"
-	"github.com/primev/mev-commit/tools/instant-bridge/transfer"
+	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
+	"github.com/primev/mev-commit/x/accountsync"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
+	bidder "github.com/primev/mev-commit/x/opt-in-bidder"
+	"github.com/primev/mev-commit/x/transfer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -37,7 +39,6 @@ type Config struct {
 	SettlementThreshold    *big.Int
 	SettlementTopup        *big.Int
 	HTTPPort               int
-	MinServiceFee          *big.Int
 	GasTipCap              *big.Int
 	GasFeeCap              *big.Int
 }
@@ -70,16 +71,7 @@ func New(config *Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	l1ChainID, err := l1RPCClient.RawClient().ChainID(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
 	settlementClient, err := ethclient.Dial(config.SettlementRPCUrl)
-	if err != nil {
-		return nil, err
-	}
-	settlementChainID, err := settlementClient.ChainID(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -143,30 +135,25 @@ func New(config *Config) (*Service, error) {
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
 	s.closers = append(s.closers, channelCloser(bidderDone))
 
-	transferer := transfer.NewTransferer(
-		config.Logger.With("module", "transferer"),
-		settlementClient,
-		l1ChainID,
-		settlementChainID,
-		config.Signer,
-		config.GasTipCap,
-		config.GasFeeCap,
+	rpcServer := rpcserver.NewJSONRPCServer(
+		config.L1RPCUrls[0],
 	)
 
-	apiService := api.NewAPI(
-		config.Logger.With("module", "api"),
-		config.HTTPPort,
-		healthChecker,
-		bidderClient,
-		transferer,
-		config.MinServiceFee,
-		config.Signer.GetAddress(),
-		l1RPCClient.RawClient(),
-		settlementClient,
-	)
+	// TODO: Implement the handler for the RPC methods. Also use some sort of
+	// database to store the state of the service like balances of users etc.
 
-	apiService.Start()
-	s.closers = append(s.closers, apiService)
+	srv := http.Server{
+		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
+		Handler: rpcServer,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			config.Logger.Error("failed to start HTTP server", "error", err)
+		}
+	}()
+
+	s.closers = append(s.closers, &srv)
 
 	return s, nil
 }
