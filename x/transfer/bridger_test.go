@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"math/big"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ func (m *MockAccountSyncer) Subscribe(ctx context.Context, threshold *big.Int) <
 }
 
 type MockTransfer struct {
+	mtx    sync.Mutex
 	called int
 	amount *big.Int
 }
@@ -39,8 +41,28 @@ func (m *MockTransfer) Do(ctx context.Context) <-chan bridgetransfer.TransferSta
 		Error:   nil,
 	}
 	close(ch)
+	m.mtx.Lock()
 	m.called++
+	m.mtx.Unlock()
 	return ch
+}
+
+func (m *MockTransfer) getAmount() *big.Int {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	return m.amount
+}
+
+func (m *MockTransfer) setAmount(amount *big.Int) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	m.amount = amount
+}
+
+func (m *MockTransfer) called() int {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	return m.called
 }
 
 type keySigner struct {
@@ -69,7 +91,7 @@ func TestBridger(t *testing.T) {
 		l1ContractAddr common.Address,
 		settlementContractAddr common.Address,
 	) (bridgetransfer.Transfer, error) {
-		txfer.amount = amount
+		txfer.setAmount(amount)
 		return txfer, nil
 	},
 	)
@@ -100,12 +122,12 @@ func TestBridger(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("Timeout waiting for transfer to be called")
 		}
-		if txfer.called == 1 {
+		if txfer.called() == 1 {
 			break
 		}
 	}
 
-	if txfer.amount.Cmp(big.NewInt(1000000000000000000)) != 0 {
+	if txfer.getAmount().Cmp(big.NewInt(1000000000000000000)) != 0 {
 		t.Fatalf("Expected amount to be 1 ETH, got %s", txfer.amount.String())
 	}
 
@@ -116,12 +138,12 @@ func TestBridger(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("Timeout waiting for transfer to be called again")
 		}
-		if txfer.called == 2 {
+		if txfer.called() == 2 {
 			break
 		}
 	}
 
-	if txfer.amount.Cmp(big.NewInt(1000000000000000000)) != 0 {
+	if txfer.getAmount().Cmp(big.NewInt(1000000000000000000)) != 0 {
 		t.Fatalf("Expected amount to be 1 ETH, got %s", txfer.amount.String())
 	}
 
