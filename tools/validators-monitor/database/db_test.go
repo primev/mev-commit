@@ -254,9 +254,6 @@ func TestSaveBlockCommitments_PrepareError(t *testing.T) {
 	// Mock prepare statement with error
 	mock.ExpectPrepare("INSERT INTO block_commitments").WillReturnError(sql.ErrConnDone)
 
-	// Mock rollback
-	mock.ExpectRollback()
-
 	// Call the method under test
 	err := postgresDB.SaveBlockCommitments(ctx, testCommitments)
 

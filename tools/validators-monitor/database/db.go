@@ -264,11 +264,6 @@ func (p *PostgresDB) SaveBlockCommitments(
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
 
 	// Prepare statement
 	stmt, err := tx.PrepareContext(ctx, `
