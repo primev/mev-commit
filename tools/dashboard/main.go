@@ -425,6 +425,27 @@ func registerRoutes(mux *http.ServeMux, statHdlr *statHandler) {
 
 		w.WriteHeader(http.StatusOK)
 	})
+
+	mux.HandleFunc("GET /block/{block}/commitments", func(w http.ResponseWriter, r *http.Request) {
+		blockStr := r.PathValue("block")
+		block, err := strconv.Atoi(blockStr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		commitments := statHdlr.getOpenCommitmentsByBlock(uint64(block))
+		if len(commitments) == 0 {
+			http.Error(w, "no commitments found for this block", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(commitments); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	})
 }
 
 func parsePagination(r *http.Request) (int, int) {

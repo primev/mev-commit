@@ -29,6 +29,23 @@ type RelayRecord struct {
 	CreatedAt          time.Time
 }
 
+type CommitmentRecord struct {
+	ID                  int64
+	BlockNumber         uint64
+	CommitmentIndex     []byte
+	Bidder              string
+	Committer           string
+	BidAmount           *big.Int
+	SlashAmount         *big.Int
+	DecayStartTimestamp uint64
+	DecayEndTimestamp   uint64
+	TxnHash             string
+	RevertingTxHashes   string
+	CommitmentDigest    []byte
+	DispatchTimestamp   uint64
+	CreatedAt           time.Time
+}
+
 // PostgresDB handles database connections and operations
 type PostgresDB struct {
 	db     *sql.DB
@@ -110,6 +127,27 @@ func (p *PostgresDB) InitSchema(ctx context.Context) error {
 	CREATE INDEX IF NOT EXISTS idx_relay_data_slot ON relay_data(slot);
 	CREATE INDEX IF NOT EXISTS idx_relay_data_block_number ON relay_data(block_number);
 	CREATE INDEX IF NOT EXISTS idx_relay_data_validator_pubkey ON relay_data(validator_pubkey);
+
+	CREATE TABLE IF NOT EXISTS block_commitments (
+		id SERIAL PRIMARY KEY,
+		block_number BIGINT NOT NULL,
+		commitment_index BYTEA NOT NULL,
+		bidder TEXT NOT NULL,
+		committer TEXT NOT NULL,
+		bid_amount NUMERIC NOT NULL,
+		slash_amount NUMERIC NOT NULL,
+		decay_start_timestamp BIGINT NOT NULL,
+		decay_end_timestamp BIGINT NOT NULL,
+		txn_hash TEXT,
+		reverting_tx_hashes TEXT,
+		commitment_digest BYTEA NOT NULL,
+		dispatch_timestamp BIGINT,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+	);
+	
+	CREATE INDEX IF NOT EXISTS idx_block_commitments_block ON block_commitments(block_number);
+	CREATE INDEX IF NOT EXISTS idx_block_commitments_bidder ON block_commitments(bidder);
+	CREATE INDEX IF NOT EXISTS idx_block_commitments_committer ON block_commitments(committer);
 	`
 
 	_, err := p.db.ExecContext(ctx, schema)
@@ -203,7 +241,6 @@ func (p *PostgresDB) GetRelayDataByBlock(
 			return nil, fmt.Errorf("error scanning row: %w", err)
 		}
 
-		// Convert mevReward from string back to big.Int
 		r.MEVReward = new(big.Int)
 		r.MEVReward.SetString(mevRewardStr, 10)
 
@@ -215,6 +252,74 @@ func (p *PostgresDB) GetRelayDataByBlock(
 	}
 
 	return records, nil
+}
+
+// SaveBlockCommitments saves block commitments to the database
+func (p *PostgresDB) SaveBlockCommitments(
+	ctx context.Context,
+	commitments []*CommitmentRecord,
+) error {
+	// Begin transaction
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// Prepare statement
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO block_commitments (
+			block_number, commitment_index, bidder, committer, bid_amount,
+			slash_amount, decay_start_timestamp, decay_end_timestamp, txn_hash,
+			reverting_tx_hashes, commitment_digest, dispatch_timestamp
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		ON CONFLICT DO NOTHING
+		RETURNING id, created_at
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	//nolint:errcheck
+	defer stmt.Close()
+
+	for _, commitment := range commitments {
+		var id int64
+		var createdAt time.Time
+
+		err := stmt.QueryRowContext(
+			ctx,
+			commitment.BlockNumber,
+			commitment.CommitmentIndex,
+			commitment.Bidder,
+			commitment.Committer,
+			commitment.BidAmount.String(),
+			commitment.SlashAmount.String(),
+			commitment.DecayStartTimestamp,
+			commitment.DecayEndTimestamp,
+			commitment.TxnHash,
+			commitment.RevertingTxHashes,
+			commitment.CommitmentDigest,
+			commitment.DispatchTimestamp,
+		).Scan(&id, &createdAt)
+
+		if err == sql.ErrNoRows {
+			// This means it was a duplicate - continue processing
+			continue
+		}
+
+		if err != nil {
+			return fmt.Errorf("failed to save commitment: %w", err)
+		}
+
+		commitment.ID = id
+		commitment.CreatedAt = createdAt
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 // Close closes the database connection
