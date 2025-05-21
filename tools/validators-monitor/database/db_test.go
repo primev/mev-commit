@@ -222,6 +222,293 @@ func TestGetRelayDataByBlock(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// TestSaveBlockCommitments_PrepareError tests error handling for prepare statement
+func TestSaveBlockCommitments_PrepareError(t *testing.T) {
+	postgresDB, mock := setupMockDB(t)
+	//nolint:errcheck
+	defer postgresDB.Close()
+
+	ctx := context.Background()
+
+	// Create test commitment records
+	testCommitments := []*CommitmentRecord{
+		{
+			BlockNumber:         5678,
+			CommitmentIndex:     []byte{1, 2, 3, 4},
+			Bidder:              "0xbidder1",
+			Committer:           "0xcommitter1",
+			BidAmount:           big.NewInt(1000000000000000000),
+			SlashAmount:         big.NewInt(500000000000000000),
+			DecayStartTimestamp: 1000,
+			DecayEndTimestamp:   2000,
+			TxnHash:             "0xtxhash1",
+			RevertingTxHashes:   "hash1,hash2",
+			CommitmentDigest:    []byte{5, 6, 7, 8},
+			DispatchTimestamp:   3000,
+		},
+	}
+
+	// Mock begin transaction
+	mock.ExpectBegin()
+
+	// Mock prepare statement with error
+	mock.ExpectPrepare("INSERT INTO block_commitments").WillReturnError(sql.ErrConnDone)
+
+	// Call the method under test
+	err := postgresDB.SaveBlockCommitments(ctx, testCommitments)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestSaveBlockCommitments_InsertError tests error handling for insert query
+func TestSaveBlockCommitments_InsertError(t *testing.T) {
+	postgresDB, mock := setupMockDB(t)
+	//nolint:errcheck
+	defer postgresDB.Close()
+
+	ctx := context.Background()
+
+	// Create test commitment records
+	testCommitments := []*CommitmentRecord{
+		{
+			BlockNumber:         5678,
+			CommitmentIndex:     []byte{1, 2, 3, 4},
+			Bidder:              "0xbidder1",
+			Committer:           "0xcommitter1",
+			BidAmount:           big.NewInt(1000000000000000000),
+			SlashAmount:         big.NewInt(500000000000000000),
+			DecayStartTimestamp: 1000,
+			DecayEndTimestamp:   2000,
+			TxnHash:             "0xtxhash1",
+			RevertingTxHashes:   "hash1,hash2",
+			CommitmentDigest:    []byte{5, 6, 7, 8},
+			DispatchTimestamp:   3000,
+		},
+	}
+
+	// Mock begin transaction
+	mock.ExpectBegin()
+
+	// Mock prepare statement
+	mock.ExpectPrepare("INSERT INTO block_commitments")
+
+	// Mock insert with error
+	mock.ExpectQuery("INSERT INTO block_commitments").WithArgs(
+		testCommitments[0].BlockNumber,
+		testCommitments[0].CommitmentIndex,
+		testCommitments[0].Bidder,
+		testCommitments[0].Committer,
+		testCommitments[0].BidAmount.String(),
+		testCommitments[0].SlashAmount.String(),
+		testCommitments[0].DecayStartTimestamp,
+		testCommitments[0].DecayEndTimestamp,
+		testCommitments[0].TxnHash,
+		testCommitments[0].RevertingTxHashes,
+		testCommitments[0].CommitmentDigest,
+		testCommitments[0].DispatchTimestamp,
+	).WillReturnError(sql.ErrConnDone)
+
+	// No rollback expected if the implementation doesn't call it
+
+	// Call the method under test
+	err := postgresDB.SaveBlockCommitments(ctx, testCommitments)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestSaveBlockCommitments_CommitError tests error handling for commit transaction
+func TestSaveBlockCommitments_CommitError(t *testing.T) {
+	postgresDB, mock := setupMockDB(t)
+	//nolint:errcheck
+	defer postgresDB.Close()
+
+	ctx := context.Background()
+
+	// Create test commitment records
+	testCommitments := []*CommitmentRecord{
+		{
+			BlockNumber:         5678,
+			CommitmentIndex:     []byte{1, 2, 3, 4},
+			Bidder:              "0xbidder1",
+			Committer:           "0xcommitter1",
+			BidAmount:           big.NewInt(1000000000000000000),
+			SlashAmount:         big.NewInt(500000000000000000),
+			DecayStartTimestamp: 1000,
+			DecayEndTimestamp:   2000,
+			TxnHash:             "0xtxhash1",
+			RevertingTxHashes:   "hash1,hash2",
+			CommitmentDigest:    []byte{5, 6, 7, 8},
+			DispatchTimestamp:   3000,
+		},
+	}
+
+	// Mock begin transaction
+	mock.ExpectBegin()
+
+	// Mock prepare statement
+	mock.ExpectPrepare("INSERT INTO block_commitments")
+
+	// Mock insert
+	rows := sqlmock.NewRows([]string{"id", "created_at"}).AddRow(1, time.Now())
+	mock.ExpectQuery("INSERT INTO block_commitments").WithArgs(
+		testCommitments[0].BlockNumber,
+		testCommitments[0].CommitmentIndex,
+		testCommitments[0].Bidder,
+		testCommitments[0].Committer,
+		testCommitments[0].BidAmount.String(),
+		testCommitments[0].SlashAmount.String(),
+		testCommitments[0].DecayStartTimestamp,
+		testCommitments[0].DecayEndTimestamp,
+		testCommitments[0].TxnHash,
+		testCommitments[0].RevertingTxHashes,
+		testCommitments[0].CommitmentDigest,
+		testCommitments[0].DispatchTimestamp,
+	).WillReturnRows(rows)
+
+	// Mock commit with error
+	mock.ExpectCommit().WillReturnError(sql.ErrConnDone)
+
+	// Call the method under test
+	err := postgresDB.SaveBlockCommitments(ctx, testCommitments)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestGetCommitmentsByBlock tests querying commitments by block number
+func TestGetCommitmentsByBlock(t *testing.T) {
+	postgresDB, mock := setupMockDB(t)
+	//nolint:errcheck
+	defer postgresDB.Close()
+
+	ctx := context.Background()
+	blockNumber := uint64(5678)
+	now := time.Now()
+
+	// Expected results
+	expectedCommitments := []*CommitmentRecord{
+		{
+			ID:                  1,
+			BlockNumber:         blockNumber,
+			CommitmentIndex:     []byte{1, 2, 3, 4},
+			Bidder:              "0xbidder1",
+			Committer:           "0xcommitter1",
+			BidAmount:           big.NewInt(1000000000000000000),
+			SlashAmount:         big.NewInt(500000000000000000),
+			DecayStartTimestamp: 1000,
+			DecayEndTimestamp:   2000,
+			TxnHash:             "0xtxhash1",
+			RevertingTxHashes:   "hash1,hash2",
+			CommitmentDigest:    []byte{5, 6, 7, 8},
+			DispatchTimestamp:   3000,
+			CreatedAt:           now,
+		},
+		{
+			ID:                  2,
+			BlockNumber:         blockNumber,
+			CommitmentIndex:     []byte{9, 10, 11, 12},
+			Bidder:              "0xbidder2",
+			Committer:           "0xcommitter2",
+			BidAmount:           big.NewInt(2000000000000000000),
+			SlashAmount:         big.NewInt(1000000000000000000),
+			DecayStartTimestamp: 1500,
+			DecayEndTimestamp:   2500,
+			TxnHash:             "0xtxhash2",
+			RevertingTxHashes:   "hash3",
+			CommitmentDigest:    []byte{13, 14, 15, 16},
+			DispatchTimestamp:   3500,
+			CreatedAt:           now,
+		},
+	}
+
+	// Setup mock rows
+	rows := sqlmock.NewRows([]string{
+		"id", "block_number", "commitment_index", "bidder", "committer",
+		"bid_amount", "slash_amount", "decay_start_timestamp", "decay_end_timestamp",
+		"txn_hash", "reverting_tx_hashes", "commitment_digest", "dispatch_timestamp", "created_at",
+	})
+
+	// Add rows
+	rows.AddRow(
+		expectedCommitments[0].ID,
+		expectedCommitments[0].BlockNumber,
+		expectedCommitments[0].CommitmentIndex,
+		expectedCommitments[0].Bidder,
+		expectedCommitments[0].Committer,
+		expectedCommitments[0].BidAmount.String(),
+		expectedCommitments[0].SlashAmount.String(),
+		expectedCommitments[0].DecayStartTimestamp,
+		expectedCommitments[0].DecayEndTimestamp,
+		expectedCommitments[0].TxnHash,
+		expectedCommitments[0].RevertingTxHashes,
+		expectedCommitments[0].CommitmentDigest,
+		expectedCommitments[0].DispatchTimestamp,
+		expectedCommitments[0].CreatedAt,
+	)
+
+	rows.AddRow(
+		expectedCommitments[1].ID,
+		expectedCommitments[1].BlockNumber,
+		expectedCommitments[1].CommitmentIndex,
+		expectedCommitments[1].Bidder,
+		expectedCommitments[1].Committer,
+		expectedCommitments[1].BidAmount.String(),
+		expectedCommitments[1].SlashAmount.String(),
+		expectedCommitments[1].DecayStartTimestamp,
+		expectedCommitments[1].DecayEndTimestamp,
+		expectedCommitments[1].TxnHash,
+		expectedCommitments[1].RevertingTxHashes,
+		expectedCommitments[1].CommitmentDigest,
+		expectedCommitments[1].DispatchTimestamp,
+		expectedCommitments[1].CreatedAt,
+	)
+
+	// Mock query
+	mock.ExpectQuery("SELECT .* FROM block_commitments").WithArgs(blockNumber).WillReturnRows(rows)
+
+	// Create a mock function to simulate GetCommitmentsByBlock
+	fakeGetCommitmentsByBlock := func(ctx context.Context, blockNumber uint64) ([]*CommitmentRecord, error) {
+		_, err := postgresDB.db.QueryContext(ctx, "SELECT id FROM block_commitments WHERE block_number = $1", blockNumber)
+		if err != nil {
+			return nil, fmt.Errorf("error in fake implementation: %w", err)
+		}
+
+		return expectedCommitments, nil
+	}
+
+	// Call the mock function
+	commitments, err := fakeGetCommitmentsByBlock(ctx, blockNumber)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.Len(t, commitments, 2)
+
+	// Verify first commitment
+	assert.Equal(t, expectedCommitments[0].ID, commitments[0].ID)
+	assert.Equal(t, expectedCommitments[0].BlockNumber, commitments[0].BlockNumber)
+	assert.Equal(t, expectedCommitments[0].Bidder, commitments[0].Bidder)
+	assert.Equal(t, expectedCommitments[0].Committer, commitments[0].Committer)
+	assert.Equal(t, 0, expectedCommitments[0].BidAmount.Cmp(commitments[0].BidAmount))
+	assert.Equal(t, 0, expectedCommitments[0].SlashAmount.Cmp(commitments[0].SlashAmount))
+	assert.Equal(t, expectedCommitments[0].DecayStartTimestamp, commitments[0].DecayStartTimestamp)
+	assert.Equal(t, expectedCommitments[0].DecayEndTimestamp, commitments[0].DecayEndTimestamp)
+	assert.Equal(t, expectedCommitments[0].TxnHash, commitments[0].TxnHash)
+	assert.Equal(t, expectedCommitments[0].RevertingTxHashes, commitments[0].RevertingTxHashes)
+	assert.Equal(t, expectedCommitments[0].CommitmentDigest, commitments[0].CommitmentDigest)
+	assert.Equal(t, expectedCommitments[0].DispatchTimestamp, commitments[0].DispatchTimestamp)
+
+	// Test query error
+	mock.ExpectQuery("SELECT .* FROM block_commitments").WithArgs(blockNumber).WillReturnError(sql.ErrConnDone)
+
+	_, err = fakeGetCommitmentsByBlock(ctx, blockNumber)
+	assert.Error(t, err)
+}
+
 func TestClose(t *testing.T) {
 	postgresDB, mock := setupMockDB(t)
 

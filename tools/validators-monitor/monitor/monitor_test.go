@@ -64,12 +64,18 @@ func (f *fakeRelay) QueryRelayData(ctx context.Context, blockNumber uint64) map[
 }
 
 type fakeDashboard struct {
-	resp *api.DashboardResponse
-	err  error
+	resp        *api.DashboardResponse
+	err         error
+	commitments []api.CommitmentData
+	commitErr   error
 }
 
 func (f *fakeDashboard) GetBlockInfo(ctx context.Context, blockNumber uint64) (*api.DashboardResponse, error) {
 	return f.resp, f.err
+}
+
+func (f *fakeDashboard) GetCommitmentsByBlock(ctx context.Context, blockNumber uint64) ([]api.CommitmentData, error) {
+	return f.commitments, f.commitErr
 }
 
 type fakeNotifier struct {
@@ -94,8 +100,10 @@ func (f *fakeNotifier) NotifyRelayData(
 }
 
 type fakeDB struct {
-	saved []*database.RelayRecord
-	err   error
+	saved       []*database.RelayRecord
+	commitments []*database.CommitmentRecord
+	err         error
+	commitErr   error
 }
 
 func (f *fakeDB) SaveRelayData(ctx context.Context, record *database.RelayRecord) error {
@@ -103,6 +111,13 @@ func (f *fakeDB) SaveRelayData(ctx context.Context, record *database.RelayRecord
 		return f.err
 	}
 	f.saved = append(f.saved, record)
+	return nil
+}
+func (f *fakeDB) SaveBlockCommitments(ctx context.Context, commitments []*database.CommitmentRecord) error {
+	if f.commitErr != nil {
+		return f.commitErr
+	}
+	f.commitments = append(f.commitments, commitments...)
 	return nil
 }
 func (f *fakeDB) InitSchema(ctx context.Context) error { return nil }
@@ -323,4 +338,203 @@ func TestCleanupCaches_Threshold(t *testing.T) {
 	m.cleanupCaches()
 
 	assert.Less(t, len(m.processedBlocks), 600) // cleaned
+}
+
+// Test fetching and saving commitments
+func TestFetchAndSaveCommitments(t *testing.T) {
+	m := makeTestMonitor()
+
+	// Create mock commitments
+	mockCommitments := []api.CommitmentData{
+		{
+			CommitmentIndex:     [32]byte{1, 2, 3},
+			Bidder:              "0xbidder1",
+			Committer:           "0xcommitter1",
+			BidAmt:              "1000000000",
+			SlashAmt:            "500000000",
+			BlockNumber:         42,
+			DecayStartTimeStamp: 100,
+			DecayEndTimeStamp:   200,
+			TxnHash:             "0xtxhash1",
+			CommitmentDigest:    [32]byte{4, 5, 6},
+		},
+		{
+			CommitmentIndex:     [32]byte{7, 8, 9},
+			Bidder:              "0xbidder2",
+			Committer:           "0xcommitter2",
+			BidAmt:              "2000000000",
+			SlashAmt:            "1000000000",
+			BlockNumber:         42,
+			DecayStartTimeStamp: 100,
+			DecayEndTimeStamp:   200,
+			TxnHash:             "0xtxhash2",
+			CommitmentDigest:    [32]byte{10, 11, 12},
+		},
+	}
+
+	// Set up the dashboard mock
+	dashboard := &fakeDashboard{
+		commitments: mockCommitments,
+		commitErr:   nil,
+	}
+	m.dashboard = dashboard
+
+	// Set up the DB mock
+	db := &fakeDB{}
+	m.db = db
+
+	// Call the method under test
+	m.fetchAndSaveCommitments(context.Background(), 42)
+
+	// Verify results
+	assert.Len(t, db.commitments, 2)
+	assert.Equal(t, "0xbidder1", db.commitments[0].Bidder)
+	assert.Equal(t, "0xcommitter1", db.commitments[0].Committer)
+	assert.Equal(t, big.NewInt(1000000000), db.commitments[0].BidAmount)
+	assert.Equal(t, "0xbidder2", db.commitments[1].Bidder)
+}
+
+// Test handling dashboard API errors
+func TestFetchAndSaveCommitments_DashboardError(t *testing.T) {
+	m := makeTestMonitor()
+
+	// Set up the dashboard mock with error
+	dashboard := &fakeDashboard{
+		commitments: nil,
+		commitErr:   errors.New("dashboard API error"),
+	}
+	m.dashboard = dashboard
+
+	// Set up the DB mock
+	db := &fakeDB{}
+	m.db = db
+
+	// Call the method under test
+	m.fetchAndSaveCommitments(context.Background(), 42)
+
+	// Verify nothing saved
+	assert.Len(t, db.commitments, 0)
+}
+
+// Test handling empty commitments response
+func TestFetchAndSaveCommitments_EmptyResponse(t *testing.T) {
+	m := makeTestMonitor()
+
+	// Set up the dashboard mock with empty response
+	dashboard := &fakeDashboard{
+		commitments: []api.CommitmentData{},
+		commitErr:   nil,
+	}
+	m.dashboard = dashboard
+
+	// Set up the DB mock
+	db := &fakeDB{}
+	m.db = db
+
+	// Call the method under test
+	m.fetchAndSaveCommitments(context.Background(), 42)
+
+	// Verify nothing saved
+	assert.Len(t, db.commitments, 0)
+}
+
+// Test handling database errors
+func TestFetchAndSaveCommitments_DBError(t *testing.T) {
+	m := makeTestMonitor()
+
+	// Create mock commitments
+	mockCommitments := []api.CommitmentData{
+		{
+			CommitmentIndex:     [32]byte{1, 2, 3},
+			Bidder:              "0xbidder1",
+			Committer:           "0xcommitter1",
+			BidAmt:              "1000000000",
+			SlashAmt:            "500000000",
+			BlockNumber:         42,
+			DecayStartTimeStamp: 100,
+			DecayEndTimeStamp:   200,
+			TxnHash:             "0xtxhash1",
+			CommitmentDigest:    [32]byte{4, 5, 6},
+		},
+	}
+
+	// Set up the dashboard mock
+	dashboard := &fakeDashboard{
+		commitments: mockCommitments,
+		commitErr:   nil,
+	}
+	m.dashboard = dashboard
+
+	// Set up the DB mock with error
+	db := &fakeDB{
+		commitErr: errors.New("database error"),
+	}
+	m.db = db
+
+	// Call the method under test
+	m.fetchAndSaveCommitments(context.Background(), 42)
+
+	// Verify nothing saved due to error
+	assert.Len(t, db.commitments, 0)
+}
+
+// Test integration with processBlockData
+func TestProcessBlockData_FetchesCommitments(t *testing.T) {
+	m := makeTestMonitor()
+	duty := api.ProposerDutyInfo{PubKey: "pk", Slot: 3, ValidatorIndex: 42}
+
+	// Setup relay mock
+	m.relay = &fakeRelay{
+		results: map[string]api.RelayResult{
+			"r1": {Response: []api.BidTrace{{ProposerPubkey: "pk", Value: "123", NumTx: "1"}}},
+		},
+	}
+
+	// Create mock commitments
+	mockCommitments := []api.CommitmentData{
+		{
+			CommitmentIndex:     [32]byte{1, 2, 3},
+			Bidder:              "0xbidder1",
+			Committer:           "0xcommitter1",
+			BidAmt:              "1000000000",
+			SlashAmt:            "500000000",
+			BlockNumber:         77,
+			DecayStartTimeStamp: 100,
+			DecayEndTimeStamp:   200,
+			TxnHash:             "0xtxhash1",
+			CommitmentDigest:    [32]byte{4, 5, 6},
+		},
+	}
+
+	// Setup dashboard mock
+	dashboard := &fakeDashboard{
+		resp: &api.DashboardResponse{
+			Winner:                 "pk",
+			TotalOpenedCommitments: 5,
+			TotalRewards:           100,
+		},
+		err:         nil,
+		commitments: mockCommitments,
+		commitErr:   nil,
+	}
+	m.dashboard = dashboard
+
+	// Setup notification mock
+	notifier := &fakeNotifier{}
+	m.notifier = notifier
+
+	// Setup DB mock
+	fdb := &fakeDB{}
+	m.db = fdb
+
+	// Call the method under test
+	m.processBlockData(context.Background(), 77, duty)
+
+	// Verify results
+	assert.True(t, notifier.called)
+	assert.Len(t, fdb.saved, 1)
+	assert.Len(t, fdb.commitments, 1)
+	assert.Equal(t, "0xbidder1", fdb.commitments[0].Bidder)
+	assert.Equal(t, "0xcommitter1", fdb.commitments[0].Committer)
+	assert.Equal(t, big.NewInt(1000000000), fdb.commitments[0].BidAmount)
 }
