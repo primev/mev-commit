@@ -438,9 +438,12 @@ func (bb *BlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, executi
 		return fmt.Errorf("failed to finalize fork choice update: %w", err)
 	}
 
-	if err := bb.saveExecutionHead(executionPayload); err != nil {
-		return fmt.Errorf("failed to save execution head: %w", err)
+	bb.executionHead = &types.ExecutionHead{
+		BlockHeight: executionPayload.Number,
+		BlockHash:   executionPayload.BlockHash[:],
+		BlockTime:   executionPayload.Timestamp,
 	}
+
 	return nil
 }
 
@@ -527,14 +530,4 @@ func (bb *BlockBuilder) loadExecutionHead(ctx context.Context) (*types.Execution
 	}
 
 	return bb.executionHead, nil
-}
-
-func (bb *BlockBuilder) saveExecutionHead(executionPayload engine.ExecutableData) error {
-	bb.executionHead = &types.ExecutionHead{
-		BlockHeight: executionPayload.Number,
-		BlockHash:   executionPayload.BlockHash[:],
-		BlockTime:   executionPayload.Timestamp,
-	}
-
-	return nil
 }
