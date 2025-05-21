@@ -23,6 +23,22 @@ type DashboardResponse struct {
 	TotalAmount            string `json:"total_amount"`
 }
 
+// CommitmentData represents a commitment from the dashboard service
+type CommitmentData struct {
+	CommitmentIndex     [32]byte `json:"commitment_index"`
+	Bidder              string   `json:"bidder"`
+	Committer           string   `json:"committer"`
+	BidAmt              string   `json:"bid_amt"`
+	SlashAmt            string   `json:"slash_amt"`
+	BlockNumber         uint64   `json:"block_number"`
+	DecayStartTimeStamp uint64   `json:"decay_start_time_stamp"`
+	DecayEndTimeStamp   uint64   `json:"decay_end_time_stamp"`
+	TxnHash             string   `json:"txn_hash"`
+	RevertingTxHashes   string   `json:"reverting_tx_hashes"`
+	CommitmentDigest    [32]byte `json:"commitment_digest"`
+	DispatchTimestamp   uint64   `json:"dispatch_timestamp"`
+}
+
 // DashboardClient is a client for interacting with the dashboard service API
 // It uses a retryable HTTP client under the hood.
 type DashboardClient struct {
@@ -105,4 +121,67 @@ func (c *DashboardClient) GetBlockInfo(
 	)
 
 	return &dr, nil
+}
+
+// GetCommitmentsByBlock queries the dashboard service for commitments by block number
+func (c *DashboardClient) GetCommitmentsByBlock(
+	ctx context.Context,
+	blockNumber uint64,
+) ([]CommitmentData, error) {
+	// build request URL
+	u := *c.baseURL
+	u.Path = path.Join(u.Path, "block", strconv.FormatUint(blockNumber, 10), "commitments")
+	reqURL := u.String()
+
+	c.logger.Debug(
+		"Querying dashboard service for block commitments",
+		slog.Uint64("block_number", blockNumber),
+		slog.String("url", reqURL),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "MEV-Commit-Monitor/1.0")
+
+	// execute with retries
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("calling dashboard service: %w", err)
+	}
+	//nolint:errcheck
+	defer resp.Body.Close()
+
+	// check HTTP status
+	if resp.StatusCode == http.StatusNotFound {
+		// No commitments found for this block
+		c.logger.Debug(
+			"No commitments found for block",
+			slog.Uint64("block_number", blockNumber),
+		)
+		return []CommitmentData{}, nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		// limit error-body read
+		limit := io.LimitReader(resp.Body, 512)
+		msg, _ := io.ReadAll(limit)
+		return nil, fmt.Errorf("dashboard service %d: %s", resp.StatusCode, string(msg))
+	}
+
+	// decode JSON directly
+	var commitments []CommitmentData
+	if err := json.NewDecoder(resp.Body).Decode(&commitments); err != nil {
+		return nil, fmt.Errorf("decoding JSON response: %w", err)
+	}
+
+	c.logger.Debug(
+		"Dashboard service commitments received",
+		slog.Uint64("block_number", blockNumber),
+		slog.Int("commitment_count", len(commitments)),
+	)
+
+	return commitments, nil
 }
