@@ -1,0 +1,22 @@
+# --- Build Stage ---
+FROM golang:1.23-alpine AS builder
+
+RUN apk update && apk add --no-cache git ca-certificates
+
+WORKDIR /app
+
+COPY . .
+
+RUN go build -o snode ./cmd/singlenode
+
+# --- Runtime Stage ---
+FROM alpine:3.18
+
+RUN apk add --no-cache ca-certificates curl jq
+
+COPY --from=builder /app/snode /usr/local/bin/snode
+
+WORKDIR /usr/local/bin
+
+CMD ["snode"]
+

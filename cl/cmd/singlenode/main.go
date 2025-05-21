@@ -1,19 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"os/signal"
 	"slices"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/primev/mev-commit/cl/redisapp"
+	"github.com/primev/mev-commit/cl/singlenode"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
@@ -37,14 +36,14 @@ var (
 var (
 	configFlag = &cli.StringFlag{
 		Name:    "config",
-		Usage:   "Path to config file",
-		EnvVars: []string{"RAPP_CONFIG"},
+		Usage:   "Path to YAML config file",
+		EnvVars: []string{"SNODE_CONFIG"},
 	}
 
 	instanceIDFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "instance-id",
-		Usage:    "Unique instance ID for this node",
-		EnvVars:  []string{"RAPP_INSTANCE_ID"},
+		Usage:    "Unique instance ID for this node (for logging/identification)",
+		EnvVars:  []string{"SNODE_INSTANCE_ID"},
 		Required: true,
 		Action: func(_ *cli.Context, s string) error {
 			if s == "" {
@@ -56,8 +55,8 @@ var (
 
 	ethClientURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "eth-client-url",
-		Usage:   "Ethereum client URL",
-		EnvVars: []string{"RAPP_ETH_CLIENT_URL"},
+		Usage:   "Ethereum Execution client Engine API URL (e.g., http://localhost:8551)",
+		EnvVars: []string{"SNODE_ETH_CLIENT_URL"},
 		Value:   "http://localhost:8551",
 		Action: func(_ *cli.Context, s string) error {
 			if _, err := url.Parse(s); err != nil {
@@ -69,35 +68,15 @@ var (
 
 	jwtSecretFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "jwt-secret",
-		Usage:   "JWT secret for Ethereum client",
-		EnvVars: []string{"RAPP_JWT_SECRET"},
+		Usage:   "Hex-encoded JWT secret for Ethereum Execution client Engine API",
+		EnvVars: []string{"SNODE_JWT_SECRET"},
 		Value:   "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c",
 		Action: func(_ *cli.Context, s string) error {
 			if len(s) != 64 {
-				return fmt.Errorf("invalid jwt-secret: must be 64 hex characters")
+				return fmt.Errorf("invalid jwt-secret: must be 64 hex characters (32 bytes)")
 			}
 			if _, err := hex.DecodeString(s); err != nil {
-				return fmt.Errorf("invalid jwt-secret: %v", err)
-			}
-			return nil
-		},
-	})
-
-	redisAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "redis-addr",
-		Usage:   "Redis address",
-		EnvVars: []string{"RAPP_REDIS_ADDR"},
-		Value:   "127.0.0.1:7001",
-		Action: func(_ *cli.Context, s string) error {
-			host, port, err := net.SplitHostPort(s)
-			if err != nil {
-				return fmt.Errorf("invalid redis-addr: %v", err)
-			}
-			if host == "" {
-				return fmt.Errorf("invalid redis-addr: missing host")
-			}
-			if p, err := strconv.Atoi(port); err != nil || p <= 0 || p > 65535 {
-				return fmt.Errorf("invalid redis-addr: invalid port number")
+				return fmt.Errorf("invalid jwt-secret: failed to decode hex: %v", err)
 			}
 			return nil
 		},
@@ -105,7 +84,7 @@ var (
 
 	logFmtFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "log-fmt",
-		Usage:    "Log format to use, options are 'text' or 'json'",
+		Usage:    "Log format ('text' or 'json')",
 		EnvVars:  []string{"MEV_COMMIT_LOG_FMT"},
 		Value:    "text",
 		Action:   stringInCheck("log-fmt", []string{"text", "json"}),
@@ -114,7 +93,7 @@ var (
 
 	logLevelFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "log-level",
-		Usage:    "Log level to use, options are 'debug', 'info', 'warn', 'error'",
+		Usage:    "Log level ('debug', 'info', 'warn', 'error')",
 		EnvVars:  []string{"MEV_COMMIT_LOG_LEVEL"},
 		Value:    "info",
 		Action:   stringInCheck("log-level", []string{"debug", "info", "warn", "error"}),
@@ -123,9 +102,12 @@ var (
 
 	logTagsFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "log-tags",
-		Usage:   "Log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
+		Usage:   "Comma-separated <name:value> log tags (e.g., env:prod,service:snode)",
 		EnvVars: []string{"MEV_COMMIT_LOG_TAGS"},
 		Action: func(ctx *cli.Context, s string) error {
+			if s == "" {
+				return nil
+			}
 			for i, p := range strings.Split(s, ",") {
 				if len(strings.Split(p, ":")) != 2 {
 					return fmt.Errorf("invalid log-tags at index %d, expecting <name:value>", i)
@@ -138,34 +120,51 @@ var (
 
 	evmBuildDelayFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
 		Name:    "evm-build-delay",
-		Usage:   "EVM build delay",
-		EnvVars: []string{"RAPP_EVM_BUILD_DELAY"},
-		Value:   200 * time.Millisecond,
+		Usage:   "Delay after initiating payload construction before calling getPayload (e.g., '200ms')",
+		EnvVars: []string{"SNODE_EVM_BUILD_DELAY"},
+		Value:   100 * time.Millisecond,
 	})
 
 	evmBuildDelayEmptyBlockFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
 		Name:    "evm-build-delay-empty-block",
-		Usage:   "EVM build delay for empty blocks",
-		EnvVars: []string{"RAPP_EVM_BUILD_DELAY_EMPTY_BLOCK"},
+		Usage:   "Minimum time since last block to build an empty block (0 to disable skipping, e.g., '2s')",
+		EnvVars: []string{"SNODE_EVM_BUILD_DELAY_EMPTY_BLOCK"},
 		Value:   2 * time.Second,
 	})
 
 	priorityFeeReceiptFlag = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "priority-fee-receipt",
-		Usage:   "Priority fee receipt",
-		EnvVars: []string{"RAPP_PRIORITY_FEE_RECEIPT"},
+		Name:     "priority-fee-recipient",
+		Usage:    "Ethereum address for receiving priority fees (block proposer fee)",
+		EnvVars:  []string{"SNODE_PRIORITY_FEE_RECIPIENT"},
+		Required: true,
+		Action: func(c *cli.Context, s string) error {
+			if !strings.HasPrefix(s, "0x") || len(s) != 42 {
+				return fmt.Errorf("priority-fee-recipient must be a 0x-prefixed 42-character hex string")
+			}
+			// Basic validation
+			if _, err := hex.DecodeString(s[2:]); err != nil {
+				return fmt.Errorf("priority-fee-recipient is not a valid hex string: %v", err)
+			}
+			return nil
+		},
+	})
+
+	healthAddrPortFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "health-addr",
+		Usage:   "Address for health check endpoint (e.g., ':8080')",
+		EnvVars: []string{"SNODE_HEALTH_ADDR"},
+		Value:   ":8080",
+		Action: func(_ *cli.Context, s string) error {
+			if !strings.HasPrefix(s, ":") {
+				return fmt.Errorf("health-addr must start with ':'")
+			}
+			if _, err := url.Parse(s); err != nil {
+				return fmt.Errorf("invalid health-addr: %v", err)
+			}
+			return nil
+		},
 	})
 )
-
-type Config struct {
-	InstanceID               string
-	EthClientURL             string
-	JWTSecret                string
-	RedisAddr                string
-	EVMBuildDelay            time.Duration
-	EVMBuildDelayEmptyBlocks time.Duration
-	PriorityFeeReceipt       string
-}
 
 func main() {
 	flags := []cli.Flag{
@@ -173,46 +172,46 @@ func main() {
 		instanceIDFlag,
 		ethClientURLFlag,
 		jwtSecretFlag,
-		redisAddrFlag,
 		logFmtFlag,
 		logLevelFlag,
 		logTagsFlag,
 		evmBuildDelayFlag,
 		evmBuildDelayEmptyBlockFlag,
 		priorityFeeReceiptFlag,
+		healthAddrPortFlag,
 	}
 
-	// Create the app
 	app := &cli.App{
-		Name:  "rapp",
-		Usage: "Entry point for rapp",
+		Name:  "snode",
+		Usage: "Single-node MEV-commit application",
 		Commands: []*cli.Command{
 			{
 				Name:  "start",
-				Usage: "Start the rapp node",
+				Usage: "Start the snode node",
 				Flags: flags,
 				Before: altsrc.InitInputSourceWithContext(flags,
 					func(c *cli.Context) (altsrc.InputSourceContext, error) {
-						configFile := c.String("config")
+						configFile := c.String(configFlag.Name)
 						if configFile != "" {
 							return altsrc.NewYamlSourceFromFile(configFile)
 						}
 						return &altsrc.MapInputSource{}, nil
 					}),
 				Action: func(c *cli.Context) error {
-					return startApplication(c)
+					return startSingleNodeApplication(c)
 				},
 			},
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		fmt.Println(app.Writer, "Error running app", "error", err)
+		_, _ = fmt.Fprintf(app.Writer, "Error running snode: %v\n", err)
+		os.Exit(1)
 	}
 }
 
-func startApplication(c *cli.Context) error {
-	log, err := util.NewLogger(
+func startSingleNodeApplication(c *cli.Context) error {
+	logger, err := util.NewLogger(
 		c.String(logLevelFlag.Name),
 		c.String(logFmtFlag.Name),
 		c.String(logTagsFlag.Name),
@@ -221,43 +220,37 @@ func startApplication(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
+	logger = logger.With("app", "snode")
 
-	// Load configuration
-	cfg := Config{
+	cfg := singlenode.Config{
 		InstanceID:               c.String(instanceIDFlag.Name),
 		EthClientURL:             c.String(ethClientURLFlag.Name),
 		JWTSecret:                c.String(jwtSecretFlag.Name),
-		RedisAddr:                c.String(redisAddrFlag.Name),
 		EVMBuildDelay:            c.Duration(evmBuildDelayFlag.Name),
 		EVMBuildDelayEmptyBlocks: c.Duration(evmBuildDelayEmptyBlockFlag.Name),
 		PriorityFeeReceipt:       c.String(priorityFeeReceiptFlag.Name),
+		HealthAddr:               c.String(healthAddrPortFlag.Name),
 	}
 
-	log.Info("Starting application with configuration", "config", cfg)
+	logger.Info("Starting snode with configuration", "config", cfg) // Be careful logging sensitive parts of config
 
-	// Initialize the MevCommitChain
-	rappChain, err := redisapp.NewMevCommitChain(
-		cfg.InstanceID,
-		cfg.EthClientURL,
-		cfg.JWTSecret,
-		cfg.RedisAddr,
-		cfg.PriorityFeeReceipt,
-		log,
-		cfg.EVMBuildDelay,
-		cfg.EVMBuildDelayEmptyBlocks,
-	)
+	// Create a root context that can be cancelled for graceful shutdown
+	rootCtx, rootCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer rootCancel()
+
+	snode, err := singlenode.NewSingleNodeApp(rootCtx, cfg, logger)
 	if err != nil {
-		log.Error("Failed to initialize RappChain", "error", err)
+		logger.Error("Failed to initialize SingleNodeApp", "error", err)
 		return err
 	}
 
-	ctx, stop := signal.NotifyContext(c.Context, os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	snode.Start()
 
-	<-ctx.Done()
+	<-rootCtx.Done()
 
-	rappChain.Stop()
+	logger.Info("Shutdown signal received, stopping snode...")
+	snode.Stop()
 
-	log.Info("Application shutdown completed")
+	logger.Info("SRApp shutdown completed.")
 	return nil
 }
