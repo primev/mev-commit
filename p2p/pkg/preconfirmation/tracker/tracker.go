@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
@@ -41,9 +42,14 @@ type Tracker struct {
 	providerNikeSK  *fr.Element
 	receiptGetter   txmonitor.BatchReceiptGetter
 	optsGetter      OptsGetter
+	watcher         Watcher
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	unopenedCmts    chan *preconfcommstore.PreconfmanagerUnopenedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfmanagerOpenedCommitmentStored
+	statusUpdate    chan statusUpdateTask
+	processed       chan *oracle.OracleCommitmentProcessed
+	rewards         chan *bidderregistry.BidderregistryFundsRewarded
+	returns         chan *bidderregistry.BidderregistryFundsRetrieved
 	triggerOpen     chan struct{}
 	metrics         *metrics
 	logger          *slog.Logger
@@ -52,8 +58,8 @@ type Tracker struct {
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
 type CommitmentStore interface {
-	GetCommitments(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
-	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted) error
+	GetCommitments(blockNum int64) ([]*store.Commitment, error)
+	AddCommitment(commitment *store.Commitment) error
 	ClearBlockNumber(blockNum int64) error
 	DeleteCommitmentByDigest(
 		blockNum int64,
@@ -63,6 +69,12 @@ type CommitmentStore interface {
 	SetCommitmentIndexByDigest(
 		commitmentDigest,
 		commitmentIndex [32]byte,
+	) error
+	SetStatus(
+		blockNumber int64,
+		bidAmt string,
+		commitmentDigest []byte,
+		status string,
 	) error
 	ClearCommitmentIndexes(upto int64) error
 	AddWinner(winner *store.BlockWinner) error
@@ -74,6 +86,10 @@ type PreconfContract interface {
 		opts *bind.TransactOpts,
 		params preconfcommstore.IPreconfManagerOpenCommitmentParams,
 	) (*types.Transaction, error)
+}
+
+type Watcher interface {
+	WatchTx(txnHash common.Hash, nonce uint64) <-chan txmonitor.Result
 }
 
 func NewTracker(
@@ -115,68 +131,17 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	evts := []events.EventHandler{
-		events.NewEventHandler(
-			"NewL1Block",
-			func(newL1Block *blocktracker.BlocktrackerNewL1Block) {
-				select {
-				case <-egCtx.Done():
-					t.logger.Info("NewL1Block context done")
-				case t.newL1Blocks <- newL1Block:
-				}
-			},
-		),
-		events.NewEventHandler(
-			"UnopenedCommitmentStored",
-			func(ec *preconfcommstore.PreconfmanagerUnopenedCommitmentStored) {
-				select {
-				case <-egCtx.Done():
-					t.logger.Info("UnopenedCommitmentStored context done")
-				case t.unopenedCmts <- ec:
-				}
-			},
-		),
-		events.NewEventHandler(
-			"FundsRewarded",
-			func(fr *bidderregistry.BidderregistryFundsRewarded) {
-				if fr.Bidder.Cmp(t.self) == 0 || fr.Provider.Cmp(t.self) == 0 {
-					t.logger.Info("funds settled for bid",
-						"commitmentDigest", common.BytesToHash(fr.CommitmentDigest[:]),
-						"window", fr.Window,
-						"amount", fr.Amount,
-						"bidder", fr.Bidder,
-						"provider", fr.Provider,
-					)
-				}
-			},
-		),
+		events.NewChannelEventHandler(egCtx, "NewL1Block", t.newL1Blocks),
+		events.NewChannelEventHandler(egCtx, "UnopenedCommitmentStored", t.unopenedCmts),
+		events.NewChannelEventHandler(egCtx, "CommitmentProcessed", t.processed),
+		events.NewChannelEventHandler(egCtx, "FundsRewarded", t.rewards),
 	}
 
 	if t.peerType == p2p.PeerTypeBidder {
 		evts = append(
 			evts,
-			events.NewEventHandler(
-				"OpenedCommitmentStored",
-				func(cs *preconfcommstore.PreconfmanagerOpenedCommitmentStored) {
-					select {
-					case <-egCtx.Done():
-						t.logger.Info("OpenedCommitmentStored context done")
-					case t.commitments <- cs:
-					}
-				},
-			),
-			events.NewEventHandler(
-				"FundsRetrieved",
-				func(fr *bidderregistry.BidderregistryFundsRetrieved) {
-					if fr.Bidder.Cmp(t.self) == 0 {
-						t.logger.Info("funds returned for bid",
-							"commitmentDigest", common.BytesToHash(fr.CommitmentDigest[:]),
-							"amount", fr.Amount,
-							"window", fr.Window,
-							"bidder", fr.Bidder,
-						)
-					}
-				},
-			),
+			events.NewChannelEventHandler(egCtx, "OpenedCommitmentStored", t.commitments),
+			events.NewChannelEventHandler(egCtx, "FundsRetrieved", t.returns),
 		)
 	}
 
@@ -290,6 +255,34 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 	})
 
 	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				t.logger.Info("handleCommitmentProcessed context done")
+				return nil
+			case err := <-sub.Err():
+				return fmt.Errorf("event subscription error: %w", err)
+			case cp := <-t.processed:
+				// handle event
+			}
+		}
+	})
+
+	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				t.logger.Info("handleFundsRewarded context done")
+				return nil
+			case err := <-sub.Err():
+				return fmt.Errorf("event subscription error: %w", err)
+			case fr := <-t.rewards:
+				// handle event
+			}
+		}
+	})
+
+	eg.Go(func() error {
 		return t.clearCommitments(egCtx)
 	})
 
@@ -310,6 +303,19 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				}
 			}
 		})
+		eg.Go(func() error {
+			for {
+				select {
+				case <-egCtx.Done():
+					t.logger.Info("handleFundsRetrieved context done")
+					return nil
+				case err := <-sub.Err():
+					return fmt.Errorf("event subscription error: %w", err)
+				case fr := <-t.returns:
+					// handle event
+				}
+			}
+		})
 	}
 
 	go func() {
@@ -324,9 +330,28 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 
 func (t *Tracker) TrackCommitment(
 	ctx context.Context,
-	commitment *store.EncryptedPreConfirmationWithDecrypted,
+	commitment *store.Commitment,
 ) error {
-	return t.store.AddCommitment(commitment)
+	if err := t.store.AddCommitment(commitment); err != nil {
+		t.logger.Error("failed to add commitment", "error", err)
+		return err
+	}
+
+	if commitment.TxnHash != (common.Hash{}) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case t.statusUpdate <- statusUpdateTask{
+			commitment: commitment,
+			txnHash:    commitment.TxnHash,
+			nonce:      commitment.Nonce,
+			onSuccess:  "Unopened commitment stored",
+			onError:    "Failed to store unopened commitment",
+		}:
+		}
+	}
+
+	return nil
 }
 
 func (t *Tracker) Metrics() []prometheus.Collector {
@@ -357,6 +382,55 @@ func (t *Tracker) handleNewL1Block(
 	})
 }
 
+type statusUpdateTask struct {
+	commitment *store.Commitment
+	txnHash    common.Hash
+	nonce      uint64
+	onSuccess  string
+	onError    string
+}
+
+func (t *Tracker) statusUpdater(
+	ctx context.Context,
+	taskCh chan statusUpdateTask,
+) error {
+	eg, ctx := errgroup.WithContext(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			t.logger.Info("status updater context done")
+			return eg.Wait()
+		case task := <-taskCh:
+			eg.Go(func() error {
+				res := t.watcher.WatchTx(task.txnHash, task.nonce)
+				select {
+				case <-ctx.Done():
+					t.logger.Info("watcher context done")
+					return ctx.Err()
+				case r := <-res:
+					var status string
+					if r.Err != nil {
+						status = fmt.Sprintf("%s: %s", task.onError, r.Err)
+						t.logger.Error("failed to update status", "error", r.Err)
+					} else {
+						status = task.onSuccess
+						t.logger.Debug("status updated on chain", "hash", task.txnHash, "status", r.Receipt.Status)
+					}
+					if err := t.store.SetStatus(
+						task.commitment.Bid.BlockNumber,
+						task.commitment.Bid.BidAmount,
+						task.commitment.Commitment,
+						status,
+					); err != nil {
+						t.logger.Error("failed to set status", "error", err)
+					}
+				}
+				return nil
+			})
+		}
+	}
+}
+
 func (t *Tracker) openCommitments(
 	ctx context.Context,
 	newL1Block *store.BlockWinner,
@@ -369,14 +443,12 @@ func (t *Tracker) openCommitments(
 		return err
 	}
 
-	failedCommitments := make([]common.Hash, 0)
 	settled := 0
+	failed := 0
 	for _, commitment := range commitments {
 		if commitment.CommitmentIndex == nil {
 			t.logger.Debug("commitment index not found", "commitment", commitment)
-			if commitment.TxnHash != (common.Hash{}) {
-				failedCommitments = append(failedCommitments, commitment.TxnHash)
-			}
+			failed++
 			continue
 		}
 		if common.BytesToAddress(commitment.ProviderAddress).Cmp(newL1Block.Winner) != 0 {
@@ -442,6 +514,18 @@ func (t *Tracker) openCommitments(
 			"committer", common.Bytes2Hex(commitment.ProviderAddress),
 		)
 		settled++
+		select {
+		case <-ctx.Done():
+			t.logger.Info("openCommitments context done")
+			return ctx.Err()
+		case t.statusUpdate <- statusUpdateTask{
+			commitment: commitment,
+			txnHash:    txn.Hash(),
+			nonce:      txn.Nonce(),
+			onSuccess:  "Opened commitment",
+			onError:    "Failed to open commitment",
+		}:
+		}
 	}
 
 	err = t.store.ClearBlockNumber(newL1Block.BlockNumber)
@@ -455,28 +539,13 @@ func (t *Tracker) openCommitments(
 		"blockNumber", newL1Block.BlockNumber,
 		"total", len(commitments),
 		"settled", settled,
-		"failed", len(failedCommitments),
+		"failed", failed,
 		"duration", openDuration,
 	)
 
 	t.metrics.totalCommitmentsToOpen.Add(float64(len(commitments)))
 	t.metrics.totalOpenedCommitments.Add(float64(settled))
 	t.metrics.blockCommitmentProcessDuration.Set(float64(openDuration))
-
-	if len(failedCommitments) > 0 {
-		t.logger.Info("processing failed commitments", "count", len(failedCommitments))
-		receipts, err := t.receiptGetter.BatchReceipts(ctx, failedCommitments)
-		if err != nil {
-			t.logger.Warn("failed to get receipts for failed commitments", "error", err)
-			return nil
-		}
-		for i, receipt := range receipts {
-			t.logger.Debug("receipt for failed commitment",
-				"txHash", failedCommitments[i],
-				"error", receipt.Err,
-			)
-		}
-	}
 
 	return nil
 }
@@ -533,7 +602,7 @@ func (t *Tracker) handleOpenedCommitmentStored(
 }
 
 func (t *Tracker) generateZKProof(
-	commitment *store.EncryptedPreConfirmationWithDecrypted,
+	commitment *store.Commitment,
 ) ([]*big.Int, error) {
 	pubB, err := crypto.BN254PublicKeyFromBytes(commitment.Bid.NikePublicKey)
 	if err != nil {

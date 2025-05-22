@@ -52,10 +52,12 @@ type Store struct {
 	st storage.Storage
 }
 
-type EncryptedPreConfirmationWithDecrypted struct {
+type Commitment struct {
 	*preconfpb.EncryptedPreConfirmation
 	*preconfpb.PreConfirmation
 	TxnHash common.Hash
+	Nonce   uint64
+	Status  string
 }
 
 type BlockWinner struct {
@@ -74,7 +76,7 @@ func New(st storage.Storage) *Store {
 	}
 }
 
-func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted) (err error) {
+func (s *Store) AddCommitment(commitment *Commitment) (err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -119,15 +121,44 @@ func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted)
 	return writer.Put(cIndexKey, cIndexValueBuf)
 }
 
-func (s *Store) GetCommitments(blockNum int64) ([]*EncryptedPreConfirmationWithDecrypted, error) {
+func (s *Store) SetStatus(blockNumber int64, bidAmt string, cDigest []byte, status string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := commitmentKey(blockNumber, bidAmt, cDigest)
+
+	cmtBuf, err := s.st.Get(key)
+	if err != nil {
+		if errors.Is(err, storage.ErrKeyNotFound) {
+			return nil
+		}
+	}
+
+	commitment := new(Commitment)
+	err = msgpack.Unmarshal(cmtBuf, commitment)
+	if err != nil {
+		return err
+	}
+
+	commitment.Status = status
+
+	buf, err := msgpack.Marshal(commitment)
+	if err != nil {
+		return err
+	}
+
+	return s.st.Put(key, buf)
+}
+
+func (s *Store) GetCommitments(blockNum int64) ([]*Commitment, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	blockCommitmentsKey := blockCommitmentPrefix(blockNum)
-	commitments := make([]*EncryptedPreConfirmationWithDecrypted, 0)
+	commitments := make([]*Commitment, 0)
 
 	err := s.st.WalkPrefix(blockCommitmentsKey, func(key string, value []byte) bool {
-		commitment := new(EncryptedPreConfirmationWithDecrypted)
+		commitment := new(Commitment)
 		err := msgpack.Unmarshal(value, commitment)
 		if err != nil {
 			return false
@@ -188,7 +219,7 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
 		return err
 	}
 
-	cmt := new(EncryptedPreConfirmationWithDecrypted)
+	cmt := new(Commitment)
 	err = msgpack.Unmarshal(cmtBuf, cmt)
 	if err != nil {
 		return err
