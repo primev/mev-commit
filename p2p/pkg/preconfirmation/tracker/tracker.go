@@ -76,6 +76,11 @@ type CommitmentStore interface {
 		commitmentDigest []byte,
 		status string,
 	) error
+	GetCommitmentByIndex(index []byte) (*store.Commitment, error)
+	GetCommitmentByDigest(digest []byte) (*store.Commitment, error)
+	UpdateCommitment(cmt *store.Commitment) error
+	UpdateSettlement(index []byte, isSlash bool) error
+	UpdatePayment(digest []byte, payment, refund string) error
 	ClearCommitmentIndexes(upto int64) error
 	AddWinner(winner *store.BlockWinner) error
 	BlockWinners() ([]*store.BlockWinner, error)
@@ -263,7 +268,10 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			case err := <-sub.Err():
 				return fmt.Errorf("event subscription error: %w", err)
 			case cp := <-t.processed:
-				// handle event
+				if err := t.store.UpdateSettlement(cp.CommitmentIndex[:], cp.IsSlash); err != nil {
+					t.logger.Error("failed to update commitment index", "error", err)
+					continue
+				}
 			}
 		}
 	})
@@ -277,7 +285,10 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			case err := <-sub.Err():
 				return fmt.Errorf("event subscription error: %w", err)
 			case fr := <-t.rewards:
-				// handle event
+				if err := t.store.UpdatePayment(fr.CommitmentDigest[:], fr.Amount.String(), ""); err != nil {
+					t.logger.Error("failed to update payment", "error", err)
+					continue
+				}
 			}
 		}
 	})
@@ -312,7 +323,10 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				case err := <-sub.Err():
 					return fmt.Errorf("event subscription error: %w", err)
 				case fr := <-t.returns:
-					// handle event
+					if err := t.store.UpdatePayment(fr.CommitmentDigest[:], "", fr.Amount.String()); err != nil {
+						t.logger.Error("failed to update payment", "error", err)
+						continue
+					}
 				}
 			}
 		})
@@ -411,7 +425,7 @@ func (t *Tracker) statusUpdater(
 					var status string
 					if r.Err != nil {
 						status = fmt.Sprintf("%s: %s", task.onError, r.Err)
-						t.logger.Error("failed to update status", "error", r.Err)
+						t.logger.Error("txn failure on chain", "error", r.Err)
 					} else {
 						status = task.onSuccess
 						t.logger.Debug("status updated on chain", "hash", task.txnHash, "status", r.Receipt.Status)
