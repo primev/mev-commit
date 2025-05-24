@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -38,6 +40,17 @@ var (
 
 		return fmt.Sprintf("%s%d/%s/%s", commitmentNS, blockNum, paddedBidAmountHex, string(index))
 	}
+	parseBlockNumFromCommitmentKey = func(key string) (int64, error) {
+		splits := strings.Split(key, "/")
+		if len(splits) != 4 || strings.HasPrefix(commitmentNS, splits[0]) == false {
+			return 0, fmt.Errorf("invalid commitment key format: %s", key)
+		}
+		blockNum, err := strconv.Atoi(splits[1])
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse block number from key %s: %w", key, err)
+		}
+		return int64(blockNum), nil
+	}
 	blockCommitmentPrefix = func(blockNum int64) string {
 		return fmt.Sprintf("%s%d", commitmentNS, blockNum)
 	}
@@ -57,15 +70,22 @@ type Store struct {
 	st storage.Storage
 }
 
+type CommitmentStatus string
+
+const (
+	CommitmentStatusPending CommitmentStatus = "pending"
+	CommitmentStatusStored  CommitmentStatus = "stored"
+	CommitmentStatusOpened  CommitmentStatus = "opened"
+	CommitmentStatusSettled CommitmentStatus = "settled"
+	CommitmentStatusSlashed CommitmentStatus = "slashed"
+	CommitmentStatusFailed  CommitmentStatus = "failed"
+)
+
 type Commitment struct {
 	*preconfpb.EncryptedPreConfirmation
 	*preconfpb.PreConfirmation
-	TxnHash common.Hash
-	Nonce   uint64
-	Status  string
-	Opened  bool
-	Settled bool
-	IsSlash bool
+	Status  CommitmentStatus
+	Details string
 	Payment string
 	Refund  string
 }
@@ -131,7 +151,13 @@ func (s *Store) AddCommitment(commitment *Commitment) (err error) {
 	return writer.Put(cIndexKey, cIndexValueBuf)
 }
 
-func (s *Store) SetStatus(blockNumber int64, bidAmt string, cDigest []byte, status string) error {
+func (s *Store) SetStatus(
+	blockNumber int64,
+	bidAmt string,
+	cDigest []byte,
+	status CommitmentStatus,
+	details string,
+) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -151,6 +177,7 @@ func (s *Store) SetStatus(blockNumber int64, bidAmt string, cDigest []byte, stat
 	}
 
 	commitment.Status = status
+	commitment.Details = details
 
 	buf, err := msgpack.Marshal(commitment)
 	if err != nil {
@@ -182,64 +209,25 @@ func (s *Store) GetCommitments(blockNum int64) ([]*Commitment, error) {
 	return commitments, nil
 }
 
-func (s *Store) ClearBlockNumber(blockNum int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	err := s.st.DeletePrefix(blockCommitmentPrefix(blockNum))
-	if err != nil {
-		return err
-	}
-
-	return s.st.Delete(blockWinnerKey(blockNum))
-}
-
-func (s *Store) DeleteCommitmentByDigest(blockNum int64, bidAmt string, digest [32]byte) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.st.Delete(commitmentKey(blockNum, bidAmt, digest[:]))
-}
-
 func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) (retErr error) {
-	s.mu.RLock()
-	cIndexValueBuf, err := s.st.Get(cmtIndexKey(cDigest[:]))
-	s.mu.RUnlock()
-	switch {
-	case errors.Is(err, storage.ErrKeyNotFound):
-		// this would happen for most of the commitments as the node only
-		// stores the commitments it is involved in.
-		return nil
-	case err != nil:
-		return err
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	var cIndexValue CommitmentIndexValue
-	err = msgpack.Unmarshal(cIndexValueBuf, &cIndexValue)
+	cmt, err := s.GetCommitmentByDigest(cDigest[:])
 	if err != nil {
-		return err
-	}
-
-	commitmentKey := commitmentKey(cIndexValue.BlockNumber, cIndexValue.BidAmount, cDigest[:])
-	cmtBuf, err := s.st.Get(commitmentKey)
-	if err != nil {
-		return err
-	}
-
-	cmt := new(Commitment)
-	err = msgpack.Unmarshal(cmtBuf, cmt)
-	if err != nil {
+		if errors.Is(err, storage.ErrKeyNotFound) {
+			return nil
+		}
 		return err
 	}
 
 	cmt.CommitmentIndex = cIndex[:]
+	if cmt.Status == CommitmentStatusPending {
+		cmt.Status = CommitmentStatusStored
+	}
 	buf, err := msgpack.Marshal(cmt)
 	if err != nil {
 		return err
 	}
+
+	commitmentKey := commitmentKey(cmt.Bid.BlockNumber, cmt.Bid.BidAmount, cmt.Commitment)
 
 	var writer storage.Writer
 	if w, ok := s.st.(storage.Batcher); ok {
@@ -288,8 +276,11 @@ func (s *Store) UpdateSettlement(index []byte, isSlash bool) error {
 		return err
 	}
 
-	cmt.Settled = true
-	cmt.IsSlash = isSlash
+	if isSlash {
+		cmt.Status = CommitmentStatusSlashed
+	} else {
+		cmt.Status = CommitmentStatusSettled
+	}
 
 	buf, err := msgpack.Marshal(cmt)
 	if err != nil {
@@ -300,14 +291,16 @@ func (s *Store) UpdateSettlement(index []byte, isSlash bool) error {
 }
 
 func (s *Store) UpdatePayment(digest []byte, payment, refund string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cmt := new(Commitment)
-	err = msgpack.Unmarshal(cmtBuf, cmt)
+	cmt, err := s.GetCommitmentByDigest(digest)
 	if err != nil {
+		if errors.Is(err, storage.ErrKeyNotFound) {
+			return nil
+		}
 		return err
 	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	cmt.Payment = payment
 	cmt.Refund = refund
@@ -317,20 +310,28 @@ func (s *Store) UpdatePayment(digest []byte, payment, refund string) error {
 		return err
 	}
 
+	commitmentKey := commitmentKey(cmt.Bid.BlockNumber, cmt.Bid.BidAmount, cmt.Commitment)
+
 	return s.st.Put(string(commitmentKey), buf)
 }
 
-func (s *Store) GetCommitmentByIndex(index []byte) (*Commitment, error) {
+func (s *Store) GetCommitmentByDigest(digest []byte) (*Commitment, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	key := indexToDigestKey(index)
-	commitmentKey, err := s.st.Get(key)
+	cIndexValueBuf, err := s.st.Get(cmtIndexKey(digest))
 	if err != nil {
 		return nil, err
 	}
 
-	cmtBuf, err := s.st.Get(string(commitmentKey))
+	var cIndexValue CommitmentIndexValue
+	err = msgpack.Unmarshal(cIndexValueBuf, &cIndexValue)
+	if err != nil {
+		return nil, err
+	}
+
+	commitmentKey := commitmentKey(cIndexValue.BlockNumber, cIndexValue.BidAmount, digest)
+	cmtBuf, err := s.st.Get(commitmentKey)
 	if err != nil {
 		return nil, err
 	}
@@ -344,47 +345,66 @@ func (s *Store) GetCommitmentByIndex(index []byte) (*Commitment, error) {
 	return cmt, nil
 }
 
-func (s *Store) UpdateCommitment(cmt *Commitment) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	key := commitmentKey(cmt.Bid.BlockNumber, cmt.Bid.BidAmount, cmt.Commitment)
-
-	buf, err := msgpack.Marshal(cmt)
-	if err != nil {
-		return err
-	}
-
-	return s.st.Put(key, buf)
-}
-
 func (s *Store) ClearCommitmentIndexes(uptoBlock int64) error {
 	keys := make([]string, 0)
 	s.mu.RLock()
-	err := s.st.WalkPrefix(cmtIndexNS, func(key string, val []byte) bool {
-		var cIndexValue CommitmentIndexValue
-		err := msgpack.Unmarshal(val, &cIndexValue)
+	err := s.st.WalkPrefix(commitmentNS, func(key string, val []byte) bool {
+		blockNum, err := parseBlockNumFromCommitmentKey(key)
 		if err != nil {
-			// If unmarshaling fails, we might have corrupted data; skip this key
+			// If parsing fails, we might have corrupted data; discard this key
+			keys = append(keys, key)
 			return false
 		}
-		if cIndexValue.BlockNumber < uptoBlock {
+		if blockNum < uptoBlock {
+			var commitment Commitment
+			err := msgpack.Unmarshal(val, &commitment)
+			if err != nil {
+				// If unmarshaling fails, we might have corrupted data; skip this key
+				return false
+			}
 			keys = append(keys, key)
+			keys = append(keys, cmtIndexKey(commitment.Commitment))
+			if commitment.CommitmentIndex != nil {
+				keys = append(keys, indexToDigestKey(commitment.CommitmentIndex))
+			}
+			return false
+		} else {
+			// DB is expected to be sorted by block number, so we can stop here
+			// since all subsequent keys will also be greater than or equal to `uptoBlock`.
+			return true
 		}
-		return false
 	})
 	s.mu.RUnlock()
 	if err != nil {
 		return err
 	}
 
+	var (
+		writer   storage.Writer
+		writeErr error
+	)
+	if w, ok := s.st.(storage.Batcher); ok {
+		batch := w.Batch()
+		writer = batch
+		defer func() {
+			switch {
+			case writeErr != nil:
+				batch.Reset()
+			case err == nil:
+				writeErr = batch.Write()
+			}
+		}()
+	} else {
+		writer = s.st
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for _, key := range keys {
-		err := s.st.Delete(key)
-		if err != nil {
-			return err
+		writeErr = writer.Delete(key)
+		if writeErr != nil {
+			return writeErr
 		}
 	}
 
@@ -421,4 +441,11 @@ func (s *Store) BlockWinners() ([]*BlockWinner, error) {
 		return nil, err
 	}
 	return winners, nil
+}
+
+func (s *Store) ClearBlockNumber(blockNum int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.st.Delete(blockWinnerKey(blockNum))
 }
