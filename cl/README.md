@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This project sets up a local Ethereum environment with two Geth nodes, a Redis instance, and a consensus client. The setup is useful for testing and development purposes, allowing you to simulate a blockchain network locally.
+This project sets up a local Ethereum environment with two Geth nodes, a Redis instance, and both a consensus client and a single node application (snode). The setup is useful for testing and development purposes, allowing you to simulate a blockchain network locally with different consensus options.
 
 ## Prerequisites
 
@@ -129,7 +129,7 @@ We will use Docker Compose to run Redis.
 
 ### Docker Compose Configuration
 
-Redis is configured in `redis-cluster` folder withing `docker-compose.yml`
+Redis is configured in `redis-cluster` folder within `docker-compose.yml`
 
 ### Start Redis
 
@@ -228,10 +228,96 @@ Run the client with the configuration file:
 ./consensus-client start --config config.yaml
 ```
 
+## Running the Single Node Application (snode)
+
+The single node application provides a simplified MEV-commit setup that doesn't require Redis.
+
+### Build the Single Node Application
+
+```bash
+go mod tidy
+go build -o snode main.go
+```
+
+### Configuration
+
+The snode application can be configured via command-line flags, environment variables, or a YAML configuration file.
+
+#### Command-Line Flags
+
+- `--instance-id`: **(Required)** Unique instance ID for this node.
+- `--eth-client-url`: Ethereum Execution client Engine API URL (default: `http://localhost:8551`).
+- `--jwt-secret`: Hex-encoded JWT secret for Ethereum Execution client Engine API (default: `13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c`).
+- `--priority-fee-recipient`: **(Required)** Ethereum address for receiving priority fees (block proposer fee).
+- `--evm-build-delay`: Delay after initiating payload construction before calling getPayload (default: `100ms`).
+- `--evm-build-delay-empty-block`: Minimum time since last block to build an empty block (default: `2s`, 0 to disable skipping).
+- `--health-addr`: Address for health check endpoint (default: `:8080`).
+- `--config`: Path to a YAML configuration file.
+- `--log-fmt`: Log format ('text' or 'json') (default: `text`).
+- `--log-level`: Log level ('debug', 'info', 'warn', 'error') (default: `info`).
+- `--log-tags`: Comma-separated <name:value> log tags (e.g., `env:prod,service:snode`).
+
+#### Environment Variables
+
+- `SNODE_INSTANCE_ID`
+- `SNODE_ETH_CLIENT_URL`
+- `SNODE_JWT_SECRET`
+- `SNODE_PRIORITY_FEE_RECIPIENT`
+- `SNODE_EVM_BUILD_DELAY`
+- `SNODE_EVM_BUILD_DELAY_EMPTY_BLOCK`
+- `SNODE_HEALTH_ADDR`
+- `SNODE_CONFIG`
+- `MEV_COMMIT_LOG_FMT`
+- `MEV_COMMIT_LOG_LEVEL`
+- `MEV_COMMIT_LOG_TAGS`
+
+### Run the Single Node Application
+
+Run the application using command-line flags:
+
+```bash
+./snode start \
+  --instance-id "snode1" \
+  --eth-client-url "http://localhost:8551" \
+  --jwt-secret "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c" \
+  --priority-fee-recipient "0xYourEthereumAddress" \
+  --evm-build-delay "100ms" \
+  --evm-build-delay-empty-block "2s" \
+  --log-level "info"
+```
+
+**Note**:
+
+- Replace `"0xYourEthereumAddress"` with a valid Ethereum address for receiving priority fees.
+- The JWT secret should be a 64-character hex string (32 bytes).
+
+### Using a Configuration File for snode
+
+Create a `snode-config.yaml` file:
+
+```yaml
+instance-id: "snode1"
+eth-client-url: "http://localhost:8551"
+jwt-secret: "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c"
+priority-fee-recipient: "0xYourEthereumAddress"
+evm-build-delay: "100ms"
+evm-build-delay-empty-block: "2s"
+log-fmt: "text"
+log-level: "info"
+log-tags: "env:dev,service:snode"
+```
+
+Run the application with the configuration file:
+
+```bash
+./snode start --config snode-config.yaml
+```
+
 ## Additional Notes
 
-- **Multiple Instances**: You can run multiple instances of the consensus client by changing the `--instance-id` and `--eth-client-url` parameters.
+- **Graceful Shutdown**: Both applications support graceful shutdown via SIGTERM or Ctrl+C.
+- **Health Endpoint**: The snode application provides a health check endpoint at `/health` that returns a 200 OK response when the application is running normally, or a 503 Service Unavailable if there are connection issues with the Ethereum client.
 
 ## Conclusion
 
-You now have a local Ethereum environment with Geth nodes, Redis, and a consensus client.
+You now have a local Ethereum environment with Geth nodes offering two consensus options: a Redis-based leader-follower consensus setup or a simplified single node consensus.
