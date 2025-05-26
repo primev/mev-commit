@@ -19,6 +19,7 @@ import (
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
+	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
@@ -41,6 +42,7 @@ type Tracker struct {
 	providerNikeSK  *fr.Element
 	optsGetter      OptsGetter
 	watcher         Watcher
+	notifier        notifications.Notifier
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	unopenedCmts    chan *preconfcommstore.PreconfmanagerUnopenedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfmanagerOpenedCommitmentStored
@@ -48,6 +50,7 @@ type Tracker struct {
 	rewards         chan *bidderregistry.BidderregistryFundsRewarded
 	returns         chan *bidderregistry.BidderregistryFundsRetrieved
 	statusUpdate    chan statusUpdateTask
+	blockOpened     chan int64
 	triggerOpen     chan struct{}
 	metrics         *metrics
 	logger          *slog.Logger
@@ -96,6 +99,8 @@ func NewTracker(
 	evtMgr events.EventManager,
 	store CommitmentStore,
 	preconfContract PreconfContract,
+	watcher Watcher,
+	notifier notifications.Notifier,
 	providerNikePublicKey *bn254.G1Affine,
 	providerNikeSecretKey *fr.Element,
 	optsGetter OptsGetter,
@@ -109,6 +114,8 @@ func NewTracker(
 		store:           store,
 		preconfContract: preconfContract,
 		optsGetter:      optsGetter,
+		watcher:         watcher,
+		notifier:        notifier,
 		providerNikePK:  providerNikePublicKey,
 		providerNikeSK:  providerNikeSecretKey,
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
@@ -118,6 +125,7 @@ func NewTracker(
 		rewards:         make(chan *bidderregistry.BidderregistryFundsRewarded),
 		returns:         make(chan *bidderregistry.BidderregistryFundsRetrieved),
 		statusUpdate:    make(chan statusUpdateTask),
+		blockOpened:     make(chan int64),
 		triggerOpen:     make(chan struct{}),
 		metrics:         newMetrics(),
 		logger:          logger,
@@ -233,6 +241,8 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 					continue
 				}
 			}
+
+			t.blockOpened <- winners[len(winners)-1].BlockNumber
 		}
 	})
 
@@ -288,7 +298,11 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 	})
 
 	eg.Go(func() error {
-		return t.clearCommitments(egCtx)
+		return t.clearCommitments(egCtx, t.blockOpened)
+	})
+
+	eg.Go(func() error {
+		return t.statusUpdater(egCtx, t.statusUpdate)
 	})
 
 	if t.peerType == p2p.PeerTypeBidder {
@@ -437,6 +451,29 @@ func (t *Tracker) statusUpdater(
 					); err != nil {
 						t.logger.Error("failed to set status", "error", err)
 					}
+					if status == store.CommitmentStatusFailed {
+						notificationPayload := map[string]any{
+							"commitmentDigest": hex.EncodeToString(task.commitment.Commitment[:]),
+							"txnHash":          task.commitment.Bid.TxHash,
+							"error":            r.Err.Error(),
+						}
+						switch task.onSuccess {
+						case store.CommitmentStatusStored:
+							t.notifier.Notify(
+								notifications.NewNotification(
+									notifications.TopicCommitmentStoreFailed,
+									notificationPayload,
+								),
+							)
+						case store.CommitmentStatusOpened:
+							t.notifier.Notify(
+								notifications.NewNotification(
+									notifications.TopicCommitmentOpenFailed,
+									notificationPayload,
+								),
+							)
+						}
+					}
 				}
 				return nil
 			})
@@ -574,47 +611,35 @@ func (t *Tracker) openCommitments(
 	return nil
 }
 
-func (t *Tracker) clearCommitments(ctx context.Context) error {
-	ticker := time.NewTicker(10 * time.Minute)
-	defer ticker.Stop()
-
+func (t *Tracker) clearCommitments(ctx context.Context, blockOpened <-chan int64) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
-		}
-		winners, err := t.store.BlockWinners()
-		if err != nil {
-			return err
-		}
+		case blockNumber := <-blockOpened:
+			var clearBlockNumber int64
+			if blockNumber > blockHistoryLimit {
+				clearBlockNumber = blockNumber - blockHistoryLimit
+			}
 
-		if len(winners) == 0 {
-			continue
-		}
+			if clearBlockNumber == 0 {
+				t.logger.Debug("no block numbers to clear")
+				continue
+			}
 
-		var clearBlockNumber int64 = 0
-		if winners[0].BlockNumber > blockHistoryLimit {
-			clearBlockNumber = winners[0].BlockNumber - blockHistoryLimit
-		}
+			// clear commitment indexes for all the blocks before the oldest winner
+			err := t.store.ClearCommitmentIndexes(clearBlockNumber)
+			if err != nil {
+				t.logger.Error(
+					"failed to clear commitment indexes",
+					"block", blockNumber,
+					"error", err,
+				)
+				continue
+			}
 
-		if clearBlockNumber == 0 {
-			t.logger.Debug("no block numbers to clear")
-			continue
+			t.logger.Info("commitment indexes cleared", "blockNumber", clearBlockNumber)
 		}
-
-		// clear commitment indexes for all the blocks before the oldest winner
-		err = t.store.ClearCommitmentIndexes(clearBlockNumber)
-		if err != nil {
-			t.logger.Error(
-				"failed to clear commitment indexes",
-				"block", winners[0].BlockNumber,
-				"error", err,
-			)
-			continue
-		}
-
-		t.logger.Info("commitment indexes cleared", "blockNumber", winners[0].BlockNumber)
 	}
 }
 

@@ -491,3 +491,48 @@ func TestStore_UpdatePayment(t *testing.T) {
 		t.Fatalf("expected refund '20', got '%s'", foundCommitment.Refund)
 	}
 }
+
+func TestStore_GetAllCommitments(t *testing.T) {
+	st := store.New(inmem.New())
+
+	commitment1 := &store.Commitment{
+		EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+			Commitment: []byte("commitment1"),
+		},
+		PreConfirmation: &preconfpb.PreConfirmation{
+			Bid: &preconfpb.Bid{
+				BlockNumber: 1,
+				BidAmount:   "300",
+			},
+		},
+	}
+	commitment2 := &store.Commitment{
+		EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+			Commitment: []byte("commitment2"),
+		},
+		PreConfirmation: &preconfpb.PreConfirmation{
+			Bid: &preconfpb.Bid{
+				BlockNumber: 2,
+				BidAmount:   "200",
+			},
+		},
+	}
+
+	err := st.AddCommitment(commitment1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = st.AddCommitment(commitment2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	allCommitments, err := st.GetAllCommitments()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(allCommitments) != 2 {
+		t.Fatalf("expected 2 commitments, got %d", len(allCommitments))
+	}
+}

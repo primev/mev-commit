@@ -209,6 +209,26 @@ func (s *Store) GetCommitments(blockNum int64) ([]*Commitment, error) {
 	return commitments, nil
 }
 
+func (s *Store) GetAllCommitments() ([]*Commitment, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	commitments := make([]*Commitment, 0)
+	err := s.st.WalkPrefix(commitmentNS, func(key string, value []byte) bool {
+		commitment := new(Commitment)
+		err := msgpack.Unmarshal(value, commitment)
+		if err != nil {
+			return false
+		}
+		commitments = append(commitments, commitment)
+		return false
+	})
+	if err != nil {
+		return nil, err
+	}
+	return commitments, nil
+}
+
 func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) (retErr error) {
 	cmt, err := s.GetCommitmentByDigest(cDigest[:])
 	if err != nil {
