@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/primev/mev-commit/cl/mocks"
-	"github.com/primev/mev-commit/cl/redisapp/types"
+	"github.com/primev/mev-commit/cl/types"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -42,7 +42,7 @@ func TestNewLeaderFollowerManager(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	stateManager := mocks.NewMockStateManager(ctrl)
+	stateManager := mocks.NewMockCoordinator(ctrl)
 	blockBuilder := mocks.NewMockBlockBuilder(ctrl)
 
 	// Execute
@@ -62,7 +62,7 @@ func TestHaveMessagesToProcess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 
 	// Prepare mock state manager to return some messages
 	messages := []redis.XStream{
@@ -104,7 +104,7 @@ func TestHaveMessagesToProcess_NoMessages(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 
 	// Set up expectations
 	gomock.InOrder(
@@ -130,7 +130,7 @@ func TestLeaderWork_StepBuildBlock(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 	mockBB := mocks.NewMockBlockBuilder(ctrl)
 
 	lfm := &LeaderFollowerManager{
@@ -176,7 +176,7 @@ func TestFollowerWork_NoMessages(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 	mockBB := mocks.NewMockBlockBuilder(ctrl)
 
 	lfm := &LeaderFollowerManager{
@@ -212,7 +212,7 @@ func TestFollowerWork_WithMessages(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 	mockBB := mocks.NewMockBlockBuilder(ctrl)
 
 	lfm := &LeaderFollowerManager{
@@ -222,7 +222,6 @@ func TestFollowerWork_WithMessages(t *testing.T) {
 		instanceID:   "test-instance",
 	}
 
-	// Prepare messages to return
 	messages := []redis.XStream{
 		{
 			Stream: "test-stream",
@@ -239,26 +238,30 @@ func TestFollowerWork_WithMessages(t *testing.T) {
 		},
 	}
 
-	// Set up expectations
 	gomock.InOrder(
 		mockSM.EXPECT().ReadMessagesFromStream(ctx, types.RedisMsgTypePending).Return([]redis.XStream{}, nil),
 		mockSM.EXPECT().ReadMessagesFromStream(ctx, types.RedisMsgTypeNew).Return(messages, nil),
 		mockBB.EXPECT().FinalizeBlock(ctx, "test-payload-id", "test-execution-payload", "1-0").Return(nil),
+		mockSM.EXPECT().AckMessage(ctx, "1-0").Return(nil).Do(func(ctx context.Context, msgID string) {
+			cancel()
+		}),
 	)
 
 	mockSM.EXPECT().ReadMessagesFromStream(ctx, gomock.Any()).AnyTimes().Return([]redis.XStream{}, nil)
 
-	// Run followerWork in a separate goroutine to allow context cancellation
 	done := make(chan error)
 	go func() {
 		err := lfm.followerWork(ctx)
 		done <- err
 	}()
 
-	// Wait for the function to return
-	err := <-done
-	if err != nil {
-		t.Errorf("followerWork returned error: %v", err)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("followerWork returned error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Errorf("followerWork timed out")
 	}
 }
 

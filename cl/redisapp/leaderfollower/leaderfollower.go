@@ -9,17 +9,17 @@ import (
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
-	"github.com/primev/mev-commit/cl/redisapp/state"
-	"github.com/primev/mev-commit/cl/redisapp/types"
-	"github.com/primev/mev-commit/cl/redisapp/util"
+	"github.com/primev/mev-commit/cl/blockbuilder"
+	"github.com/primev/mev-commit/cl/types"
+	"github.com/primev/mev-commit/cl/util"
 	"github.com/redis/go-redis/v9"
 )
 
 type LeaderFollowerManager struct {
 	isLeader              atomic.Bool
 	isFollowerInitialized atomic.Bool
-	stateManager          state.StateManager
-	blockBuilder          BlockBuilder
+	stateManager          stateManager
+	blockBuilder          blockBuilder
 	leaderProc            leader.Leader
 	logger                *slog.Logger
 	instanceID            string
@@ -30,7 +30,7 @@ type LeaderFollowerManager struct {
 	erroredCh  <-chan error
 }
 
-type BlockBuilder interface {
+type blockBuilder interface {
 	// Retrieves the latest payload and ensures it meets necessary conditions
 	GetPayload(ctx context.Context) error
 
@@ -44,12 +44,23 @@ type BlockBuilder interface {
 	SetLastCallTimeToZero()
 }
 
+// todo: work with block state through block builder, not directly
+type stateManager interface {
+	// state related methods
+	GetBlockBuildState(ctx context.Context) types.BlockBuildState
+	ResetBlockState(ctx context.Context) error
+
+	// stream related methods
+	AckMessage(ctx context.Context, messageID string) error
+	ReadMessagesFromStream(ctx context.Context, msgType types.RedisMsgType) ([]redis.XStream, error)
+}
+
 func NewLeaderFollowerManager(
 	instanceID string,
 	logger *slog.Logger,
 	redisClient *redis.Client,
-	stateManager state.StateManager,
-	blockBuilder BlockBuilder,
+	stateManager stateManager,
+	blockBuilder blockBuilder,
 ) (*LeaderFollowerManager, error) {
 	// Initialize leader election
 	leaderOpts := leader.Opts{
@@ -83,7 +94,10 @@ func (lfm *LeaderFollowerManager) handleLeaderElection(ctx context.Context) {
 	defer func() {
 		err := lfm.leaderProc.Stop()
 		if err != nil {
-			lfm.logger.Error("Error stopping leader election", "error", err)
+			lfm.logger.Error(
+				"Error stopping leader election",
+				"error", err,
+			)
 		}
 	}()
 
@@ -99,7 +113,10 @@ func (lfm *LeaderFollowerManager) handleLeaderElection(ctx context.Context) {
 			lfm.isLeader.Store(false)
 			lfm.logger.Info("Node demoted from leader")
 		case err := <-lfm.erroredCh:
-			lfm.logger.Error("Leader election error", "error", err)
+			lfm.logger.Error(
+				"Leader election error",
+				"error", err,
+			)
 		}
 	}
 }
@@ -131,18 +148,27 @@ func (lfm *LeaderFollowerManager) run(ctx context.Context) {
 				lfm.isFollowerInitialized.Store(false)
 				lfm.logger.Info("Leader: Starting leader work")
 				if err := lfm.leaderWork(ctx); err != nil {
-					lfm.logger.Error("Error in leader work", "error", err)
+					lfm.logger.Error(
+						"Error in leader work",
+						"error", err,
+					)
 				}
 			} else {
 				if !lfm.isFollowerInitialized.Load() {
 					if err := lfm.blockBuilder.ProcessLastPayload(ctx); err != nil {
-						lfm.logger.Error("Error processing last payload", "error", err)
+						lfm.logger.Error(
+							"Error processing last payload",
+							"error", err,
+						)
 						continue
 					}
 					lfm.isFollowerInitialized.Store(true)
 				}
 				if err := lfm.followerWork(ctx); err != nil {
-					lfm.logger.Error("Error in follower work", "error", err)
+					lfm.logger.Error(
+						"Error in follower work",
+						"error", err,
+					)
 				}
 
 				// will do nothing, in case election already started
@@ -164,7 +190,10 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 		lfm.logger.Info("Leader: State is not synchronized, waiting for follower to catch up")
 		err := lfm.leaderProc.Stop()
 		if err != nil {
-			lfm.logger.Error("Leader: Failed to stop leader election", "error", err)
+			lfm.logger.Error(
+				"Leader: Failed to stop leader election",
+				"error", err,
+			)
 			return err
 		}
 		return nil
@@ -183,9 +212,19 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 				case types.StepBuildBlock:
 					lfm.logger.Info("Leader: StepBuildBlock")
 					if err := lfm.blockBuilder.GetPayload(ctx); err != nil {
-						lfm.logger.Error("Leader: GetPayload failed", "error", err)
+						if errors.Is(err, blockbuilder.ErrEmptyBlock) {
+							lfm.logger.Info("Leader: Empty block, skipping")
+							return nil
+						}
+						lfm.logger.Error(
+							"Leader: GetPayload failed",
+							"error", err,
+						)
 						if resetErr := lfm.stateManager.ResetBlockState(ctx); resetErr != nil {
-							lfm.logger.Error("Leader: Failed to reset block state", "error", resetErr)
+							lfm.logger.Error(
+								"Leader: Failed to reset block state",
+								"error", resetErr,
+							)
 						}
 
 						return err
@@ -193,17 +232,26 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 				case types.StepFinalizeBlock:
 					lfm.logger.Info("Leader: StepFinalizeBlock")
 					if err := lfm.blockBuilder.FinalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, ""); err != nil {
-						lfm.logger.Error("Leader: FinalizeBlock failed", "error", err)
+						lfm.logger.Error(
+							"Leader: FinalizeBlock failed",
+							"error", err,
+						)
 						return err
 					}
 					if err := lfm.stateManager.ResetBlockState(ctx); err != nil {
-						lfm.logger.Error("Leader: Failed to reset block state", "error", err)
+						lfm.logger.Error(
+							"Leader: Failed to reset block state",
+							"error", err,
+						)
 						return err
 					}
 				default:
 					lfm.logger.Warn("Leader: Unknown current step", "current_step", currentStep.String())
 					if err := lfm.stateManager.ResetBlockState(ctx); err != nil {
-						lfm.logger.Error("Leader: Failed to reset block state", "error", err)
+						lfm.logger.Error(
+							"Leader: Failed to reset block state",
+							"error", err,
+						)
 						return err
 					}
 				}
@@ -217,13 +265,19 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 					// todo: refactor to generate timestamp outside blockbuilder
 					lfm.blockBuilder.SetLastCallTimeToZero()
 					if stopElecErr != nil {
-						lfm.logger.Error("Leader: Failed to stop leader election", "error", stopElecErr)
+						lfm.logger.Error(
+							"Leader: Failed to stop leader election",
+							"error", stopElecErr,
+						)
 						return stopElecErr
 					}
 					return err
 				}
 				// otherwise there is a problem with redis/payload, so we just log it and continue
-				lfm.logger.Error("Leader: Error in leader work", "error", err)
+				lfm.logger.Error(
+					"Leader: Error in leader work",
+					"error", err,
+				)
 			}
 		}
 	}
@@ -240,7 +294,10 @@ func (lfm *LeaderFollowerManager) followerWork(ctx context.Context) error {
 
 			messages, err := lfm.readMessages(ctx)
 			if err != nil {
-				lfm.logger.Error("Follower: Error reading messages", "error", err)
+				lfm.logger.Error(
+					"Follower: Error reading messages",
+					"error", err,
+				)
 				continue
 			}
 
@@ -260,30 +317,61 @@ func (lfm *LeaderFollowerManager) followerWork(ctx context.Context) error {
 						lfm.logger.Error("Follower: Invalid message format")
 						// Acknowledge the message to avoid reprocessing
 						if ackErr := lfm.stateManager.AckMessage(ctx, field.ID); ackErr != nil {
-							lfm.logger.Error("Follower: Failed to acknowledge message", "error", ackErr)
+							lfm.logger.Error(
+								"Follower: Failed to acknowledge message",
+								"error", ackErr,
+							)
 						}
 						continue
 					}
 
 					// Ignore messages sent by self
 					if senderInstanceID == lfm.instanceID {
-						lfm.logger.Info("Follower: Ignoring own message", "PayloadID", payloadIDStr)
+						lfm.logger.Info(
+							"Follower: Ignoring own message",
+							"PayloadID", payloadIDStr,
+						)
 						if ackErr := lfm.stateManager.AckMessage(ctx, field.ID); ackErr != nil {
-							lfm.logger.Error("Follower: Failed to acknowledge own message", "error", ackErr)
+							lfm.logger.Error(
+								"Follower: Failed to acknowledge own message",
+								"error", ackErr,
+							)
 						}
 						continue
 					}
 
-					lfm.logger.Info("Follower: Processing message", "PayloadID", payloadIDStr)
+					lfm.logger.Info(
+						"Follower: Processing message",
+						"PayloadID", payloadIDStr,
+					)
 
 					// Finalize block
 					// msg will be acknowledged inside of state manager with execution head saved
 					if err := lfm.blockBuilder.FinalizeBlock(ctx, payloadIDStr, executionPayloadStr, field.ID); err != nil {
-						lfm.logger.Error("Follower: Failed to finalize block", "error", err)
+						lfm.logger.Error(
+							"Follower: Failed to finalize block",
+							"error", err,
+						)
 						continue
 					}
 
-					lfm.logger.Info("Follower: Successfully finalized block", "PayloadID", payloadIDStr)
+					err = lfm.stateManager.AckMessage(ctx, field.ID)
+					if err != nil {
+						lfm.logger.Error(
+							"Follower: Failed to acknowledge message",
+							"error", err,
+						)
+					} else {
+						lfm.logger.Info(
+							"Follower: Successfully acknowledged message",
+							"PayloadID", payloadIDStr,
+						)
+					}
+
+					lfm.logger.Info(
+						"Follower: Successfully finalized block",
+						"PayloadID", payloadIDStr,
+					)
 				}
 			}
 		}
@@ -294,7 +382,10 @@ func (lfm *LeaderFollowerManager) readMessages(ctx context.Context) ([]redis.XSt
 	// Try to read pending messages first
 	messages, err := lfm.stateManager.ReadMessagesFromStream(ctx, types.RedisMsgTypePending)
 	if err != nil {
-		lfm.logger.Error("Follower: Error reading pending messages", "error", err)
+		lfm.logger.Error(
+			"Follower: Error reading pending messages",
+			"error", err,
+		)
 		return nil, err
 	}
 
@@ -302,7 +393,10 @@ func (lfm *LeaderFollowerManager) readMessages(ctx context.Context) ([]redis.XSt
 	if len(messages) == 0 || len(messages[0].Messages) == 0 {
 		messages, err = lfm.stateManager.ReadMessagesFromStream(ctx, types.RedisMsgTypeNew)
 		if err != nil {
-			lfm.logger.Error("Follower: Error reading new messages", "error", err)
+			lfm.logger.Error(
+				"Follower: Error reading new messages",
+				"error", err,
+			)
 			return nil, err
 		}
 	}
@@ -329,7 +423,10 @@ func (lfm *LeaderFollowerManager) WaitForGoroutinesToStop() error {
 func (lfm *LeaderFollowerManager) HaveMessagesToProcess(ctx context.Context) bool {
 	messages, err := lfm.readMessages(ctx)
 	if err != nil {
-		lfm.logger.Error("Error reading messages", "error", err)
+		lfm.logger.Error(
+			"Error reading messages",
+			"error", err,
+		)
 		return false
 	}
 	if len(messages) == 0 || len(messages[0].Messages) == 0 {
