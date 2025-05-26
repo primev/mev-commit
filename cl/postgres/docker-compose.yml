@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: mev-commit-postgres
+    environment:
+      POSTGRES_DB: mevcommit
+      POSTGRES_USER: mevcommit
+      POSTGRES_PASSWORD: password123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - mev-commit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mevcommit -d mevcommit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c log_statement=all
+      -c log_duration=on
+      -c log_line_prefix='%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  mev-commit-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

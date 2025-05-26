@@ -230,7 +230,36 @@ Run the client with the configuration file:
 
 ## Running the Single Node Application (snode)
 
-The single node application provides a simplified MEV-commit setup that doesn't require Redis.
+The single node application provides a simplified MEV-commit setup that doesn't require Redis, but using Postgres to save payloads, so member nodes could request that payload later on.
+
+## Architecture Overview
+
+The application supports two operational modes:
+
+1. **Leader Node**: Produces blocks and serves payloads to member nodes via API
+2. **Member Node**: Follows a leader node by polling for and processing payloads sequentially
+
+## Running Postgres
+
+We will use Docker Compose to run Redis
+
+### Docker Compose Configuration
+
+Postgres is configured in `postgres` folder within `docker-compose.yml`
+
+### Start Postgres
+
+Stop any existing containers and remove volumes:
+
+```bash
+docker compose down -v
+```
+
+Start Postgres in detached mode:
+
+```bash
+docker compose up -d
+```
 
 ### Build the Single Node Application
 
@@ -243,47 +272,94 @@ go build -o snode main.go
 
 The snode application can be configured via command-line flags, environment variables, or a YAML configuration file.
 
-#### Command-Line Flags
+### Common Configuration Flags
 
-- `--instance-id`: **(Required)** Unique instance ID for this node.
-- `--eth-client-url`: Ethereum Execution client Engine API URL (default: `http://localhost:8551`).
-- `--jwt-secret`: Hex-encoded JWT secret for Ethereum Execution client Engine API (default: `13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c`).
-- `--priority-fee-recipient`: **(Required)** Ethereum address for receiving priority fees (block proposer fee).
-- `--evm-build-delay`: Delay after initiating payload construction before calling getPayload (default: `100ms`).
-- `--evm-build-delay-empty-block`: Minimum time since last block to build an empty block (default: `2s`, 0 to disable skipping).
-- `--health-addr`: Address for health check endpoint (default: `:8080`).
-- `--config`: Path to a YAML configuration file.
-- `--log-fmt`: Log format ('text' or 'json') (default: `text`).
-- `--log-level`: Log level ('debug', 'info', 'warn', 'error') (default: `info`).
-- `--log-tags`: Comma-separated <name:value> log tags (e.g., `env:prod,service:snode`).
+- `--instance-id`: **(Required)** Unique instance ID for this node
+- `--eth-client-url`: Ethereum Execution client Engine API URL (default: `http://localhost:8551`)
+- `--jwt-secret`: Hex-encoded JWT secret for Ethereum Execution client Engine API (default: `13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c`)
+- `--health-addr`: Address for health check endpoint (default: `:8080`)
+- `--config`: Path to a YAML configuration file
+- `--log-fmt`: Log format ('text' or 'json') (default: `text`)
+- `--log-level`: Log level ('debug', 'info', 'warn', 'error') (default: `info`)
+- `--log-tags`: Comma-separated <name:value> log tags (e.g., `env:prod,service:snode`)
 
-#### Environment Variables
+### Leader Node Specific Flags
 
+- `--priority-fee-recipient`: **(Required)** Ethereum address for receiving priority fees (block proposer fee)
+- `--evm-build-delay`: Delay after initiating payload construction before calling getPayload (default: `100ms`)
+- `--evm-build-delay-empty-block`: Minimum time since last block to build an empty block (default: `2s`, 0 to disable skipping)
+- `--postgres-dsn`: PostgreSQL DSN for storing payloads (optional, e.g., `postgres://user:pass@host:port/dbname?sslmode=disable`)
+- `--api-addr`: Address for member node API endpoint (default: `:9090`, empty to disable)
+
+### Member Node Specific Flags
+
+- `--leader-api-url`: **(Required)** Leader node API URL for member nodes (e.g., `http://leader:9090`)
+- `--poll-interval`: Interval for polling leader node for new payloads (default: `1s`)
+
+### Environment Variables
+
+**Common:**
 - `SNODE_INSTANCE_ID`
 - `SNODE_ETH_CLIENT_URL`
 - `SNODE_JWT_SECRET`
-- `SNODE_PRIORITY_FEE_RECIPIENT`
-- `SNODE_EVM_BUILD_DELAY`
-- `SNODE_EVM_BUILD_DELAY_EMPTY_BLOCK`
 - `SNODE_HEALTH_ADDR`
 - `SNODE_CONFIG`
 - `MEV_COMMIT_LOG_FMT`
 - `MEV_COMMIT_LOG_LEVEL`
 - `MEV_COMMIT_LOG_TAGS`
 
-### Run the Single Node Application
+**Leader Node:**
+- `SNODE_PRIORITY_FEE_RECIPIENT`
+- `SNODE_EVM_BUILD_DELAY`
+- `SNODE_EVM_BUILD_DELAY_EMPTY_BLOCK`
+- `SNODE_POSTGRES_DSN`
+- `SNODE_API_ADDR`
 
-Run the application using command-line flags:
+**Member Node:**
+- `MEMBER_LEADER_API_URL`
+- `MEMBER_POLL_INTERVAL`
+
+## Running the Application
+
+### Leader Node
+
+Run as a leader node (produces blocks and serves API for member nodes):
 
 ```bash
-./snode start \
-  --instance-id "snode1" \
+./snode leader \
+  --instance-id "leader1" \
   --eth-client-url "http://localhost:8551" \
   --jwt-secret "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c" \
   --priority-fee-recipient "0xYourEthereumAddress" \
   --evm-build-delay "100ms" \
   --evm-build-delay-empty-block "2s" \
+  --api-addr ":9090" \
   --log-level "info"
+```
+
+### Member Node
+
+Run as a member node (follows leader by polling for payloads):
+
+```bash
+./snode member \
+  --instance-id "member1" \
+  --eth-client-url "http://localhost:8552" \
+  --jwt-secret "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c" \
+  --leader-api-url "http://localhost:9090" \
+  --poll-interval "1s" \
+  --log-level "info"
+```
+
+### Backward Compatibility
+
+The legacy `start` command is still supported and runs as a leader node:
+
+```bash
+./snode start \
+  --instance-id "snode1" \
+  --priority-fee-recipient "0xYourEthereumAddress" \
+  # ... other flags
 ```
 
 **Note**:
@@ -291,32 +367,83 @@ Run the application using command-line flags:
 - Replace `"0xYourEthereumAddress"` with a valid Ethereum address for receiving priority fees.
 - The JWT secret should be a 64-character hex string (32 bytes).
 
-### Using a Configuration File for snode
+## Configuration Files
 
-Create a `snode-config.yaml` file:
+### Leader Node Configuration
+
+Create a `leader-config.yaml` file:
 
 ```yaml
-instance-id: "snode1"
+instance-id: "leader1"
 eth-client-url: "http://localhost:8551"
 jwt-secret: "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c"
 priority-fee-recipient: "0xYourEthereumAddress"
 evm-build-delay: "100ms"
 evm-build-delay-empty-block: "2s"
+api-addr: ":9090"
+postgres-dsn: "postgres://user:pass@localhost:5432/mevcommit?sslmode=disable"
+health-addr: ":8080"
 log-fmt: "text"
 log-level: "info"
-log-tags: "env:dev,service:snode"
+log-tags: "env:dev,service:leader"
 ```
 
-Run the application with the configuration file:
+Run with configuration file:
 
 ```bash
-./snode start --config snode-config.yaml
+./snode leader --config leader-config.yaml
 ```
+
+### Member Node Configuration
+
+Create a `member-config.yaml` file:
+
+```yaml
+instance-id: "member1"
+eth-client-url: "http://localhost:8552"
+jwt-secret: "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c"
+leader-api-url: "http://localhost:9090"
+poll-interval: "1s"
+health-addr: ":8081"
+log-fmt: "text"
+log-level: "info"
+log-tags: "env:dev,service:member"
+```
+
+Run with configuration file:
+
+```bash
+./snode member --config member-config.yaml
+```
+
+### Health Endpoints
+
+Both node types provide health check endpoints:
+
+- **Leader**: Returns 200 OK when operational, 503 when Ethereum client unavailable
+- **Member**: Returns 200 OK when operational and leader available, 503 otherwise
+
+Access health endpoints at: `http://localhost:8080/health` (or configured port)
+
+## Multi-Node Setup Example
+
+For a complete leader-follower setup:
+
+1. **Start Leader Node**:
+   ```bash
+   ./snode leader --instance-id "leader" --priority-fee-recipient "0xYourAddress" --api-addr ":9090"
+   ```
+
+2. **Start Member Node(s)**:
+   ```bash
+   ./snode member --instance-id "member1" --leader-api-url "http://localhost:9090" --eth-client-url "http://localhost:8552" --health-addr ":8081"
+   ```
+
+Each member node should connect to its own Geth instance and configure unique health endpoints to avoid port conflicts.
 
 ## Additional Notes
 
 - **Graceful Shutdown**: Both applications support graceful shutdown via SIGTERM or Ctrl+C.
-- **Health Endpoint**: The snode application provides a health check endpoint at `/health` that returns a 200 OK response when the application is running normally, or a 503 Service Unavailable if there are connection issues with the Ethereum client.
 
 ## Conclusion
 

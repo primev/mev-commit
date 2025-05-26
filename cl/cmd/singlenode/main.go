@@ -8,10 +8,12 @@ import (
 	"os"
 	"os/signal"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/primev/mev-commit/cl/membernode"
 	"github.com/primev/mev-commit/cl/singlenode"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
@@ -19,7 +21,9 @@ import (
 )
 
 const (
-	categoryDebug = "Debug"
+	categoryDebug    = "Debug"
+	categoryDatabase = "Database"
+	categoryMember   = "Member Node"
 )
 
 var (
@@ -156,18 +160,70 @@ var (
 		Value:   ":8080",
 		Action: func(_ *cli.Context, s string) error {
 			if !strings.HasPrefix(s, ":") {
-				return fmt.Errorf("health-addr must start with ':'")
+				return fmt.Errorf("health-addr must start with ':' (e.g., ':8080')")
 			}
-			if _, err := url.Parse(s); err != nil {
-				return fmt.Errorf("invalid health-addr: %v", err)
+			// Validate port number
+			portStr := s[1:] // Remove the ':'
+			if port, err := strconv.Atoi(portStr); err != nil || port < 1 || port > 65535 {
+				return fmt.Errorf("health-addr must be a valid port number (e.g., ':8080')")
 			}
 			return nil
 		},
 	})
+
+	postgresDSNFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name: "postgres-dsn",
+		Usage: "PostgreSQL DSN for storing payloads. If empty, saving to DB is disabled. " +
+			"(e.g., 'postgres://user:pass@host:port/dbname?sslmode=disable')",
+		EnvVars:  []string{"SNODE_POSTGRES_DSN"},
+		Value:    "", // Default to empty, making it optional
+		Category: categoryDatabase,
+	})
+
+	apiAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "api-addr",
+		Usage:   "Address for member node API endpoint (e.g., ':9090'). If empty, API is disabled.",
+		EnvVars: []string{"SNODE_API_ADDR"},
+		Value:   ":9090",
+		Action: func(_ *cli.Context, s string) error {
+			if s == "" {
+				return nil // Optional flag
+			}
+			if !strings.HasPrefix(s, ":") {
+				return fmt.Errorf("api-addr must start with ':'")
+			}
+			return nil
+		},
+	})
+
+	// Member node specific flags
+	leaderAPIURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "leader-api-url",
+		Usage:    "Leader node API URL for member nodes (e.g., 'http://leader:9090')",
+		EnvVars:  []string{"MEMBER_LEADER_API_URL"},
+		Category: categoryMember,
+		Action: func(_ *cli.Context, s string) error {
+			if s == "" {
+				return nil // Will be validated in member command
+			}
+			if _, err := url.Parse(s); err != nil {
+				return fmt.Errorf("invalid leader-api-url: %v", err)
+			}
+			return nil
+		},
+	})
+
+	pollIntervalFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
+		Name:     "poll-interval",
+		Usage:    "Interval for polling leader node for new payloads (e.g., '1s')",
+		EnvVars:  []string{"MEMBER_POLL_INTERVAL"},
+		Value:    1 * time.Second,
+		Category: categoryMember,
+	})
 )
 
 func main() {
-	flags := []cli.Flag{
+	leaderFlags := []cli.Flag{
 		configFlag,
 		instanceIDFlag,
 		ethClientURLFlag,
@@ -179,6 +235,21 @@ func main() {
 		evmBuildDelayEmptyBlockFlag,
 		priorityFeeReceiptFlag,
 		healthAddrPortFlag,
+		postgresDSNFlag,
+		apiAddrFlag,
+	}
+
+	memberFlags := []cli.Flag{
+		configFlag,
+		instanceIDFlag,
+		ethClientURLFlag,
+		jwtSecretFlag,
+		logFmtFlag,
+		logLevelFlag,
+		logTagsFlag,
+		healthAddrPortFlag,
+		leaderAPIURLFlag,
+		pollIntervalFlag,
 	}
 
 	app := &cli.App{
@@ -186,10 +257,10 @@ func main() {
 		Usage: "Single-node MEV-commit application",
 		Commands: []*cli.Command{
 			{
-				Name:  "start",
-				Usage: "Start the snode node",
-				Flags: flags,
-				Before: altsrc.InitInputSourceWithContext(flags,
+				Name:  "leader",
+				Usage: "Start as leader node (produces blocks)",
+				Flags: leaderFlags,
+				Before: altsrc.InitInputSourceWithContext(leaderFlags,
 					func(c *cli.Context) (altsrc.InputSourceContext, error) {
 						configFile := c.String(configFlag.Name)
 						if configFile != "" {
@@ -198,7 +269,40 @@ func main() {
 						return &altsrc.MapInputSource{}, nil
 					}),
 				Action: func(c *cli.Context) error {
-					return startSingleNodeApplication(c)
+					return startLeaderNode(c)
+				},
+			},
+			{
+				Name:  "member",
+				Usage: "Start as member node (follows leader)",
+				Flags: memberFlags,
+				Before: altsrc.InitInputSourceWithContext(memberFlags,
+					func(c *cli.Context) (altsrc.InputSourceContext, error) {
+						configFile := c.String(configFlag.Name)
+						if configFile != "" {
+							return altsrc.NewYamlSourceFromFile(configFile)
+						}
+						return &altsrc.MapInputSource{}, nil
+					}),
+				Action: func(c *cli.Context) error {
+					return startMemberNode(c)
+				},
+			},
+			// Keep the old "start" command for backward compatibility
+			{
+				Name:  "start",
+				Usage: "Start as leader node (deprecated, use 'leader' instead)",
+				Flags: leaderFlags,
+				Before: altsrc.InitInputSourceWithContext(leaderFlags,
+					func(c *cli.Context) (altsrc.InputSourceContext, error) {
+						configFile := c.String(configFlag.Name)
+						if configFile != "" {
+							return altsrc.NewYamlSourceFromFile(configFile)
+						}
+						return &altsrc.MapInputSource{}, nil
+					}),
+				Action: func(c *cli.Context) error {
+					return startLeaderNode(c)
 				},
 			},
 		},
@@ -210,7 +314,7 @@ func main() {
 	}
 }
 
-func startSingleNodeApplication(c *cli.Context) error {
+func startLeaderNode(c *cli.Context) error {
 	logger, err := util.NewLogger(
 		c.String(logLevelFlag.Name),
 		c.String(logFmtFlag.Name),
@@ -220,7 +324,7 @@ func startSingleNodeApplication(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
-	logger = logger.With("app", "snode")
+	logger = logger.With("app", "snode", "role", "leader")
 
 	cfg := singlenode.Config{
 		InstanceID:               c.String(instanceIDFlag.Name),
@@ -230,9 +334,11 @@ func startSingleNodeApplication(c *cli.Context) error {
 		EVMBuildDelayEmptyBlocks: c.Duration(evmBuildDelayEmptyBlockFlag.Name),
 		PriorityFeeReceipt:       c.String(priorityFeeReceiptFlag.Name),
 		HealthAddr:               c.String(healthAddrPortFlag.Name),
+		PostgresDSN:              c.String(postgresDSNFlag.Name),
+		APIAddr:                  c.String(apiAddrFlag.Name),
 	}
 
-	logger.Info("Starting snode with configuration", "config", cfg) // Be careful logging sensitive parts of config
+	logger.Info("Starting leader node with configuration", "config", cfg)
 
 	// Create a root context that can be cancelled for graceful shutdown
 	rootCtx, rootCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -248,9 +354,58 @@ func startSingleNodeApplication(c *cli.Context) error {
 
 	<-rootCtx.Done()
 
-	logger.Info("Shutdown signal received, stopping snode...")
+	logger.Info("Shutdown signal received, stopping leader node...")
 	snode.Stop()
 
-	logger.Info("SRApp shutdown completed.")
+	logger.Info("Leader node shutdown completed.")
+	return nil
+}
+
+func startMemberNode(c *cli.Context) error {
+	leaderURL := c.String(leaderAPIURLFlag.Name)
+	if leaderURL == "" {
+		return fmt.Errorf("leader-api-url is required for member nodes")
+	}
+
+	logger, err := util.NewLogger(
+		c.String(logLevelFlag.Name),
+		c.String(logFmtFlag.Name),
+		c.String(logTagsFlag.Name),
+		c.App.Writer,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create logger: %w", err)
+	}
+	logger = logger.With("app", "snode", "role", "member")
+
+	cfg := membernode.Config{
+		InstanceID:   c.String(instanceIDFlag.Name),
+		LeaderAPIURL: leaderURL,
+		EthClientURL: c.String(ethClientURLFlag.Name),
+		JWTSecret:    c.String(jwtSecretFlag.Name),
+		HealthAddr:   c.String(healthAddrPortFlag.Name),
+		PollInterval: c.Duration(pollIntervalFlag.Name),
+	}
+
+	logger.Info("Starting member node", "config", cfg)
+
+	// Create a root context that can be cancelled for graceful shutdown
+	rootCtx, rootCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer rootCancel()
+
+	memberNode, err := membernode.NewMemberNodeApp(rootCtx, cfg, logger)
+	if err != nil {
+		logger.Error("Failed to initialize MemberNodeApp", "error", err)
+		return err
+	}
+
+	memberNode.Start()
+
+	<-rootCtx.Done()
+
+	logger.Info("Shutdown signal received, stopping member node...")
+	memberNode.Stop()
+
+	logger.Info("Member node shutdown completed.")
 	return nil
 }
