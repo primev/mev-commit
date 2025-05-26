@@ -230,91 +230,6 @@ Run the client with the configuration file:
 
 ## Running the Single Node Application (snode)
 
-The single node application provides a simplified MEV-commit setup that doesn't require Redis.
-
-### Build the Single Node Application
-
-```bash
-go mod tidy
-go build -o snode main.go
-```
-
-### Configuration
-
-The snode application can be configured via command-line flags, environment variables, or a YAML configuration file.
-
-#### Command-Line Flags
-
-- `--instance-id`: **(Required)** Unique instance ID for this node.
-- `--eth-client-url`: Ethereum Execution client Engine API URL (default: `http://localhost:8551`).
-- `--jwt-secret`: Hex-encoded JWT secret for Ethereum Execution client Engine API (default: `13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c`).
-- `--priority-fee-recipient`: **(Required)** Ethereum address for receiving priority fees (block proposer fee).
-- `--evm-build-delay`: Delay after initiating payload construction before calling getPayload (default: `100ms`).
-- `--evm-build-delay-empty-block`: Minimum time since last block to build an empty block (default: `2s`, 0 to disable skipping).
-- `--health-addr`: Address for health check endpoint (default: `:8080`).
-- `--config`: Path to a YAML configuration file.
-- `--log-fmt`: Log format ('text' or 'json') (default: `text`).
-- `--log-level`: Log level ('debug', 'info', 'warn', 'error') (default: `info`).
-- `--log-tags`: Comma-separated <name:value> log tags (e.g., `env:prod,service:snode`).
-
-#### Environment Variables
-
-- `SNODE_INSTANCE_ID`
-- `SNODE_ETH_CLIENT_URL`
-- `SNODE_JWT_SECRET`
-- `SNODE_PRIORITY_FEE_RECIPIENT`
-- `SNODE_EVM_BUILD_DELAY`
-- `SNODE_EVM_BUILD_DELAY_EMPTY_BLOCK`
-- `SNODE_HEALTH_ADDR`
-- `SNODE_CONFIG`
-- `MEV_COMMIT_LOG_FMT`
-- `MEV_COMMIT_LOG_LEVEL`
-- `MEV_COMMIT_LOG_TAGS`
-
-### Run the Single Node Application
-
-Run the application using command-line flags:
-
-```bash
-./snode start \
-  --instance-id "snode1" \
-  --eth-client-url "http://localhost:8551" \
-  --jwt-secret "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c" \
-  --priority-fee-recipient "0xYourEthereumAddress" \
-  --evm-build-delay "100ms" \
-  --evm-build-delay-empty-block "2s" \
-  --log-level "info"
-```
-
-**Note**:
-
-- Replace `"0xYourEthereumAddress"` with a valid Ethereum address for receiving priority fees.
-- The JWT secret should be a 64-character hex string (32 bytes).
-
-### Using a Configuration File for snode
-
-Create a `snode-config.yaml` file:
-
-```yaml
-instance-id: "snode1"
-eth-client-url: "http://localhost:8551"
-jwt-secret: "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c"
-priority-fee-recipient: "0xYourEthereumAddress"
-evm-build-delay: "100ms"
-evm-build-delay-empty-block: "2s"
-log-fmt: "text"
-log-level: "info"
-log-tags: "env:dev,service:snode"
-```
-
-Run the application with the configuration file:
-
-```bash
-./snode start --config snode-config.yaml
-```
-
-## Running the Single Node Application (snode)
-
 The single node application provides a simplified MEV-commit setup that doesn't require Redis, but using Postgres to save payloads, so member nodes could request that payload later on.
 
 ## Architecture Overview
@@ -328,7 +243,7 @@ The application supports two operational modes:
 
 We will use Docker Compose to run Redis
 
-### Docker Compose Configuration
+### Postgres Docker Compose Configuration
 
 Postgres is configured in `postgres` folder within `docker-compose.yml`
 
@@ -353,7 +268,7 @@ go mod tidy
 go build -o snode main.go
 ```
 
-### Configuration
+### SNode Configuration
 
 The snode application can be configured via command-line flags, environment variables, or a YAML configuration file.
 
@@ -381,9 +296,10 @@ The snode application can be configured via command-line flags, environment vari
 - `--leader-api-url`: **(Required)** Leader node API URL for member nodes (e.g., `http://leader:9090`)
 - `--poll-interval`: Interval for polling leader node for new payloads (default: `1s`)
 
-### Environment Variables
+### SNode Environment Variables
 
 **Common:**
+
 - `SNODE_INSTANCE_ID`
 - `SNODE_ETH_CLIENT_URL`
 - `SNODE_JWT_SECRET`
@@ -394,6 +310,7 @@ The snode application can be configured via command-line flags, environment vari
 - `MEV_COMMIT_LOG_TAGS`
 
 **Leader Node:**
+
 - `SNODE_PRIORITY_FEE_RECIPIENT`
 - `SNODE_EVM_BUILD_DELAY`
 - `SNODE_EVM_BUILD_DELAY_EMPTY_BLOCK`
@@ -401,6 +318,7 @@ The snode application can be configured via command-line flags, environment vari
 - `SNODE_API_ADDR`
 
 **Member Node:**
+
 - `MEMBER_LEADER_API_URL`
 - `MEMBER_POLL_INTERVAL`
 
@@ -515,11 +433,13 @@ Access health endpoints at: `http://localhost:8080/health` (or configured port)
 For a complete leader-follower setup:
 
 1. **Start Leader Node**:
+
    ```bash
    ./snode leader --instance-id "leader" --priority-fee-recipient "0xYourAddress" --api-addr ":9090"
    ```
 
 2. **Start Member Node(s)**:
+
    ```bash
    ./snode member --instance-id "member1" --leader-api-url "http://localhost:9090" --eth-client-url "http://localhost:8552" --health-addr ":8081"
    ```
