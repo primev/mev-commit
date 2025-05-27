@@ -97,7 +97,10 @@ func TestPayloadClient_GetLatestPayload_ErrorResponse(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(errorResp)
+		err := json.NewEncoder(w).Encode(errorResp)
+		if err != nil {
+			t.Fatalf("Failed to encode error response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -259,7 +262,10 @@ func TestPayloadClient_GetPayloadsSince_ErrorResponse(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(errorResp)
+		err := json.NewEncoder(w).Encode(errorResp)
+		if err != nil {
+			t.Fatalf("Failed to encode error response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -342,7 +348,10 @@ func TestPayloadClient_GetPayloadByHeight_NotFound(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(errorResp)
+		err := json.NewEncoder(w).Encode(errorResp)
+		if err != nil {
+			t.Fatalf("Failed to encode error response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -444,7 +453,10 @@ func TestPayloadClient_ErrorResponse_InvalidJSON(t *testing.T) {
 	// Create test server that returns non-JSON error response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Bad Request - Not JSON"))
+		_, err := w.Write([]byte("Bad Request - Not JSON"))
+		if err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
