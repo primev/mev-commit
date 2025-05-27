@@ -492,7 +492,10 @@ func BenchmarkPayloadClient_GetLatestPayload(b *testing.B) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(payload)
+		err := json.NewEncoder(w).Encode(payload)
+		if err != nil {
+			b.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -543,7 +546,10 @@ func TestPayloadClient_GetLatestPayload_TableDriven(t *testing.T) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(payload)
+				err := json.NewEncoder(w).Encode(payload)
+				if err != nil {
+					t.Fatalf("Failed to encode response: %v", err)
+				}
 			},
 			expectedError: false,
 		},
@@ -569,7 +575,10 @@ func TestPayloadClient_GetLatestPayload_TableDriven(t *testing.T) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(payload)
+				err := json.NewEncoder(w).Encode(payload)
+				if err != nil {
+					t.Fatalf("Failed to encode response: %v", err)
+				}
 			},
 			expectedError: false,
 		},
