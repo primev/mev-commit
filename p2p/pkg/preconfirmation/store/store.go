@@ -249,6 +249,9 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) (retErr err
 
 	commitmentKey := commitmentKey(cmt.Bid.BlockNumber, cmt.Bid.BidAmount, cmt.Commitment)
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var writer storage.Writer
 	if w, ok := s.st.(storage.Batcher); ok {
 		batch := w.Batch()

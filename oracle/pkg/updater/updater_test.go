@@ -1223,7 +1223,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if i > 5 && i < 8 {
+		if i < 8 {
 			continue
 		}
 
@@ -1239,7 +1239,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if !bytes.Equal(commitment.commitmentIdx[:], c.CommitmentIndex[:]) {
 				t.Fatal("wrong commitment index")
 			}
-			if commitment.blockNum.Cmp(big.NewInt(10)) != 0 && commitment.blockNum.Cmp(big.NewInt(5)) != 0 {
+			if commitment.blockNum.Cmp(big.NewInt(10)) != 0 {
 				t.Fatal("wrong block number", commitment.blockNum)
 			}
 			if commitment.builder != c.Committer {
@@ -1263,7 +1263,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if settlement.txHash != c.TxnHash {
 				t.Fatal("wrong txn hash")
 			}
-			if settlement.blockNum != 10 && settlement.blockNum != 5 {
+			if settlement.blockNum != 10 {
 				t.Fatal("wrong block number")
 			}
 			if !bytes.Equal(settlement.builder, c.Committer.Bytes()) {
@@ -1278,7 +1278,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
 			}
-			if settlement.window != 5 && settlement.window != 1 {
+			if settlement.window != 5 {
 				t.Fatal("wrong window")
 			}
 		}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"slices"
 	"time"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
@@ -29,7 +30,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const blockHistoryLimit = 10000
+const (
+	blockHistoryLimit            = 10000
+	allowedDelayToOpenCommitment = 10
+)
 
 type Tracker struct {
 	ctxChainIDData  []byte
@@ -220,6 +224,23 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				continue
 			}
 			t.logger.Debug("stored block winners", "count", len(winners))
+			oldBlockNos := make([]int64, 0)
+			winners = slices.DeleteFunc(winners, func(item *store.BlockWinner) bool {
+				// the last block is the latest, so if any of the previous blocks are
+				// older than the allowed delay, we should not open the commitments
+				if winners[len(winners)-1].BlockNumber-item.BlockNumber > allowedDelayToOpenCommitment {
+					oldBlockNos = append(oldBlockNos, item.BlockNumber)
+					return true
+				}
+				return false
+			})
+			// cleanup old state
+			for _, oldBlockNo := range oldBlockNos {
+				if err := t.store.ClearBlockNumber(oldBlockNo); err != nil {
+					t.logger.Error("failed to delete commitments by block number", "blockNumber", oldBlockNo, "error", err)
+				}
+				t.logger.Info("old block commitments deleted", "blockNumber", oldBlockNo)
+			}
 			if t.peerType == p2p.PeerTypeBidder {
 				if len(winners) > 2 {
 					// Bidders should process the block 2 behind the current one. Ideally the

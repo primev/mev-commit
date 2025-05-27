@@ -470,6 +470,106 @@ func TestTracker(t *testing.T) {
 	<-doneChan
 }
 
+func TestTrackerIgnoreOldBlocks(t *testing.T) {
+	t.Parallel()
+
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	brABI, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	orABI, err := abi.JSON(strings.NewReader(oracle.OracleABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	evtMgr := events.NewListener(
+		util.NewTestLogger(os.Stdout),
+		&btABI,
+		&pcABI,
+		&brABI,
+		&orABI,
+	)
+
+	st := store.New(inmemstorage.New())
+
+	for _, b := range []int64{1, 12, 13} {
+		if err := st.AddWinner(&store.BlockWinner{
+			BlockNumber: b,
+			Winner:      common.HexToAddress("0x1234"),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	watcher := &mockWatcher{}
+
+	contract := &testPreconfContract{
+		openedCommitments: make(chan openedCommitment, 10),
+	}
+
+	notifier := &mockNotifier{
+		evt: make(chan *notifications.Notification, 10),
+	}
+
+	sk, pk, err := crypto.GenerateKeyPairBN254()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tracker := preconftracker.NewTracker(
+		big.NewInt(5),
+		p2p.PeerTypeProvider,
+		common.HexToAddress("0x1234"),
+		evtMgr,
+		st,
+		contract,
+		watcher,
+		notifier,
+		pk,
+		sk,
+		func(context.Context) (*bind.TransactOpts, error) {
+			return &bind.TransactOpts{
+				From: common.HexToAddress("0x1234"),
+			}, nil
+		},
+		util.NewTestLogger(os.Stdout),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	doneChan := tracker.Start(ctx)
+
+	startTime := time.Now()
+	for {
+		winners, err := st.BlockWinners()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(winners) == 0 {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+		if time.Since(startTime) > 5*time.Second {
+			t.Fatal("timed out waiting for block winners to be cleared")
+		}
+	}
+
+	cancel()
+
+	<-doneChan
+}
+
 type openedCommitment struct {
 	encryptedCommitmentIndex [32]byte
 	bid                      *big.Int
