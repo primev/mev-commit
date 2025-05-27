@@ -818,13 +818,13 @@ func TestGetCommitmentInfo(t *testing.T) {
 			if commitment.Commitments[0].TxnHashes[0] != "0x1234567890abcdef" && commitment.Commitments[0].TxnHashes[0] != "0xabcdef1234567890" {
 				t.Fatalf("expected tx hash to be 0x1234567890abcdef or 0xabcdef1234567890, got %s", commitment.Commitments[0].TxnHashes[0])
 			}
-			if commitment.Commitments[0].Amount != testCommitments[i].PreConfirmation.Bid.BidAmount {
-				t.Fatalf("expected bid amount to be %s, got %s", testCommitments[i].PreConfirmation.Bid.BidAmount, commitment.Commitments[0].Amount)
+			if commitment.Commitments[0].Amount != testCommitments[i].Bid.BidAmount {
+				t.Fatalf("expected bid amount to be %s, got %s", testCommitments[i].Bid.BidAmount, commitment.Commitments[0].Amount)
 			}
 			if commitment.Commitments[0].DispatchTimestamp != testCommitments[i].PreConfirmation.DispatchTimestamp {
 				t.Fatalf("expected dispatch timestamp to be %d, got %d", testCommitments[i].PreConfirmation.DispatchTimestamp, commitment.Commitments[0].DispatchTimestamp)
 			}
-			if commitment.Commitments[0].ProviderAddress != strings.TrimPrefix(common.Bytes2Hex(testCommitments[i].PreConfirmation.ProviderAddress), "0x") {
+			if commitment.Commitments[0].ProviderAddress != strings.TrimPrefix(common.Bytes2Hex(testCommitments[i].ProviderAddress), "0x") {
 				t.Fatalf("expected provider address to be 0x1234, 0x5678 or 0x9abc, got %s", commitment.Commitments[0].ProviderAddress)
 			}
 			if commitment.Commitments[0].Status != string(testCommitments[i].Status) {

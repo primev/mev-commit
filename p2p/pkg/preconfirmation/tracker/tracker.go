@@ -493,7 +493,7 @@ func (t *Tracker) openCommitments(
 		return err
 	}
 
-	var settled, failed, alreadyOpened int = 0, 0, 0
+	var settled, failed, alreadyOpened = 0, 0, 0
 
 	for _, commitment := range commitments {
 		switch commitment.Status {

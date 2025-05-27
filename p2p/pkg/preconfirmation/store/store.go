@@ -42,7 +42,7 @@ var (
 	}
 	parseBlockNumFromCommitmentKey = func(key string) (int64, error) {
 		splits := strings.Split(key, "/")
-		if len(splits) != 4 || strings.HasPrefix(commitmentNS, splits[0]) == false {
+		if len(splits) != 4 || !strings.HasPrefix(commitmentNS, splits[0]) {
 			return 0, fmt.Errorf("invalid commitment key format: %s", key)
 		}
 		blockNum, err := strconv.Atoi(splits[1])

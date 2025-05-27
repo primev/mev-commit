@@ -767,7 +767,8 @@ func TestGetBidInfo(t *testing.T) {
 		}
 
 		for _, bidInfo := range resp.BlockBidInfo {
-			if bidInfo.BlockNumber == 1 {
+			switch bidInfo.BlockNumber {
+			case 1:
 				if len(bidInfo.Bids) != 1 {
 					t.Fatalf("expected 1 bid for block 1, got %v", len(bidInfo.Bids))
 				}
@@ -794,7 +795,7 @@ func TestGetBidInfo(t *testing.T) {
 				if commitment.ProviderAddress != strings.TrimPrefix(common.HexToAddress("0x1234").Hex(), "0x") {
 					t.Fatalf("expected provider address to be 0x1234, got %v", commitment.ProviderAddress)
 				}
-			} else if bidInfo.BlockNumber == 2 {
+			case 2:
 				if len(bidInfo.Bids) != 1 {
 					t.Fatalf("expected 1 bid for block 2, got %v", len(bidInfo.Bids))
 				}
@@ -821,7 +822,7 @@ func TestGetBidInfo(t *testing.T) {
 						t.Fatalf("unexpected provider address for block 2, got %v", commitment.ProviderAddress)
 					}
 				}
-			} else {
+			default:
 				t.Fatalf("unexpected block number %v", bidInfo.BlockNumber)
 			}
 		}
