@@ -54,7 +54,10 @@ func TestPayloadClient_GetLatestPayload_Success(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(expectedPayload)
+		err := json.NewEncoder(w).Encode(expectedPayload)
+		if err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -123,7 +126,10 @@ func TestPayloadClient_GetLatestPayload_InvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("invalid json"))
+		_, err := w.Write([]byte("invalid json"))
+		if err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -208,7 +214,10 @@ func TestPayloadClient_GetPayloadsSince_Success(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(expectedResponse)
+		err := json.NewEncoder(w).Encode(expectedResponse)
+		if err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -296,7 +305,10 @@ func TestPayloadClient_GetPayloadByHeight_Success(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(expectedPayload)
+		err := json.NewEncoder(w).Encode(expectedPayload)
+		if err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -366,7 +378,10 @@ func TestPayloadClient_CheckHealth_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		if err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -385,7 +400,10 @@ func TestPayloadClient_CheckHealth_Unhealthy(t *testing.T) {
 	// Create test server that returns unhealthy status
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal Server Error"))
+		_, err := w.Write([]byte("Internal Server Error"))
+		if err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -521,7 +539,10 @@ func TestPayloadClient_GetLatestPayload_TableDriven(t *testing.T) {
 			name: "server error",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Internal Server Error"))
+				_, err := w.Write([]byte("Internal Server Error"))
+				if err != nil {
+					t.Fatalf("Failed to write response: %v", err)
+				}
 			},
 			expectedError: true,
 			errorContains: "API error (status 500)",
