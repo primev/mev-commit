@@ -266,13 +266,48 @@ definitions:
   GetBidInfoResponseBidInfo:
     type: object
     properties:
-      bid:
-        $ref: '#/definitions/bidderapiv1Bid'
+      txnHashes:
+        type: array
+        items:
+          type: string
+          pattern: '[a-fA-F0-9]{64}'
+        description: Hex string encoding of the hashes of the transactions that the bidder wants to include in the block.
+      revertableTxnHashes:
+        type: array
+        items:
+          type: string
+          pattern: '[a-fA-F0-9]{64}'
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
+      blockNumber:
+        type: string
+        format: int64
+        description: Block number that the bidder wants to include the transaction in.
+      bidAmount:
+        type: string
+        description: Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block.
+        pattern: '[0-9]+'
+      decayStartTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the bid starts decaying.
+      decayEndTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the bid ends decaying.
+      bidDigest:
+        type: string
+        description: Hex string encoding of digest of the bid message signed by the bidder.
+      slashAmount:
+        type: string
+        description: Amount of ETH that will be slashed from the provider if they fail to include the transaction. If zero, the decayed bid amount is used for slashing.
+        pattern: '[0-9]+'
       commitments:
         type: array
         items:
           type: object
           $ref: '#/definitions/GetBidInfoResponseCommitmentWithStatus'
+    description: Information about a bid including its commitments.
+    title: Bid Info
   GetBidInfoResponseBlockBidInfo:
     type: object
     properties:
@@ -289,8 +324,13 @@ definitions:
   GetBidInfoResponseCommitmentWithStatus:
     type: object
     properties:
-      commitment:
-        $ref: '#/definitions/bidderapiv1Commitment'
+      providerAddress:
+        type: string
+        description: Hex string encoding of the address of the provider that signed the commitment.
+      dispatchTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the commitment is published.
       status:
         type: string
         description: 'Status of the commitment. Possible values: ''pending'', ''stored'', ''opened'', ''settled'', ''slashed'', ''failed''.'

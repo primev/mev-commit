@@ -433,23 +433,61 @@ message GetBidInfoRequest {
 
 message GetBidInfoResponse {
   message CommitmentWithStatus {
-    Commitment commitment = 1;
-    string status = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    string provider_address = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Hex string encoding of the address of the provider that signed the commitment."
+    }];
+    int64 dispatch_timestamp = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Timestamp at which the commitment is published."
+    }];
+    string status = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Status of the commitment. Possible values: 'pending', 'stored', 'opened', 'settled', 'slashed', 'failed'."
     }];
-    string details = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    string details = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Additional details about the commitment status."
     }];
-    string payment = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    string payment = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Payment amount in wei for the commitment."
     }];
-    string refund = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    string refund = 6 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Refund amount in wei for the commitment, if applicable."
     }];
   };
   message BidInfo {
-    Bid bid = 1;
-    repeated CommitmentWithStatus commitments = 2;
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+      json_schema: {
+        title: "Bid Info"
+        description: "Information about a bid including its commitments."
+      }
+    };
+    repeated string txn_hashes = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Hex string encoding of the hashes of the transactions that the bidder wants to include in the block."
+      pattern: "[a-fA-F0-9]{64}"
+    }];
+    repeated string revertable_txn_hashes = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Optional array of tx hashes that are allowed to revert or be discarded."
+      pattern: "[a-fA-F0-9]{64}"
+    }];
+    int64 block_number = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Block number that the bidder wants to include the transaction in."
+    }];
+    string bid_amount = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block."
+      pattern: "[0-9]+"
+    }];
+    int64 decay_start_timestamp = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Timestamp at which the bid starts decaying."
+    }];
+    int64 decay_end_timestamp = 6 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Timestamp at which the bid ends decaying."
+    }];
+    string bid_digest = 7 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Hex string encoding of digest of the bid message signed by the bidder."
+    }];
+    string slash_amount = 8 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Amount of ETH that will be slashed from the provider if they fail to include the transaction. If zero, the decayed bid amount is used for slashing."
+      pattern: "[0-9]+"
+    }];
+    repeated CommitmentWithStatus commitments = 9;
   };
   message BlockBidInfo {
     int64 block_number = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {

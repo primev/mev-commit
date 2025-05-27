@@ -470,12 +470,14 @@ func NewNode(opts *Options) (*Node, error) {
 				return nil, err
 			}
 		}
+
+		preconfStore := preconfstore.New(store)
 		tracker := preconftracker.NewTracker(
 			chainID,
 			peerType,
 			opts.KeySigner.GetAddress(),
 			evtMgr,
-			preconfstore.New(store),
+			preconfStore,
 			commitmentDA,
 			monitor,
 			notificationsSvc,
@@ -563,6 +565,7 @@ func NewNode(opts *Options) (*Node, error) {
 				bidderRegistry,
 				opts.KeySigner.GetAddress(),
 				monitor,
+				preconfStore,
 				optsGetter,
 				validator,
 			)
@@ -678,11 +681,13 @@ func NewNode(opts *Options) (*Node, error) {
 				preconfProto,
 				bidderRegistry,
 				blockTrackerSession,
+				providerRegistry,
 				validator,
 				monitor,
 				optsGetter,
 				autoDeposit,
 				autodepositorStore,
+				preconfStore,
 				opts.OracleWindowOffset,
 				opts.BidderBidTimeout,
 				opts.Logger.With("component", "bidderapi"),
