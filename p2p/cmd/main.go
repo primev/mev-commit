@@ -286,6 +286,19 @@ var (
 		Category: categoryContracts,
 	})
 
+	optionOracleAddr = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "oracle-contract",
+		Usage:   "Address of the oracle contract",
+		EnvVars: []string{"MEV_COMMIT_ORACLE_ADDR"},
+		Action: func(ctx *cli.Context, s string) error {
+			if s != "" && !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid oracle address: %s", s)
+			}
+			return nil
+		},
+		Category: categoryContracts,
+	})
+
 	optionAutodepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "autodeposit-amount",
 		Usage:    "Amount to auto deposit in each window in wei",
@@ -490,6 +503,7 @@ func main() {
 		optionPreconfStoreAddr,
 		optionBlockTrackerAddr,
 		optionValidatorRouterAddr,
+		optionOracleAddr,
 		optionAutodepositAmount,
 		optionAutodepositEnabled,
 		optionSettlementRPCEndpoint,
@@ -675,6 +689,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		BidderRegistryContract:   c.String(optionBidderRegistryAddr.Name),
 		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
 		ValidatorRouterContract:  c.String(optionValidatorRouterAddr.Name),
+		OracleContract:           c.String(optionOracleAddr.Name),
 		AutodepositAmount:        autodepositAmount,
 		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
 		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),

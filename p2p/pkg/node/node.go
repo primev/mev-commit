@@ -24,6 +24,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	validatorrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
@@ -111,6 +112,7 @@ type Options struct {
 	BlockTrackerContract     string
 	ProviderRegistryContract string
 	BidderRegistryContract   string
+	OracleContract           string
 	ValidatorRouterContract  string
 	AutodepositAmount        *big.Int
 	RPCEndpoint              string
@@ -178,6 +180,7 @@ func NewNode(opts *Options) (*Node, error) {
 		setDefault(&opts.BlockTrackerContract, defaults.BlockTracker)
 		setDefault(&opts.ProviderRegistryContract, defaults.ProviderRegistry)
 		setDefault(&opts.BidderRegistryContract, defaults.BidderRegistry)
+		setDefault(&opts.OracleContract, defaults.Oracle)
 	}
 	if defaults, ok := contracts.DefaultsL1Contracts[chainID.String()]; ok {
 		setDefault(&opts.ValidatorRouterContract, defaults.ValidatorOptInRouter)
@@ -904,6 +907,12 @@ func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
 		return nil, err
 	}
 	abis[common.HexToAddress(opts.ValidatorRouterContract)] = &vrABI
+
+	orABI, err := abi.JSON(strings.NewReader(oracle.OracleABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[common.HexToAddress(opts.OracleContract)] = &orABI
 
 	return abis, nil
 }
