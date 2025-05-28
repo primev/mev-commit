@@ -1,6 +1,6 @@
 role: bootnode
 
-chainId: 
+chainId: 7800
 
 # The genesis URL is already in the main values.yaml
 

@@ -1,20 +1,19 @@
 role: signer
 
-genesisUrl: ""
 signer:
   # Signer address (required for both methods)
-  address: ""
+  address: "0x85124ae76e05bdc83dd80c267f1fc4d3b3c3fe47"
   
   # Bootstrap method selection
-  nodeBootstrapMethod: "signerPrivateKey"  # Options: "signerPrivateKey" or "signerKeystore"
+  nodeBootstrapMethod: "signerKeystore"  # Options: "signerPrivateKey" or "signerKeystore"
   
   # Password configuration (required for both methods)
   password:
     secretName: devnet-password
     # Insecure: provide password directly in values
-    value: ""
+    value: "harsh"
     externalSecret:
-      enabled: true
+      enabled: false
       awsSecretName: devnet-password
       refreshInterval: 1h
       secretStoreRef:
@@ -23,7 +22,7 @@ signer:
   
   # Keystore method configuration (used when nodeBootstrapMethod: "signerKeystore")
   signerKeystore:
-    url: "https://<url>/UTC--2025-05-09T13-39-26.776260766Z--<node-id>"
+    url: "https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/refs/heads/main/devnet4/keystore/UTC--2025-05-22T15-42-33.437711901Z--85124ae76e05bdc83dd80c267f1fc4d3b3c3fe47"
   
   # Private key method configuration (used when nodeBootstrapMethod: "signerPrivateKey")
   signerPrivateKey:
@@ -39,7 +38,7 @@ signer:
         kind: ClusterSecretStore
 
 # Rest of the configuration remains the same
-chainId: 
+chainId: 7800
 
 ports:
   p2p: 30303
@@ -63,6 +62,6 @@ nodeConfig:
   httpApi: "eth,net,web3,clique"
   wsApi: "eth,net,web3,clique"
   bootstrapNodes:
-    - "enode://<node-id>@poa-bootnode-ethereum-poa-bootnode:30303"
+    - "ENODE_PLACEHOLDER"
   staticPeers:
-    - "enode://<node-id>@poa-bootnode-ethereum-poa-bootnode:30303"
+    - "ENODE_PLACEHOLDER"

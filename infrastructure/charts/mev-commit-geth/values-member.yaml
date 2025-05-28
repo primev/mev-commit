@@ -1,6 +1,6 @@
 role: member
 
-chainId: 
+chainId: 7800
 
 probes:
   enabled: false
@@ -10,4 +10,4 @@ replicas: 1
 
 nodeConfig:
   staticPeers:
-    - "enode://<node-id>@poa-bootnode-ethereum-poa-bootnode:30303"
+    - "ENODE_PLACEHOLDER"

@@ -1,5 +1,5 @@
 chainId: 
-genesisUrl: ""
+genesisUrl: "https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/refs/heads/main/devnet4/genesis/genesis.json"
 
 replicas: 1
 
@@ -11,13 +11,13 @@ signer:
     enabled: false
 
 image:
-  repository: harshsingh07/flood
-  tag: mev-commit-1.1.1
+  repository: harshsingh07/mev-commit-poa-geth
+  tag: arm64-latest
 
 resources:
   requests:
-    cpu: "500m"
-    memory: "512Mi"
+    cpu: "100m"
+    memory: "100Mi"
   limits:
     cpu: "2000m"
     memory: "8Gi"
@@ -25,7 +25,7 @@ resources:
 persistence:
   enabled: true
   size: 25Gi
-  storageClassName: premium-rwo
+  storageClassName: standard
 
 ports:
   p2p: 30303
