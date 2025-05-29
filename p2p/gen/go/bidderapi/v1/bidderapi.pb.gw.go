@@ -299,23 +299,14 @@ func local_request_Bidder_Withdraw_0(ctx context.Context, marshaler runtime.Mars
 	return msg, metadata, err
 }
 
-var filter_Bidder_GetBidInfo_0 = &utilities.DoubleArray{Encoding: map[string]int{"block_number": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+var filter_Bidder_GetBidInfo_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
 func request_Bidder_GetBidInfo_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq GetBidInfoRequest
 		metadata runtime.ServerMetadata
-		err      error
 	)
 	io.Copy(io.Discard, req.Body)
-	val, ok := pathParams["block_number"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "block_number")
-	}
-	protoReq.BlockNumber, err = runtime.Int64(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "block_number", err)
-	}
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -330,16 +321,7 @@ func local_request_Bidder_GetBidInfo_0(ctx context.Context, marshaler runtime.Ma
 	var (
 		protoReq GetBidInfoRequest
 		metadata runtime.ServerMetadata
-		err      error
 	)
-	val, ok := pathParams["block_number"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "block_number")
-	}
-	protoReq.BlockNumber, err = runtime.Int64(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "block_number", err)
-	}
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -527,7 +509,7 @@ func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/GetBidInfo", runtime.WithHTTPPathPattern("/v1/bidder/get_bid_info/{block_number}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/GetBidInfo", runtime.WithHTTPPathPattern("/v1/bidder/get_bid_info"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -741,7 +723,7 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/GetBidInfo", runtime.WithHTTPPathPattern("/v1/bidder/get_bid_info/{block_number}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/GetBidInfo", runtime.WithHTTPPathPattern("/v1/bidder/get_bid_info"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -783,7 +765,7 @@ var (
 	pattern_Bidder_WithdrawFromWindows_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "withdraw_from_windows"}, ""))
 	pattern_Bidder_GetDeposit_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_deposit"}, ""))
 	pattern_Bidder_Withdraw_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "withdraw"}, ""))
-	pattern_Bidder_GetBidInfo_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "bidder", "get_bid_info", "block_number"}, ""))
+	pattern_Bidder_GetBidInfo_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_bid_info"}, ""))
 	pattern_Bidder_ClaimSlashedFunds_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "claim_slashed_funds"}, ""))
 )
 

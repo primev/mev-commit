@@ -164,7 +164,7 @@ paths:
           required: false
           type: string
           format: uint64
-  /v1/bidder/get_bid_info/{blockNumber}:
+  /v1/bidder/get_bid_info:
     get:
       summary: GetBidInfo
       description: |-
@@ -183,8 +183,8 @@ paths:
       parameters:
         - name: blockNumber
           description: Optional block number for querying bid info. If not specified, all known block numbers are returned in ascending order.
-          in: path
-          required: true
+          in: query
+          required: false
           type: string
           format: int64
         - name: page

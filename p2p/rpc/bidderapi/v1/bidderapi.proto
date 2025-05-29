@@ -101,18 +101,14 @@ service Bidder {
   // GetBidInfo is called by the bidder to get the bid information. If block number is not specified,
   // all known block numbers are returned in the ascending order.
   rpc GetBidInfo(GetBidInfoRequest) returns (GetBidInfoResponse) {
-    option (google.api.http) = {
-      get: "/v1/bidder/get_bid_info/{block_number}"
-    };
+    option (google.api.http) = {get: "/v1/bidder/get_bid_info"};
   }
   // ClaimSlashedFunds
   //
   // ClaimSlashedFunds is called by the bidder to claim slashed funds from the provider. The response
   // will show the amount claimed if any in wei.
   rpc ClaimSlashedFunds(EmptyMessage) returns (google.protobuf.StringValue) {
-    option (google.api.http) = {
-      post: "/v1/bidder/claim_slashed_funds"
-    };
+    option (google.api.http) = {post: "/v1/bidder/claim_slashed_funds"};
   }
 }
 
