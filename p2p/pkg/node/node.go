@@ -914,6 +914,12 @@ func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
 	}
 	abis[common.HexToAddress(opts.OracleContract)] = &orABI
 
+	prABI, err := abi.JSON(strings.NewReader(providerregistry.ProviderregistryABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[common.HexToAddress(opts.ProviderRegistryContract)] = &prABI
+
 	return abis, nil
 }
 
