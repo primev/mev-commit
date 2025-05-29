@@ -551,7 +551,7 @@ func (s *Service) GetCommitmentInfo(
 			ProviderAddress:     common.Bytes2Hex(c.ProviderAddress),
 			DecayStartTimestamp: c.Bid.DecayStartTimestamp,
 			DecayEndTimestamp:   c.Bid.DecayEndTimestamp,
-			DispatchTimestamp:   c.PreConfirmation.DispatchTimestamp,
+			DispatchTimestamp:   c.EncryptedPreConfirmation.DispatchTimestamp,
 			SlashAmount:         c.Bid.SlashAmount,
 			Status:              string(c.Status),
 			Details:             c.Details,
