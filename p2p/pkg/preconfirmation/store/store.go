@@ -391,11 +391,10 @@ func (s *Store) ClearCommitmentIndexes(uptoBlock int64) error {
 				keys = append(keys, indexToDigestKey(commitment.CommitmentIndex))
 			}
 			return false
-		} else {
-			// DB is expected to be sorted by block number, so we can stop here
-			// since all subsequent keys will also be greater than or equal to `uptoBlock`.
-			return true
 		}
+		// DB is expected to be sorted by block number, so we can stop here
+		// since all subsequent keys will also be greater than or equal to `uptoBlock`.
+		return true
 	})
 	s.mu.RUnlock()
 	if err != nil {
