@@ -666,6 +666,9 @@ func TestGetCommitmentInfo(t *testing.T) {
 	t.Run("get commitment info", func(t *testing.T) {
 		// Create a test commitment
 		testCommitment := &preconfstore.Commitment{
+			EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+				DispatchTimestamp: 123456889,
+			},
 			PreConfirmation: &preconfpb.PreConfirmation{
 				Bid: &preconfpb.Bid{
 					TxHash:              "0x1234567890abcdef,0x1234567890abcdef",
@@ -674,8 +677,7 @@ func TestGetCommitmentInfo(t *testing.T) {
 					DecayStartTimestamp: 123456789,
 					DecayEndTimestamp:   123457896,
 				},
-				DispatchTimestamp: 123456889,
-				ProviderAddress:   common.HexToAddress("0x1234").Bytes(),
+				ProviderAddress: common.HexToAddress("0x1234").Bytes(),
 			},
 			Status:  preconfstore.CommitmentStatusOpened,
 			Details: "test details",
@@ -739,6 +741,9 @@ func TestGetCommitmentInfo(t *testing.T) {
 	t.Run("get all commitments", func(t *testing.T) {
 		testCommitments := []*preconfstore.Commitment{
 			{
+				EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+					DispatchTimestamp: 123456889,
+				},
 				PreConfirmation: &preconfpb.PreConfirmation{
 					Bid: &preconfpb.Bid{
 						TxHash:              "0x1234567890abcdef,0x1234567890abcdef",
@@ -747,8 +752,7 @@ func TestGetCommitmentInfo(t *testing.T) {
 						DecayStartTimestamp: 123456789,
 						DecayEndTimestamp:   123457896,
 					},
-					DispatchTimestamp: 123456889,
-					ProviderAddress:   common.HexToAddress("0x1234").Bytes(),
+					ProviderAddress: common.HexToAddress("0x1234").Bytes(),
 				},
 				Status:  preconfstore.CommitmentStatusOpened,
 				Details: "test details",
@@ -756,6 +760,9 @@ func TestGetCommitmentInfo(t *testing.T) {
 				Refund:  "100000000000000000",
 			},
 			{
+				EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+					DispatchTimestamp: 123456889,
+				},
 				PreConfirmation: &preconfpb.PreConfirmation{
 					Bid: &preconfpb.Bid{
 						TxHash:              "0xabcdef1234567890,0xabcdef1234567890",
@@ -764,8 +771,7 @@ func TestGetCommitmentInfo(t *testing.T) {
 						DecayStartTimestamp: 123456789,
 						DecayEndTimestamp:   123457896,
 					},
-					DispatchTimestamp: 123456889,
-					ProviderAddress:   common.HexToAddress("0x5678").Bytes(),
+					ProviderAddress: common.HexToAddress("0x5678").Bytes(),
 				},
 				Status:  preconfstore.CommitmentStatusSettled,
 				Details: "another test details",
@@ -773,6 +779,9 @@ func TestGetCommitmentInfo(t *testing.T) {
 				Refund:  "200000000000000000",
 			},
 			{
+				EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+					DispatchTimestamp: 123456889,
+				},
 				PreConfirmation: &preconfpb.PreConfirmation{
 					Bid: &preconfpb.Bid{
 						TxHash:              "0xabcdef1234567890,0xabcdef1234567890",
@@ -781,8 +790,7 @@ func TestGetCommitmentInfo(t *testing.T) {
 						DecayStartTimestamp: 123456789,
 						DecayEndTimestamp:   123457896,
 					},
-					DispatchTimestamp: 123456889,
-					ProviderAddress:   common.HexToAddress("0x9abc").Bytes(),
+					ProviderAddress: common.HexToAddress("0x9abc").Bytes(),
 				},
 				Status:  preconfstore.CommitmentStatusFailed,
 				Details: "yet another test details",
@@ -821,8 +829,8 @@ func TestGetCommitmentInfo(t *testing.T) {
 			if commitment.Commitments[0].Amount != testCommitments[i].Bid.BidAmount {
 				t.Fatalf("expected bid amount to be %s, got %s", testCommitments[i].Bid.BidAmount, commitment.Commitments[0].Amount)
 			}
-			if commitment.Commitments[0].DispatchTimestamp != testCommitments[i].PreConfirmation.DispatchTimestamp {
-				t.Fatalf("expected dispatch timestamp to be %d, got %d", testCommitments[i].PreConfirmation.DispatchTimestamp, commitment.Commitments[0].DispatchTimestamp)
+			if commitment.Commitments[0].DispatchTimestamp != testCommitments[i].EncryptedPreConfirmation.DispatchTimestamp {
+				t.Fatalf("expected dispatch timestamp to be %d, got %d", testCommitments[i].EncryptedPreConfirmation.DispatchTimestamp, commitment.Commitments[0].DispatchTimestamp)
 			}
 			if commitment.Commitments[0].ProviderAddress != strings.TrimPrefix(common.Bytes2Hex(testCommitments[i].ProviderAddress), "0x") {
 				t.Fatalf("expected provider address to be 0x1234, 0x5678 or 0x9abc, got %s", commitment.Commitments[0].ProviderAddress)
