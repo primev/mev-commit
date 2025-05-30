@@ -28,6 +28,7 @@ const (
 	Provider_Unstake_FullMethodName                = "/providerapi.v1.Provider/Unstake"
 	Provider_GetProviderReward_FullMethodName      = "/providerapi.v1.Provider/GetProviderReward"
 	Provider_WithdrawProviderReward_FullMethodName = "/providerapi.v1.Provider/WithdrawProviderReward"
+	Provider_GetCommitmentInfo_FullMethodName      = "/providerapi.v1.Provider/GetCommitmentInfo"
 )
 
 // ProviderClient is the client API for Provider service.
@@ -76,6 +77,10 @@ type ProviderClient interface {
 	// WithdrawProviderReward is called by the provider to withdraw their accumulated rewards
 	// from the bidder registry contract.
 	WithdrawProviderReward(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*WithdrawalResponse, error)
+	// GetCommitmentInfo
+	//
+	// GetCommitmentInfo is called by the provider to retrieve the commitment information.
+	GetCommitmentInfo(ctx context.Context, in *GetCommitmentInfoRequest, opts ...grpc.CallOption) (*CommitmentInfoResponse, error)
 }
 
 type providerClient struct {
@@ -188,6 +193,16 @@ func (c *providerClient) WithdrawProviderReward(ctx context.Context, in *EmptyMe
 	return out, nil
 }
 
+func (c *providerClient) GetCommitmentInfo(ctx context.Context, in *GetCommitmentInfoRequest, opts ...grpc.CallOption) (*CommitmentInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommitmentInfoResponse)
+	err := c.cc.Invoke(ctx, Provider_GetCommitmentInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProviderServer is the server API for Provider service.
 // All implementations must embed UnimplementedProviderServer
 // for forward compatibility.
@@ -234,6 +249,10 @@ type ProviderServer interface {
 	// WithdrawProviderReward is called by the provider to withdraw their accumulated rewards
 	// from the bidder registry contract.
 	WithdrawProviderReward(context.Context, *EmptyMessage) (*WithdrawalResponse, error)
+	// GetCommitmentInfo
+	//
+	// GetCommitmentInfo is called by the provider to retrieve the commitment information.
+	GetCommitmentInfo(context.Context, *GetCommitmentInfoRequest) (*CommitmentInfoResponse, error)
 	mustEmbedUnimplementedProviderServer()
 }
 
@@ -270,6 +289,9 @@ func (UnimplementedProviderServer) GetProviderReward(context.Context, *EmptyMess
 }
 func (UnimplementedProviderServer) WithdrawProviderReward(context.Context, *EmptyMessage) (*WithdrawalResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WithdrawProviderReward not implemented")
+}
+func (UnimplementedProviderServer) GetCommitmentInfo(context.Context, *GetCommitmentInfoRequest) (*CommitmentInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCommitmentInfo not implemented")
 }
 func (UnimplementedProviderServer) mustEmbedUnimplementedProviderServer() {}
 func (UnimplementedProviderServer) testEmbeddedByValue()                  {}
@@ -436,6 +458,24 @@ func _Provider_WithdrawProviderReward_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Provider_GetCommitmentInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCommitmentInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProviderServer).GetCommitmentInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Provider_GetCommitmentInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProviderServer).GetCommitmentInfo(ctx, req.(*GetCommitmentInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Provider_ServiceDesc is the grpc.ServiceDesc for Provider service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -470,6 +510,10 @@ var Provider_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "WithdrawProviderReward",
 			Handler:    _Provider_WithdrawProviderReward_Handler,
+		},
+		{
+			MethodName: "GetCommitmentInfo",
+			Handler:    _Provider_GetCommitmentInfo_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

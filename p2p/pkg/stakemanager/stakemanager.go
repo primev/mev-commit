@@ -91,6 +91,7 @@ func (sm *StakeManager) Start(ctx context.Context) <-chan struct{} {
 	sub, err := sm.evtMgr.Subscribe(ev1, ev2, ev3, ev4, ev5)
 	if err != nil {
 		close(doneChan)
+		sm.logger.Error("failed to subscribe to events", "error", err)
 		return doneChan
 	}
 

@@ -13,8 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -26,11 +28,13 @@ type Service struct {
 	blocksPerWindow      uint64
 	sender               PreconfSender
 	registryContract     BidderRegistryContract
+	providerRegistry     ProviderRegistryContract
 	blockTrackerContract BlockTrackerContract
 	watcher              TxWatcher
 	optsGetter           OptsGetter
 	autoDepositTracker   AutoDepositTracker
 	store                DepositStore
+	cs                   CommitmentStore
 	oracleWindowOffset   *big.Int
 	logger               *slog.Logger
 	metrics              *metrics
@@ -44,11 +48,13 @@ func NewService(
 	sender PreconfSender,
 	registryContract BidderRegistryContract,
 	blockTrackerContract BlockTrackerContract,
+	providerRegistry ProviderRegistryContract,
 	validator *protovalidate.Validator,
 	watcher TxWatcher,
 	optsGetter OptsGetter,
 	autoDepositTracker AutoDepositTracker,
 	store DepositStore,
+	cs CommitmentStore,
 	oracleWindowOffset *big.Int,
 	bidderBidTimeout time.Duration,
 	logger *slog.Logger,
@@ -59,6 +65,8 @@ func NewService(
 		sender:               sender,
 		registryContract:     registryContract,
 		blockTrackerContract: blockTrackerContract,
+		providerRegistry:     providerRegistry,
+		cs:                   cs,
 		watcher:              watcher,
 		optsGetter:           optsGetter,
 		logger:               logger,
@@ -89,6 +97,17 @@ type BidderRegistryContract interface {
 	WithdrawFromWindows(*bind.TransactOpts, []*big.Int) (*types.Transaction, error)
 	ParseBidderRegistered(types.Log) (*bidderregistry.BidderregistryBidderRegistered, error)
 	ParseBidderWithdrawal(types.Log) (*bidderregistry.BidderregistryBidderWithdrawal, error)
+}
+
+type ProviderRegistryContract interface {
+	BidderSlashedAmount(*bind.CallOpts, common.Address) (*big.Int, error)
+	WithdrawSlashedAmount(*bind.TransactOpts) (*types.Transaction, error)
+	ParseBidderWithdrawSlashedAmount(log types.Log) (*providerregistry.ProviderregistryBidderWithdrawSlashedAmount, error)
+}
+
+type CommitmentStore interface {
+	GetCommitments(blockNumber int64) ([]*preconfstore.Commitment, error)
+	GetAllCommitments() ([]*preconfstore.Commitment, error)
 }
 
 type BlockTrackerContract interface {
@@ -656,5 +675,135 @@ func (s *Service) AutoDepositStatus(
 	return &bidderapiv1.AutoDepositStatusResponse{
 		WindowBalances:       autoDeposits,
 		IsAutodepositEnabled: isAutodepositEnabled,
+	}, nil
+}
+
+func (s *Service) ClaimSlashedFunds(
+	ctx context.Context,
+	_ *bidderapiv1.EmptyMessage,
+) (*wrapperspb.StringValue, error) {
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		s.logger.Error("getting transact opts", "error", err)
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	amount, err := s.providerRegistry.BidderSlashedAmount(&bind.CallOpts{
+		From:    s.owner,
+		Context: ctx,
+	}, s.owner)
+	if err != nil {
+		s.logger.Error("getting slashed amount", "error", err)
+		return nil, status.Errorf(codes.Internal, "getting slashed amount: %v", err)
+	}
+
+	if amount.Cmp(big.NewInt(0)) == 0 {
+		s.logger.Info("no slashed amount to claim")
+		return &wrapperspb.StringValue{Value: "0"}, nil
+	}
+
+	tx, err := s.providerRegistry.WithdrawSlashedAmount(opts)
+	if err != nil {
+		s.logger.Error("withdrawing slashed amount", "error", err)
+		return nil, status.Errorf(codes.Internal, "withdrawing slashed amount: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	for _, log := range receipt.Logs {
+		if withdrawal, err := s.providerRegistry.ParseBidderWithdrawSlashedAmount(*log); err == nil {
+			s.logger.Info("slashed amount withdrawal successful", "amount", withdrawal.Amount.String())
+			return &wrapperspb.StringValue{Value: withdrawal.Amount.String()}, nil
+		}
+	}
+
+	s.logger.Error(
+		"withdraw slashed amount successful but missing log",
+		"txHash", receipt.TxHash.Hex(),
+		"logs", receipt.Logs,
+	)
+
+	s.logger.Error("withdraw slashed amount successful but missing log", "txHash", receipt.TxHash.Hex(), "logs", receipt.Logs)
+	return nil, status.Errorf(codes.Internal, "missing log for slashed amount withdrawal")
+}
+
+const (
+	defaultLimit = 100
+)
+
+func (s *Service) GetBidInfo(
+	ctx context.Context,
+	req *bidderapiv1.GetBidInfoRequest,
+) (*bidderapiv1.GetBidInfoResponse, error) {
+	var (
+		cmts        []*preconfstore.Commitment
+		err         error
+		page, limit = int(req.Page), int(req.Limit)
+	)
+
+	if req.BlockNumber != 0 {
+		cmts, err = s.cs.GetCommitments(req.BlockNumber)
+	} else {
+		cmts, err = s.cs.GetAllCommitments()
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting commitments: %v", err)
+	}
+	if len(cmts) == 0 {
+		return &bidderapiv1.GetBidInfoResponse{}, nil
+	}
+	if limit == 0 {
+		limit = defaultLimit
+	}
+	cmts = cmts[min(page*limit, len(cmts)):min((page+1)*limit, len(cmts))]
+	blockBids := make([]*bidderapiv1.GetBidInfoResponse_BlockBidInfo, 0)
+LOOP:
+	for _, c := range cmts {
+		if len(blockBids) == 0 || blockBids[len(blockBids)-1].BlockNumber != c.Bid.BlockNumber {
+			blockBids = append(blockBids, &bidderapiv1.GetBidInfoResponse_BlockBidInfo{
+				BlockNumber: c.Bid.BlockNumber,
+				Bids:        make([]*bidderapiv1.GetBidInfoResponse_BidInfo, 0),
+			})
+		}
+		cmtWithStatus := &bidderapiv1.GetBidInfoResponse_CommitmentWithStatus{
+			ProviderAddress:   common.Bytes2Hex(c.ProviderAddress),
+			DispatchTimestamp: c.PreConfirmation.DispatchTimestamp,
+			Status:            string(c.Status),
+			Details:           c.Details,
+			Payment:           c.Payment,
+			Refund:            c.Refund,
+		}
+		for idx, b := range blockBids[len(blockBids)-1].Bids {
+			if common.Bytes2Hex(c.Bid.Digest) == b.BidDigest {
+				blockBids[len(blockBids)-1].Bids[idx].Commitments = append(blockBids[len(blockBids)-1].Bids[idx].Commitments, cmtWithStatus)
+				continue LOOP
+			}
+		}
+		blockBids[len(blockBids)-1].Bids = append(blockBids[len(blockBids)-1].Bids, &bidderapiv1.GetBidInfoResponse_BidInfo{
+			BidDigest:           common.Bytes2Hex(c.Bid.Digest),
+			TxnHashes:           strings.Split(c.Bid.TxHash, ","),
+			RevertableTxnHashes: strings.Split(c.Bid.RevertingTxHashes, ","),
+			BlockNumber:         c.Bid.BlockNumber,
+			BidAmount:           c.Bid.BidAmount,
+			SlashAmount:         c.Bid.SlashAmount,
+			DecayStartTimestamp: c.Bid.DecayStartTimestamp,
+			DecayEndTimestamp:   c.Bid.DecayEndTimestamp,
+			Commitments: []*bidderapiv1.GetBidInfoResponse_CommitmentWithStatus{
+				cmtWithStatus,
+			},
+		})
+	}
+
+	return &bidderapiv1.GetBidInfoResponse{
+		BlockBidInfo: blockBids,
 	}, nil
 }

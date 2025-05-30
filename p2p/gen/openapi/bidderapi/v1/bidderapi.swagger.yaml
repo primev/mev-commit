@@ -74,10 +74,10 @@ paths:
             type: object
             properties:
               result:
-                $ref: '#/definitions/v1Commitment'
+                $ref: '#/definitions/bidderapiv1Commitment'
               error:
                 $ref: '#/definitions/googlerpcStatus'
-            title: Stream result of v1Commitment
+            title: Stream result of bidderapiv1Commitment
         default:
           description: An unexpected error response.
           schema:
@@ -111,6 +111,22 @@ paths:
           in: query
           required: false
           type: boolean
+  /v1/bidder/claim_slashed_funds:
+    post:
+      summary: ClaimSlashedFunds
+      description: |-
+        ClaimSlashedFunds is called by the bidder to claim slashed funds from the provider. The response
+        will show the amount claimed if any in wei.
+      operationId: Bidder_ClaimSlashedFunds
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            type: string
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/deposit/{amount}:
     post:
       summary: Deposit
@@ -148,6 +164,41 @@ paths:
           required: false
           type: string
           format: uint64
+  /v1/bidder/get_bid_info:
+    get:
+      summary: GetBidInfo
+      description: |-
+        GetBidInfo is called by the bidder to get the bid information. If block number is not specified,
+        all known block numbers are returned in the ascending order.
+      operationId: Bidder_GetBidInfo
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1GetBidInfoResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: blockNumber
+          description: Optional block number for querying bid info. If not specified, all known block numbers are returned in ascending order.
+          in: query
+          required: false
+          type: string
+          format: int64
+        - name: page
+          description: Page number for pagination.
+          in: query
+          required: false
+          type: integer
+          format: int32
+        - name: limit
+          description: Number of items per page for pagination. Default is 50
+          in: query
+          required: false
+          type: integer
+          format: int32
   /v1/bidder/get_deposit:
     get:
       summary: GetDeposit
@@ -212,6 +263,86 @@ paths:
           schema:
             $ref: '#/definitions/v1WithdrawFromWindowsRequest'
 definitions:
+  GetBidInfoResponseBidInfo:
+    type: object
+    properties:
+      txnHashes:
+        type: array
+        items:
+          type: string
+          pattern: '[a-fA-F0-9]{64}'
+        description: Hex string encoding of the hashes of the transactions that the bidder wants to include in the block.
+      revertableTxnHashes:
+        type: array
+        items:
+          type: string
+          pattern: '[a-fA-F0-9]{64}'
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
+      blockNumber:
+        type: string
+        format: int64
+        description: Block number that the bidder wants to include the transaction in.
+      bidAmount:
+        type: string
+        description: Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block.
+        pattern: '[0-9]+'
+      decayStartTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the bid starts decaying.
+      decayEndTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the bid ends decaying.
+      bidDigest:
+        type: string
+        description: Hex string encoding of digest of the bid message signed by the bidder.
+      slashAmount:
+        type: string
+        description: Amount of ETH that will be slashed from the provider if they fail to include the transaction. If zero, the decayed bid amount is used for slashing.
+        pattern: '[0-9]+'
+      commitments:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/GetBidInfoResponseCommitmentWithStatus'
+    description: Information about a bid including its commitments.
+    title: Bid Info
+  GetBidInfoResponseBlockBidInfo:
+    type: object
+    properties:
+      blockNumber:
+        type: string
+        format: int64
+        description: Block number for which the bid info is requested.
+      bids:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/GetBidInfoResponseBidInfo'
+        description: List of bids for the specified block number.
+  GetBidInfoResponseCommitmentWithStatus:
+    type: object
+    properties:
+      providerAddress:
+        type: string
+        description: Hex string encoding of the address of the provider that signed the commitment.
+      dispatchTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the commitment is published.
+      status:
+        type: string
+        description: 'Status of the commitment. Possible values: ''pending'', ''stored'', ''opened'', ''settled'', ''slashed'', ''failed''.'
+      details:
+        type: string
+        description: Additional details about the commitment status.
+      payment:
+        type: string
+        description: Payment amount in wei for the commitment.
+      refund:
+        type: string
+        description: Refund amount in wei for the commitment, if applicable.
   bidderapiv1AutoDeposit:
     type: object
     properties:
@@ -290,6 +421,59 @@ definitions:
       - blockNumber
       - decayStartTimestamp
       - decayEndTimestamp
+  bidderapiv1Commitment:
+    type: object
+    properties:
+      txHashes:
+        type: array
+        items:
+          type: string
+          pattern: '[a-fA-F0-9]{64}'
+        description: Hex string encoding of the hash of the transaction that the bidder wants to include in the block.
+      bidAmount:
+        type: string
+        description: Amount of ETH that the bidder has agreed to pay to the provider for including the transaction in the block.
+      blockNumber:
+        type: string
+        format: int64
+        description: Max block number that the bidder wants to include the transaction in.
+      receivedBidDigest:
+        type: string
+        description: Hex string encoding of digest of the bid message signed by the bidder.
+      receivedBidSignature:
+        type: string
+        description: Hex string encoding of signature of the bidder that sent this bid.
+      commitmentDigest:
+        type: string
+        description: Hex string encoding of digest of the commitment.
+      commitmentSignature:
+        type: string
+        description: Hex string encoding of signature of the commitment signed by the provider confirming this transaction.
+      providerAddress:
+        type: string
+        description: Hex string encoding of the address of the provider that signed the commitment signature.
+      decayStartTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the bid starts decaying.
+      decayEndTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the bid ends decaying.
+      dispatchTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the commitment is published.
+      revertingTxHashes:
+        type: array
+        items:
+          type: string
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
+      slashAmount:
+        type: string
+        description: Amount of ETH that will be slashed from the provider if they fail to include the transaction.
+    description: Commitment message from the provider to the bidder mev-commit node.
+    title: Commitment message
   googlerpcStatus:
     type: object
     properties:
@@ -358,57 +542,6 @@ definitions:
           format: uint64
     description: CancelAutoDeposit deposit from the bidder registry.
     title: CancelAutoDeposit response
-  v1Commitment:
-    type: object
-    properties:
-      txHashes:
-        type: array
-        items:
-          type: string
-          pattern: '[a-fA-F0-9]{64}'
-        description: Hex string encoding of the hash of the transaction that the bidder wants to include in the block.
-      bidAmount:
-        type: string
-        description: Amount of ETH that the bidder has agreed to pay to the provider for including the transaction in the block.
-      blockNumber:
-        type: string
-        format: int64
-        description: Max block number that the bidder wants to include the transaction in.
-      receivedBidDigest:
-        type: string
-        description: Hex string encoding of digest of the bid message signed by the bidder.
-      receivedBidSignature:
-        type: string
-        description: Hex string encoding of signature of the bidder that sent this bid.
-      commitmentDigest:
-        type: string
-        description: Hex string encoding of digest of the commitment.
-      commitmentSignature:
-        type: string
-        description: Hex string encoding of signature of the commitment signed by the provider confirming this transaction.
-      providerAddress:
-        type: string
-        description: Hex string encoding of the address of the provider that signed the commitment signature.
-      decayStartTimestamp:
-        type: string
-        format: int64
-        description: Timestamp at which the bid starts decaying.
-      decayEndTimestamp:
-        type: string
-        format: int64
-        description: Timestamp at which the bid ends decaying.
-      dispatchTimestamp:
-        type: string
-        format: int64
-        description: Timestamp at which the commitment is published.
-      revertingTxHashes:
-        type: array
-        items:
-          type: string
-        description: Optional array of tx hashes that are allowed to revert or be discarded.
-      slashAmount:
-        type: string
-        description: Amount of ETH that will be slashed from the provider if they fail to include the transaction.
   v1DepositResponse:
     type: object
     example:
@@ -420,8 +553,17 @@ definitions:
       windowNumber:
         type: string
         format: uint64
-    description: Get deposit for bidder in the bidder registry.
+    description: Deposit for bidder in the bidder registry for a particular window.
     title: Deposit response
+  v1GetBidInfoResponse:
+    type: object
+    properties:
+      blockBidInfo:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/GetBidInfoResponseBlockBidInfo'
+        description: List of block bid info containing bids and their commitments.
   v1WithdrawFromWindowsRequest:
     type: object
     example:
@@ -456,7 +598,7 @@ definitions:
         items:
           type: object
           $ref: '#/definitions/v1WithdrawResponse'
-    description: Withdraw deposit from the bidder registry.
+    description: Withdrawn deposit from the bidder registry.
     title: Withdraw from multiple windows response
   v1WithdrawResponse:
     type: object
@@ -469,5 +611,5 @@ definitions:
       windowNumber:
         type: string
         format: uint64
-    description: Withdraw deposit from the bidder registry.
+    description: Withdrawn deposit from the bidder registry.
     title: Withdraw response
