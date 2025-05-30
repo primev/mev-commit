@@ -122,7 +122,11 @@ func (t *testDepositManager) CheckAndDeductDeposit(
 
 type testTracker struct{}
 
-func (t *testTracker) TrackCommitment(ctx context.Context, cm *store.EncryptedPreConfirmationWithDecrypted) error {
+func (t *testTracker) TrackCommitment(
+	ctx context.Context,
+	cm *store.Commitment,
+	txn *types.Transaction,
+) error {
 	return nil
 }
 

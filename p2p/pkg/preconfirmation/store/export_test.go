@@ -1,3 +1,6 @@
 package store
 
-var CmtIndexNS = cmtIndexNS
+var (
+	CmtIndexNS      = cmtIndexNS
+	IndexToDigestNS = indexToDigestNS
+)
