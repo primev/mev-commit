@@ -241,7 +241,7 @@ The application supports two operational modes:
 
 ## Running Postgres
 
-We will use Docker Compose to run Redis
+We will use Docker Compose to run Postgres
 
 ### Postgres Docker Compose Configuration
 
