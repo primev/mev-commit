@@ -1,6 +1,7 @@
 package rpcserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -97,7 +98,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler, ok := s.methods[req.Method]
 	s.rwLock.RUnlock()
 	if !ok {
-		s.proxyRequest(w, r)
+		s.proxyRequest(w, body)
 		return
 	}
 
@@ -107,7 +108,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, req.ID, CodeCustomError, err.Error())
 		return
 	case proxy:
-		s.proxyRequest(w, r)
+		s.proxyRequest(w, body)
 		return
 	case resp == nil:
 		s.writeError(w, req.ID, CodeCustomError, "No response")
@@ -149,11 +150,11 @@ func (s *JSONRPCServer) writeError(w http.ResponseWriter, id any, code int, mess
 	}
 }
 
-func (s *JSONRPCServer) proxyRequest(w http.ResponseWriter, r *http.Request) {
+func (s *JSONRPCServer) proxyRequest(w http.ResponseWriter, body []byte) {
 	client := &http.Client{
 		Timeout: defaultTimeout,
 	}
-	req, err := http.NewRequest(r.Method, s.proxyURL, r.Body)
+	req, err := http.NewRequest(http.MethodPost, s.proxyURL, bytes.NewReader(body))
 	if err != nil {
 		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
 		return
