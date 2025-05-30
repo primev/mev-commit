@@ -18,6 +18,7 @@ import (
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -37,6 +38,7 @@ type Service struct {
 	registryContract       ProviderRegistryContract
 	bidderRegistryContract BidderRegistryContract
 	watcher                Watcher
+	cs                     CommitmentStore
 	optsGetter             OptsGetter
 	metrics                *metrics
 	validator              *protovalidate.Validator
@@ -69,6 +71,11 @@ type Watcher interface {
 	WaitForReceipt(ctx context.Context, tx *types.Transaction) (*types.Receipt, error)
 }
 
+type CommitmentStore interface {
+	GetCommitments(blockNumber int64) ([]*preconfstore.Commitment, error)
+	GetAllCommitments() ([]*preconfstore.Commitment, error)
+}
+
 type OptsGetter func(ctx context.Context) (*bind.TransactOpts, error)
 
 func NewService(
@@ -77,6 +84,7 @@ func NewService(
 	bidderRegistryContract BidderRegistryContract,
 	owner common.Address,
 	watcher Watcher,
+	cs CommitmentStore,
 	optsGetter OptsGetter,
 	validator *protovalidate.Validator,
 ) *Service {
@@ -88,6 +96,7 @@ func NewService(
 		owner:                  owner,
 		logger:                 logger,
 		watcher:                watcher,
+		cs:                     cs,
 		optsGetter:             optsGetter,
 		metrics:                newMetrics(),
 		validator:              validator,
@@ -491,4 +500,67 @@ func (s *Service) GetProviderReward(
 
 	s.logger.Info("retrieved provider reward amount", "amount", amount.String())
 	return &providerapiv1.RewardResponse{Amount: amount.String()}, nil
+}
+
+const (
+	defaultPage  = 0
+	defaultLimit = 100
+)
+
+func (s *Service) GetCommitmentInfo(
+	ctx context.Context,
+	req *providerapiv1.GetCommitmentInfoRequest,
+) (*providerapiv1.CommitmentInfoResponse, error) {
+	var (
+		cmts        []*preconfstore.Commitment
+		err         error
+		page, limit = int(req.Page), int(req.Limit)
+	)
+
+	if req.BlockNumber != 0 {
+		cmts, err = s.cs.GetCommitments(req.BlockNumber)
+	} else {
+		cmts, err = s.cs.GetAllCommitments()
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting commitments: %v", err)
+	}
+	if len(cmts) == 0 {
+		return &providerapiv1.CommitmentInfoResponse{
+			Commitments: []*providerapiv1.CommitmentInfoResponse_BlockCommitments{},
+		}, nil
+	}
+
+	if limit == 0 {
+		limit = defaultLimit
+	}
+	cmts = cmts[min(page*limit, len(cmts)):min((page+1)*limit, len(cmts))]
+	blockCommitments := make([]*providerapiv1.CommitmentInfoResponse_BlockCommitments, 0)
+	for _, c := range cmts {
+		if len(blockCommitments) == 0 || blockCommitments[len(blockCommitments)-1].BlockNumber != c.Bid.BlockNumber {
+			blockCommitments = append(blockCommitments, &providerapiv1.CommitmentInfoResponse_BlockCommitments{
+				BlockNumber: c.Bid.BlockNumber,
+				Commitments: make([]*providerapiv1.CommitmentInfoResponse_Commitment, 0),
+			})
+		}
+		blockCommitments[len(blockCommitments)-1].Commitments = append(blockCommitments[len(blockCommitments)-1].Commitments, &providerapiv1.CommitmentInfoResponse_Commitment{
+			TxnHashes:           strings.Split(c.Bid.TxHash, ","),
+			RevertableTxnHashes: strings.Split(c.Bid.RevertingTxHashes, ","),
+			Amount:              c.Bid.BidAmount,
+			BlockNumber:         c.Bid.BlockNumber,
+			ProviderAddress:     common.Bytes2Hex(c.ProviderAddress),
+			DecayStartTimestamp: c.Bid.DecayStartTimestamp,
+			DecayEndTimestamp:   c.Bid.DecayEndTimestamp,
+			DispatchTimestamp:   c.EncryptedPreConfirmation.DispatchTimestamp,
+			SlashAmount:         c.Bid.SlashAmount,
+			Status:              string(c.Status),
+			Details:             c.Details,
+			Payment:             c.Payment,
+			Refund:              c.Refund,
+		})
+	}
+
+	return &providerapiv1.CommitmentInfoResponse{
+		Commitments: blockCommitments,
+	}, nil
 }

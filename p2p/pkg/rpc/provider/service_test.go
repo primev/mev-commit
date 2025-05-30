@@ -22,6 +22,7 @@ import (
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc"
@@ -147,7 +148,30 @@ func (t *testWatcher) WaitForReceipt(ctx context.Context, tx *types.Transaction)
 	}, nil
 }
 
+type testStore struct {
+	commitments []*preconfstore.Commitment
+}
+
+func (t *testStore) GetAllCommitments() ([]*preconfstore.Commitment, error) {
+	return t.commitments, nil
+}
+
+func (t *testStore) GetCommitments(blockNum int64) ([]*preconfstore.Commitment, error) {
+	cmts := make([]*preconfstore.Commitment, 0)
+	for _, c := range t.commitments {
+		if c.Bid.BlockNumber == blockNum {
+			cmts = append(cmts, c)
+		}
+	}
+	return cmts, nil
+}
+
 func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Service) {
+	ts := &testStore{}
+	return startServerWithStore(t, ts)
+}
+
+func startServerWithStore(t *testing.T, ts *testStore) (providerapiv1.ProviderClient, *providerapi.Service) {
 	buffer := 101024 * 1024
 	lis := bufconn.Listen(buffer)
 
@@ -174,6 +198,7 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 		bidderRegistryContract,
 		owner,
 		&testWatcher{},
+		ts,
 		func(context.Context) (*bind.TransactOpts, error) {
 			return &bind.TransactOpts{
 				From:    owner,
@@ -631,6 +656,197 @@ func TestRequestWithdrawal(t *testing.T) {
 		_, err := client.Unstake(context.Background(), &providerapiv1.EmptyMessage{})
 		if err != nil {
 			t.Fatalf("error requesting withdrawal: %v", err)
+		}
+	})
+}
+
+func TestGetCommitmentInfo(t *testing.T) {
+	t.Parallel()
+
+	t.Run("get commitment info", func(t *testing.T) {
+		// Create a test commitment
+		testCommitment := &preconfstore.Commitment{
+			EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+				DispatchTimestamp: 123456889,
+			},
+			PreConfirmation: &preconfpb.PreConfirmation{
+				Bid: &preconfpb.Bid{
+					TxHash:              "0x1234567890abcdef,0x1234567890abcdef",
+					BlockNumber:         1,
+					BidAmount:           "1000000000000000000",
+					DecayStartTimestamp: 123456789,
+					DecayEndTimestamp:   123457896,
+				},
+				ProviderAddress: common.HexToAddress("0x1234").Bytes(),
+			},
+			Status:  preconfstore.CommitmentStatusOpened,
+			Details: "test details",
+			Payment: "900000000000000000",
+			Refund:  "100000000000000000",
+		}
+
+		store := &testStore{
+			commitments: []*preconfstore.Commitment{testCommitment},
+		}
+
+		client, _ := startServerWithStore(t, store)
+
+		resp, err := client.GetCommitmentInfo(context.Background(), &providerapiv1.GetCommitmentInfoRequest{
+			BlockNumber: 1,
+		})
+		if err != nil {
+			t.Fatalf("error getting commitment info: %v", err)
+		}
+		if len(resp.Commitments) != 1 {
+			t.Fatalf("expected 1 commitment, got %d", len(resp.Commitments))
+		}
+		if resp.Commitments[0].BlockNumber != 1 {
+			t.Fatalf("expected block number to be 1, got %d", resp.Commitments[0].BlockNumber)
+		}
+		if len(resp.Commitments[0].Commitments) != 1 {
+			t.Fatalf("expected 1 commitment in response, got %d", len(resp.Commitments[0].Commitments))
+		}
+		if len(resp.Commitments[0].Commitments[0].TxnHashes) != 2 {
+			t.Fatalf("expected 2 tx hashes, got %d", len(resp.Commitments[0].Commitments[0].TxnHashes))
+		}
+		if resp.Commitments[0].Commitments[0].TxnHashes[0] != "0x1234567890abcdef" {
+			t.Fatalf("expected first tx hash to be 0x1234567890abcdef, got %s", resp.Commitments[0].Commitments[0].TxnHashes[0])
+		}
+		if resp.Commitments[0].Commitments[0].TxnHashes[1] != "0x1234567890abcdef" {
+			t.Fatalf("expected second tx hash to be 0x1234567890abcdef, got %s", resp.Commitments[0].Commitments[0].TxnHashes[1])
+		}
+		if resp.Commitments[0].Commitments[0].Amount != "1000000000000000000" {
+			t.Fatalf("expected bid amount to be 1000000000000000000, got %s", resp.Commitments[0].Commitments[0].Amount)
+		}
+		if resp.Commitments[0].Commitments[0].DispatchTimestamp != 123456889 {
+			t.Fatalf("expected dispatch timestamp to be 123456889, got %d", resp.Commitments[0].Commitments[0].DispatchTimestamp)
+		}
+		if resp.Commitments[0].Commitments[0].ProviderAddress != strings.TrimPrefix(common.HexToAddress("0x1234").String(), "0x") {
+			t.Fatalf("expected provider address to be %s, got %s", common.HexToAddress("0x1234").String(), resp.Commitments[0].Commitments[0].ProviderAddress)
+		}
+		if resp.Commitments[0].Commitments[0].Status != string(preconfstore.CommitmentStatusOpened) {
+			t.Fatalf("expected commitment status to be 'opened', got %s", resp.Commitments[0].Commitments[0].Status)
+		}
+		if resp.Commitments[0].Commitments[0].Details != "test details" {
+			t.Fatalf("expected commitment details to be 'test details', got %s", resp.Commitments[0].Commitments[0].Details)
+		}
+		if resp.Commitments[0].Commitments[0].Payment != "900000000000000000" {
+			t.Fatalf("expected payment to be 900000000000000000, got %s", resp.Commitments[0].Commitments[0].Payment)
+		}
+		if resp.Commitments[0].Commitments[0].Refund != "100000000000000000" {
+			t.Fatalf("expected refund to be 100000000000000000, got %s", resp.Commitments[0].Commitments[0].Refund)
+		}
+	})
+
+	t.Run("get all commitments", func(t *testing.T) {
+		testCommitments := []*preconfstore.Commitment{
+			{
+				EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+					DispatchTimestamp: 123456889,
+				},
+				PreConfirmation: &preconfpb.PreConfirmation{
+					Bid: &preconfpb.Bid{
+						TxHash:              "0x1234567890abcdef,0x1234567890abcdef",
+						BlockNumber:         1,
+						BidAmount:           "1000000000000000000",
+						DecayStartTimestamp: 123456789,
+						DecayEndTimestamp:   123457896,
+					},
+					ProviderAddress: common.HexToAddress("0x1234").Bytes(),
+				},
+				Status:  preconfstore.CommitmentStatusOpened,
+				Details: "test details",
+				Payment: "900000000000000000",
+				Refund:  "100000000000000000",
+			},
+			{
+				EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+					DispatchTimestamp: 123456889,
+				},
+				PreConfirmation: &preconfpb.PreConfirmation{
+					Bid: &preconfpb.Bid{
+						TxHash:              "0xabcdef1234567890,0xabcdef1234567890",
+						BlockNumber:         2,
+						BidAmount:           "2000000000000000000",
+						DecayStartTimestamp: 123456789,
+						DecayEndTimestamp:   123457896,
+					},
+					ProviderAddress: common.HexToAddress("0x5678").Bytes(),
+				},
+				Status:  preconfstore.CommitmentStatusSettled,
+				Details: "another test details",
+				Payment: "1800000000000000000",
+				Refund:  "200000000000000000",
+			},
+			{
+				EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+					DispatchTimestamp: 123456889,
+				},
+				PreConfirmation: &preconfpb.PreConfirmation{
+					Bid: &preconfpb.Bid{
+						TxHash:              "0xabcdef1234567890,0xabcdef1234567890",
+						BlockNumber:         3,
+						BidAmount:           "3000000000000000000",
+						DecayStartTimestamp: 123456789,
+						DecayEndTimestamp:   123457896,
+					},
+					ProviderAddress: common.HexToAddress("0x9abc").Bytes(),
+				},
+				Status:  preconfstore.CommitmentStatusFailed,
+				Details: "yet another test details",
+				Payment: "2700000000000000000",
+				Refund:  "300000000000000000",
+			},
+		}
+
+		store := &testStore{
+			commitments: testCommitments,
+		}
+
+		client, _ := startServerWithStore(t, store)
+		resp, err := client.GetCommitmentInfo(context.Background(), &providerapiv1.GetCommitmentInfoRequest{})
+		if err != nil {
+			t.Fatalf("error getting all commitments: %v", err)
+		}
+
+		if len(resp.Commitments) != 3 {
+			t.Fatalf("expected 3 commitments, got %d", len(resp.Commitments))
+		}
+
+		for i, commitment := range resp.Commitments {
+			if len(commitment.Commitments) != 1 {
+				t.Fatalf("expected 1 commitment in response, got %d", len(commitment.Commitments))
+			}
+			if commitment.BlockNumber != int64(i+1) {
+				t.Fatalf("expected block number to be %d, got %d", i+1, commitment.BlockNumber)
+			}
+			if commitment.Commitments[0].BlockNumber != int64(i+1) {
+				t.Fatalf("expected block number to be %d, got %d", i+1, commitment.Commitments[0].BlockNumber)
+			}
+			if commitment.Commitments[0].TxnHashes[0] != "0x1234567890abcdef" && commitment.Commitments[0].TxnHashes[0] != "0xabcdef1234567890" {
+				t.Fatalf("expected tx hash to be 0x1234567890abcdef or 0xabcdef1234567890, got %s", commitment.Commitments[0].TxnHashes[0])
+			}
+			if commitment.Commitments[0].Amount != testCommitments[i].Bid.BidAmount {
+				t.Fatalf("expected bid amount to be %s, got %s", testCommitments[i].Bid.BidAmount, commitment.Commitments[0].Amount)
+			}
+			if commitment.Commitments[0].DispatchTimestamp != testCommitments[i].EncryptedPreConfirmation.DispatchTimestamp {
+				t.Fatalf("expected dispatch timestamp to be %d, got %d", testCommitments[i].EncryptedPreConfirmation.DispatchTimestamp, commitment.Commitments[0].DispatchTimestamp)
+			}
+			if commitment.Commitments[0].ProviderAddress != strings.TrimPrefix(common.Bytes2Hex(testCommitments[i].ProviderAddress), "0x") {
+				t.Fatalf("expected provider address to be 0x1234, 0x5678 or 0x9abc, got %s", commitment.Commitments[0].ProviderAddress)
+			}
+			if commitment.Commitments[0].Status != string(testCommitments[i].Status) {
+				t.Fatalf("expected commitment status to be '%s', got '%s'", testCommitments[i].Status, commitment.Commitments[0].Status)
+			}
+			if commitment.Commitments[0].Details != testCommitments[i].Details {
+				t.Fatalf("expected commitment details to be '%s', got '%s'", testCommitments[i].Details, commitment.Commitments[0].Details)
+			}
+			if commitment.Commitments[0].Payment != testCommitments[i].Payment {
+				t.Fatalf("expected payment to be %s, got %s", testCommitments[i].Payment, commitment.Commitments[0].Payment)
+			}
+			if commitment.Commitments[0].Refund != testCommitments[i].Refund {
+				t.Fatalf("expected refund to be %s, got %s", testCommitments[i].Refund, commitment.Commitments[0].Refund)
+			}
 		}
 	})
 }
