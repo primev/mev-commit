@@ -6,9 +6,11 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/primev/mev-commit/bridge/standard/pkg/transfer"
+	bridgetransfer "github.com/primev/mev-commit/bridge/standard/pkg/transfer"
 	"github.com/primev/mev-commit/x/keysigner"
 )
+
+var transferFunc = bridgetransfer.NewTransferToSettlement
 
 type AccountSyncer interface {
 	Subscribe(ctx context.Context, threshold *big.Int) <-chan struct{}
@@ -64,7 +66,7 @@ func (b *Bridger) Start(ctx context.Context) <-chan struct{} {
 					"topup", b.topup,
 					"address", b.config.Signer.GetAddress().Hex(),
 				)
-				tx, err := transfer.NewTransferToSettlement(
+				tx, err := transferFunc(
 					b.topup,
 					b.config.Signer.GetAddress(),
 					b.config.Signer,
