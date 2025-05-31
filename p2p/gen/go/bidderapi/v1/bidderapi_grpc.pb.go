@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -27,6 +28,8 @@ const (
 	Bidder_WithdrawFromWindows_FullMethodName = "/bidderapi.v1.Bidder/WithdrawFromWindows"
 	Bidder_GetDeposit_FullMethodName          = "/bidderapi.v1.Bidder/GetDeposit"
 	Bidder_Withdraw_FullMethodName            = "/bidderapi.v1.Bidder/Withdraw"
+	Bidder_GetBidInfo_FullMethodName          = "/bidderapi.v1.Bidder/GetBidInfo"
+	Bidder_ClaimSlashedFunds_FullMethodName   = "/bidderapi.v1.Bidder/ClaimSlashedFunds"
 )
 
 // BidderClient is the client API for Bidder service.
@@ -80,6 +83,16 @@ type BidderClient interface {
 	//
 	// Withdraw is called by the bidder to withdraw deposit from the bidder registry.
 	Withdraw(ctx context.Context, in *WithdrawRequest, opts ...grpc.CallOption) (*WithdrawResponse, error)
+	// GetBidInfo
+	//
+	// GetBidInfo is called by the bidder to get the bid information. If block number is not specified,
+	// all known block numbers are returned in the ascending order.
+	GetBidInfo(ctx context.Context, in *GetBidInfoRequest, opts ...grpc.CallOption) (*GetBidInfoResponse, error)
+	// ClaimSlashedFunds
+	//
+	// ClaimSlashedFunds is called by the bidder to claim slashed funds from the provider. The response
+	// will show the amount claimed if any in wei.
+	ClaimSlashedFunds(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*wrapperspb.StringValue, error)
 }
 
 type bidderClient struct {
@@ -179,6 +192,26 @@ func (c *bidderClient) Withdraw(ctx context.Context, in *WithdrawRequest, opts .
 	return out, nil
 }
 
+func (c *bidderClient) GetBidInfo(ctx context.Context, in *GetBidInfoRequest, opts ...grpc.CallOption) (*GetBidInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBidInfoResponse)
+	err := c.cc.Invoke(ctx, Bidder_GetBidInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bidderClient) ClaimSlashedFunds(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*wrapperspb.StringValue, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(wrapperspb.StringValue)
+	err := c.cc.Invoke(ctx, Bidder_ClaimSlashedFunds_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BidderServer is the server API for Bidder service.
 // All implementations must embed UnimplementedBidderServer
 // for forward compatibility.
@@ -230,6 +263,16 @@ type BidderServer interface {
 	//
 	// Withdraw is called by the bidder to withdraw deposit from the bidder registry.
 	Withdraw(context.Context, *WithdrawRequest) (*WithdrawResponse, error)
+	// GetBidInfo
+	//
+	// GetBidInfo is called by the bidder to get the bid information. If block number is not specified,
+	// all known block numbers are returned in the ascending order.
+	GetBidInfo(context.Context, *GetBidInfoRequest) (*GetBidInfoResponse, error)
+	// ClaimSlashedFunds
+	//
+	// ClaimSlashedFunds is called by the bidder to claim slashed funds from the provider. The response
+	// will show the amount claimed if any in wei.
+	ClaimSlashedFunds(context.Context, *EmptyMessage) (*wrapperspb.StringValue, error)
 	mustEmbedUnimplementedBidderServer()
 }
 
@@ -263,6 +306,12 @@ func (UnimplementedBidderServer) GetDeposit(context.Context, *GetDepositRequest)
 }
 func (UnimplementedBidderServer) Withdraw(context.Context, *WithdrawRequest) (*WithdrawResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Withdraw not implemented")
+}
+func (UnimplementedBidderServer) GetBidInfo(context.Context, *GetBidInfoRequest) (*GetBidInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBidInfo not implemented")
+}
+func (UnimplementedBidderServer) ClaimSlashedFunds(context.Context, *EmptyMessage) (*wrapperspb.StringValue, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ClaimSlashedFunds not implemented")
 }
 func (UnimplementedBidderServer) mustEmbedUnimplementedBidderServer() {}
 func (UnimplementedBidderServer) testEmbeddedByValue()                {}
@@ -422,6 +471,42 @@ func _Bidder_Withdraw_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Bidder_GetBidInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBidInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).GetBidInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_GetBidInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).GetBidInfo(ctx, req.(*GetBidInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Bidder_ClaimSlashedFunds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).ClaimSlashedFunds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_ClaimSlashedFunds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).ClaimSlashedFunds(ctx, req.(*EmptyMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Bidder_ServiceDesc is the grpc.ServiceDesc for Bidder service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -456,6 +541,14 @@ var Bidder_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Withdraw",
 			Handler:    _Bidder_Withdraw_Handler,
+		},
+		{
+			MethodName: "GetBidInfo",
+			Handler:    _Bidder_GetBidInfo_Handler,
+		},
+		{
+			MethodName: "ClaimSlashedFunds",
+			Handler:    _Bidder_ClaimSlashedFunds_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

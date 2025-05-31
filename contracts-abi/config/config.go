@@ -23,12 +23,14 @@ var DefaultsContracts = map[string]Contracts{
 		BlockTracker:     MevCommitChainContracts.BlockTracker,
 		ProviderRegistry: MevCommitChainContracts.ProviderRegistry,
 		BidderRegistry:   MevCommitChainContracts.BidderRegistry,
+		Oracle:           MevCommitChainContracts.Oracle,
 	},
 	TestnetChainID.String(): {
 		PreconfManager:   TestnetContracts.PreconfManager,
 		BlockTracker:     TestnetContracts.BlockTracker,
 		ProviderRegistry: TestnetContracts.ProviderRegistry,
 		BidderRegistry:   TestnetContracts.BidderRegistry,
+		Oracle:           TestnetContracts.Oracle,
 	},
 }
 

@@ -61,7 +61,7 @@ type DepositManager interface {
 }
 
 type Tracker interface {
-	TrackCommitment(ctx context.Context, cm *store.EncryptedPreConfirmationWithDecrypted) error
+	TrackCommitment(ctx context.Context, cm *store.Commitment, txn *types.Transaction) error
 }
 
 type PreconfContract interface {
@@ -221,14 +221,14 @@ func (p *Preconfirmation) SendBid(
 			preConfirmation.ProviderAddress = make([]byte, len(providerAddress))
 			copy(preConfirmation.ProviderAddress, providerAddress[:])
 
-			encryptedAndDecryptedPreconfirmation := &store.EncryptedPreConfirmationWithDecrypted{
+			encryptedAndDecryptedPreconfirmation := &store.Commitment{
 				EncryptedPreConfirmation: encryptedPreConfirmation,
 				PreConfirmation:          preConfirmation,
 			}
 
 			p.metrics.ReceivedPreconfsCount.Inc()
 			// Track the preconfirmation
-			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation); err != nil {
+			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation, nil); err != nil {
 				logger.Error("tracking commitment", "error", err)
 				return
 			}
@@ -345,13 +345,12 @@ func (p *Preconfirmation) handleBid(
 				return status.Errorf(codes.Internal, "failed to store commitments: %v", err)
 			}
 
-			encryptedAndDecryptedPreconfirmation := &store.EncryptedPreConfirmationWithDecrypted{
-				TxnHash:                  txn.Hash(),
+			encryptedAndDecryptedPreconfirmation := &store.Commitment{
 				EncryptedPreConfirmation: encryptedPreConfirmation,
 				PreConfirmation:          preConfirmation,
 			}
 
-			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation); err != nil {
+			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation, txn); err != nil {
 				p.logger.Error("tracking commitment", "error", err)
 				return status.Errorf(codes.Internal, "failed to track commitment: %v", err)
 			}
