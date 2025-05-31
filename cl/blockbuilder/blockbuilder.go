@@ -531,3 +531,7 @@ func (bb *BlockBuilder) loadExecutionHead(ctx context.Context) (*types.Execution
 
 	return bb.executionHead, nil
 }
+
+func (bb *BlockBuilder) GetExecutionHead() *types.ExecutionHead {
+	return bb.executionHead
+}

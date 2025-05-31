@@ -8,6 +8,7 @@ require (
 	github.com/go-redis/redismock/v9 v9.2.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/golang/mock v1.6.0
+	github.com/lib/pq v1.10.9
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/urfave/cli/v2 v2.27.5
 	golang.org/x/tools v0.29.0

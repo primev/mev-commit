@@ -34,6 +34,15 @@ func (m *MockBlockBuilder) FinalizeBlock(ctx context.Context, payloadID string, 
 	return args.Error(0)
 }
 
+// Add missing method to satisfy BlockBuilder interface
+func (m *MockBlockBuilder) GetExecutionHead() *types.ExecutionHead {
+	args := m.Called()
+	if head, ok := args.Get(0).(*types.ExecutionHead); ok {
+		return head
+	}
+	return nil
+}
+
 // MockConnectionRefused provides a safe implementation for testing
 type MockConnectionRefused struct{}
 
@@ -166,6 +175,7 @@ func TestProduceBlock(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	mockBuilder.On("GetExecutionHead").Return((*types.ExecutionHead)(nil))
 	mockBuilder.On("GetPayload", mock.Anything).Return(nil)
 	mockBuilder.On("FinalizeBlock", mock.Anything, "test-payload-id", "test-execution-payload", "").Return(nil)
 
@@ -210,6 +220,7 @@ func TestProduceBlock(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	mockBuilder.On("GetExecutionHead").Return((*types.ExecutionHead)(nil))
 	mockBuilder.On("GetPayload", mock.Anything).Return(nil)
 	mockBuilder.On("FinalizeBlock", mock.Anything, "test-payload-id", "test-execution-payload", "").Return(assert.AnError)
 
