@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/primev/mev-commit/cl/membernode"
 	"github.com/primev/mev-commit/cl/singlenode"
+	"github.com/primev/mev-commit/cl/singlenode/membernode"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
@@ -41,13 +41,13 @@ var (
 	configFlag = &cli.StringFlag{
 		Name:    "config",
 		Usage:   "Path to YAML config file",
-		EnvVars: []string{"SNODE_CONFIG"},
+		EnvVars: []string{"LEADER_CONFIG"},
 	}
 
 	instanceIDFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "instance-id",
 		Usage:    "Unique instance ID for this node (for logging/identification)",
-		EnvVars:  []string{"SNODE_INSTANCE_ID"},
+		EnvVars:  []string{"LEADER_INSTANCE_ID"},
 		Required: true,
 		Action: func(_ *cli.Context, s string) error {
 			if s == "" {
@@ -60,7 +60,7 @@ var (
 	ethClientURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "eth-client-url",
 		Usage:   "Ethereum Execution client Engine API URL (e.g., http://localhost:8551)",
-		EnvVars: []string{"SNODE_ETH_CLIENT_URL"},
+		EnvVars: []string{"LEADER_ETH_CLIENT_URL"},
 		Value:   "http://localhost:8551",
 		Action: func(_ *cli.Context, s string) error {
 			if _, err := url.Parse(s); err != nil {
@@ -73,7 +73,7 @@ var (
 	jwtSecretFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "jwt-secret",
 		Usage:   "Hex-encoded JWT secret for Ethereum Execution client Engine API",
-		EnvVars: []string{"SNODE_JWT_SECRET"},
+		EnvVars: []string{"LEADER_JWT_SECRET"},
 		Value:   "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c",
 		Action: func(_ *cli.Context, s string) error {
 			if len(s) != 64 {
@@ -125,21 +125,21 @@ var (
 	evmBuildDelayFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
 		Name:    "evm-build-delay",
 		Usage:   "Delay after initiating payload construction before calling getPayload (e.g., '200ms')",
-		EnvVars: []string{"SNODE_EVM_BUILD_DELAY"},
+		EnvVars: []string{"LEADER_EVM_BUILD_DELAY"},
 		Value:   100 * time.Millisecond,
 	})
 
 	evmBuildDelayEmptyBlockFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
 		Name:    "evm-build-delay-empty-block",
 		Usage:   "Minimum time since last block to build an empty block (0 to disable skipping, e.g., '2s')",
-		EnvVars: []string{"SNODE_EVM_BUILD_DELAY_EMPTY_BLOCK"},
+		EnvVars: []string{"LEADER_EVM_BUILD_DELAY_EMPTY_BLOCK"},
 		Value:   2 * time.Second,
 	})
 
 	priorityFeeReceiptFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "priority-fee-recipient",
 		Usage:    "Ethereum address for receiving priority fees (block proposer fee)",
-		EnvVars:  []string{"SNODE_PRIORITY_FEE_RECIPIENT"},
+		EnvVars:  []string{"LEADER_PRIORITY_FEE_RECIPIENT"},
 		Required: true,
 		Action: func(c *cli.Context, s string) error {
 			if !strings.HasPrefix(s, "0x") || len(s) != 42 {
@@ -156,7 +156,7 @@ var (
 	healthAddrPortFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "health-addr",
 		Usage:   "Address for health check endpoint (e.g., ':8080')",
-		EnvVars: []string{"SNODE_HEALTH_ADDR"},
+		EnvVars: []string{"LEADER_HEALTH_ADDR"},
 		Value:   ":8080",
 		Action: func(_ *cli.Context, s string) error {
 			if !strings.HasPrefix(s, ":") {
@@ -175,7 +175,7 @@ var (
 		Name: "postgres-dsn",
 		Usage: "PostgreSQL DSN for storing payloads. If empty, saving to DB is disabled. " +
 			"(e.g., 'postgres://user:pass@host:port/dbname?sslmode=disable')",
-		EnvVars:  []string{"SNODE_POSTGRES_DSN"},
+		EnvVars:  []string{"LEADER_POSTGRES_DSN"},
 		Value:    "", // Default to empty, making it optional
 		Category: categoryDatabase,
 	})
@@ -183,7 +183,7 @@ var (
 	apiAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "api-addr",
 		Usage:   "Address for member node API endpoint (e.g., ':9090'). If empty, API is disabled.",
-		EnvVars: []string{"SNODE_API_ADDR"},
+		EnvVars: []string{"LEADER_API_ADDR"},
 		Value:   ":9090",
 		Action: func(_ *cli.Context, s string) error {
 			if s == "" {
