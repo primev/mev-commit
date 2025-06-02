@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"sync"
@@ -19,11 +20,27 @@ const (
 	CodeCustomError    = -32000
 )
 
+type JSONErr struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func (e *JSONErr) Error() string {
+	return e.Message
+}
+
+func NewJSONErr(code int, message string) *JSONErr {
+	return &JSONErr{
+		Code:    code,
+		Message: message,
+	}
+}
+
 type jsonRPCRequest struct {
-	JSONRPC string            `json:"jsonrpc"`
-	ID      any               `json:"id"`
-	Method  string            `json:"method"`
-	Params  []json.RawMessage `json:"params"`
+	JSONRPC string `json:"jsonrpc"`
+	ID      any    `json:"id"`
+	Method  string `json:"method"`
+	Params  []any  `json:"params"`
 }
 
 type jsonRPCResponse struct {
@@ -33,7 +50,7 @@ type jsonRPCResponse struct {
 	Error   *jsonRPCError    `json:"error,omitempty"`
 }
 
-type methodHandler func(ctx context.Context, params ...json.RawMessage) (json.RawMessage, bool, error)
+type methodHandler func(ctx context.Context, params ...interface{}) (json.RawMessage, bool, error)
 
 type jsonRPCError struct {
 	Code    int    `json:"code"`
@@ -105,6 +122,12 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resp, proxy, err := handler(r.Context(), req.Params...)
 	switch {
 	case err != nil:
+		var jsonErr *JSONErr
+		if ok := errors.As(err, jsonErr); ok {
+			// If the error is a JSONErr, we can use it directly.
+			s.writeError(w, req.ID, jsonErr.Code, jsonErr.Message)
+			return
+		}
 		s.writeError(w, req.ID, CodeCustomError, err.Error())
 		return
 	case proxy:
