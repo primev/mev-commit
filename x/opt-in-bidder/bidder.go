@@ -186,7 +186,6 @@ type BidStatus struct {
 func (b *BidderClient) Bid(
 	ctx context.Context,
 	bidAmount *big.Int,
-	bridgeAmount *big.Int,
 	slashAmount *big.Int,
 	rawTx string,
 ) (chan BidStatus, error) {
