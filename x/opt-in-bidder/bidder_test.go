@@ -195,7 +195,7 @@ func TestBidderClient(t *testing.T) {
 	_, _ = rand.Read(buf)
 	txString := hex.EncodeToString(buf)
 
-	_, err = bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), big.NewInt(1), txString)
+	_, err = bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -204,7 +204,7 @@ func TestBidderClient(t *testing.T) {
 		Topology: topoVal,
 	}
 
-	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), big.NewInt(1), txString)
+	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
 	if err != nil {
 		t.Fatal(err)
 	}
