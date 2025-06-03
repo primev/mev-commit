@@ -61,6 +61,8 @@ func (h *rpcMethodHandler) handleSendRawTx(ctx context.Context, params ...any) (
 			h.logger.Error("Failed to place bid", "error", err)
 			return nil, false, rpcserver.NewJSONErr(rpcserver.CodeCustomError, "failed to place bid")
 		}
+		noOfProviders, noOfCommitments, blockNumber := 0, 0, 0
+		commitments := make([]*bidderapiv1.Commitment, 0)
 		for {
 			select {
 			case <-ctx.Done():
@@ -69,7 +71,16 @@ func (h *rpcMethodHandler) handleSendRawTx(ctx context.Context, params ...any) (
 			case bidStatus := <-bidC:
 				switch bidStatus.Type {
 				case optinbidder.BidStatusNoOfProviders:
+					noOfProviders = bidStatus.Arg.(int)
 				case optinbidder.BidStatusAttempted:
+					blockNumber = bidStatus.Arg.(int)
+				case optinbidder.BidStatusCommitment:
+					noOfCommitments++
+					commitments = append(commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
+				case optinbidder.BidStatusCancelled:
+					return nil, false, rpcserver.NewJSONErr(rpcserver.CodeCustomError, "bid cancelled")
+				case optinbidder.BidStatusFailed:
+					return nil, false, rpcserver.NewJSONErr(rpcserver.CodeCustomError, "bid failed")
 				}
 			}
 		}
