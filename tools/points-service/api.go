@@ -439,7 +439,7 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 	//nolint:errcheck
 	defer rows.Close()
 
-	var result []map[string]interface{}
+	result := make([]map[string]interface{}, 0)
 	for rows.Next() {
 		var operatorAddr, vaultAddr string
 		if scanErr := rows.Scan(&operatorAddr, &vaultAddr); scanErr != nil {
