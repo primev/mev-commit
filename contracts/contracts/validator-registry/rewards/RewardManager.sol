@@ -229,6 +229,10 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     /// corresponding to state that'd exist in each type of registry if the pubkey were opted-in through that registry.
     /// @notice Zero address is returned if the pubkey is not opted-in to mev-commit.
     function _findReceiver(bytes calldata pubkey) internal view returns (address) {
+        (bool existsAvs,address podOwner,,) = _mevCommitAVS.validatorRegistrations(pubkey);
+        if (existsAvs && podOwner != address(0)) {
+            return podOwner;
+        }
         (,address operatorAddr,bool existsMiddleware,) = _mevCommitMiddleware.validatorRecords(pubkey);
         if (existsMiddleware && operatorAddr != address(0)) {
             return operatorAddr;
@@ -236,10 +240,6 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         (bool existsVanilla,address vanillaWithdrawalAddr,,) = _vanillaRegistry.stakedValidators(pubkey);
         if (existsVanilla && vanillaWithdrawalAddr != address(0)) {
             return vanillaWithdrawalAddr;
-        }
-        (bool existsAvs,address podOwner,,) = _mevCommitAVS.validatorRegistrations(pubkey);
-        if (existsAvs && podOwner != address(0)) {
-            return podOwner;
         }
         return address(0);
     }
