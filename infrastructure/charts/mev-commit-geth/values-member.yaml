@@ -1,0 +1,13 @@
+role: member
+
+chainId: 7800
+
+probes:
+  enabled: false
+
+
+replicas: 1
+
+nodeConfig:
+  staticPeers:
+    - "ENODE_PLACEHOLDER"
