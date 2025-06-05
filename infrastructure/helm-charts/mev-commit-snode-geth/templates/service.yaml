@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "snode-geth.fullname" . }}
+  labels:
+    {{- include "snode-geth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    # Geth HTTP RPC
+    - port: {{ .Values.geth.http.port }}
+      targetPort: {{ .Values.geth.http.port }}
+      name: http
+      protocol: TCP
+    {{- if .Values.geth.ws.enabled }}
+    # Geth WebSocket RPC
+    - port: {{ .Values.geth.ws.port }}
+      targetPort: {{ .Values.geth.ws.port }}
+      name: ws
+      protocol: TCP
+    {{- end }}
+    # Geth P2P
+    - port: {{ .Values.geth.p2p.port }}
+      targetPort: {{ .Values.geth.p2p.port }}
+      name: p2p
+      protocol: TCP
+    # Geth Engine API
+    - port: {{ .Values.geth.authrpc.port }}
+      targetPort: {{ .Values.geth.authrpc.port }}
+      name: engine
+      protocol: TCP
+    {{- if eq .Values.snode.mode "leader" }}
+    # Snode API - only for leader
+    - port: 9090
+      targetPort: 9090
+      name: snode-api
+      protocol: TCP
+    {{- end }}
+    # Snode Health
+    - port: 8080
+      targetPort: 8080
+      name: health
+      protocol: TCP
+  selector:
+    {{- include "snode-geth.serviceSelector" . | nindent 4 }}

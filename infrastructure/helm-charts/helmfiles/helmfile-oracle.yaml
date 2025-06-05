@@ -1,0 +1,8 @@
+releases:
+  - name: mev-commit-oracle
+    namespace: default
+    chart: ../mev-commit-oracle
+    values:
+      - ../mev-commit-oracle/values.yaml
+      - valuesInline:
+          fullnameOverride: "mev-commit-oracle"
