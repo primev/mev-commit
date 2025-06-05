@@ -2,13 +2,17 @@ FROM golang:1.23.0-alpine AS builder
 
 WORKDIR /app
 
-COPY tools/go.mod tools/go.sum /app/relay-emulator/
+COPY tools/go.mod tools/go.sum /app/tools/
+COPY p2p/go.mod p2p/go.sum /app/p2p/
 COPY x/go.mod x/go.sum /app/x/
 COPY contracts-abi/go.mod contracts-abi/go.sum /app/contracts-abi/
+COPY bridge/standard/go.mod bridge/standard/go.sum /app/bridge/standard/
 
 RUN cd /app/tools && go mod download
 RUN cd /app/x && go mod download
 RUN cd /app/contracts-abi && go mod download
+RUN cd /app/bridge/standard && go mod download
+RUN cd /app/p2p && go mod download
 
 COPY . .
 
