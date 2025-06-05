@@ -1,6 +1,7 @@
-# Default values for snode-geth chart
-nameOverride: ""
-fullnameOverride: ""
+# Default values for snode-geth chart - MEMBER NODE
+
+nameOverride: "member1"
+fullnameOverride: "mev-commit-snode-geth-full-member"
 
 genesisUrl: "https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/refs/heads/main/snode/genesis/genesis.json"
 
@@ -10,7 +11,7 @@ nodeMode: "archive"  # Options: "full" or "archive"
 commonLabels: {}
 commonAnnotations: {}
 
-# Service configuration
+# Service configuration - NO snode-api port for members
 service:
   type: ClusterIP
   ports:
@@ -21,14 +22,11 @@ service:
       port: 8546
       targetPort: 8546
     - name: p2p
-      port: 30303
-      targetPort: 30303
+      port: 30304
+      targetPort: 30304
     - name: engine
       port: 8551
       targetPort: 8551
-    - name: snode-api
-      port: 9090
-      targetPort: 9090
     - name: health
       port: 8080
       targetPort: 8080
@@ -61,7 +59,7 @@ geth:
     vhosts: "*"
     api: "admin,eth,net,web3,engine"
   
-
+  # WebSocket configuration
   ws:
     enabled: true
     port: 8546
@@ -70,7 +68,7 @@ geth:
     api: "admin,eth,net,web3"
   
   p2p:
-    port: 30303
+    port: 30304
   
   authrpc:
     jwtsecret: /shared/jwt.hex
@@ -79,7 +77,7 @@ geth:
     addr: 0.0.0.0
   
   networkid: 141414
-  syncmode: full # Options: "full" or "snap" (use full for archive mode)
+  syncmode: full
   
   miner:
     recommit: 900ms
@@ -89,29 +87,24 @@ geth:
     - --metrics.addr=0.0.0.0
     - --metrics.port=6060
 
-# Snode container configuration
+# Snode container configuration - MEMBER MODE
 snode:
   image: harshsingh07/snode-consensus:arm64-latest
   imagePullPolicy: Always
-  mode: leader  # Can be 'leader' or 'member'
-  instanceId: snode1
+  mode: member  # MEMBER MODE
+  instanceId: member1
   ethClientUrl: http://localhost:8551
-  priorityFeeRecipient: "0x0000000000000000000000000000000000000000" 
+  priorityFeeRecipient: "0x0000000000000000000000000000000000000000"
   evmBuildDelay: 100ms
   evmBuildDelayEmptyBlock: 2s
   logLevel: info
   healthAddr: ":8080"
   
-  # Leader specific settings
-  apiAddr: ":9090"
+  # Member specific settings
+  leaderApiUrl: "http://mev-commit-snode-geth-full-leader.default.svc.cluster.local:9090"
+  pollInterval: "1s"
   
-  # External Postgres connection
-  postgresUrl: "postgres://mevcommit:password123@postgres-service.postgres.svc.cluster.local:5432/mevcommit?sslmode=disable"
-  
-  # Member specific settings (only used when mode is 'member')
-  leaderApiUrl: "http://leader-service:9090"
-  pollInterval: "30s"
-  
+  # NO apiAddr and NO postgresUrl for members
   extraArgs: []
 
 secrets:

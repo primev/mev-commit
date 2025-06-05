@@ -61,7 +61,15 @@ spec:
         - name: init-geth
           image: ethereum/client-go:alltools-latest
           command: ["/bin/sh", "-c"]
-          args: ["/scripts/init-geth.sh"]
+          args: 
+            - |
+              {{- if eq .Values.nodeMode "archive" }}
+              echo "[init-geth] Archive mode detected"
+              /scripts/init-geth.sh --state.scheme=hash
+              {{- else }}
+              echo "[init-geth] Full mode detected"
+              /scripts/init-geth.sh
+              {{- end }}
           volumeMounts:
             - name: geth-volume
               mountPath: /data/geth
@@ -92,6 +100,13 @@ spec:
             - --http.vhosts={{ .http.vhosts }}
             - --http.api={{ .http.api }}
             {{- end }}
+            {{- if .ws.enabled }}
+            - --ws
+            - --ws.port={{ .ws.port }}
+            - --ws.addr={{ .ws.addr }}
+            - --ws.origins={{ .ws.origins }}
+            - --ws.api={{ .ws.api }}
+            {{- end }}
             - --port={{ .p2p.port }}
             - --authrpc.jwtsecret=/shared/jwt
             - --authrpc.vhosts={{ .authrpc.vhosts }}
@@ -100,6 +115,9 @@ spec:
             - --networkid={{ .networkid }}
             - --syncmode={{ .syncmode }}
             - --miner.recommit={{ .miner.recommit }}
+            {{- if eq $.Values.nodeMode "archive" }}
+            - --gcmode=archive
+            {{- end }}
             {{- range .extraArgs }}
             - {{ . }}
             {{- end }}
@@ -107,13 +125,16 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.geth.http.port }}
+            {{- if .Values.geth.ws.enabled }}
+            - name: ws
+              containerPort: {{ .Values.geth.ws.port }}
+            {{- end }}
             - name: p2p
               containerPort: {{ .Values.geth.p2p.port }}
             - name: authrpc
               containerPort: {{ .Values.geth.authrpc.port }}
             - name: metrics
               containerPort: 6060
-
           resources:
             {{- toYaml .Values.resources.geth | nindent 12 }}
           volumeMounts:
@@ -125,22 +146,42 @@ spec:
         - name: snode
           image: {{ .Values.snode.image }}
           imagePullPolicy: {{ .Values.snode.imagePullPolicy }}
-          command: ["./snode", "start"]
+          command: ["./snode"]
           args:
           {{- with .Values.snode }}
+            {{- if eq .mode "leader" }}
+            - "leader"
             - --instance-id={{ .instanceId }}
             - --eth-client-url={{ .ethClientUrl }}
             - --jwt-secret={{ $.Values.secrets.jwtSecret }}
             - --priority-fee-recipient={{ .priorityFeeRecipient }}
             - --evm-build-delay={{ .evmBuildDelay }}
             - --evm-build-delay-empty-block={{ .evmBuildDelayEmptyBlock }}
+            - --api-addr={{ .apiAddr }}
+            - --health-addr={{ .healthAddr }}
+            - --postgres-dsn={{ .postgresUrl }}
             - --log-level={{ .logLevel }}
+            {{- else if eq .mode "member" }}
+            - "member"
+            - --instance-id={{ .instanceId }}
+            - --eth-client-url={{ .ethClientUrl }}
+            - --jwt-secret={{ $.Values.secrets.jwtSecret }}
+            - --leader-api-url={{ .leaderApiUrl }}
+            - --poll-interval={{ .pollInterval }}
+            - --health-addr={{ .healthAddr }}
+            - --log-level={{ .logLevel }}
+            {{- end }}
             {{- range .extraArgs }}
             - {{ . }}
             {{- end }}
           {{- end }}
           ports:
-            - containerPort: 9000
+            {{- if eq .Values.snode.mode "leader" }}
+            - name: api
+              containerPort: 9090
+            {{- end }}
+            - name: health
+              containerPort: 8080
           resources:
             {{- toYaml .Values.resources.snode | nindent 12 }}
           volumeMounts:
@@ -158,7 +199,6 @@ spec:
           requests:
             storage: {{ .Values.storage.geth.size }}
         storageClassName: {{ .Values.storage.geth.storageClassName }}
-
     - metadata:
         name: snode-volume
       spec:
@@ -167,7 +207,6 @@ spec:
           requests:
             storage: {{ .Values.storage.snode.size }}
         storageClassName: {{ .Values.storage.snode.storageClassName }}
-
     - metadata:
         name: shared-volume
       spec:
@@ -176,4 +215,3 @@ spec:
           requests:
             storage: {{ .Values.storage.shared.size }}
         storageClassName: {{ .Values.storage.shared.storageClassName }}
-

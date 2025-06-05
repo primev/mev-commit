@@ -49,8 +49,9 @@ if [ ! -d "$DATA_DIR" ]; then
 fi
 
 # Initialize Geth with the genesis file
+# Additional flags (like --state.scheme=hash) are passed as script arguments
 echo "$LOG_PREFIX Initializing Geth with genesis file"
-geth --datadir "$DATA_DIR" init "$GENESIS_FILE"
+geth --datadir "$DATA_DIR" init "$@" "$GENESIS_FILE"
 
 # Check the exit code
 if [ $? -ne 0 ]; then
