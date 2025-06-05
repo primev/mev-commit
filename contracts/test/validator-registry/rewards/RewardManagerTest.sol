@@ -158,7 +158,7 @@ contract RewardManagerTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        rewardManager.removeOverrideAddress(false);
+        rewardManager.removeOverrideAddress();
 
         vm.prank(user1);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
@@ -335,7 +335,7 @@ contract RewardManagerTest is Test {
         vm.prank(operatorFromMiddlewareTest);
         vm.expectEmit();
         emit OverrideAddressRemoved(operatorFromMiddlewareTest);
-        rewardManager.removeOverrideAddress(false);
+        rewardManager.removeOverrideAddress();
 
         vm.deal(user3, 4 ether);
         vm.expectEmit();
@@ -394,17 +394,18 @@ contract RewardManagerTest is Test {
         vm.expectEmit();
         emit OverrideAddressRemoved(vanillaTestUser);
         vm.prank(vanillaTestUser);
-        rewardManager.removeOverrideAddress(true);
+        rewardManager.removeOverrideAddress();
 
-        assertEq(rewardManager.unclaimedRewards(user4), 0 ether);
-        assertEq(rewardManager.unclaimedRewards(vanillaTestUser), 9 ether);
+        assertEq(rewardManager.unclaimedRewards(user4), 9 ether);
+        assertEq(rewardManager.unclaimedRewards(vanillaTestUser), 0 ether);
         
-        uint256 balanceBefore = vanillaTestUser.balance;
-        vm.prank(vanillaTestUser);
+        // Rewards must be claimed manually from the override address, even if that override address is removed
+        uint256 balanceBefore = user4.balance;
+        vm.prank(user4);
         vm.expectEmit();
-        emit RewardsClaimed(vanillaTestUser, 9 ether);
+        emit RewardsClaimed(user4, 9 ether);
         rewardManager.claimRewards();
-        assertEq(vanillaTestUser.balance, balanceBefore + 9 ether);
+        assertEq(user4.balance, balanceBefore + 9 ether);
     }
 
     function testAutoClaim() public { 

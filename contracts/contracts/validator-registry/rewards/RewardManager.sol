@@ -121,11 +121,9 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     }
 
     /// @dev Removes the override address for a receiver.
-    /// @param migrateExistingRewards If true, existing rewards for the overridden address will be migrated atomically to the msg.sender.
-    function removeOverrideAddress(bool migrateExistingRewards) external whenNotPaused nonReentrant {
+    function removeOverrideAddress() external whenNotPaused nonReentrant {
         address toBeRemoved = overrideAddresses[msg.sender];
         require(toBeRemoved != address(0), NoOverriddenAddressToRemove());
-        if (migrateExistingRewards) { _migrateRewards(toBeRemoved, msg.sender); }
         overrideAddresses[msg.sender] = address(0);
         emit OverrideAddressRemoved(msg.sender);
     }
@@ -190,7 +188,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         emit RewardsClaimed(msg.sender, amount);
     }
 
-    /// @dev DANGER: This function should ONLY be called from overrideClaimAddress or removeOverriddenClaimAddress
+    /// @dev DANGER: This function should ONLY be called from overrideReceiver
     /// with careful attention to parameter order.
     function _migrateRewards(address from, address to) internal {
         uint256 amount = unclaimedRewards[from];

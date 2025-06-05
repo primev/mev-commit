@@ -48,8 +48,7 @@ interface IRewardManager {
     function overrideReceiver(address overrideAddress, bool migrateExistingRewards) external;
 
     /// @dev Removes the override address for a receiver.
-    /// @param migrateExistingRewards If true, existing rewards for the overridden address will be migrated atomically to the msg.sender.
-    function removeOverrideAddress(bool migrateExistingRewards) external;
+    function removeOverrideAddress() external;
 
     /// @dev Allows a reward recipient to claim their rewards.
     function claimRewards() external;
