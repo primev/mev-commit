@@ -12,11 +12,11 @@ RUN cd /app/contracts-abi && go mod download
 
 COPY . .
 
-RUN go build -o /app/provider-emulator ./p2p/integrationtest/provider
+RUN go build -o /app/bidder-emulator ./p2p/integrationtest/real-bidder
 
 FROM alpine:3.10
 
-COPY --from=builder /app/provider-emulator /usr/local/bin/provider-emulator
-COPY --from=builder /app/p2p/integrationtest/provider/entrypoint.sh entrypoint.sh
+COPY --from=builder /app/bidder-emulator /usr/local/bin/bidder-emulator
+COPY --from=builder /app/p2p/integrationtest/real-bidder/entrypoint.sh entrypoint.sh
 
 ENTRYPOINT ["./entrypoint.sh"]

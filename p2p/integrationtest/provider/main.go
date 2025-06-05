@@ -32,6 +32,7 @@ const (
 	logTagsFlagName          = "log-tags"
 	httpPortFlagName         = "http-port"
 	errorProbabilityFlagName = "error-probability"
+	relayFlagName            = "relay"
 )
 
 var (
@@ -71,7 +72,7 @@ var (
 		"The probability of returning an error when sending a bid response",
 	)
 	relay = flag.String(
-		"relay",
+		relayFlagName,
 		"",
 		"Relay address",
 	)
