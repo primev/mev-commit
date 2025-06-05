@@ -38,7 +38,7 @@ var (
 	)
 	rpcAddr = flag.String(
 		"rpc-addr",
-		"localhost:13524",
+		"localhost:8545",
 		"The server address in the format of host:port",
 	)
 	logLevel = flag.String(
