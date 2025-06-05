@@ -100,7 +100,7 @@ func (g *Gateway[EventType]) FinalizeTransfer(
 		g.logger.Error(
 			"failed to send transaction",
 			"sender", opts.From,
-			"receipient", recipient,
+			"recipient", recipient,
 			"amount", amount,
 			"error", err,
 		)
