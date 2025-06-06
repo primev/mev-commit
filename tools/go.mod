@@ -27,6 +27,7 @@ require (
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
+	resenje.org/multex v0.2.0 // indirect
 )
 
 replace github.com/primev/mev-commit/p2p => ../p2p
