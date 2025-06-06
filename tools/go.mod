@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/mattn/go-sqlite3 v1.14.24
-	github.com/primev/mev-commit/bridge/standard v0.0.1
+	github.com/primev/mev-commit/bridge/standard v0.0.1 // indirect
 	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/primev/mev-commit/p2p v0.0.1
 	github.com/primev/mev-commit/x v0.0.1
@@ -27,6 +27,7 @@ require (
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
+	resenje.org/multex v0.2.0 // indirect
 )
 
 replace github.com/primev/mev-commit/p2p => ../p2p

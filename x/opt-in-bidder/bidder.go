@@ -1,8 +1,9 @@
-package bidder
+package optinbidder
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
@@ -172,20 +173,20 @@ const (
 	BidStatusNoOfProviders BidStatusType = iota
 	BidStatusWaitSecs
 	BidStatusAttempted
-	BidStatusSucceeded
 	BidStatusFailed
+	BidStatusCancelled
+	BidStatusCommitment
 )
 
 type BidStatus struct {
 	Type BidStatusType
-	Arg1 int
-	Arg2 string
+	Arg  any
 }
 
 func (b *BidderClient) Bid(
 	ctx context.Context,
 	bidAmount *big.Int,
-	bridgeAmount *big.Int,
+	slashAmount *big.Int,
 	rawTx string,
 ) (chan BidStatus, error) {
 	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
@@ -204,28 +205,30 @@ func (b *BidderClient) Bid(
 	res := make(chan BidStatus, 3)
 	b.bigWg.Add(1)
 	go func() {
+		defer fmt.Println("BidderClient goroutine exiting")
 		defer close(res)
 		defer b.bigWg.Done()
 
-		res <- BidStatus{Type: BidStatusNoOfProviders, Arg1: len(providers.Values)}
+		fmt.Println("BidderClient sending no of providers")
+		res <- BidStatus{Type: BidStatusNoOfProviders, Arg: len(providers.Values)}
 
 		nextSlot, err := b.getNextSlot()
 		if err != nil {
 			b.logger.Error("failed to get next slot", "error", err)
-			res <- BidStatus{Type: BidStatusFailed, Arg2: err.Error()}
+			res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
 			return
 		}
 
 		bidTime := nextSlot.startTime.Add(-1 * time.Second)
 		wait := bidTime.Sub(nowFunc())
-		res <- BidStatus{Type: BidStatusWaitSecs, Arg1: int(wait.Seconds())}
+		res <- BidStatus{Type: BidStatusWaitSecs, Arg: int(wait.Seconds())}
 
 		if wait > 0 {
 			b.logger.Info("waiting for next slot", "wait", wait)
 			select {
 			case <-time.After(wait):
 			case <-ctx.Done():
-				res <- BidStatus{Type: BidStatusFailed, Arg2: ctx.Err().Error()}
+				res <- BidStatus{Type: BidStatusCancelled, Arg: ctx.Err().Error()}
 				return
 			}
 		}
@@ -233,11 +236,11 @@ func (b *BidderClient) Bid(
 		blkNumber, err := b.blkNumberGetter.BlockNumber(ctx)
 		if err != nil {
 			b.logger.Error("failed to get block number", "error", err)
-			res <- BidStatus{Type: BidStatusFailed, Arg2: err.Error()}
+			res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
 			return
 		}
 
-		res <- BidStatus{Type: BidStatusAttempted, Arg1: int(blkNumber + 1)}
+		res <- BidStatus{Type: BidStatusAttempted, Arg: int(blkNumber + 1)}
 
 		pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
 			Amount:              bidAmount.String(),
@@ -245,19 +248,18 @@ func (b *BidderClient) Bid(
 			RawTransactions:     []string{rawTx},
 			DecayStartTimestamp: nowFunc().UnixMilli(),
 			DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
-			SlashAmount:         bridgeAmount.String(),
+			SlashAmount:         slashAmount.String(),
 		})
 		if err != nil {
 			b.logger.Error("failed to send bid", "error", err)
-			res <- BidStatus{Type: BidStatusFailed, Arg2: err.Error()}
+			res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
 			return
 		}
 
-		commitments := make([]*bidderapiv1.Commitment, 0)
 		for {
 			select {
 			case <-ctx.Done():
-				res <- BidStatus{Type: BidStatusFailed, Arg2: ctx.Err().Error()}
+				res <- BidStatus{Type: BidStatusCancelled, Arg: ctx.Err().Error()}
 				return
 			default:
 			}
@@ -265,26 +267,20 @@ func (b *BidderClient) Bid(
 			msg, err := pc.Recv()
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					break
+					return
+				}
+				if errors.Is(err, context.Canceled) {
+					res <- BidStatus{Type: BidStatusCancelled, Arg: err.Error()}
+					return
 				}
 				b.logger.Error("failed to receive commitment", "error", err)
-				res <- BidStatus{Type: BidStatusFailed, Arg2: err.Error()}
+				res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
 				return
 			}
 
-			commitments = append(commitments, msg)
+			res <- BidStatus{Type: BidStatusCommitment, Arg: msg}
 		}
 
-		if len(commitments) == len(providers.Values) {
-			b.logger.Info("all commitments received")
-		} else {
-			b.logger.Warn(
-				"not all commitments received",
-				"received", len(commitments),
-				"expected", len(providers.Values),
-			)
-		}
-		res <- BidStatus{Type: BidStatusSucceeded, Arg1: len(commitments)}
 	}()
 
 	return res, nil
