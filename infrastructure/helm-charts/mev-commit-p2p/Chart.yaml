@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mev-commit-p2p
+description: A Helm chart for deploying mev-commit-p2p service
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
