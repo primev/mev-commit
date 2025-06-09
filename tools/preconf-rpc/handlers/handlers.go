@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"math/big"
+	"sync"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
@@ -30,22 +32,26 @@ type Store interface {
 		txn *types.Transaction,
 		commitments []*bidderapiv1.Commitment,
 	) error
-	UpdateAccountNonce(
+	GetPreconfirmedTransaction(
 		ctx context.Context,
-		account string,
-		nonce uint64,
-	) error
-	GetAccountNonce(
-		ctx context.Context,
-		account string,
-	) (uint64, error)
+		txnHash string,
+	) (*types.Transaction, []*bidderapiv1.Commitment, error)
+}
+
+type accountNonce struct {
+	Account string `json:"account"`
+	Nonce   uint64 `json:"nonce"`
+	Block   int64  `json:"block"`
 }
 
 type rpcMethodHandler struct {
-	logger    *slog.Logger
-	bidder    Bidder
-	store     Store
-	nonceLock *multex.Multex[string]
+	logger       *slog.Logger
+	bidder       Bidder
+	store        Store
+	nonceLock    *multex.Multex[string]
+	latestBlock  atomic.Pointer[types.Block]
+	nonceMap     map[string]accountNonce
+	nonceMapLock sync.RWMutex
 }
 
 func (h *rpcMethodHandler) handleSendRawTx(
@@ -97,6 +103,14 @@ func (h *rpcMethodHandler) handleSendRawTx(
 			"failed to get transaction sender",
 		)
 	}
+
+	h.nonceLock.Lock(sender.Hex())
+	unlock := true
+	defer func() {
+		if unlock {
+			h.nonceLock.Unlock(sender.Hex())
+		}
+	}()
 
 	timeToOptIn, err := h.bidder.Estimate()
 	if err != nil {
@@ -196,26 +210,65 @@ BID_LOOP:
 	}
 
 	if noOfProviders == noOfCommitments && optedInSlot {
-		if err := h.store.UpdateAccountNonce(ctx, sender.Hex(), txn.Nonce()+1); err != nil {
-			h.logger.Error("Failed to update account nonce", "error", err)
-			return nil, false, rpcserver.NewJSONErr(
-				rpcserver.CodeCustomError,
-				"failed to update account nonce",
-			)
+		h.logger.Info("All providers committed, updating nonce", "account", sender.Hex(), "nonce", txn.Nonce()+1)
+		h.nonceMapLock.Lock()
+		h.nonceMap[sender.Hex()] = accountNonce{
+			Account: sender.Hex(),
+			Nonce:   txn.Nonce() + 1,
+			Block:   int64(blockNumber),
 		}
+		h.nonceMapLock.Unlock()
 	} else {
-		h.nonceLock.Lock(sender.Hex())
+		unlock = false
 	}
 
 	return txHashJSON, false, nil
 }
 
-func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...json.RawMessage) (json.RawMessage, bool, error) {
-	return nil, false, nil
-}
+func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+	if len(params) != 1 {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeInvalidRequest,
+			"getTxReceipt requires exactly one parameter",
+		)
+	}
+	if params[0] == nil {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"getTxReceipt parameter cannot be null",
+		)
+	}
 
-func (h *rpcMethodHandler) handleGetBalance(ctx context.Context, params ...json.RawMessage) (json.RawMessage, bool, error) {
-	return nil, false, nil
+	txHash := params[0].(string)
+	if len(txHash) < 2 || txHash[:2] != "0x" {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"getTxReceipt parameter must be a hex string starting with '0x'",
+		)
+	}
+
+	h.logger.Info("Retrieving transaction receipt", "txHash", txHash)
+	txn, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash[2:])
+	if err != nil {
+		return nil, true, nil
+	}
+
+	receipt := &types.Receipt{
+		TxHash:      txn.Hash(),
+		Status:      1, // Assuming success, as this is a preconfirmed transaction
+		BlockNumber: big.NewInt(commitments[0].BlockNumber),
+	}
+
+	receiptJSON, err := json.Marshal(receipt)
+	if err != nil {
+		h.logger.Error("Failed to marshal receipt to JSON", "error", err, "txHash", txHash)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to marshal receipt",
+		)
+	}
+
+	return receiptJSON, false, nil
 }
 
 func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
@@ -234,12 +287,32 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 	}
 
 	account := params[0].(string)
-	nonce, err := h.store.GetAccountNonce(ctx, account)
-	if err != nil {
-		h.logger.Error("Failed to get account nonce", "error", err, "account", account)
+	if len(account) < 2 || account[:2] != "0x" {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"getTxCount parameter must be a hex string starting with '0x'",
+		)
+	}
+
+	h.nonceLock.Lock(account)
+	defer h.nonceLock.Unlock(account)
+
+	h.nonceMapLock.RLock()
+	accNonce, found := h.nonceMap[account]
+	h.nonceMapLock.RUnlock()
+
+	if !found {
 		return nil, true, nil
 	}
-	nonceJSON, err := json.Marshal(nonce)
+
+	if h.latestBlock.Load().Number().Uint64() > uint64(accNonce.Block) {
+		h.nonceMapLock.Lock()
+		delete(h.nonceMap, account)
+		h.nonceMapLock.Unlock()
+		return nil, true, nil
+	}
+
+	nonceJSON, err := json.Marshal(accNonce.Nonce)
 	if err != nil {
 		h.logger.Error("Failed to marshal nonce to JSON", "error", err, "account", account)
 		return nil, false, rpcserver.NewJSONErr(
@@ -247,6 +320,7 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 			"failed to marshal nonce",
 		)
 	}
-	h.logger.Info("Retrieved account nonce", "account", account, "nonce", nonce)
+
+	h.logger.Info("Retrieved account nonce from cache", "account", account, "nonce", accNonce.Nonce)
 	return nonceJSON, false, nil
 }
