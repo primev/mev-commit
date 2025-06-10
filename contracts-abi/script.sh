@@ -44,6 +44,8 @@ extract_and_save_abi "$BASE_DIR/out/ValidatorOptInRouter.sol/ValidatorOptInRoute
 
 extract_and_save_abi "$BASE_DIR/out/MevCommitMiddleware.sol/MevCommitMiddleware.json" "$ABI_DIR/MevCommitMiddleware.abi"
 
+extract_and_save_abi "$BASE_DIR/out/RewardManager.sol/RewardManager.json" "$ABI_DIR/RewardManager.abi"
+
 echo "ABI files extracted successfully."
 
 GO_CODE_BASE_DIR="./clients"
@@ -105,9 +107,9 @@ generate_go_code "$ABI_DIR/ValidatorOptInRouter.abi" "ValidatorOptInRouter" "val
 
 generate_go_code "$ABI_DIR/MevCommitMiddleware.abi" "MevCommitMiddleware" "mevcommitmiddleware"
 
-
-# Generate Go code (assuming you have a generate_go_code function)
 generate_go_code "$ABI_DIR/vault.abi" "Vault" "vault"
+
+generate_go_code "$ABI_DIR/RewardManager.abi" "RewardManager" "rewardmanager"
 
 echo "External ABI downloaded and processed successfully."
 
