@@ -22,7 +22,20 @@ const (
 
 type Bidder interface {
 	Estimate() (int64, error)
-	Bid(ctx context.Context, bidAmount *big.Int, slashAmount *big.Int, rawTx string) (<-chan optinbidder.BidStatus, error)
+	Bid(
+		ctx context.Context,
+		bidAmount *big.Int,
+		slashAmount *big.Int,
+		rawTx string,
+		opts *optinbidder.BidOpts,
+	) (<-chan optinbidder.BidStatus, error)
+}
+
+type Pricer interface {
+	EstimatePrice(
+		ctx context.Context,
+		txn *types.Transaction,
+	) (*big.Int, error)
 }
 
 type Store interface {
@@ -36,6 +49,16 @@ type Store interface {
 		ctx context.Context,
 		txnHash string,
 	) (*types.Transaction, []*bidderapiv1.Commitment, error)
+	DeductBalance(
+		ctx context.Context,
+		account string,
+		amount *big.Int,
+	) error
+	RefundBalance(
+		ctx context.Context,
+		account string,
+		amount *big.Int,
+	) error
 }
 
 type accountNonce struct {
@@ -48,6 +71,7 @@ type rpcMethodHandler struct {
 	logger       *slog.Logger
 	bidder       Bidder
 	store        Store
+	pricer       Pricer
 	nonceLock    *multex.Multex[string]
 	latestBlock  atomic.Pointer[types.Block]
 	nonceMap     map[string]accountNonce
@@ -126,7 +150,24 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		optedInSlot = true
 	}
 
-	bidC, err := h.bidder.Bid(ctx, big.NewInt(0), big.NewInt(0), rawTxHex)
+	price, err := h.pricer.EstimatePrice(ctx, txn)
+	if err != nil {
+		h.logger.Error("Failed to estimate transaction price", "error", err)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to estimate transaction price",
+		)
+	}
+
+	bidC, err := h.bidder.Bid(
+		ctx,
+		price,
+		big.NewInt(0),
+		rawTxHex,
+		&optinbidder.BidOpts{
+			WaitForOptIn: optedInSlot,
+		},
+	)
 	if err != nil {
 		h.logger.Error("Failed to place bid", "error", err)
 		return nil, false, rpcserver.NewJSONErr(rpcserver.CodeCustomError, "failed to place bid")
@@ -201,6 +242,14 @@ BID_LOOP:
 		)
 	}
 
+	if err := h.store.DeductBalance(ctx, sender.Hex(), price); err != nil {
+		h.logger.Error("Failed to deduct balance for sender", "sender", sender.Hex(), "error", err)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to deduct balance for sender",
+		)
+	}
+
 	if err := h.store.StorePreconfirmedTransaction(ctx, int64(blockNumber), txn, commitments); err != nil {
 		h.logger.Error("Failed to store preconfirmed transaction", "error", err)
 		return nil, false, rpcserver.NewJSONErr(
@@ -255,6 +304,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 
 	receipt := &types.Receipt{
 		TxHash:      txn.Hash(),
+		Type:        txn.Type(),
 		Status:      1, // Assuming success, as this is a preconfirmed transaction
 		BlockNumber: big.NewInt(commitments[0].BlockNumber),
 	}
