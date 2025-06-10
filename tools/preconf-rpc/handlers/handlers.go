@@ -128,6 +128,8 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		)
 	}
 
+	// Once we are ready to send the bid, we need to ensure that the nonce for the
+	// sender is not locked by another transaction.
 	h.nonceLock.Lock(sender.Hex())
 	unlock := true
 	defer func() {
