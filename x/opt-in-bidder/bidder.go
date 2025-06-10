@@ -24,6 +24,7 @@ const (
 var (
 	ErrNoEpochInfo          = errors.New("no epoch info available")
 	ErrNoSlotInCurrentEpoch = errors.New("no slot available in current epoch")
+	ErrNoProviders          = errors.New("no connected providers found")
 )
 
 var nowFunc = time.Now
@@ -183,12 +184,26 @@ type BidStatus struct {
 	Arg  any
 }
 
+type BidOpts struct {
+	WaitForOptIn bool
+	BlockNumber  uint64
+}
+
+var defaultBidOpts = &BidOpts{
+	WaitForOptIn: true,
+}
+
 func (b *BidderClient) Bid(
 	ctx context.Context,
 	bidAmount *big.Int,
 	slashAmount *big.Int,
 	rawTx string,
+	opts *BidOpts,
 ) (chan BidStatus, error) {
+	if opts == nil {
+		opts = defaultBidOpts
+	}
+
 	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
 	if err != nil {
 		b.logger.Error("failed to get topology", "error", err)
@@ -197,7 +212,7 @@ func (b *BidderClient) Bid(
 
 	providers := topo.Topology.Fields["connected_providers"].GetListValue()
 	if providers == nil || len(providers.Values) == 0 {
-		return nil, errors.New("no connected providers")
+		return nil, ErrNoProviders
 	}
 
 	// Channel length chosen is 3 so that sending the bid is not blocked by the first
@@ -212,41 +227,47 @@ func (b *BidderClient) Bid(
 		fmt.Println("BidderClient sending no of providers")
 		res <- BidStatus{Type: BidStatusNoOfProviders, Arg: len(providers.Values)}
 
-		nextSlot, err := b.getNextSlot()
-		if err != nil {
-			b.logger.Error("failed to get next slot", "error", err)
-			res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
-			return
-		}
-
-		bidTime := nextSlot.startTime.Add(-1 * time.Second)
-		wait := bidTime.Sub(nowFunc())
-		res <- BidStatus{Type: BidStatusWaitSecs, Arg: int(wait.Seconds())}
-
-		if wait > 0 {
-			b.logger.Info("waiting for next slot", "wait", wait)
-			select {
-			case <-time.After(wait):
-			case <-ctx.Done():
-				res <- BidStatus{Type: BidStatusCancelled, Arg: ctx.Err().Error()}
+		if opts.WaitForOptIn {
+			nextSlot, err := b.getNextSlot()
+			if err != nil {
+				b.logger.Error("failed to get next slot", "error", err)
+				res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
 				return
+			}
+
+			bidTime := nextSlot.startTime.Add(-1 * time.Second)
+			wait := bidTime.Sub(nowFunc())
+			res <- BidStatus{Type: BidStatusWaitSecs, Arg: int(wait.Seconds())}
+
+			if wait > 0 {
+				b.logger.Info("waiting for next slot", "wait", wait)
+				select {
+				case <-time.After(wait):
+				case <-ctx.Done():
+					res <- BidStatus{Type: BidStatusCancelled, Arg: ctx.Err().Error()}
+					return
+				}
 			}
 		}
 
-		blkNumber, err := b.blkNumberGetter.BlockNumber(ctx)
-		if err != nil {
-			b.logger.Error("failed to get block number", "error", err)
-			res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
-			return
+		blkNumber := opts.BlockNumber
+		if blkNumber == 0 {
+			bNo, err := b.blkNumberGetter.BlockNumber(ctx)
+			if err != nil {
+				b.logger.Error("failed to get block number", "error", err)
+				res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
+				return
+			}
+			blkNumber = bNo + 1
 		}
 
-		res <- BidStatus{Type: BidStatusAttempted, Arg: int(blkNumber + 1)}
+		res <- BidStatus{Type: BidStatusAttempted, Arg: blkNumber}
 
 		pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
 			Amount:              bidAmount.String(),
-			BlockNumber:         int64(blkNumber + 1),
+			BlockNumber:         int64(blkNumber),
 			RawTransactions:     []string{rawTx},
-			DecayStartTimestamp: nowFunc().UnixMilli(),
+			DecayStartTimestamp: nowFunc().Add(100 * time.Millisecond).UnixMilli(),
 			DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
 			SlashAmount:         slashAmount.String(),
 		})

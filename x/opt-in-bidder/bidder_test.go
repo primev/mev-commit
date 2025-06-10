@@ -195,7 +195,7 @@ func TestBidderClient(t *testing.T) {
 	_, _ = rand.Read(buf)
 	txString := hex.EncodeToString(buf)
 
-	_, err = bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
+	_, err = bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -204,7 +204,7 @@ func TestBidderClient(t *testing.T) {
 		Topology: topoVal,
 	}
 
-	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
+	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ waitLoop:
 					t.Fatalf("expected 2 seconds, got %d", status.Arg)
 				}
 			case optinbidder.BidStatusAttempted:
-				if status.Arg.(int) != 11 {
+				if status.Arg.(uint64) != 11 {
 					t.Fatalf("expected 11, got %d", status.Arg)
 				}
 			case optinbidder.BidStatusCommitment:
