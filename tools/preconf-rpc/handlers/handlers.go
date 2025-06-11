@@ -162,14 +162,6 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		}
 	}()
 
-	if !h.store.HasBalance(ctx, sender.Hex(), txn.Value()) {
-		h.logger.Error("Insufficient balance for sender", "sender", sender.Hex())
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"insufficient balance for sender",
-		)
-	}
-
 	timeToOptIn, err := h.bidder.Estimate()
 	if err != nil {
 		h.logger.Error("Failed to estimate time to opt-in", "error", err)
@@ -190,6 +182,14 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeCustomError,
 			"failed to estimate transaction price",
+		)
+	}
+
+	if !h.store.HasBalance(ctx, sender.Hex(), price.BidAmount) {
+		h.logger.Error("Insufficient balance for sender", "sender", sender.Hex())
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"insufficient balance for sender",
 		)
 	}
 
