@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
 	"resenje.org/multex"
@@ -35,7 +36,7 @@ type Pricer interface {
 	EstimatePrice(
 		ctx context.Context,
 		txn *types.Transaction,
-	) (*big.Int, error)
+	) (*pricer.BlockPrice, error)
 }
 
 type Store interface {
@@ -76,6 +77,24 @@ type rpcMethodHandler struct {
 	latestBlock  atomic.Pointer[types.Block]
 	nonceMap     map[string]accountNonce
 	nonceMapLock sync.RWMutex
+}
+
+func NewRPCMethodHandler(
+	logger *slog.Logger,
+	bidder Bidder,
+	store Store,
+	pricer Pricer,
+	nonceLock *multex.Multex[string],
+) *rpcMethodHandler {
+	return &rpcMethodHandler{
+		logger:      logger,
+		bidder:      bidder,
+		store:       store,
+		pricer:      pricer,
+		nonceLock:   nonceLock,
+		nonceMap:    make(map[string]accountNonce),
+		latestBlock: atomic.Pointer[types.Block]{},
+	}
 }
 
 func (h *rpcMethodHandler) handleSendRawTx(
@@ -163,11 +182,12 @@ func (h *rpcMethodHandler) handleSendRawTx(
 
 	bidC, err := h.bidder.Bid(
 		ctx,
-		price,
+		price.BidAmount,
 		big.NewInt(0),
 		rawTxHex,
 		&optinbidder.BidOpts{
 			WaitForOptIn: optedInSlot,
+			BlockNumber:  uint64(price.BlockNumber),
 		},
 	)
 	if err != nil {
@@ -244,7 +264,7 @@ BID_LOOP:
 		)
 	}
 
-	if err := h.store.DeductBalance(ctx, sender.Hex(), price); err != nil {
+	if err := h.store.DeductBalance(ctx, sender.Hex(), price.BidAmount); err != nil {
 		h.logger.Error("Failed to deduct balance for sender", "sender", sender.Hex(), "error", err)
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeCustomError,
