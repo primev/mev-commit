@@ -158,7 +158,7 @@ func (s *rpcstore) DeductBalance(
 	return nil
 }
 
-func (s *rpcstore) RefundBalance(
+func (s *rpcstore) AddBalance(
 	ctx context.Context,
 	account string,
 	amount *big.Int,
@@ -170,7 +170,12 @@ func (s *rpcstore) RefundBalance(
 	balanceKey := []byte(fmt.Sprintf("balance:%s", account))
 	currentBalance, closer, err := s.db.Get(balanceKey)
 	if err != nil {
-		return err
+		if errors.Is(err, pebble.ErrNotFound) {
+			// If the account does not exist, we create a new one with the initial balance
+			currentBalance = []byte("0") // Default balance for a new account
+		} else {
+			return fmt.Errorf("failed to get balance for account %s: %w", account, err)
+		}
 	}
 	defer func() {
 		_ = closer.Close()
