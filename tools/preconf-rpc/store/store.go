@@ -51,6 +51,10 @@ func (s *rpcstore) StorePreconfirmedTransaction(
 		return err
 	}
 
+	txnDataLenBuf := make([]byte, 8)
+	binary.BigEndian.PutUint64(txnDataLenBuf, uint64(len(txnData)))
+	txnDataWithLen := append(txnDataLenBuf, txnData...)
+
 	commitmentsData, err := json.Marshal(commitments)
 	if err != nil {
 		return err
@@ -59,7 +63,7 @@ func (s *rpcstore) StorePreconfirmedTransaction(
 	// Create a composite key for the block number and transaction hash
 	key := []byte(fmt.Sprintf("%d:%s", blockNumber, txn.Hash().Hex()))
 	// Store the transaction and commitments in the database
-	if err := s.db.Set(key, append(txnData, commitmentsData...), nil); err != nil {
+	if err := s.db.Set(key, append(txnDataWithLen, commitmentsData...), nil); err != nil {
 		return err
 	}
 
@@ -105,18 +109,16 @@ func (s *rpcstore) GetPreconfirmedTransaction(
 		_ = closer.Close()
 	}()
 
-	var commitments []*bidderapiv1.Commitment
-	txnLen := len(txnData)
-	if txnLen < 32 {
-		return nil, nil, fmt.Errorf("invalid transaction data length: %d", txnLen)
-	}
+	// The first 8 bytes are the length of the transaction data
+	txnDataLen := binary.BigEndian.Uint64(txnData[:8])
 
 	txn := new(types.Transaction)
-	if err := txn.UnmarshalBinary(txnData[:txnLen-32]); err != nil {
+	if err := txn.UnmarshalBinary(txnData[8 : 8+txnDataLen]); err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
 	}
 
-	if err := json.Unmarshal(txnData[txnLen-32:], &commitments); err != nil {
+	var commitments []*bidderapiv1.Commitment
+	if err := json.Unmarshal(txnData[8+txnDataLen:], &commitments); err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal commitments: %w", err)
 	}
 
@@ -191,15 +193,15 @@ func (s *rpcstore) HasBalance(
 	ctx context.Context,
 	account string,
 	amount *big.Int,
-) error {
+) bool {
 	if account == "" || amount == nil || amount.Sign() <= 0 {
-		return errors.New("invalid account or amount")
+		return false
 	}
 
 	balanceKey := []byte(fmt.Sprintf("balance:%s", account))
 	currentBalance, closer, err := s.db.Get(balanceKey)
 	if err != nil {
-		return err
+		return false
 	}
 	defer func() {
 		_ = closer.Close()
@@ -207,11 +209,13 @@ func (s *rpcstore) HasBalance(
 
 	currentBalanceBig := new(big.Int)
 	if err := currentBalanceBig.UnmarshalText(currentBalance); err != nil {
-		return fmt.Errorf("failed to unmarshal current balance: %w", err)
+		// If we can't unmarshal the balance, we assume the account has no balance
+		return false
 	}
 
 	if currentBalanceBig.Cmp(amount) < 0 {
-		return fmt.Errorf("insufficient balance for account %s: %w", account, ErrInsufficientBalance)
+		return false
 	}
-	return nil
+
+	return true
 }
