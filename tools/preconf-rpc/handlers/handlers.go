@@ -55,11 +55,11 @@ type Store interface {
 		account string,
 		amount *big.Int,
 	) error
-	RefundBalance(
+	HasBalance(
 		ctx context.Context,
 		account string,
 		amount *big.Int,
-	) error
+	) bool
 }
 
 type accountNonce struct {
@@ -84,17 +84,22 @@ func NewRPCMethodHandler(
 	bidder Bidder,
 	store Store,
 	pricer Pricer,
-	nonceLock *multex.Multex[string],
 ) *rpcMethodHandler {
 	return &rpcMethodHandler{
 		logger:      logger,
 		bidder:      bidder,
 		store:       store,
 		pricer:      pricer,
-		nonceLock:   nonceLock,
+		nonceLock:   multex.New[string](),
 		nonceMap:    make(map[string]accountNonce),
 		latestBlock: atomic.Pointer[types.Block]{},
 	}
+}
+
+func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
+	server.RegisterHandler("eth_sendRawTransaction", h.handleSendRawTx)
+	server.RegisterHandler("eth_getTransactionReceipt", h.handleGetTxReceipt)
+	server.RegisterHandler("eth_getTransactionCount", h.handleGetTxCount)
 }
 
 func (h *rpcMethodHandler) handleSendRawTx(
@@ -156,6 +161,14 @@ func (h *rpcMethodHandler) handleSendRawTx(
 			h.nonceLock.Unlock(sender.Hex())
 		}
 	}()
+
+	if !h.store.HasBalance(ctx, sender.Hex(), txn.Value()) {
+		h.logger.Error("Insufficient balance for sender", "sender", sender.Hex())
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"insufficient balance for sender",
+		)
+	}
 
 	timeToOptIn, err := h.bidder.Estimate()
 	if err != nil {
