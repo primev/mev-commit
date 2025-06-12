@@ -5,19 +5,10 @@ job "{{ job.name }}" {
   group "{{ job.name }}-group" {
     count = {{ job.count }}
 
-    # This is a special case for CI because the runner machine is not very
-    # powerful and compiling and deploying contracts can take a long time.
-    {% if env == 'devenv' and profile == 'ci' %}
     update {
-      healthy_deadline = "20m"
-      progress_deadline = "30m"
+      healthy_deadline = "25m"
+      progress_deadline = "35m"
     }
-    {% else %}
-    update {
-      healthy_deadline = "20m"
-      progress_deadline = "30m"
-    }
-    {% endif %}
 
     {% if env == 'devenv' %}
     restart {
