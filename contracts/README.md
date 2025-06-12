@@ -2,7 +2,7 @@
 
 ## Mainnet Contract Changelog
 
-This changelog tracks deployments of **Ethereum mainnet** contracts.  
+This changelog tracks deployments of **Ethereum mainnet** contracts. This changelog is only valid from the `main` branch.
 
 • Add a row to **Current Deployments** when a contract is first deployed from a release branch and tagged commit. Note the proxy address and release branch should not change.
 • After any on-chain upgrade, append a row to **Upgrade History**.
