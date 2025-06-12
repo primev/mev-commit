@@ -21,13 +21,32 @@ require (
 	google.golang.org/protobuf v1.34.2
 )
 
-require github.com/DATA-DOG/go-sqlmock v1.5.2
+require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/cockroachdb/pebble v1.1.2
+	github.com/google/go-cmp v0.6.0
+	resenje.org/multex v0.2.0
+)
 
 require (
+	github.com/DataDog/zstd v1.5.5 // indirect
+	github.com/cockroachdb/errors v1.11.3 // indirect
+	github.com/cockroachdb/fifo v0.0.0-20240616162244-4768e80dfb9a // indirect
+	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
+	github.com/cockroachdb/redact v1.1.5 // indirect
+	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
+	github.com/getsentry/sentry-go v0.28.1 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
+	github.com/klauspost/compress v1.17.9 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	resenje.org/multex v0.2.0 // indirect
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 )
 
 replace github.com/primev/mev-commit/p2p => ../p2p
