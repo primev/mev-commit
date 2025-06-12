@@ -1,8 +1,33 @@
 # Contracts
 
+## Mainnet Contract Changelog
+
+This changelog tracks deployments of **Ethereum mainnet** contracts. This changelog is only valid from the `main` branch.
+
+* Add a row to **Current Deployments** when a contract is first deployed from a release branch and tagged commit. Note the proxy address, release branch, and initial tag should not change.
+* After any on-chain upgrade, append a row to **Upgrade History**. The `Upgrade Tag` contains the most up-to-date source code for that contract.
+
+### Current Deployments
+
+| Contract              | Proxy Address                                | Release Branch      | Initial Tag           |
+|-----------------------|----------------------------------------------|---------------------|--------------------------|
+| ValidatorOptInRouter  | `0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64` | `release/v1.1.x`    | `v1.1.0-contracts`      |
+| VanillaRegistry       | `0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9` | `release/v1.1.x`    | `v1.1.0-contracts`      |
+| MevCommitAVS          | `0xBc77233855e3274E1903771675Eb71E602D9DC2e` | `release/v1.1.x`    | `v1.1.0-contracts`      |
+| L1Gateway             | `0xDBf24cafF1470a6D08bF2FF2c6875bafC60Cf881` | `release/v1.1.x`    | `v1.1.0-contracts`      |
+| MevCommitMiddleware   | `0x21fD239311B050bbeE7F32850d99ADc224761382` | `release/v1.1.x`    | `v1.1.0-contracts`         |
+
+### Upgrade History
+
+| Timestamp (UTC)             | Contract            | New Impl Version      | Upgrade Tag       |
+|-----------------------------|---------------------|-----------------------|-------------------|
+| Mar-12-2025 03:33:35 AM UTC | MevCommitMiddleware | MevCommitMiddlewareV2 | v1.1.0-middleware |
+
 ## L1 Deployer CLI
 
-The `l1-deployer-cli.sh` enables production deployment of L1 contracts, with publishing of source code to etherscan (see [source code verification](https://info.etherscan.com/how-to-verify-contracts/)). This deployment workflow is decoupled from the core mev-commit chain contracts. This cli accepts keystore (not suggested), ledger, or trezor wallets. Any contract must be deployed from a tagged mev-commit release, unless the `--skip-release-verification` flag is set.
+> **After completing any L1 deployment, immediately record it in the “Current Deployments” table above.**
+
+The `l1-deployer-cli.sh` enables production deployment of L1 contracts, with publishing of source code to etherscan (see [source code verification](https://info.etherscan.com/how-to-verify-contracts/)). This deployment workflow is decoupled from the core mev-commit chain contracts. This cli accepts keystore (not suggested), ledger, or trezor wallets. L1 contracts must be deployed from a tagged commit, that's part of a release branch. For mainnet it's not recommended to use the `--skip-release-verification` flag.
 
 If contract deployment succeeds but etherscan verification fails, try running [forge verify-contract](https://book.getfoundry.sh/reference/forge/forge-verify-contract) directly with the deployment address. Ex:
 
@@ -21,6 +46,8 @@ To avoid issues with etherscan verification, use a non-public RPC that can suppo
 
 ## Contract Upgrades
 
+> **After completing any upgrade, immediately record it in the “Upgrade History” table above.**
+
 Contract upgrades are not always possible, as there are [strict limitations as enforced by Solidity](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#modifying-your-contracts). When a contract feat/fix cannot be implemented as a contract upgrade, simply PR the changes into main, and release/deploy a new contract instance as needed.
 
 See [#360](https://github.com/primev/mev-commit/pull/360) for a reference example of a complete contract upgrade.
@@ -31,7 +58,7 @@ The following instructions assist in upgrading an existing deployment of any of 
 
 First, implement and merge an appropriate feat/fix to the implementation contract using the main branch. This ensures any future (new) deployments of the contract will include the feat/fix along with changes to the contract's ABI.
 
-Next, create a branch off the appropriate release branch (e.g. `release/v0.5.x`) that the currently deployed contract was initially built/deployed from, we'll refer to this as the "upgrade branch". Copy/paste the currently deployed contract implementation to a new file (currently deployed implementation and new file should both reside within the upgrade branch). Name the new file with an incremented version number as a postfix of the original contract's filename. E.g. if the original contract's filename is `MevCommitAVS.sol`, then the new contract's filename should be `MevCommitAVSV2.sol`. 
+Next, create a branch off the appropriate release branch (see [Current Deployments](#current-deployments)), we'll refer to this as the "upgrade branch". Copy/paste the currently deployed contract implementation to a new file (currently deployed implementation and new file should both reside within the upgrade branch). Name the new file with an incremented version number as a postfix of the original contract's filename. E.g. if the original contract's filename is `MevCommitAVS.sol`, then the new contract's filename should be `MevCommitAVSV2.sol`. 
 
 Now update the new implementation contract with the feat/fix that was merged to main. You can try to utilize cherry-picking here, but may have to re-implement the feat/fix manually.
 
@@ -54,6 +81,8 @@ If the feat/fix to the implementation contract results in a change to the contra
 If possible it's recommended to avoid changing a contract's ABI for an upgrade.
 
 ### Deployment
+
+Once your "upgrade branch" is reviewed and merged into the release branch, tag the latest commit from the release branch. This tag will be used to populate the **Upgrade History** table above.
 
 Invoking the upgrade involves creating a script in which a new implementation contract is deployed, then calling `upgradeToAndCall` on the proxy contract, passing in the address of the new implementation contract.
 
