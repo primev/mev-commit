@@ -82,6 +82,8 @@ If possible it's recommended to avoid changing a contract's ABI for an upgrade.
 
 ### Deployment
 
+Once your "upgrade branch" is reviewed and merged into the release branch, tag the latest commit from the release branch. This tag will be used to populate the **Upgrade History** table above.
+
 Invoking the upgrade involves creating a script in which a new implementation contract is deployed, then calling `upgradeToAndCall` on the proxy contract, passing in the address of the new implementation contract.
 
 See example below
