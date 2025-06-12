@@ -999,15 +999,6 @@ profiles:
 
   archive:
     jobs:
-  instant-bridge:
-    jobs:
-      - *artifacts_job
-      - *datadog_agent_logs_collector_job
-      - *mev_commit_bidder_node1_job
-      - *instant_bridge_job
-
-  archive:
-    jobs:
       - *artifacts_job
       - *datadog_agent_logs_collector_job
       - *otel_collector_job
