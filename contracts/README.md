@@ -25,7 +25,7 @@ This changelog tracks deployments of **Ethereum mainnet** contracts. This change
 
 ## L1 Deployer CLI
 
-> **After completing any L1 deployment, immediately record it in the “Mainnet Contract Changelog” table above (contract name, proxy address, release branch, and blank upgrade history).**
+> **After completing any L1 deployment, immediately record it in the “Mainnet Contract Changelog” table above.**
 
 The `l1-deployer-cli.sh` enables production deployment of L1 contracts, with publishing of source code to etherscan (see [source code verification](https://info.etherscan.com/how-to-verify-contracts/)). This deployment workflow is decoupled from the core mev-commit chain contracts. This cli accepts keystore (not suggested), ledger, or trezor wallets. L1 contracts must be deployed from a tagged commit, that's part of a release branch. For mainnet it's not recommended to use the `--skip-release-verification` flag.
 
@@ -46,7 +46,7 @@ To avoid issues with etherscan verification, use a non-public RPC that can suppo
 
 ## Contract Upgrades
 
-> **After completing any upgrade, immediately record a bullet point in the “Mainnet Contract Changelog” above (date, new implementation version, and the tag from which the upgrade was deployed).**
+> **After completing any upgrade, immediately record it in the “Mainnet Contract Changelog” table above.**
 
 Contract upgrades are not always possible, as there are [strict limitations as enforced by Solidity](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#modifying-your-contracts). When a contract feat/fix cannot be implemented as a contract upgrade, simply PR the changes into main, and release/deploy a new contract instance as needed.
 
