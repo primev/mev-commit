@@ -20,28 +20,28 @@ var (
 	optionHTTPPort = &cli.IntFlag{
 		Name:    "http-port",
 		Usage:   "port for the HTTP server",
-		EnvVars: []string{"INSTANT_BRIDGE_HTTP_PORT"},
+		EnvVars: []string{"PRECONF_RPC_HTTP_PORT"},
 		Value:   8080,
 	}
 
 	optionKeystorePath = &cli.StringFlag{
 		Name:     "keystore-dir",
 		Usage:    "directory where keystore file is stored",
-		EnvVars:  []string{"INSTANT_BRIDGE_KEYSTORE_DIR"},
+		EnvVars:  []string{"PRECONF_RPC_KEYSTORE_DIR"},
 		Required: true,
 	}
 
 	optionKeystorePassword = &cli.StringFlag{
 		Name:     "keystore-password",
 		Usage:    "use to access keystore",
-		EnvVars:  []string{"INSTANT_BRIDGE_KEYSTORE_PASSWORD"},
+		EnvVars:  []string{"PRECONF_RPC_KEYSTORE_PASSWORD"},
 		Required: true,
 	}
 
 	optionDataDir = &cli.StringFlag{
 		Name:     "data-dir",
 		Usage:    "directory where data is stored",
-		EnvVars:  []string{"INSTANT_BRIDGE_DATA_DIR"},
+		EnvVars:  []string{"PRECONF_RPC_DATA_DIR"},
 		Required: true,
 		Action: func(ctx *cli.Context, s string) error {
 			if _, err := os.Stat(s); os.IsNotExist(err) {
@@ -54,77 +54,77 @@ var (
 	optionL1RPCUrls = &cli.StringSliceFlag{
 		Name:     "l1-rpc-urls",
 		Usage:    "URLs for L1 RPC",
-		EnvVars:  []string{"INSTANT_BRIDGE_L1_RPC_URLS"},
+		EnvVars:  []string{"PRECONF_RPC_L1_RPC_URLS"},
 		Required: true,
 	}
 
 	optionSettlementRPCUrl = &cli.StringFlag{
 		Name:     "settlement-rpc-url",
 		Usage:    "URL for settlement RPC",
-		EnvVars:  []string{"INSTANT_BRIDGE_SETTLEMENT_RPC_URL"},
+		EnvVars:  []string{"PRECONF_RPC_SETTLEMENT_RPC_URL"},
 		Required: true,
 	}
 
 	optionBidderRPCUrl = &cli.StringFlag{
 		Name:     "bidder-rpc-url",
 		Usage:    "URL for mev-commit bidder RPC",
-		EnvVars:  []string{"INSTANT_BRIDGE_BIDDER_RPC_URL"},
+		EnvVars:  []string{"PRECONF_RPC_BIDDER_RPC_URL"},
 		Required: true,
 	}
 
 	optionL1ContractAddr = &cli.StringFlag{
 		Name:     "l1-contract-addr",
 		Usage:    "address of the L1 gateway contract",
-		EnvVars:  []string{"INSTANT_BRIDGE_L1_CONTRACT_ADDR"},
+		EnvVars:  []string{"PRECONF_RPC_L1_CONTRACT_ADDR"},
 		Required: true,
 	}
 
 	optionSettlementThreshold = &cli.StringFlag{
 		Name:    "settlement-threshold",
 		Usage:   "Minimum threshold for settlement chain balance",
-		EnvVars: []string{"INSTANT_BRIDGE_SETTLEMENT_THRESHOLD"},
+		EnvVars: []string{"PRECONF_RPC_SETTLEMENT_THRESHOLD"},
 		Value:   "5000000000000000000", // 5 ETH
 	}
 
 	optionSettlementTopup = &cli.StringFlag{
 		Name:    "settlement-topup",
 		Usage:   "topup for settlement",
-		EnvVars: []string{"INSTANT_BRIDGE_SETTLEMENT_TOPUP"},
+		EnvVars: []string{"PRECONF_RPC_SETTLEMENT_TOPUP"},
 		Value:   "10000000000000000000", // 10 ETH
 	}
 
 	optionAutoDepositAmount = &cli.StringFlag{
 		Name:    "auto-deposit-amount",
 		Usage:   "auto deposit amount",
-		EnvVars: []string{"INSTANT_BRIDGE_AUTO_DEPOSIT_AMOUNT"},
+		EnvVars: []string{"PRECONF_RPC_AUTO_DEPOSIT_AMOUNT"},
 		Value:   "1000000000000000000", // 1 ETH
 	}
 
 	optionGasTipCap = &cli.StringFlag{
 		Name:    "gas-tip-cap",
 		Usage:   "gas tip cap",
-		EnvVars: []string{"INSTANT_BRIDGE_GAS_TIP_CAP"},
+		EnvVars: []string{"PRECONF_RPC_GAS_TIP_CAP"},
 		Value:   "50000000", // 0.05 gWEI
 	}
 
 	optionGasFeeCap = &cli.StringFlag{
 		Name:    "gas-fee-cap",
 		Usage:   "gas fee cap",
-		EnvVars: []string{"INSTANT_BRIDGE_GAS_FEE_CAP"},
+		EnvVars: []string{"PRECONF_RPC_GAS_FEE_CAP"},
 		Value:   "60000000", // 0.06 gWEI
 	}
 
 	optionSettlementContractAddr = &cli.StringFlag{
 		Name:     "settlement-contract-addr",
 		Usage:    "address of the settlement gateway contract",
-		EnvVars:  []string{"INSTANT_BRIDGE_SETTLEMENT_CONTRACT_ADDR"},
+		EnvVars:  []string{"PRECONF_RPC_SETTLEMENT_CONTRACT_ADDR"},
 		Required: true,
 	}
 
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
-		EnvVars: []string{"INSTANT_BRIDGE_LOG_FMT"},
+		EnvVars: []string{"PRECONF_RPC_LOG_FMT"},
 		Value:   "text",
 		Action: func(ctx *cli.Context, s string) error {
 			if !slices.Contains([]string{"text", "json"}, s) {
@@ -137,7 +137,7 @@ var (
 	optionLogLevel = &cli.StringFlag{
 		Name:    "log-level",
 		Usage:   "log level to use, options are 'debug', 'info', 'warn', 'error'",
-		EnvVars: []string{"INSTANT_BRIDGE_LOG_LEVEL"},
+		EnvVars: []string{"PRECONF_RPC_LOG_LEVEL"},
 		Value:   "info",
 		Action: func(ctx *cli.Context, s string) error {
 			if !slices.Contains([]string{"debug", "info", "warn", "error"}, s) {
@@ -150,7 +150,7 @@ var (
 	optionLogTags = &cli.StringFlag{
 		Name:    "log-tags",
 		Usage:   "log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
-		EnvVars: []string{"INSTANT_BRIDGE_LOG_TAGS"},
+		EnvVars: []string{"PRECONF_RPC_LOG_TAGS"},
 		Action: func(ctx *cli.Context, s string) error {
 			for i, p := range strings.Split(s, ",") {
 				if len(strings.Split(p, ":")) != 2 {

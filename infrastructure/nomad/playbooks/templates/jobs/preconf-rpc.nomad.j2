@@ -1,0 +1,204 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "{{ job.name }}" {
+  datacenters = ["{{ datacenter }}"]
+
+  group "{{ job.name }}-group" {
+    count = {{ job.count }}
+
+    {% if env == 'devenv' %}
+    restart {
+      attempts = 0
+      mode = "fail"
+    }
+
+    reschedule {
+      attempts = 0
+      unlimited = false
+    }
+    {% endif %}
+
+    network {
+      mode = "bridge"
+
+      dns {
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
+      }
+
+      {% for port_name, port_details in job.ports[0].items() %}
+      port "{{ port_name }}" {
+        {% if port_details.get('static') %}
+        static = {{ port_details['static'] }}
+        {% endif %}
+        {% if port_details.get('to') %}
+        to = {{ port_details['to'] }}
+        {% endif %}
+      }
+      {% endfor %}
+    }
+
+    {% for port_name in job.ports[0] %}
+    service {
+      name = "{{ job.name }}"
+      port = "{{ port_name }}"
+      tags = ["{{ port_name }}"]
+      provider = "nomad"
+      {% if port_name == "http" %}
+      check {
+        type     = "http"
+        path     = "/health"
+        interval = "10s"
+        timeout  = "2s"
+      }
+      {% endif %}
+    }
+    {% endfor %}
+
+    task "preconfrpc" {
+      driver = "exec"
+
+      resources {
+        cpu = 4000
+        memory = 4096
+      }
+
+      artifact {
+        source = "https://foundry.paradigm.xyz"
+        destination = "local/foundry.sh"
+      }
+
+      {% if env != 'devenv' %}
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/preconf-rpc_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/preconf-rpc_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% endif %}
+
+      template {
+        data = <<-EOH
+          XDG_CONFIG_HOME="local/.config"
+          PRECONF_RPC_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
+          PRECONF_RPC_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
+          PRECONF_RPC_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
+          CONTRACTS_JSON_URL="{{ job.env.get('contracts_json_url', '') }}"
+          PRECONF_RPC_SETTLEMENT_RPC_URL="{{ job.env.get('settlement_rpc_url', '') }}"
+          {%- raw %}
+          PRECONF_RPC_KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          PRECONF_RPC_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.instant_bridge_keystore_filename }}{{ end }}"
+          PRECONF_RPC_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.instant_bridge_keystore_password }}{{ end }}"
+          {{- range nomadService "mev-commit-geth-bootnode1" }}
+            {{- if contains "http" .Tags }}
+          PRECONF_RPC_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {{- range nomadService "{% endraw %}{{ job.target.name }}{% raw %}" }}
+            {{- if contains "rpc" .Tags }}
+          PRECONF_RPC_BIDDER_RPC_URL="{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {% endraw %}
+          XDG_CONFIG_HOME="local/.config"
+          {% if profile == 'preconf-rpc-test' %}
+          {%- raw %}
+          {{- $secret := secret "secret/data/mev-commit" }}
+          CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/deployer_keystore"
+          CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ $secret.Data.data.contract_deployer_keystore_filename }}"
+          CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ $secret.Data.data.contract_deployer_keystore_password }}"
+          {% endraw %}
+          {% endif %}
+          PRECONF_RPC_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
+          CONTRACTS_PATH="local/contracts"
+          ARTIFACT_OUT_PATH="local"
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+
+          {% raw %}
+          {{- range nomadService "datadog-agent-logs-collector" }}
+            {{ if contains "tcp" .Tags }}
+          exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+            {{ end }}
+          {{- end }}
+          mkdir -p "${PRECONF_RPC_KEYSTORE_DIR}" > /dev/null 2>&1
+            {{- with secret "secret/data/mev-commit" }}
+          PRECONF_RPC_KEYSTORE_FILE="${PRECONF_RPC_KEYSTORE_DIR}/${PRECONF_RPC_KEYSTORE_FILENAME}"
+          echo '{{ .Data.data.instant_bridge_keystore }}' > "${PRECONF_RPC_KEYSTORE_FILE}"
+            {{ end }}
+          {% endraw %}
+
+          {% if profile == 'preconf-rpc-test' %}
+          mkdir -p "${CONTRACT_DEPLOYER_KEYSTORE_PATH}" > /dev/null 2>&1
+          CONTRACT_DEPLOYER_KEYSTORE_FILE="${CONTRACT_DEPLOYER_KEYSTORE_PATH}/${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}"
+          {%- raw %}
+          {{- $secret := secret "secret/data/mev-commit" }}
+          echo '{{ $secret.Data.data.contract_deployer_keystore }}' > "${CONTRACT_DEPLOYER_KEYSTORE_FILE}"
+          {%- endraw %}
+          {% endif %}
+
+          {% raw %}
+          {{- range nomadService "contracts-deployer" }}
+            {{ if contains "http" .Tags }}
+          CONTRACTS_JSON_URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
+            {{ end }}
+          {{- end }}
+          {% endraw %}
+          CONTRACTS_FILE="/local/contracts.json"
+          curl -s -o "${CONTRACTS_FILE}" "${CONTRACTS_JSON_URL}"
+          export PRECONF_RPC_SETTLEMENT_CONTRACT_ADDR="$(jq -r '.SettlementGateway' ${CONTRACTS_FILE})"
+          export PRECONF_RPC_L1_CONTRACT_ADDR="$(jq -r '.L1Gateway' ${CONTRACTS_FILE})"
+
+          chmod +x local/foundry.sh && local/foundry.sh
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          ${XDG_CONFIG_HOME}/.foundry/bin/foundryup 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to install foundry tools"
+            exit 1
+          fi
+          export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
+          {%- raw %}
+          {{- range nomadService "mock-l1" }}
+            {{- if contains "ws" .Tags }}
+          L1_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
+            {{- end }}
+            {{- with secret "secret/data/mev-commit" }}
+          ADDRESS="$(cat "${PRECONF_RPC_KEYSTORE_FILE}" | jq -r '.address')"
+            {{ end }}
+          cast send \
+            --keystore "${CONTRACT_DEPLOYER_KEYSTORE_FILE}" \
+            --password "${CONTRACT_DEPLOYER_KEYSTORE_PASSWORD}" \
+            --priority-gas-price 2000000000 \
+            --gas-price 5000000000 \
+            --value 100ether \
+            --rpc-url "${L1_RPC_URL}" \
+            "${ADDRESS}"
+
+          if [ $? -eq 0 ]; then
+            echo "Funds successfully sent to: ${ADDRESS}"
+          else
+            echo "Failed to send funds to: ${ADDRESS}"
+          fi
+          {{- end }}
+          {% endraw %}
+
+          chmod +x local/preconf-rpc
+          exec ./local/preconf-rpc
+        EOH
+        destination = "local/run.sh"
+        change_mode = "noop"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "exec local/run.sh"]
+      }
+    }
+  }
+}
