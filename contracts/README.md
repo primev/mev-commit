@@ -4,17 +4,17 @@
 
 This changelog tracks deployments of **Ethereum mainnet** contracts. This changelog is only valid from the `main` branch.
 
-* Add a row to **Current Deployments** when a contract is first deployed from a release branch and tagged commit. Note the proxy address and release branch should not change.
-* After any on-chain upgrade, append a row to **Upgrade History**.
+* Add a row to **Current Deployments** when a contract is first deployed from a release branch and tagged commit. Note the proxy address, release branch, and initial tag should not change.
+* After any on-chain upgrade, append a row to **Upgrade History**. The `Upgrade Tag` contains the most up-to-date source code for that contract.
 
 ### Current Deployments
 
-| Contract              | Proxy Address                                | Release Branch      | Tag           |
-|-----------------------|----------------------------------------------|---------------------|-----------------|
-| ValidatorOptInRouter  | `0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64` | `release/v1.1.x`    | `v1.1.0-contracts` |
-| VanillaRegistry       | `0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9` | `release/v1.1.x`    | `v1.1.0-contracts`         |
-| MevCommitAVS          | `0xBc77233855e3274E1903771675Eb71E602D9DC2e` | `release/v1.1.x`    | `v1.1.0-contracts`         |
-| L1Gateway             | `0xDBf24cafF1470a6D08bF2FF2c6875bafC60Cf881` | `release/v1.1.x`    | `v1.1.0-contracts`         |
+| Contract              | Proxy Address                                | Release Branch      | Initial Tag           |
+|-----------------------|----------------------------------------------|---------------------|--------------------------|
+| ValidatorOptInRouter  | `0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64` | `release/v1.1.x`    | `v1.1.0-contracts`      |
+| VanillaRegistry       | `0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9` | `release/v1.1.x`    | `v1.1.0-contracts`      |
+| MevCommitAVS          | `0xBc77233855e3274E1903771675Eb71E602D9DC2e` | `release/v1.1.x`    | `v1.1.0-contracts`      |
+| L1Gateway             | `0xDBf24cafF1470a6D08bF2FF2c6875bafC60Cf881` | `release/v1.1.x`    | `v1.1.0-contracts`      |
 | MevCommitMiddleware   | `0x21fD239311B050bbeE7F32850d99ADc224761382` | `release/v1.1.x`    | `v1.1.0-contracts`         |
 
 ### Upgrade History
