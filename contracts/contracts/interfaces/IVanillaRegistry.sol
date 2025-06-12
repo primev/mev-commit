@@ -48,12 +48,19 @@ interface IVanillaRegistry {
     /// @dev Event emitted when the slashing payout period blocks parameter is set.
     event SlashingPayoutPeriodBlocksSet(address indexed msgSender, uint256 newSlashingPayoutPeriodBlocks);
 
+    /// @dev Event emitted when a staker is whitelisted.
+    event StakerWhitelisted(address indexed msgSender, address staker);
+
+    /// @dev Event emitted when a staker is removed from the whitelist.
+    event StakerRemovedFromWhitelist(address indexed msgSender, address staker);
+
     error ValidatorRecordMustExist(bytes valBLSPubKey);
     error ValidatorRecordMustNotExist(bytes valBLSPubKey);
     error ValidatorCannotBeUnstaking(bytes valBLSPubKey);
     error SenderIsNotWithdrawalAddress(address sender, address withdrawalAddress);
     error InvalidBLSPubKeyLength(uint256 expected, uint256 actual);
     error SenderIsNotSlashOracle(address sender, address slashOracle);
+    error SenderIsNotWhitelistedStaker(address sender);
     error WithdrawalAddressMustBeSet();
     error MustUnstakeToWithdraw();
     error AtLeastOneRecipientRequired();
@@ -70,6 +77,8 @@ interface IVanillaRegistry {
     error SlashReceiverMustBeSet();
     error UnstakePeriodMustBePositive();
     error SlashingPayoutPeriodMustBePositive();
+    error StakerAlreadyWhitelisted(address staker);
+    error StakerNotWhitelisted(address staker);
 
     /// @dev Initializes the contract with the provided parameters.
     function initialize(
