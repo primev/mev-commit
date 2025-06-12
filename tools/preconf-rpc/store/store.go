@@ -91,14 +91,13 @@ func (s *rpcstore) GetPreconfirmedTransaction(
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() {
-		_ = closer.Close()
-	}()
 
 	blockNumber := binary.BigEndian.Uint64(blkNumBuf)
 	if blockNumber == 0 {
 		return nil, nil, fmt.Errorf("transaction %s not found", txnHash)
 	}
+
+	_ = closer.Close() // Close the closer from Get
 
 	key := []byte(fmt.Sprintf("%d:%s", blockNumber, txnHash))
 	txnData, closer, err := s.db.Get(key)
@@ -143,10 +142,7 @@ func (s *rpcstore) DeductBalance(
 		_ = closer.Close()
 	}()
 
-	currentBalanceBig := new(big.Int)
-	if err := currentBalanceBig.UnmarshalText(currentBalance); err != nil {
-		return fmt.Errorf("failed to unmarshal current balance: %w", err)
-	}
+	currentBalanceBig := new(big.Int).SetBytes(currentBalance)
 	if currentBalanceBig.Cmp(amount) < 0 {
 		return fmt.Errorf("insufficient balance for account %s: %w", account, ErrInsufficientBalance)
 	}
@@ -178,13 +174,12 @@ func (s *rpcstore) AddBalance(
 		}
 	}
 	defer func() {
-		_ = closer.Close()
+		if closer != nil {
+			_ = closer.Close()
+		}
 	}()
 
-	currentBalanceBig := new(big.Int)
-	if err := currentBalanceBig.UnmarshalText(currentBalance); err != nil {
-		return fmt.Errorf("failed to unmarshal current balance: %w", err)
-	}
+	currentBalanceBig := new(big.Int).SetBytes(currentBalance)
 
 	newBalance := new(big.Int).Add(currentBalanceBig, amount)
 	if err := s.db.Set(balanceKey, newBalance.Bytes(), nil); err != nil {
@@ -212,11 +207,7 @@ func (s *rpcstore) HasBalance(
 		_ = closer.Close()
 	}()
 
-	currentBalanceBig := new(big.Int)
-	if err := currentBalanceBig.UnmarshalText(currentBalance); err != nil {
-		// If we can't unmarshal the balance, we assume the account has no balance
-		return false
-	}
+	currentBalanceBig := new(big.Int).SetBytes(currentBalance)
 
 	if currentBalanceBig.Cmp(amount) < 0 {
 		return false

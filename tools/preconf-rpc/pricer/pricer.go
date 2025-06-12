@@ -30,9 +30,9 @@ type BlockPrice struct {
 	BidAmount   *big.Int
 }
 
-type bidPricer struct{}
+type BidPricer struct{}
 
-func (b *bidPricer) EstimatePrice(ctx context.Context, txn *types.Transaction) (*BlockPrice, error) {
+func (b *BidPricer) EstimatePrice(ctx context.Context, txn *types.Transaction) (*BlockPrice, error) {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}

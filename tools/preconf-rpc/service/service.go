@@ -16,7 +16,10 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
+	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
+	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 	"github.com/primev/mev-commit/x/accountsync"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
@@ -29,6 +32,7 @@ import (
 
 type Config struct {
 	Logger                 *slog.Logger
+	DataDir                string
 	Signer                 keysigner.KeySigner
 	BidderRPC              string
 	AutoDepositAmount      *big.Int
@@ -139,8 +143,21 @@ func New(config *Config) (*Service, error) {
 		config.L1RPCUrls[0],
 	)
 
-	// TODO: Implement the handler for the RPC methods. Also use some sort of
-	// database to store the state of the service like balances of users etc.
+	bidpricer := &pricer.BidPricer{}
+
+	rpcstore, err := store.New(config.DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store: %w", err)
+	}
+
+	handlers := handlers.NewRPCMethodHandler(
+		config.Logger.With("module", "handlers"),
+		bidderClient,
+		rpcstore,
+		bidpricer,
+	)
+
+	handlers.RegisterMethods(rpcServer)
 
 	srv := http.Server{
 		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
