@@ -1,20 +1,27 @@
 # Contracts
 
-## 📜 Mainnet Contract Changelog
+## Mainnet Contract Changelog
 
-> This changelog tracks every contract currently deployed on **Ethereum mainnet**, and is only valid from the `main` branch.
-> • Add a **new row** when an L1 contract is first deployed from a release tag/branch.  
-> • When an on-chain upgrade is executed (`upgradeProxy` or `upgradeToAndCall`), **append** a bullet to the “Upgrade History” cell for that contract.  
-> • Bullets should include the date, new implementation version, and the tag from which the upgrade was deployed, e.g.:  
-> `• 2025-05-01 – upgraded to MevCommitAVSV2 (tag: v0.6.0)`
+This changelog tracks deployments of **Ethereum mainnet** contracts.  
 
-| Contract              | Proxy Address (mainnet)                      | Release Branch | Upgrade History |
-|-----------------------|----------------------------------------------|----------------|--------------------------------|
-| L1Gateway             | `0xDBf24cafF1470a6D08bF2FF2c6875bafC60Cf881` | `release/v1.1.x` | n/a |
-| MevCommitAVS          | `0xBc77233855e3274E1903771675Eb71E602D9DC2e` | `release/v1.1.x` | n/a
-| MevCommitMiddleware   | `0x21fD239311B050bbeE7F32850d99ADc224761382` | `release/v1.1.x` | • 2025-03-12 - upgraded to MevCommitMiddlewareV2 (tag: v1.1.0-middleware) |
-| VanillaRegistry       | `0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9` | `release/v1.1.x` | n/a |
-| ValidatorOptInRouter  | `0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64` | `release/v1.1.x` | n/a |
+• Add a row to **Current Deployments** when a contract is first deployed from a release branch and tagged commit. Note the proxy address and release branch should not change.
+• After any on-chain upgrade, append a row to **Upgrade History**.
+
+### Current Deployments
+
+| Contract              | Proxy Address                                | Release Branch      |
+|-----------------------|----------------------------------------------|---------------------|
+| ValidatorOptInRouter  | `0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64` | `release/v1.1.x`    |
+| VanillaRegistry       | `0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9` | `release/v1.1.x`    |
+| MevCommitAVS          | `0xBc77233855e3274E1903771675Eb71E602D9DC2e` | `release/v1.1.x`    |
+| L1Gateway             | `0xDBf24cafF1470a6D08bF2FF2c6875bafC60Cf881` | `release/v1.1.x`    |
+| MevCommitMiddleware   | `0x21fD239311B050bbeE7F32850d99ADc224761382` | `release/v1.1.x`    |
+
+### Upgrade History
+
+| Timestamp (UTC)             | Contract            | New Impl Version      | Upgrade Tag       |
+|-----------------------------|---------------------|-----------------------|-------------------|
+| Mar-12-2025 03:33:35 AM UTC | MevCommitMiddleware | MevCommitMiddlewareV2 | v1.1.0-middleware |
 
 ## L1 Deployer CLI
 
