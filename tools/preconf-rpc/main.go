@@ -38,6 +38,19 @@ var (
 		Required: true,
 	}
 
+	optionDataDir = &cli.StringFlag{
+		Name:     "data-dir",
+		Usage:    "directory where data is stored",
+		EnvVars:  []string{"INSTANT_BRIDGE_DATA_DIR"},
+		Required: true,
+		Action: func(ctx *cli.Context, s string) error {
+			if _, err := os.Stat(s); os.IsNotExist(err) {
+				return fmt.Errorf("data-dir %s does not exist", s)
+			}
+			return nil
+		},
+	}
+
 	optionL1RPCUrls = &cli.StringSliceFlag{
 		Name:     "l1-rpc-urls",
 		Usage:    "URLs for L1 RPC",
@@ -155,6 +168,7 @@ func main() {
 		Usage: "Preconf RPC service",
 		Flags: []cli.Flag{
 			optionHTTPPort,
+			optionDataDir,
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
@@ -220,6 +234,7 @@ func main() {
 
 			config := service.Config{
 				HTTPPort:               c.Int(optionHTTPPort.Name),
+				DataDir:                c.String(optionDataDir.Name),
 				Logger:                 logger,
 				GasTipCap:              gasTipCap,
 				GasFeeCap:              gasFeeCap,
