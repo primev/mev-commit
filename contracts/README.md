@@ -1,8 +1,26 @@
 # Contracts
 
+## 📜 Mainnet Contract Changelog
+
+> This changelog tracks every contract currently deployed on **Ethereum mainnet**, and is only valid from the `main` branch.
+> • Add a **new row** when an L1 contract is first deployed from a release tag/branch.  
+> • When an on-chain upgrade is executed (`upgradeProxy` or `upgradeToAndCall`), **append** a bullet to the “Upgrade History” cell for that contract.  
+> • Bullets should include the date, new implementation version, and the tag from which the upgrade was deployed, e.g.:  
+> `• 2025-05-01 – upgraded to MevCommitAVSV2 (tag: v0.6.0)`
+
+| Contract              | Proxy Address (mainnet)                      | Release Branch | Upgrade History |
+|-----------------------|----------------------------------------------|----------------|-----------------|
+| L1Gateway             | `0xDBf24cafF1470a6D08bF2FF2c6875bafC60Cf881` | `release/v1.1.x` | n/a |
+| MevCommitAVS          | `0xBc77233855e3274E1903771675Eb71E602D9DC2e` | `release/v1.1.x` | n/a
+| MevCommitMiddleware   | `0x21fD239311B050bbeE7F32850d99ADc224761382` | `release/v1.1.x` | • 2025-03-12 - upgraded to MevCommitMiddlewareV2 (tag: v1.1.0-middleware) |
+| VanillaRegistry       | `0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9` | `release/v1.1.x` | n/a |
+| ValidatorOptInRouter  | `0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64` | `release/v1.1.x` | n/a |
+
 ## L1 Deployer CLI
 
-The `l1-deployer-cli.sh` enables production deployment of L1 contracts, with publishing of source code to etherscan (see [source code verification](https://info.etherscan.com/how-to-verify-contracts/)). This deployment workflow is decoupled from the core mev-commit chain contracts. This cli accepts keystore (not suggested), ledger, or trezor wallets. Any contract must be deployed from a tagged mev-commit release, unless the `--skip-release-verification` flag is set.
+> **After completing any L1 deployment, immediately record it in the “Mainnet Contract Changelog” table above (contract name, proxy address, release branch, and blank upgrade history).**
+
+The `l1-deployer-cli.sh` enables production deployment of L1 contracts, with publishing of source code to etherscan (see [source code verification](https://info.etherscan.com/how-to-verify-contracts/)). This deployment workflow is decoupled from the core mev-commit chain contracts. This cli accepts keystore (not suggested), ledger, or trezor wallets. L1 contracts must be deployed from a tagged commit, that's part of a release branch. For mainnet it's not recommended to use the `--skip-release-verification` flag.
 
 If contract deployment succeeds but etherscan verification fails, try running [forge verify-contract](https://book.getfoundry.sh/reference/forge/forge-verify-contract) directly with the deployment address. Ex:
 
@@ -20,6 +38,8 @@ To avoid issues with etherscan verification, use a non-public RPC that can suppo
 - [jq](https://stedolan.github.io/jq/download/)
 
 ## Contract Upgrades
+
+> **After completing any upgrade, immediately record a bullet point in the “Mainnet Contract Changelog” above (date, new implementation version, and the tag from which the upgrade was deployed).**
 
 Contract upgrades are not always possible, as there are [strict limitations as enforced by Solidity](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#modifying-your-contracts). When a contract feat/fix cannot be implemented as a contract upgrade, simply PR the changes into main, and release/deploy a new contract instance as needed.
 
