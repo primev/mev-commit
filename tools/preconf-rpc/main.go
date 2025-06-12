@@ -39,16 +39,10 @@ var (
 	}
 
 	optionDataDir = &cli.StringFlag{
-		Name:     "data-dir",
-		Usage:    "directory where data is stored",
-		EnvVars:  []string{"PRECONF_RPC_DATA_DIR"},
-		Required: true,
-		Action: func(ctx *cli.Context, s string) error {
-			if _, err := os.Stat(s); os.IsNotExist(err) {
-				return fmt.Errorf("data-dir %s does not exist", s)
-			}
-			return nil
-		},
+		Name:    "data-dir",
+		Usage:   "directory where data is stored",
+		EnvVars: []string{"PRECONF_RPC_DATA_DIR"},
+		Value:   "~/data",
 	}
 
 	optionL1RPCUrls = &cli.StringSliceFlag{
@@ -227,6 +221,12 @@ func main() {
 			)
 			if err != nil {
 				return fmt.Errorf("failed to create signer: %w", err)
+			}
+
+			if _, err := os.Stat(c.String(optionDataDir.Name)); os.IsNotExist(err) {
+				if err := os.MkdirAll(c.String(optionDataDir.Name), 0755); err != nil {
+					return fmt.Errorf("failed to create data directory: %w", err)
+				}
 			}
 
 			sigc := make(chan os.Signal, 1)
