@@ -29,7 +29,7 @@ type Bidder interface {
 		slashAmount *big.Int,
 		rawTx string,
 		opts *optinbidder.BidOpts,
-	) (<-chan optinbidder.BidStatus, error)
+	) (chan optinbidder.BidStatus, error)
 }
 
 type Pricer interface {
