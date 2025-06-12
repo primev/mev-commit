@@ -72,7 +72,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("failed to get preconfirmed transaction: %v", err)
 		}
 
-		if txn.Hash() != txn.Hash() {
+		if txn.Hash().Hex() != txn.Hash().Hex() {
 			t.Errorf("expected transaction hash %s, got %s", txn.Hash().Hex(), storedTxn.Hash().Hex())
 		}
 		if len(storedCommitments) != len(commitments) {

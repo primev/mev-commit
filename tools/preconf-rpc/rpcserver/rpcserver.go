@@ -122,7 +122,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resp, proxy, err := handler(r.Context(), req.Params...)
 	switch {
 	case err != nil:
-		var jsonErr *JSONErr
+		jsonErr := new(JSONErr)
 		if ok := errors.As(err, jsonErr); ok {
 			// If the error is a JSONErr, we can use it directly.
 			s.writeError(w, req.ID, jsonErr.Code, jsonErr.Message)

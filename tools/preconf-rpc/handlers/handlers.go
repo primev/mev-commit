@@ -171,10 +171,7 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		)
 	}
 
-	optedInSlot := false
-	if timeToOptIn <= blockTime {
-		optedInSlot = true
-	}
+	optedInSlot := timeToOptIn <= blockTime
 
 	price, err := h.pricer.EstimatePrice(ctx, txn)
 	if err != nil {
