@@ -9,7 +9,7 @@
 > `• 2025-05-01 – upgraded to MevCommitAVSV2 (tag: v0.6.0)`
 
 | Contract              | Proxy Address (mainnet)                      | Release Branch | Upgrade History |
-|-----------------------|----------------------------------------------|----------------|-----------------|
+|-----------------------|----------------------------------------------|----------------|--------------------------------|
 | L1Gateway             | `0xDBf24cafF1470a6D08bF2FF2c6875bafC60Cf881` | `release/v1.1.x` | n/a |
 | MevCommitAVS          | `0xBc77233855e3274E1903771675Eb71E602D9DC2e` | `release/v1.1.x` | n/a
 | MevCommitMiddleware   | `0x21fD239311B050bbeE7F32850d99ADc224761382` | `release/v1.1.x` | • 2025-03-12 - upgraded to MevCommitMiddlewareV2 (tag: v1.1.0-middleware) |
