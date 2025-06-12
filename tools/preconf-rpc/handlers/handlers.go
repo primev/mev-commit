@@ -100,6 +100,7 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	server.RegisterHandler("eth_sendRawTransaction", h.handleSendRawTx)
 	server.RegisterHandler("eth_getTransactionReceipt", h.handleGetTxReceipt)
 	server.RegisterHandler("eth_getTransactionCount", h.handleGetTxCount)
+	server.RegisterHandler("mevcommit_getTransactionCommitments", h.handleGetTxCommitments)
 }
 
 func (h *rpcMethodHandler) handleSendRawTx(
@@ -329,7 +330,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 	}
 
 	h.logger.Info("Retrieving transaction receipt", "txHash", txHash)
-	txn, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash[2:])
+	txn, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
 	if err != nil {
 		return nil, true, nil
 	}
@@ -405,4 +406,53 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 
 	h.logger.Info("Retrieved account nonce from cache", "account", account, "nonce", accNonce.Nonce)
 	return nonceJSON, false, nil
+}
+
+func (h *rpcMethodHandler) handleGetTxCommitments(
+	ctx context.Context,
+	params ...any,
+) (json.RawMessage, bool, error) {
+	if len(params) != 1 {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeInvalidRequest,
+			"getTxCommitments requires exactly one parameter",
+		)
+	}
+
+	if params[0] == nil {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"getTxCommitments parameter cannot be null",
+		)
+	}
+
+	txHash := params[0].(string)
+	if len(txHash) < 2 || txHash[:2] != "0x" {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"getTxCommitments parameter must be a hex string starting with '0x'",
+		)
+	}
+
+	h.logger.Info("Retrieving transaction commitments", "txHash", txHash)
+	_, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
+	if err != nil {
+		return nil, true, nil
+	}
+
+	if len(commitments) == 0 {
+		h.logger.Info("No commitments found for transaction", "txHash", txHash)
+		return json.RawMessage("[]"), false, nil
+	}
+
+	commitmentsJSON, err := json.Marshal(commitments)
+	if err != nil {
+		h.logger.Error("Failed to marshal commitments to JSON", "error", err, "txHash", txHash)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to marshal commitments",
+		)
+	}
+
+	return commitmentsJSON, false, nil
 }
