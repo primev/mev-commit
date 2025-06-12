@@ -222,8 +222,9 @@ func NewAPI(
 			req.Context(),
 			halfFee,
 			bridgeAmt,
-			bridgeAmt,
+			// bridgeAmt,
 			b.RawTx,
+			nil,
 		)
 		if err != nil {
 			apiserver.WriteError(w, http.StatusInternalServerError, err)
