@@ -47,7 +47,9 @@ func (b *BidPricer) EstimatePrice(ctx context.Context, txn *types.Transaction) (
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("failed to fetch price estimate: " + resp.Status)

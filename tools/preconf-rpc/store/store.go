@@ -209,9 +209,5 @@ func (s *rpcstore) HasBalance(
 
 	currentBalanceBig := new(big.Int).SetBytes(currentBalance)
 
-	if currentBalanceBig.Cmp(amount) < 0 {
-		return false
-	}
-
-	return true
+	return currentBalanceBig.Cmp(amount) >= 0
 }
