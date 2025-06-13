@@ -498,6 +498,11 @@ contract RewardManagerTest is Test {
     function testAutoClaimBlacklist() public {
         CanRevert canRevert = new CanRevert();
 
+        address[] memory stakers = new address[](1);
+        stakers[0] = address(canRevert);
+        vm.prank(vanillaRegistry.owner());
+        vanillaRegistry.whitelistStakers(stakers);
+
         vm.deal(address(canRevert), 9 ether);
         assertEq(address(canRevert).balance, 9 ether);
         bytes[] memory validators = new bytes[](1);
