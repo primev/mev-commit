@@ -3,12 +3,14 @@ pragma solidity 0.8.26;
 
 import {Test} from"forge-std/Test.sol";
 import {VanillaRegistry} from"../../contracts/validator-registry/VanillaRegistry.sol";
+import {VanillaRegistryV2} from "../../contracts/validator-registry/VanillaRegistryV2.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
+import {IVanillaRegistryV2} from "../../contracts/interfaces/IVanillaRegistryV2.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 contract VanillaRegistryTest is Test {
-    VanillaRegistry public validatorRegistry;
+    VanillaRegistryV2 public validatorRegistry;
     address public owner;
     address public user1;
     address public user2;
@@ -49,7 +51,15 @@ contract VanillaRegistryTest is Test {
             "VanillaRegistry.sol",
             abi.encodeCall(VanillaRegistry.initialize, (MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, PAYOUT_PERIOD, owner))
         );
-        validatorRegistry = VanillaRegistry(payable(proxy));
+
+        vm.prank(vm.addr(0x111119)); // V2 impl can be deployed by anyone
+        VanillaRegistryV2 newImpl = new VanillaRegistryV2();
+
+        bytes memory data = "";
+        vm.prank(owner);
+        VanillaRegistry(payable(proxy)).upgradeToAndCall(address(newImpl), data);
+
+        validatorRegistry = VanillaRegistryV2(payable(proxy));
     }
 
     function testSecondInitialize() public {
@@ -66,8 +76,16 @@ contract VanillaRegistryTest is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
 
-        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.SenderIsNotWhitelistedStaker.selector, user1));
+        vm.prank(user1);
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
 
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        validatorRegistry.whitelistStakers(stakers);
+
+        vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
         emit Staked(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.stake{value: MIN_STAKE}(validators);
@@ -80,7 +98,44 @@ contract VanillaRegistryTest is Test {
         assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 
+    function testStakeAfterRemovedFromWhitelist() public {
+        testSelfStake();
+
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        validatorRegistry.removeWhitelistedStakers(stakers);
+
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user2BLSKey;
+
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.SenderIsNotWhitelistedStaker.selector, user1));
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+        vm.stopPrank();
+
+        // works once again after whitelisting
+        vm.prank(owner);
+        validatorRegistry.whitelistStakers(stakers);
+
+        vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit Staked(user1, user1, user2BLSKey, MIN_STAKE);
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+        vm.stopPrank();
+
+        assertEq(address(user1).balance, 7 ether);
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+    }
+
     function testMultiStake() public {
+        vm.prank(owner);
+        address[] memory stakers = new address[](2);
+        stakers[0] = user1;
+        stakers[1] = user2;
+        validatorRegistry.whitelistStakers(stakers);
+
         bytes[] memory validators = new bytes[](2);
         validators[0] = user1BLSKey;
         validators[1] = user2BLSKey;
@@ -133,6 +188,12 @@ contract VanillaRegistryTest is Test {
     }
 
     function testAddStake() public {
+        vm.prank(owner);
+        address[] memory stakers = new address[](2);
+        stakers[0] = user1;
+        stakers[1] = user2;
+        validatorRegistry.whitelistStakers(stakers);
+
         vm.deal(user1, 10 ether);
         assertEq(user1.balance, 10 ether);
 
@@ -195,6 +256,12 @@ contract VanillaRegistryTest is Test {
 
     function testUnathorizedMultiUnstake() public {
         testSelfStake();
+
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user2;
+        validatorRegistry.whitelistStakers(stakers);
+
         bytes[] memory validators = new bytes[](1);
         validators[0] = user2BLSKey;
         vm.deal(user2, MIN_STAKE);
@@ -358,6 +425,11 @@ contract VanillaRegistryTest is Test {
         validatorRegistry.stake{value: MIN_STAKE}(validators);
         vm.stopPrank();
 
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user2;
+        validatorRegistry.whitelistStakers(stakers);
+
         vm.deal(user2, 10 ether);
         vm.startPrank(user2);
         vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user1BLSKey));
@@ -423,6 +495,11 @@ contract VanillaRegistryTest is Test {
         validators[0] = user1BLSKey;
         vm.prank(SLASH_ORACLE);
         validatorRegistry.slash(validators, true);
+
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        validatorRegistry.whitelistStakers(stakers);
 
         vm.deal(user1, 2 ether);
         vm.startPrank(user1);
@@ -590,11 +667,16 @@ contract VanillaRegistryTest is Test {
     function testManualPayout() public { 
         testBatchedSlashing();
 
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        address user3 = vm.addr(0x23333);
+        stakers[0] = user3;
+        validatorRegistry.whitelistStakers(stakers);
+
         vm.roll(10000);
 
         bytes[] memory validators = new bytes[](1);
         validators[0] = user3BLSKey;
-        address user3 = vm.addr(0x23333);
         vm.deal(user3, 10 ether);
         vm.startPrank(user3);
         vm.expectEmit(true, true, true, true);
@@ -737,6 +819,11 @@ contract VanillaRegistryTest is Test {
     function testStakingCycle() public {
         testUnstakeWaitThenWithdraw();
 
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        validatorRegistry.removeWhitelistedStakers(stakers);
+
         // Reset user1 balance for next cycle
         vm.prank(user1);
         (bool sent, ) = user2.call{value: 9 ether}("");
@@ -807,6 +894,11 @@ contract VanillaRegistryTest is Test {
         validatorRegistry.pause();
         vm.stopPrank();
 
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        validatorRegistry.whitelistStakers(stakers);
+
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.startPrank(user1);
@@ -857,6 +949,11 @@ contract VanillaRegistryTest is Test {
     }
 
     function testPrecisionLossPrevention() public {
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        validatorRegistry.whitelistStakers(stakers);
+
         vm.prank(owner);
         validatorRegistry.setMinStake(1 wei);
 
@@ -975,7 +1072,7 @@ contract VanillaRegistryTest is Test {
 
         vm.roll(500);
 
-        IVanillaRegistry.StakedValidator memory stakedValidator = validatorRegistry.getStakedValidator(user1BLSKey);
+        IVanillaRegistryV2.StakedValidator memory stakedValidator = validatorRegistry.getStakedValidator(user1BLSKey);
         assertTrue(stakedValidator.exists);
         assertEq(stakedValidator.balance, 0);
         assertEq(stakedValidator.withdrawalAddress, user1);
@@ -1011,7 +1108,7 @@ contract VanillaRegistryTest is Test {
 
         vm.roll(200);
 
-        IVanillaRegistry.StakedValidator memory stakedValidator = validatorRegistry.getStakedValidator(user1BLSKey);
+        IVanillaRegistryV2.StakedValidator memory stakedValidator = validatorRegistry.getStakedValidator(user1BLSKey);
         assertTrue(stakedValidator.exists);
         assertEq(stakedValidator.balance, 2 ether);
         assertEq(stakedValidator.withdrawalAddress, user1);
@@ -1042,6 +1139,11 @@ contract VanillaRegistryTest is Test {
     }
 
     function testStakeWithDuplicateBlsPubkeys() public {
+        vm.prank(owner);
+        address[] memory stakers = new address[](2);
+        stakers[0] = user1;
+        validatorRegistry.whitelistStakers(stakers);
+
         bytes[] memory validators = new bytes[](3);
         validators[0] = user1BLSKey;
         validators[1] = user2BLSKey;
@@ -1071,5 +1173,24 @@ contract VanillaRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit Staked(user1, user1, user3BLSKey, MIN_STAKE);
         validatorRegistry.stake{value: 3 * MIN_STAKE}(validators);
+    }
+
+    function testCannotWhitelistStakerTwice() public {
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        validatorRegistry.whitelistStakers(stakers);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.StakerAlreadyWhitelisted.selector, user1));
+        validatorRegistry.whitelistStakers(stakers);
+    }
+
+    function testCannotRemoveNonWhitelistedStakerfromWhitelist() public {
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.StakerNotWhitelisted.selector, user1));
+        validatorRegistry.removeWhitelistedStakers(stakers);
     }
 }
