@@ -141,6 +141,7 @@ func New(config *Config) (*Service, error) {
 
 	rpcServer := rpcserver.NewJSONRPCServer(
 		config.L1RPCUrls[0],
+		config.Logger.With("module", "rpcserver"),
 	)
 
 	bidpricer := &pricer.BidPricer{}
