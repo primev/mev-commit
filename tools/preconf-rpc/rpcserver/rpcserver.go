@@ -83,10 +83,10 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Header.Get("Content-Type") != "application/json" {
-		http.Error(w, "Invalid content type", http.StatusUnsupportedMediaType)
-		return
-	}
+	// if r.Header.Get("Content-Type") != "application/json" {
+	// 	http.Error(w, "Invalid content type", http.StatusUnsupportedMediaType)
+	// 	return
+	// }
 
 	r.Body = http.MaxBytesReader(w, r.Body, defaultMaxBodySize)
 	defer func() {
