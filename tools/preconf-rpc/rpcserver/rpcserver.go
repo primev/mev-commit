@@ -70,6 +70,7 @@ func NewJSONRPCServer(proxyURL string, logger *slog.Logger) *JSONRPCServer {
 	return &JSONRPCServer{
 		proxyURL: proxyURL,
 		methods:  make(map[string]methodHandler),
+		logger:   logger,
 	}
 }
 
