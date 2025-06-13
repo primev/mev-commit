@@ -498,7 +498,6 @@ contract RewardManagerTest is Test {
     function testAutoClaimBlacklist() public {
         CanRevert canRevert = new CanRevert();
 
-        VanillaRegistry vanillaRegistry = vanillaRegistryTest.validatorRegistry();
         address[] memory stakers = new address[](1);
         stakers[0] = address(canRevert);
         vm.prank(vanillaRegistry.owner());
