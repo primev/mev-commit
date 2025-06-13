@@ -60,7 +60,6 @@ interface IVanillaRegistry {
     error SenderIsNotWithdrawalAddress(address sender, address withdrawalAddress);
     error InvalidBLSPubKeyLength(uint256 expected, uint256 actual);
     error SenderIsNotSlashOracle(address sender, address slashOracle);
-    error SenderIsNotWhitelistedStaker(address sender);
     error WithdrawalAddressMustBeSet();
     error MustUnstakeToWithdraw();
     error AtLeastOneRecipientRequired();
@@ -77,6 +76,7 @@ interface IVanillaRegistry {
     error SlashReceiverMustBeSet();
     error UnstakePeriodMustBePositive();
     error SlashingPayoutPeriodMustBePositive();
+    error SenderIsNotWhitelistedStaker(address sender);
     error StakerAlreadyWhitelisted(address staker);
     error StakerNotWhitelisted(address staker);
 
