@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -62,9 +63,10 @@ type JSONRPCServer struct {
 	rwLock   sync.RWMutex
 	methods  map[string]methodHandler
 	proxyURL string
+	logger   *slog.Logger
 }
 
-func NewJSONRPCServer(proxyURL string) *JSONRPCServer {
+func NewJSONRPCServer(proxyURL string, logger *slog.Logger) *JSONRPCServer {
 	return &JSONRPCServer{
 		proxyURL: proxyURL,
 		methods:  make(map[string]methodHandler),
@@ -83,10 +85,13 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if r.Header.Get("Content-Type") != "application/json" {
-	// 	http.Error(w, "Invalid content type", http.StatusUnsupportedMediaType)
-	// 	return
-	// }
+	s.logger.Info("Received JSON-RPC request", "method", r.Method, "url", r.URL.Path)
+
+	if r.Header.Get("Content-Type") != "application/json" {
+		s.logger.Error("Invalid content type", "content-type", r.Header.Get("Content-Type"))
+		http.Error(w, "Invalid content type", http.StatusUnsupportedMediaType)
+		return
+	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, defaultMaxBodySize)
 	defer func() {
@@ -110,6 +115,8 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, nil, CodeInvalidRequest, "Invalid JSON-RPC version")
 		return
 	}
+
+	s.logger.Info("Processing JSON-RPC request", "method", req.Method, "id", req.ID)
 
 	s.rwLock.RLock()
 	handler, ok := s.methods[req.Method]
