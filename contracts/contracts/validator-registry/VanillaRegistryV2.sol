@@ -13,6 +13,7 @@ import {FeePayout} from "../utils/FeePayout.sol";
 /// @title Vanilla Registry V2
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit 
 /// via simply staking ETH outside what's staked with the beacon chain.
+/// @custom:oz-upgrades-from VanillaRegistry
 contract VanillaRegistryV2 is IVanillaRegistryV2, VanillaRegistryStorageV2,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 

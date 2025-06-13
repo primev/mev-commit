@@ -27,8 +27,10 @@ contract VanillaRegistryStorageV2 {
     mapping(address withdrawalAddress => uint256 amountToClaim) public forceWithdrawnFunds;
 
     /// @dev Mapping of staker addresses to whether they are whitelisted.
+    /// @dev This mapping was added in V2 and caused __gap to be decremented by 1.
     mapping(address staker => bool whitelisted) public whitelistedStakers;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
-    uint256[48] private __gap;
+    /// @dev This gap was decremented by 1 in V2.
+    uint256[47] private __gap;
 }
