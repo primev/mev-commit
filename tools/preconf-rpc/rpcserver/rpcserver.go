@@ -89,9 +89,8 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.logger.Info("Received JSON-RPC request", "method", r.Method)
 
 	if r.Header.Get("Content-Type") != "application/json" {
-		s.logger.Error("Invalid content type", "content-type", r.Header.Get("Content-Type"))
-		// http.Error(w, "Invalid content type", http.StatusUnsupportedMediaType)
-		// return
+		http.Error(w, "Invalid content type", http.StatusUnsupportedMediaType)
+		return
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, defaultMaxBodySize)
@@ -190,7 +189,9 @@ func (s *JSONRPCServer) proxyRequest(w http.ResponseWriter, body []byte) {
 		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
 		return
 	}
+	req.Header.Set("Content-Type", "application/json")
 
+	s.logger.Info("Proxying request", "url", s.proxyURL, "body", string(body))
 	resp, err := client.Do(req)
 	if err != nil {
 		http.Error(w, "Failed to execute proxy request", http.StatusInternalServerError)
@@ -203,13 +204,13 @@ func (s *JSONRPCServer) proxyRequest(w http.ResponseWriter, body []byte) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	rdr := io.LimitReader(resp.Body, defaultMaxBodySize)
-	respBuf, err := io.ReadAll(rdr)
+	n, err := io.Copy(w, rdr)
 	if err != nil {
-		http.Error(w, "Failed to read proxy response", http.StatusInternalServerError)
+		http.Error(w, "Failed to copy proxy response", http.StatusInternalServerError)
 		return
 	}
-	if _, err := w.Write(respBuf); err != nil {
-		http.Error(w, "Failed to write proxy response", http.StatusInternalServerError)
+	if n == 0 {
+		http.Error(w, "Empty response from proxy", http.StatusInternalServerError)
 		return
 	}
 }
