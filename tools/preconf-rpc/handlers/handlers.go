@@ -51,16 +51,16 @@ type Store interface {
 	) error
 	GetPreconfirmedTransaction(
 		ctx context.Context,
-		txnHash string,
+		txnHash common.Hash,
 	) (*types.Transaction, []*bidderapiv1.Commitment, error)
 	DeductBalance(
 		ctx context.Context,
-		account string,
+		account common.Address,
 		amount *big.Int,
 	) error
 	HasBalance(
 		ctx context.Context,
-		account string,
+		account common.Address,
 		amount *big.Int,
 	) bool
 }
@@ -296,7 +296,7 @@ func (h *rpcMethodHandler) sendBid(
 		return bidResult{}, fmt.Errorf("failed to estimate transaction price: %w", err)
 	}
 
-	if !h.store.HasBalance(ctx, sender.Hex(), price.BidAmount) {
+	if !h.store.HasBalance(ctx, sender, price.BidAmount) {
 		h.logger.Error("Insufficient balance for sender", "sender", sender.Hex())
 		return bidResult{}, fmt.Errorf("insufficient balance for sender: %s", sender.Hex())
 	}
@@ -375,7 +375,7 @@ func (h *rpcMethodHandler) storePreconfAndDeductBalance(
 		return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 	}
 
-	if err := h.store.DeductBalance(ctx, sender.Hex(), amount); err != nil {
+	if err := h.store.DeductBalance(ctx, sender, amount); err != nil {
 		h.logger.Error("Failed to deduct balance for sender", "sender", sender.Hex(), "error", err)
 		return fmt.Errorf("failed to deduct balance for sender: %w", err)
 	}
@@ -397,13 +397,15 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		)
 	}
 
-	txHash := params[0].(string)
-	if len(txHash) < 2 || txHash[:2] != "0x" {
+	txHashStr := params[0].(string)
+	if len(txHashStr) < 2 || txHashStr[:2] != "0x" {
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeParseError,
 			"getTxReceipt parameter must be a hex string starting with '0x'",
 		)
 	}
+
+	txHash := common.HexToHash(txHashStr)
 
 	h.logger.Info("Retrieving transaction receipt", "txHash", txHash)
 	txn, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
@@ -502,13 +504,15 @@ func (h *rpcMethodHandler) handleGetTxCommitments(
 		)
 	}
 
-	txHash := params[0].(string)
-	if len(txHash) < 2 || txHash[:2] != "0x" {
+	txHashStr := params[0].(string)
+	if len(txHashStr) < 2 || txHashStr[:2] != "0x" {
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeParseError,
 			"getTxCommitments parameter must be a hex string starting with '0x'",
 		)
 	}
+
+	txHash := common.HexToHash(txHashStr)
 
 	_, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
 	if err != nil {
