@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"math/big"
 	"sync"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
@@ -62,10 +65,26 @@ type Store interface {
 	) bool
 }
 
+type BlockTracker interface {
+	CheckTxnInclusion(
+		ctx context.Context,
+		txnHash common.Hash,
+		blockNumber uint64,
+	) (bool, error)
+}
+
 type accountNonce struct {
 	Account string `json:"account"`
 	Nonce   uint64 `json:"nonce"`
 	Block   int64  `json:"block"`
+}
+
+type bidResult struct {
+	noOfProviders int
+	blockNumber   uint64
+	optedInSlot   bool
+	bidAmount     *big.Int
+	commitments   []*bidderapiv1.Commitment
 }
 
 type rpcMethodHandler struct {
@@ -73,6 +92,7 @@ type rpcMethodHandler struct {
 	bidder       Bidder
 	store        Store
 	pricer       Pricer
+	blockTracker BlockTracker
 	nonceLock    *multex.Multex[string]
 	latestBlock  atomic.Pointer[types.Block]
 	nonceMap     map[string]accountNonce
@@ -156,115 +176,87 @@ func (h *rpcMethodHandler) handleSendRawTx(
 	// Once we are ready to send the bid, we need to ensure that the nonce for the
 	// sender is not locked by another transaction.
 	h.nonceLock.Lock(sender.Hex())
-	unlock := true
-	defer func() {
-		if unlock {
-			h.nonceLock.Unlock(sender.Hex())
-		}
-	}()
+	defer h.nonceLock.Unlock(sender.Hex())
 
-	timeToOptIn, err := h.bidder.Estimate()
-	if err != nil {
-		h.logger.Error("Failed to estimate time to opt-in", "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to estimate time to opt-in",
-		)
-	}
-
-	optedInSlot := timeToOptIn <= blockTime
-
-	price, err := h.pricer.EstimatePrice(ctx, txn)
-	if err != nil {
-		h.logger.Error("Failed to estimate transaction price", "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to estimate transaction price",
-		)
-	}
-
-	if !h.store.HasBalance(ctx, sender.Hex(), price.BidAmount) {
-		h.logger.Error("Insufficient balance for sender", "sender", sender.Hex())
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"insufficient balance for sender",
-		)
-	}
-
-	bidC, err := h.bidder.Bid(
-		ctx,
-		price.BidAmount,
-		big.NewInt(0),
-		rawTxHex,
-		&optinbidder.BidOpts{
-			WaitForOptIn: optedInSlot,
-			BlockNumber:  uint64(price.BlockNumber),
-		},
-	)
-	if err != nil {
-		h.logger.Error("Failed to place bid", "error", err)
-		return nil, false, rpcserver.NewJSONErr(rpcserver.CodeCustomError, "failed to place bid")
-	}
-	noOfProviders, noOfCommitments, blockNumber := 0, 0, 0
-	cancelled, failed := false, false
-	commitments := make([]*bidderapiv1.Commitment, 0)
 BID_LOOP:
 	for {
 		select {
 		case <-ctx.Done():
-			h.logger.Info("Context cancelled while waiting for bid status")
-			return nil, false, ctx.Err()
-		case bidStatus := <-bidC:
-			switch bidStatus.Type {
-			case optinbidder.BidStatusNoOfProviders:
-				noOfProviders = bidStatus.Arg.(int)
-			case optinbidder.BidStatusAttempted:
-				blockNumber = bidStatus.Arg.(int)
-			case optinbidder.BidStatusCommitment:
-				noOfCommitments++
-				commitments = append(commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
-			case optinbidder.BidStatusCancelled:
-				cancelled = true
-				break BID_LOOP
-			case optinbidder.BidStatusFailed:
-				failed = true
-				break BID_LOOP
-			}
-		}
-	}
-	switch {
-	case noOfProviders == 0:
-		h.logger.Info("No providers available for the bid", "noOfProviders", noOfProviders)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"no providers available for the bid",
-		)
-	case cancelled || failed:
-		h.logger.Info(
-			"Bid cancelled or failed",
-			"cancelled", cancelled,
-			"failed", failed,
-			"noOfCommitments", noOfCommitments,
-		)
-		if noOfCommitments == 0 {
 			return nil, false, rpcserver.NewJSONErr(
 				rpcserver.CodeCustomError,
-				"bid cancelled with no commitments",
+				"context cancelled while processing transaction",
+			)
+		default:
+		}
+
+		result, err := h.sendBid(ctx, txn, sender, rawTxHex)
+		switch {
+		case err != nil:
+			h.logger.Error("Failed to send bid", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to send bid",
+			)
+		case result.optedInSlot:
+			if result.noOfProviders == len(result.commitments) {
+				// This means that all builders have committed to the bid and it
+				// is a primev opted in slot. We can safely proceed to inform the
+				// user that the txn was successfully sent and will be processed
+				if err := h.storePreconfAndDeductBalance(
+					ctx,
+					txn,
+					result.commitments,
+					sender,
+					int64(result.blockNumber),
+					result.bidAmount,
+				); err != nil {
+					return nil, false, rpcserver.NewJSONErr(
+						rpcserver.CodeCustomError,
+						"failed to update preconfirmed transaction and deduct balance",
+					)
+				}
+				// Update the nonce locally if user wants to send more transactions
+				h.nonceMapLock.Lock()
+				h.nonceMap[sender.Hex()] = accountNonce{
+					Account: sender.Hex(),
+					Nonce:   txn.Nonce() + 1,
+					Block:   int64(result.blockNumber),
+				}
+				h.nonceMapLock.Unlock()
+				break BID_LOOP
+			}
+		default:
+		}
+
+		// Wait for block number to be updated to confirm transaction. If failed
+		// we will retry the bid process till user cancels the operation
+		included, err := h.blockTracker.CheckTxnInclusion(ctx, txn.Hash(), result.blockNumber)
+		if err != nil {
+			h.logger.Error("Failed to check transaction inclusion", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to check transaction inclusion",
 			)
 		}
-	case noOfCommitments == 0:
-		h.logger.Info("Bid completed with no commitments", "noOfCommitments", noOfCommitments)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"bid completed with no commitments",
-		)
+		if included {
+			if err := h.storePreconfAndDeductBalance(
+				ctx,
+				txn,
+				result.commitments,
+				sender,
+				int64(result.blockNumber),
+				result.bidAmount,
+			); err != nil {
+				h.logger.Error("Failed to update preconfirmed transaction and deduct balance", "error", err)
+				return nil, false, rpcserver.NewJSONErr(
+					rpcserver.CodeCustomError,
+					"failed to update preconfirmed transaction and deduct balance",
+				)
+			}
+			break BID_LOOP
+		}
 	}
-	h.logger.Info(
-		"Bid successful with commitments",
-		"noOfProviders", noOfProviders,
-		"noOfCommitments", noOfCommitments,
-		"blockNumber", blockNumber,
-	)
+
 	// If we reach here, we have a successful bid with commitments
 	txHashJSON, err := json.Marshal(txn.Hash().Hex())
 	if err != nil {
@@ -275,36 +267,120 @@ BID_LOOP:
 		)
 	}
 
-	if err := h.store.DeductBalance(ctx, sender.Hex(), price.BidAmount); err != nil {
-		h.logger.Error("Failed to deduct balance for sender", "sender", sender.Hex(), "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to deduct balance for sender",
-		)
-	}
-
-	if err := h.store.StorePreconfirmedTransaction(ctx, int64(blockNumber), txn, commitments); err != nil {
-		h.logger.Error("Failed to store preconfirmed transaction", "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to store preconfirmed transaction",
-		)
-	}
-
-	if noOfProviders == noOfCommitments && optedInSlot {
-		h.logger.Info("All providers committed, updating nonce", "account", sender.Hex(), "nonce", txn.Nonce()+1)
-		h.nonceMapLock.Lock()
-		h.nonceMap[sender.Hex()] = accountNonce{
-			Account: sender.Hex(),
-			Nonce:   txn.Nonce() + 1,
-			Block:   int64(blockNumber),
-		}
-		h.nonceMapLock.Unlock()
-	} else {
-		unlock = false
-	}
-
 	return txHashJSON, false, nil
+}
+
+func (h *rpcMethodHandler) sendBid(
+	ctx context.Context,
+	txn *types.Transaction,
+	sender common.Address,
+	rawTxHex string,
+) (bidResult, error) {
+	timeToOptIn, err := h.bidder.Estimate()
+	if err != nil {
+		h.logger.Error("Failed to estimate time to opt-in", "error", err)
+		if !errors.Is(err, optinbidder.ErrNoSlotInCurrentEpoch) {
+			return bidResult{}, err
+		}
+		// If we cannot estimate the time to opt-in, we assume a default value and
+		// proceed with the bid process. The default value should be higher than
+		// the typical block time to ensure we consider the next slot as a non-opt-in slot.
+		timeToOptIn = blockTime * 32
+	}
+
+	optedInSlot := timeToOptIn <= blockTime
+
+	price, err := h.pricer.EstimatePrice(ctx, txn)
+	if err != nil {
+		h.logger.Error("Failed to estimate transaction price", "error", err)
+		return bidResult{}, fmt.Errorf("failed to estimate transaction price: %w", err)
+	}
+
+	if !h.store.HasBalance(ctx, sender.Hex(), price.BidAmount) {
+		h.logger.Error("Insufficient balance for sender", "sender", sender.Hex())
+		return bidResult{}, fmt.Errorf("insufficient balance for sender: %s", sender.Hex())
+	}
+
+	bidC, err := h.bidder.Bid(
+		ctx,
+		price.BidAmount,
+		big.NewInt(0),
+		rawTxHex[2:],
+		&optinbidder.BidOpts{
+			WaitForOptIn: optedInSlot,
+			// BlockNumber:  uint64(price.BlockNumber),
+		},
+	)
+	if err != nil {
+		h.logger.Error("Failed to place bid", "error", err)
+		return bidResult{}, fmt.Errorf("failed to place bid: %w", err)
+	}
+
+	result := bidResult{
+		commitments: make([]*bidderapiv1.Commitment, 0),
+	}
+BID_LOOP:
+	for {
+		select {
+		case <-ctx.Done():
+			h.logger.Info("Context cancelled while waiting for bid status")
+			return bidResult{}, ctx.Err()
+		case bidStatus, more := <-bidC:
+			if !more {
+				h.logger.Info("Bid channel closed, no more bid statuses")
+				break BID_LOOP
+			}
+			switch bidStatus.Type {
+			case optinbidder.BidStatusNoOfProviders:
+				result.noOfProviders = bidStatus.Arg.(int)
+			case optinbidder.BidStatusAttempted:
+				result.blockNumber = bidStatus.Arg.(uint64)
+			case optinbidder.BidStatusCommitment:
+				result.commitments = append(result.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
+			case optinbidder.BidStatusCancelled:
+				h.logger.Warn("Bid context cancelled by the bidder")
+				break BID_LOOP
+			case optinbidder.BidStatusFailed:
+				h.logger.Error("Bid failed", "error", bidStatus.Arg)
+				break BID_LOOP
+			}
+		}
+	}
+	if len(result.commitments) == 0 {
+		h.logger.Error("Bid completed with no commitments")
+		return bidResult{}, fmt.Errorf("bid completed with no commitments")
+	}
+	h.logger.Info(
+		"Bid successful with commitments",
+		"noOfProviders", result.noOfProviders,
+		"noOfCommitments", len(result.commitments),
+		"blockNumber", result.blockNumber,
+		"optedInSlot", optedInSlot,
+	)
+
+	result.optedInSlot = optedInSlot
+	return result, nil
+}
+
+func (h *rpcMethodHandler) storePreconfAndDeductBalance(
+	ctx context.Context,
+	txn *types.Transaction,
+	commitments []*bidderapiv1.Commitment,
+	sender common.Address,
+	blockNumber int64,
+	amount *big.Int,
+) error {
+	if err := h.store.StorePreconfirmedTransaction(ctx, blockNumber, txn, commitments); err != nil {
+		h.logger.Error("Failed to store preconfirmed transaction", "error", err)
+		return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
+	}
+
+	if err := h.store.DeductBalance(ctx, sender.Hex(), amount); err != nil {
+		h.logger.Error("Failed to deduct balance for sender", "sender", sender.Hex(), "error", err)
+		return fmt.Errorf("failed to deduct balance for sender: %w", err)
+	}
+
+	return nil
 }
 
 func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
@@ -338,7 +414,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 	receipt := &types.Receipt{
 		TxHash:      txn.Hash(),
 		Type:        txn.Type(),
-		Status:      1, // Assuming success, as this is a preconfirmed transaction
+		Status:      types.ReceiptStatusSuccessful, // Assuming success, as this is a preconfirmed transaction
 		BlockNumber: big.NewInt(commitments[0].BlockNumber),
 	}
 
@@ -355,11 +431,11 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 }
 
 func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
-	if len(params) != 1 {
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeInvalidRequest,
-			"getTxCount requires exactly one parameter",
-		)
+	if len(params) == 2 {
+		state := params[1].(string)
+		if state != "latest" && state != "pending" {
+			return nil, true, nil
+		}
 	}
 
 	if params[0] == nil {
@@ -434,7 +510,6 @@ func (h *rpcMethodHandler) handleGetTxCommitments(
 		)
 	}
 
-	h.logger.Info("Retrieving transaction commitments", "txHash", txHash)
 	_, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
 	if err != nil {
 		return nil, true, nil
