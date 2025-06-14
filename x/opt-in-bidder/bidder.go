@@ -224,7 +224,6 @@ func (b *BidderClient) Bid(
 		defer close(res)
 		defer b.bigWg.Done()
 
-		fmt.Println("BidderClient sending no of providers")
 		res <- BidStatus{Type: BidStatusNoOfProviders, Arg: len(providers.Values)}
 
 		if opts.WaitForOptIn {
@@ -262,6 +261,12 @@ func (b *BidderClient) Bid(
 		}
 
 		res <- BidStatus{Type: BidStatusAttempted, Arg: blkNumber}
+		b.logger.Info(
+			"attempting to send bid",
+			"blockNumber", blkNumber,
+			"bidAmount", bidAmount,
+			"slashAmount", slashAmount,
+		)
 
 		pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
 			Amount:              bidAmount.String(),
