@@ -67,7 +67,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("failed to store preconfirmed transaction: %v", err)
 		}
 
-		storedTxn, storedCommitments, err := st.GetPreconfirmedTransaction(context.Background(), txn.Hash().Hex())
+		storedTxn, storedCommitments, err := st.GetPreconfirmedTransaction(context.Background(), txn.Hash())
 		if err != nil {
 			t.Errorf("failed to get preconfirmed transaction: %v", err)
 		}
@@ -90,21 +90,21 @@ func TestStore(t *testing.T) {
 		address := common.HexToAddress("0x1234567890123456789012345678901234567890")
 		initialBalance := big.NewInt(1000000000) // 1 Gwei
 
-		err := st.AddBalance(context.Background(), address.Hex(), initialBalance)
+		err := st.AddBalance(context.Background(), address, initialBalance)
 		if err != nil {
 			t.Errorf("failed to add balance: %v", err)
 		}
 
-		if !st.HasBalance(context.Background(), address.Hex(), initialBalance) {
+		if !st.HasBalance(context.Background(), address, initialBalance) {
 			t.Errorf("expected balance %s, but has no balance", initialBalance.String())
 		}
 
-		err = st.DeductBalance(context.Background(), address.Hex(), initialBalance)
+		err = st.DeductBalance(context.Background(), address, initialBalance)
 		if err != nil {
 			t.Errorf("failed to deduct balance: %v", err)
 		}
 
-		if st.HasBalance(context.Background(), address.Hex(), initialBalance) {
+		if st.HasBalance(context.Background(), address, initialBalance) {
 			t.Errorf("expected no balance after deduction, but still has %s", initialBalance.String())
 		}
 	})
