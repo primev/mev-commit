@@ -131,6 +131,7 @@ func (s *rpcstore) DeductBalance(
 	amount *big.Int,
 ) error {
 	if account == (common.Address{}) || amount == nil || amount.Sign() <= 0 {
+		fmt.Println("invalid account or amount: %s, %s", account.Hex(), amount.String())
 		return errors.New("invalid account or amount")
 	}
 
