@@ -104,15 +104,17 @@ func NewRPCMethodHandler(
 	bidder Bidder,
 	store Store,
 	pricer Pricer,
+	blockTracker BlockTracker,
 ) *rpcMethodHandler {
 	return &rpcMethodHandler{
-		logger:      logger,
-		bidder:      bidder,
-		store:       store,
-		pricer:      pricer,
-		nonceLock:   multex.New[string](),
-		nonceMap:    make(map[string]accountNonce),
-		latestBlock: atomic.Pointer[types.Block]{},
+		logger:       logger,
+		bidder:       bidder,
+		store:        store,
+		pricer:       pricer,
+		blockTracker: blockTracker,
+		nonceLock:    multex.New[string](),
+		nonceMap:     make(map[string]accountNonce),
+		latestBlock:  atomic.Pointer[types.Block]{},
 	}
 }
 
@@ -279,7 +281,7 @@ func (h *rpcMethodHandler) sendBid(
 	timeToOptIn, err := h.bidder.Estimate()
 	if err != nil {
 		h.logger.Error("Failed to estimate time to opt-in", "error", err)
-		if !errors.Is(err, optinbidder.ErrNoSlotInCurrentEpoch) {
+		if !errors.Is(err, optinbidder.ErrNoSlotInCurrentEpoch) && !errors.Is(err, optinbidder.ErrNoEpochInfo) {
 			return bidResult{}, err
 		}
 		// If we cannot estimate the time to opt-in, we assume a default value and
@@ -318,6 +320,7 @@ func (h *rpcMethodHandler) sendBid(
 
 	result := bidResult{
 		commitments: make([]*bidderapiv1.Commitment, 0),
+		bidAmount:   price.BidAmount,
 	}
 BID_LOOP:
 	for {
@@ -410,6 +413,10 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 	h.logger.Info("Retrieving transaction receipt", "txHash", txHash)
 	txn, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
 	if err != nil {
+		return nil, true, nil
+	}
+
+	if h.latestBlock.Load().Number().Uint64() > uint64(commitments[0].BlockNumber) {
 		return nil, true, nil
 	}
 
