@@ -156,6 +156,7 @@ func New(config *Config) (*Service, error) {
 		bidderClient,
 		rpcstore,
 		bidpricer,
+		&dummyBlockTracker{},
 	)
 
 	handlers.RegisterMethods(rpcServer)
@@ -168,9 +169,9 @@ func New(config *Config) (*Service, error) {
 			return
 		}
 		// get address and amount from params
-		address := r.URL.Query().Get("address")
+		addressStr := r.URL.Query().Get("address")
 		amountStr := r.URL.Query().Get("amount")
-		if address == "" || amountStr == "" {
+		if addressStr == "" || amountStr == "" {
 			http.Error(w, "Missing address or amount", http.StatusBadRequest)
 			return
 		}
@@ -179,6 +180,7 @@ func New(config *Config) (*Service, error) {
 			http.Error(w, "Invalid amount", http.StatusBadRequest)
 			return
 		}
+		address := common.HexToAddress(addressStr)
 		err := rpcstore.AddBalance(r.Context(), address, amount)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to add balance: %v", err), http.StatusInternalServerError)
@@ -224,4 +226,15 @@ func (c channelCloser) Close() error {
 		return errors.New("timed out waiting for channel to close")
 	}
 	return nil
+}
+
+type dummyBlockTracker struct{}
+
+func (d *dummyBlockTracker) CheckTxnInclusion(
+	ctx context.Context,
+	txHash common.Hash,
+	blockNumber uint64,
+) (bool, error) {
+	// Dummy implementation, always returns true
+	return true, nil
 }
