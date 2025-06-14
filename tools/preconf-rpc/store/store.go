@@ -9,6 +9,7 @@ import (
 	"math/big"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 )
@@ -80,13 +81,13 @@ func (s *rpcstore) StorePreconfirmedTransaction(
 
 func (s *rpcstore) GetPreconfirmedTransaction(
 	ctx context.Context,
-	txnHash string,
+	txnHash common.Hash,
 ) (*types.Transaction, []*bidderapiv1.Commitment, error) {
-	if txnHash == "" {
+	if txnHash == (common.Hash{}) {
 		return nil, nil, errors.New("transaction hash cannot be empty")
 	}
 
-	txnKey := []byte(fmt.Sprintf("txn:%s", txnHash))
+	txnKey := []byte(fmt.Sprintf("txn:%s", txnHash.Hex()))
 	blkNumBuf, closer, err := s.db.Get(txnKey)
 	if err != nil {
 		return nil, nil, err
@@ -99,7 +100,7 @@ func (s *rpcstore) GetPreconfirmedTransaction(
 
 	_ = closer.Close() // Close the closer from Get
 
-	key := []byte(fmt.Sprintf("%d:%s", blockNumber, txnHash))
+	key := []byte(fmt.Sprintf("%d:%s", blockNumber, txnHash.Hex()))
 	txnData, closer, err := s.db.Get(key)
 	if err != nil {
 		return nil, nil, err
@@ -126,14 +127,14 @@ func (s *rpcstore) GetPreconfirmedTransaction(
 
 func (s *rpcstore) DeductBalance(
 	ctx context.Context,
-	account string,
+	account common.Address,
 	amount *big.Int,
 ) error {
-	if account == "" || amount == nil || amount.Sign() <= 0 {
+	if account == (common.Address{}) || amount == nil || amount.Sign() <= 0 {
 		return errors.New("invalid account or amount")
 	}
 
-	balanceKey := []byte(fmt.Sprintf("balance:%s", account))
+	balanceKey := []byte(fmt.Sprintf("balance:%s", account.Hex()))
 	currentBalance, closer, err := s.db.Get(balanceKey)
 	if err != nil {
 		return err
@@ -156,14 +157,14 @@ func (s *rpcstore) DeductBalance(
 
 func (s *rpcstore) AddBalance(
 	ctx context.Context,
-	account string,
+	account common.Address,
 	amount *big.Int,
 ) error {
-	if account == "" || amount == nil || amount.Sign() <= 0 {
+	if account == (common.Address{}) || amount == nil || amount.Sign() <= 0 {
 		return errors.New("invalid account or amount")
 	}
 
-	balanceKey := []byte(fmt.Sprintf("balance:%s", account))
+	balanceKey := []byte(fmt.Sprintf("balance:%s", account.Hex()))
 	currentBalance, closer, err := s.db.Get(balanceKey)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
@@ -191,14 +192,14 @@ func (s *rpcstore) AddBalance(
 
 func (s *rpcstore) HasBalance(
 	ctx context.Context,
-	account string,
+	account common.Address,
 	amount *big.Int,
 ) bool {
-	if account == "" || amount == nil || amount.Sign() <= 0 {
+	if account == (common.Address{}) || amount == nil || amount.Sign() <= 0 {
 		return false
 	}
 
-	balanceKey := []byte(fmt.Sprintf("balance:%s", account))
+	balanceKey := []byte(fmt.Sprintf("balance:%s", account.Hex()))
 	currentBalance, closer, err := s.db.Get(balanceKey)
 	if err != nil {
 		return false
