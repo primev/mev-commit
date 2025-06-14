@@ -1,4 +1,4 @@
-package bidder_test
+package optinbidder_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
-	"github.com/primev/mev-commit/tools/instant-bridge/bidder"
+	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -118,7 +118,7 @@ func TestBidderClient(t *testing.T) {
 		now: clock,
 	}
 
-	bidder.SetNowFunc(timeSetter.Now)
+	optinbidder.SetNowFunc(timeSetter.Now)
 
 	topoVal, err := structpb.NewStruct(map[string]interface{}{
 		"connected_providers": []any{"provider1", "provider2"},
@@ -137,7 +137,7 @@ func TestBidderClient(t *testing.T) {
 	}
 
 	blockNumberGetter := &testBlockNumberGetter{blockNumber: 10}
-	bidderClient := bidder.NewBidderClient(
+	bidderClient := optinbidder.NewBidderClient(
 		util.NewTestLogger(os.Stdout),
 		rpcServices,
 		rpcServices,
@@ -149,8 +149,8 @@ func TestBidderClient(t *testing.T) {
 	done := bidderClient.Start(ctx)
 
 	_, err = bidderClient.Estimate()
-	if err != bidder.ErrNoEpochInfo {
-		t.Fatalf("expected error %v, got %v", bidder.ErrNoEpochInfo, err)
+	if err != optinbidder.ErrNoEpochInfo {
+		t.Fatalf("expected error %v, got %v", optinbidder.ErrNoEpochInfo, err)
 	}
 
 	// Send a notification.
@@ -195,7 +195,7 @@ func TestBidderClient(t *testing.T) {
 	_, _ = rand.Read(buf)
 	txString := hex.EncodeToString(buf)
 
-	_, err = bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
+	_, err = bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -204,30 +204,37 @@ func TestBidderClient(t *testing.T) {
 		Topology: topoVal,
 	}
 
-	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
+	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-WaitLoop:
+	commitments := 0
+waitLoop:
 	for {
 		select {
-		case status := <-statusC:
+		case status, more := <-statusC:
+			if !more {
+				break waitLoop
+			}
 			switch status.Type {
-			case bidder.BidStatusNoOfProviders:
-				if status.Arg1 != 2 {
-					t.Fatalf("expected 2 providers, got %d", status.Arg1)
+			case optinbidder.BidStatusNoOfProviders:
+				if status.Arg.(int) != 2 {
+					t.Fatalf("expected 2 providers, got %d", status.Arg)
 				}
-			case bidder.BidStatusWaitSecs:
-				if status.Arg1 != 2 {
-					t.Fatalf("expected 2 seconds, got %d", status.Arg1)
+			case optinbidder.BidStatusWaitSecs:
+				if status.Arg.(int) != 2 {
+					t.Fatalf("expected 2 seconds, got %d", status.Arg)
 				}
-			case bidder.BidStatusAttempted:
-				if status.Arg1 != 11 {
-					t.Fatalf("expected 11, got %d", status.Arg1)
+			case optinbidder.BidStatusAttempted:
+				if status.Arg.(uint64) != 11 {
+					t.Fatalf("expected 11, got %d", status.Arg)
 				}
-			case bidder.BidStatusSucceeded:
-				break WaitLoop
+			case optinbidder.BidStatusCommitment:
+				if status.Arg.(*bidderapiv1.Commitment).BlockNumber != 11 {
+					t.Fatalf("expected block number 11, got %d", status.Arg.(*bidderapiv1.Commitment).BlockNumber)
+				}
+				commitments++
 			}
 		case bid := <-rpcServices.bidChan:
 			if bid.Amount != big.NewInt(1).String() {
@@ -247,6 +254,10 @@ WaitLoop:
 			}
 			close(rpcServices.commitmentChan)
 		}
+	}
+
+	if commitments != 2 {
+		t.Fatalf("expected 2 commitments, got %d", commitments)
 	}
 
 	cancel()

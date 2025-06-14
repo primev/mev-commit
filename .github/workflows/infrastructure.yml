@@ -14,6 +14,7 @@ on:
           - stressnet-wl1
           - manual-test
           - instant-bridge-test
+          - preconf-rpc-test
         default: 'devnet'
       all_targets:
         description: 'All Arch & Os Targets'
