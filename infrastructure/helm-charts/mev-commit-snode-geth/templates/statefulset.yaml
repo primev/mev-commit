@@ -13,11 +13,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ include "snode-geth.name" . }}
+      {{- include "snode-geth.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: {{ include "snode-geth.name" . }}
+        {{- include "snode-geth.labels" . | nindent 8 }}
       {{- with .Values.commonAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
@@ -61,7 +61,7 @@ spec:
         - name: init-geth
           image: ethereum/client-go:alltools-latest
           command: ["/bin/sh", "-c"]
-          args: 
+          args:
             - |
               {{- if eq .Values.nodeMode "archive" }}
               echo "[init-geth] Archive mode detected"
@@ -86,7 +86,7 @@ spec:
           imagePullPolicy: {{ .Values.geth.imagePullPolicy }}
           command: ["geth"]
           args:
-          {{- with .Values.geth }}
+            {{- with .Values.geth }}
             - --verbosity={{ .verbosity }}
             {{- if .nodiscover }}
             - --nodiscover
@@ -121,7 +121,7 @@ spec:
             {{- range .extraArgs }}
             - {{ . }}
             {{- end }}
-          {{- end }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.geth.http.port }}
@@ -148,7 +148,7 @@ spec:
           imagePullPolicy: {{ .Values.snode.imagePullPolicy }}
           command: ["./snode"]
           args:
-          {{- with .Values.snode }}
+            {{- with .Values.snode }}
             {{- if eq .mode "leader" }}
             - "leader"
             - --instance-id={{ .instanceId }}
@@ -174,7 +174,7 @@ spec:
             {{- range .extraArgs }}
             - {{ . }}
             {{- end }}
-          {{- end }}
+            {{- end }}
           ports:
             {{- if eq .Values.snode.mode "leader" }}
             - name: api

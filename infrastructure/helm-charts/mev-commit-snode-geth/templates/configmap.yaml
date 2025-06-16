@@ -9,9 +9,6 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 data:
-  create-jwt.sh: |
-{{ tpl (.Files.Get "scripts/create-jwt.sh") . | indent 4 }}
-  download-genesis.sh: |
-{{ tpl (.Files.Get "scripts/download-genesis.sh") . | indent 4 }}
-  init-geth.sh: |
-{{ tpl (.Files.Get "scripts/init-geth.sh") . | indent 4 }}
+  create-jwt.sh: {{ tpl (.Files.Get "scripts/create-jwt.sh") . | quote }}
+  download-genesis.sh: {{ tpl (.Files.Get "scripts/download-genesis.sh") . | quote }}
+  init-geth.sh: {{ tpl (.Files.Get "scripts/init-geth.sh") . | quote }}

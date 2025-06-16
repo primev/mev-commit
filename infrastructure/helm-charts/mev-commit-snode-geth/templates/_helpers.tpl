@@ -29,22 +29,7 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
-Common labels
-*/}}
-{{- define "snode-geth.labels" -}}
-helm.sh/chart: {{ include "snode-geth.chart" . }}
-{{ include "snode-geth.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- with .Values.commonLabels }}
-{{- toYaml . }}
-{{- end }}
-{{- end }}
-
-{{/*
-Selector labels
+Common selector labels. Keep these minimal and stable.
 */}}
 {{- define "snode-geth.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "snode-geth.name" . }}
@@ -53,11 +38,35 @@ app: {{ include "snode-geth.name" . }}
 {{- end }}
 
 {{/*
-Service selector
+Common metadata labels (can be customized).
+*/}}
+{{- define "snode-geth.labels" -}}
+{{ include "snode-geth.selectorLabels" . }}
+helm.sh/chart: {{ include "snode-geth.chart" . }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+{{- with .Values.commonLabels }}
+{{ toYaml . | nindent 0 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Common annotations.
+*/}}
+{{- define "snode-geth.annotations" -}}
+{{- with .Values.commonAnnotations }}
+{{ toYaml . | nindent 0 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Service selector override.
 */}}
 {{- define "snode-geth.serviceSelector" -}}
 {{- if .Values.service.selector }}
-{{- toYaml .Values.service.selector }}
+{{ toYaml .Values.service.selector | nindent 0 }}
 {{- else }}
 app: {{ include "snode-geth.name" . }}
 {{- end }}

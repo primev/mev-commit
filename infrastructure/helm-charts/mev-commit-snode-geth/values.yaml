@@ -7,11 +7,14 @@ genesisUrl: "https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/refs/
 nodeMode: "archive"  # Options: "full" or "archive"
 
 # Common labels and annotations
-commonLabels: {}
+commonLabels:
+  component: leader-node
 commonAnnotations: {}
 
 # Service configuration
 service:
+  selector:
+    component: leader-node
   type: ClusterIP
   ports:
     - name: http
@@ -37,17 +40,17 @@ service:
 storage:
   geth:
     size: 100Gi
-    storageClassName: "standard"
+    storageClassName: "premium-rwo"
   snode:
     size: 20Gi
-    storageClassName: "standard"
+    storageClassName: "premium-rwo"
   shared:
-    size: 5Gi
-    storageClassName: "standard"
+    size: 1Gi
+    storageClassName: "premium-rwo"
 
 # Geth container configuration
 geth:
-  image: harshsingh07/mev-commit-geth:arm-latest
+  image: harshsingh07/mev-commit-geth:amd64-latest
   imagePullPolicy: IfNotPresent
   verbosity: 3
   nodiscover: true
@@ -91,7 +94,7 @@ geth:
 
 # Snode container configuration
 snode:
-  image: harshsingh07/snode-consensus:arm64-latest
+  image: harshsingh07/snode-consensus:amd64-v1
   imagePullPolicy: Always
   mode: leader  # Can be 'leader' or 'member'
   instanceId: snode1
