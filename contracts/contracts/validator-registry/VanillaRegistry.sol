@@ -31,6 +31,12 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         _;
     }
 
+    /// @dev Modifier to confirm the sender is whitelisted.
+    modifier onlyWhitelistedStaker() {
+        require(whitelistedStakers[msg.sender], IVanillaRegistry.SenderIsNotWhitelistedStaker(msg.sender));
+        _;
+    }
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -69,7 +75,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      * @param blsPubKeys The validator BLS public keys to stake.
      */
     function stake(bytes[] calldata blsPubKeys) external payable
-        onlyValidBLSPubKeys(blsPubKeys) whenNotPaused() {
+        onlyValidBLSPubKeys(blsPubKeys) onlyWhitelistedStaker() whenNotPaused() {
         _stake(blsPubKeys, msg.sender);
     }
 
@@ -90,7 +96,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      * @dev A staking entry must already exist for each provided BLS pubkey.
      * @param blsPubKeys The BLS public keys to add stake to.
      */
-    function addStake(bytes[] calldata blsPubKeys) external payable whenNotPaused() {
+    function addStake(bytes[] calldata blsPubKeys) external payable onlyWhitelistedStaker() whenNotPaused() {
         _addStake(blsPubKeys);
     }
 
@@ -178,6 +184,26 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @dev Enables the owner to manually transfer slashing funds.
     function manuallyTransferSlashingFunds() external onlyOwner {
         FeePayout.transferToRecipient(slashingFundsTracker);
+    }
+
+    /// @dev Enables the owner to whitelist stakers.
+    function whitelistStakers(address[] calldata stakers) external onlyOwner {
+        uint256 len = stakers.length;
+        for (uint256 i = 0; i < len; ++i) {
+            require(!whitelistedStakers[stakers[i]], IVanillaRegistry.StakerAlreadyWhitelisted(stakers[i]));
+            whitelistedStakers[stakers[i]] = true;
+            emit StakerWhitelisted(msg.sender, stakers[i]);
+        }
+    }
+
+    /// @dev Enables the owner to remove stakers from the whitelist.
+    function removeWhitelistedStakers(address[] calldata stakers) external onlyOwner {
+        uint256 len = stakers.length;
+        for (uint256 i = 0; i < len; ++i) {
+            require(whitelistedStakers[stakers[i]], IVanillaRegistry.StakerNotWhitelisted(stakers[i]));
+            whitelistedStakers[stakers[i]] = false;
+            emit StakerRemovedFromWhitelist(msg.sender, stakers[i]);
+        }
     }
 
     /// @dev Returns true if a validator is considered "opted-in" to mev-commit via this registry.
