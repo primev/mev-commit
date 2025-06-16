@@ -131,7 +131,6 @@ func (s *rpcstore) DeductBalance(
 	amount *big.Int,
 ) error {
 	if account == (common.Address{}) || amount == nil || amount.Sign() <= 0 {
-		fmt.Println("invalid account or amount: %s, %s", account.Hex(), amount.String())
 		return errors.New("invalid account or amount")
 	}
 
@@ -170,7 +169,8 @@ func (s *rpcstore) AddBalance(
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
 			// If the account does not exist, we create a new one with the initial balance
-			currentBalance = []byte("0") // Default balance for a new account
+			bal := new(big.Int)
+			currentBalance = bal.Bytes() // Default balance for a new account
 		} else {
 			return fmt.Errorf("failed to get balance for account %s: %w", account, err)
 		}
@@ -212,4 +212,24 @@ func (s *rpcstore) HasBalance(
 	currentBalanceBig := new(big.Int).SetBytes(currentBalance)
 
 	return currentBalanceBig.Cmp(amount) >= 0
+}
+
+func (s *rpcstore) GetBalance(
+	ctx context.Context,
+	account common.Address,
+) (*big.Int, error) {
+	if account == (common.Address{}) {
+		return nil, errors.New("account cannot be empty")
+	}
+
+	balanceKey := []byte(fmt.Sprintf("balance:%s", account.Hex()))
+	currentBalance, closer, err := s.db.Get(balanceKey)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = closer.Close()
+	}()
+
+	return new(big.Int).SetBytes(currentBalance), nil
 }

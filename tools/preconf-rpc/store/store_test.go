@@ -99,6 +99,15 @@ func TestStore(t *testing.T) {
 			t.Errorf("expected balance %s, but has no balance", initialBalance.String())
 		}
 
+		// Check if the balance is correctly stored
+		balance, err := st.GetBalance(context.Background(), address)
+		if err != nil {
+			t.Errorf("failed to get balance: %v", err)
+		}
+		if balance.Cmp(initialBalance) != 0 {
+			t.Errorf("expected balance %s, got %s", initialBalance.String(), balance.String())
+		}
+
 		err = st.DeductBalance(context.Background(), address, initialBalance)
 		if err != nil {
 			t.Errorf("failed to deduct balance: %v", err)

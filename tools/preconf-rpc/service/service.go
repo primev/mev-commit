@@ -157,42 +157,14 @@ func New(config *Config) (*Service, error) {
 		rpcstore,
 		bidpricer,
 		&dummyBlockTracker{},
+		config.Signer.GetAddress(),
 	)
 
 	handlers.RegisterMethods(rpcServer)
 
-	mux := http.NewServeMux()
-	mux.Handle("/", rpcServer)
-	mux.HandleFunc("/add_balance", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		// get address and amount from params
-		addressStr := r.URL.Query().Get("address")
-		amountStr := r.URL.Query().Get("amount")
-		if addressStr == "" || amountStr == "" {
-			http.Error(w, "Missing address or amount", http.StatusBadRequest)
-			return
-		}
-		amount, ok := new(big.Int).SetString(amountStr, 10)
-		if !ok || amount.Sign() <= 0 {
-			http.Error(w, "Invalid amount", http.StatusBadRequest)
-			return
-		}
-		address := common.HexToAddress(addressStr)
-		err := rpcstore.AddBalance(r.Context(), address, amount)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to add balance: %v", err), http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Balance added successfully for address %s", address)
-	})
-
 	srv := http.Server{
 		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
-		Handler: mux,
+		Handler: rpcServer,
 	}
 
 	go func() {
@@ -237,4 +209,9 @@ func (d *dummyBlockTracker) CheckTxnInclusion(
 ) (bool, error) {
 	// Dummy implementation, always returns true
 	return true, nil
+}
+
+func (d *dummyBlockTracker) LatestBlockNumber() uint64 {
+	// Dummy implementation, always returns 0
+	return 0
 }

@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
@@ -52,24 +53,14 @@ type Store interface {
 		ctx context.Context,
 		txnHash common.Hash,
 	) (*types.Transaction, []*bidderapiv1.Commitment, error)
-	DeductBalance(
-		ctx context.Context,
-		account common.Address,
-		amount *big.Int,
-	) error
-	HasBalance(
-		ctx context.Context,
-		account common.Address,
-		amount *big.Int,
-	) bool
+	DeductBalance(ctx context.Context, account common.Address, amount *big.Int) error
+	HasBalance(ctx context.Context, account common.Address, amount *big.Int) bool
+	GetBalance(ctx context.Context, account common.Address) (*big.Int, error)
+	AddBalance(ctx context.Context, account common.Address, amount *big.Int) error
 }
 
 type BlockTracker interface {
-	CheckTxnInclusion(
-		ctx context.Context,
-		txnHash common.Hash,
-		blockNumber uint64,
-	) (bool, error)
+	CheckTxnInclusion(ctx context.Context, txnHash common.Hash, blockNumber uint64) (bool, error)
 	LatestBlockNumber() uint64
 }
 
@@ -93,6 +84,7 @@ type rpcMethodHandler struct {
 	store        Store
 	pricer       Pricer
 	blockTracker BlockTracker
+	owner        common.Address
 	nonceLock    *multex.Multex[string]
 	nonceMap     map[string]accountNonce
 	nonceMapLock sync.RWMutex
@@ -104,6 +96,7 @@ func NewRPCMethodHandler(
 	store Store,
 	pricer Pricer,
 	blockTracker BlockTracker,
+	owner common.Address,
 ) *rpcMethodHandler {
 	return &rpcMethodHandler{
 		logger:       logger,
@@ -111,6 +104,7 @@ func NewRPCMethodHandler(
 		store:        store,
 		pricer:       pricer,
 		blockTracker: blockTracker,
+		owner:        owner,
 		nonceLock:    multex.New[string](),
 		nonceMap:     make(map[string]accountNonce),
 	}
@@ -121,6 +115,8 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	server.RegisterHandler("eth_getTransactionReceipt", h.handleGetTxReceipt)
 	server.RegisterHandler("eth_getTransactionCount", h.handleGetTxCount)
 	server.RegisterHandler("mevcommit_getTransactionCommitments", h.handleGetTxCommitments)
+	server.RegisterHandler("mevcommit_getBalance", h.handleMevCommitGetBalance)
+	server.RegisterHandler("mevcommit_estimateFastBid", h.handleMevCommitEstimateFastBid)
 }
 
 func (h *rpcMethodHandler) handleSendRawTx(
@@ -178,6 +174,11 @@ func (h *rpcMethodHandler) handleSendRawTx(
 	h.nonceLock.Lock(sender.Hex())
 	defer h.nonceLock.Unlock(sender.Hex())
 
+	// This is a txn to add balance to the bidder's account, so we will pay this
+	// out of the owner's account. We will add the balance to the bidder's
+	// account and then proceed with the bid process.
+	depositTxn := txn.To().Cmp(h.owner) == 0 && txn.Value().Cmp(big.NewInt(0)) > 0
+
 BID_LOOP:
 	for {
 		select {
@@ -189,7 +190,7 @@ BID_LOOP:
 		default:
 		}
 
-		result, err := h.sendBid(ctx, txn, sender, rawTxHex)
+		result, err := h.sendBid(ctx, txn, sender, rawTxHex, depositTxn)
 		switch {
 		case err != nil:
 			h.logger.Error("Failed to send bid", "error", err)
@@ -209,6 +210,7 @@ BID_LOOP:
 					sender,
 					int64(result.blockNumber),
 					result.bidAmount,
+					depositTxn,
 				); err != nil {
 					return nil, false, rpcserver.NewJSONErr(
 						rpcserver.CodeCustomError,
@@ -246,6 +248,7 @@ BID_LOOP:
 				sender,
 				int64(result.blockNumber),
 				result.bidAmount,
+				depositTxn,
 			); err != nil {
 				h.logger.Error("Failed to update preconfirmed transaction and deduct balance", "error", err)
 				return nil, false, rpcserver.NewJSONErr(
@@ -275,6 +278,7 @@ func (h *rpcMethodHandler) sendBid(
 	txn *types.Transaction,
 	sender common.Address,
 	rawTxHex string,
+	depositTxn bool,
 ) (bidResult, error) {
 	timeToOptIn, err := h.bidder.Estimate()
 	if err != nil {
@@ -296,7 +300,7 @@ func (h *rpcMethodHandler) sendBid(
 		return bidResult{}, fmt.Errorf("failed to estimate transaction price: %w", err)
 	}
 
-	if !h.store.HasBalance(ctx, sender, price.BidAmount) {
+	if !depositTxn && !h.store.HasBalance(ctx, sender, price.BidAmount) {
 		h.logger.Error("Insufficient balance for sender", "sender", sender.Hex())
 		return bidResult{}, fmt.Errorf("insufficient balance for sender: %s", sender.Hex())
 	}
@@ -370,15 +374,23 @@ func (h *rpcMethodHandler) storePreconfAndDeductBalance(
 	sender common.Address,
 	blockNumber int64,
 	amount *big.Int,
+	depositTxn bool,
 ) error {
 	if err := h.store.StorePreconfirmedTransaction(ctx, blockNumber, txn, commitments); err != nil {
 		h.logger.Error("Failed to store preconfirmed transaction", "error", err)
 		return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 	}
 
-	if err := h.store.DeductBalance(ctx, sender, amount); err != nil {
-		h.logger.Error("Failed to deduct balance for sender", "sender", sender.Hex(), "error", err)
-		return fmt.Errorf("failed to deduct balance for sender: %w", err)
+	if !depositTxn {
+		if err := h.store.DeductBalance(ctx, sender, amount); err != nil {
+			h.logger.Error("Failed to deduct balance for sender", "sender", sender.Hex(), "error", err)
+			return fmt.Errorf("failed to deduct balance for sender: %w", err)
+		}
+	} else {
+		if err := h.store.AddBalance(ctx, sender, txn.Value()); err != nil {
+			h.logger.Error("Failed to add balance for sender", "sender", sender.Hex(), "error", err)
+			return fmt.Errorf("failed to add balance for sender: %w", err)
+		}
 	}
 
 	return nil
@@ -418,14 +430,33 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		return nil, true, nil
 	}
 
-	receipt := &types.Receipt{
-		TxHash:      txn.Hash(),
-		Type:        txn.Type(),
-		Status:      types.ReceiptStatusSuccessful, // Assuming success, as this is a preconfirmed transaction
-		BlockNumber: big.NewInt(commitments[0].BlockNumber),
+	sender, err := types.Sender(types.LatestSignerForChainID(txn.ChainId()), txn)
+	if err != nil {
+		h.logger.Error("Failed to get transaction sender", "error", err, "txHash", txHash)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to get transaction sender",
+		)
 	}
 
-	receiptJSON, err := json.Marshal(receipt)
+	result := map[string]interface{}{
+		"type":              hexutil.Uint(txn.Type()),
+		"transactionHash":   txn.Hash().Hex(),
+		"transactionIndex":  hexutil.Uint(0),
+		"blockHash":         (common.Hash{}).Hex(),
+		"blockNumber":       hexutil.EncodeBig(big.NewInt(commitments[0].BlockNumber)),
+		"from":              sender.Hex(),
+		"to":                nil,
+		"contractAddress":   (common.Address{}).Hex(),
+		"gasUsed":           hexutil.Uint64(0),
+		"cumulativeGasUsed": hexutil.Uint64(1),
+		"logs":              []*types.Log{}, // should be [] not null
+		"logsBloom":         hexutil.Bytes(types.Bloom{}.Bytes()),
+		"status":            hexutil.Uint64(types.ReceiptStatusSuccessful),
+		"effectiveGasPrice": hexutil.EncodeBig(big.NewInt(0)),
+	}
+
+	receiptJSON, err := json.Marshal(result)
 	if err != nil {
 		h.logger.Error("Failed to marshal receipt to JSON", "error", err, "txHash", txHash)
 		return nil, false, rpcserver.NewJSONErr(
@@ -539,4 +570,55 @@ func (h *rpcMethodHandler) handleGetTxCommitments(
 	}
 
 	return commitmentsJSON, false, nil
+}
+
+func (h *rpcMethodHandler) handleMevCommitGetBalance(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+	if len(params) != 1 {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeInvalidRequest,
+			"mevcommit_getBalance requires exactly one parameter",
+		)
+	}
+
+	if params[0] == nil {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"mevcommit_getBalance parameters cannot be null",
+		)
+	}
+
+	account := params[0].(string)
+	if len(account) < 2 || account[:2] != "0x" {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"mevcommit_getBalance account must be a hex string starting with '0x'",
+		)
+	}
+
+	balance, err := h.store.GetBalance(ctx, common.HexToAddress(account))
+	if err != nil {
+		h.logger.Error("Failed to get balance for account", "error", err, "account", account)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to get balance for account",
+		)
+	}
+
+	return json.RawMessage(fmt.Sprintf(`{"balance": "%s"}`, balance)), false, nil
+}
+
+func (h *rpcMethodHandler) handleMevCommitEstimateFastBid(
+	ctx context.Context,
+	_ ...any,
+) (json.RawMessage, bool, error) {
+	timeToOptIn, err := h.bidder.Estimate()
+	if err != nil {
+		h.logger.Error("Failed to estimate fast bid", "error", err)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to estimate fast bid",
+		)
+	}
+
+	return json.RawMessage(fmt.Sprintf(`{"timeInSecs": "%d"}`, timeToOptIn)), false, nil
 }
