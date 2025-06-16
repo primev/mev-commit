@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "l1-transactor.fullname" . }}
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    {{- include "l1-transactor.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.job.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "l1-transactor.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/scripts: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "l1-transactor.selectorLabels" . | nindent 8 }}
+        service.name: {{ .Values.job.name }}
+        service.version: {{ .Values.version }}
+    spec:
+      {{- include "l1-transactor.validateValues" . }}
+      initContainers:
+        - name: setup-keystores
+          image: "curlimages/curl:8.5.0"
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh"]
+          args: ["/scripts/setup.sh"]
+          env:
+            - name: KEYSTORE_DOWNLOAD_URL
+              value: {{ .Values.keystoreUrl | quote }}
+            - name: KEYSTORE_PATH
+              value: "/shared/keystores"
+            - name: KEYSTORE_RETRIES
+              value: "3"
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+            - name: setup-scripts
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+      containers:
+        - name: {{ .Values.job.name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/usr/local/bin/l1-transactor"]
+          args:
+            - --l1-rpc-url={{ .Values.l1RpcUrl }}
+            {{- if .Values.job.env.logFormat }}
+            - --log-fmt={{ .Values.job.env.logFormat }}
+            {{- end }}
+            {{- if .Values.job.env.logLevel }}
+            - --log-level={{ .Values.job.env.logLevel }}
+            {{- end }}
+            {{- if include "l1-transactor.logTags" . }}
+            - --log-tags={{ include "l1-transactor.logTags" . }}
+            {{- end }}
+          env:
+            - name: KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "l1-transactor.secretName" . }}
+                  key: KEYSTORE_PASSWORD
+            {{- if .Values.keystoreUrl }}
+            {{- $filename := base .Values.keystoreUrl }}
+            - name: TRANSACTOR_KEYSTORE_PATH_PASSWORD
+              value: "/shared/keystores/{{ $filename }}:$(KEYSTORE_PASSWORD),/shared/keystores/{{ $filename }}:$(KEYSTORE_PASSWORD)"
+            {{- end }}
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+              name: metrics
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep l1-transactor"
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep l1-transactor"
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+
+      volumes:
+        - name: shared-data
+          emptyDir: {}
+        - name: setup-scripts
+          configMap:
+            name: {{ include "l1-transactor.fullname" . }}-scripts
+            defaultMode: 0755
+
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- end }}

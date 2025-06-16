@@ -1,28 +1,23 @@
 # Override values specific to provider deployment
+
 node:
   type: "provider"
   replicas: 1
-  
+
   ports:
     http: 13623
     p2p: 13622
     rpc: 13624
-  
+
   service:
     type: ClusterIP
-    # For NodePort exposure
-    # type: NodePort
-    # nodePorts:
-    #   p2p: 30622
-    #   http: 30623
-    #   rpc: 30624
     annotations: {}
-  
-  # Default credentials 
-  defaultKeystorePassword: "change_me_provider"
+
+  defaultKeystorePassword: "harsh"
   defaultP2PSecret: "mev-commit-provider-secret"
-  
-  # Resource allocation
+
+  bootnodeConnectionString: "/ip4/34.23.19.82/tcp/13522/p2p/16Uiu2HAky8GQp2Lt6F9wJuVNn9ErzzbT2uww8UTkbY96jy7eum6H"
+
   resources:
     limits:
       cpu: 1000m
@@ -30,7 +25,30 @@ node:
     requests:
       cpu: 500m
       memory: 1024Mi
-  
-  # Bootnode connection string - needs to be updated to your bootnode service/IP
-  # Format: /ip4/<bootnode-service-ip>/tcp/<bootnode-p2p-port>/p2p/<bootnode-peer-id>
-  bootnodeConnectionString: "/ip4/34.23.19.82/tcp/13522/p2p/16Uiu2HAmPGAJx6KNqSHiZfsuFRp2UF5qLABoMHhmag78LC8bHfTU"
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+
+  podSecurityContext:
+    fsGroup: 0
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podAnnotations: {}
+  imagePullSecrets: []
+
+# Provider-specific configuration
+provider:
+  decisionTimeout: "30s"
+
+keystore:
+  path: "/keystore"
+  downloadUrl: "https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/refs/heads/main/keystores/keystore12/UTC--2025-06-11T17-06-13.026487000Z--b9612ae06cc03deebff8c3f4a29d1758b95ab6d9"
+  retries: 3

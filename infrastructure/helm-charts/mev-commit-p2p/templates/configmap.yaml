@@ -8,50 +8,34 @@ metadata:
     app.kubernetes.io/component: {{ .Values.node.type }}
     {{- include "mev-commit-p2p.labels" . | nindent 4 }}
 data:
-  # Global settings
-  MEV_COMMIT_DATA_DIR: "/data"
-  MEV_COMMIT_KEYSTORE_PATH: "/keystore"
-  
-  # Network configuration
   MEV_COMMIT_HTTP_ADDR: "0.0.0.0"
   MEV_COMMIT_RPC_ADDR: "0.0.0.0"
   MEV_COMMIT_P2P_ADDR: "0.0.0.0"
+  MEV_COMMIT_KEYSTORE_PATH: "{{ .Values.keystore.path | default "/keystore" }}"
   MEV_COMMIT_HTTP_PORT: "{{ .Values.node.ports.http }}"
   MEV_COMMIT_P2P_PORT: "{{ .Values.node.ports.p2p }}"
   MEV_COMMIT_RPC_PORT: "{{ .Values.node.ports.rpc }}"
-  
-  # Type-specific configuration
   MEV_COMMIT_PEER_TYPE: "{{ .Values.node.type }}"
-  
-  # TLS certificate paths
   MEV_COMMIT_SERVER_TLS_CERTIFICATE: "/certs/tls.crt"
   MEV_COMMIT_SERVER_TLS_PRIVATE_KEY: "/certs/tls.key"
-  
-  # NAT configuration (using service DNS for Kubernetes)
   MEV_COMMIT_NAT_ADDR: "$(POD_IP)"
   MEV_COMMIT_NAT_PORT: "{{ .Values.node.ports.p2p }}"
-  
-  # Logging configuration
   MEV_COMMIT_LOG_FMT: "{{ .Values.global.logging.format | default "json" }}"
   MEV_COMMIT_LOG_LEVEL: "{{ .Values.global.logging.level | default "info" }}"
   MEV_COMMIT_LOG_TAGS: "service.name:mev-commit-{{ .Values.node.type }},service.version:{{ .Chart.AppVersion }}{{ if .Values.global.logging.additionalTags }},{{ .Values.global.logging.additionalTags }}{{ end }}"
+  MEV_COMMIT_BIDDER_REGISTRY_ADDR: "{{ .Values.global.contracts.bidderRegistry }}"
   
   # Contract addresses - non-sensitive public information
-  MEV_COMMIT_BIDDER_REGISTRY_ADDR: "{{ .Values.global.contracts.bidderRegistry }}"
   MEV_COMMIT_PROVIDER_REGISTRY_ADDR: "{{ .Values.global.contracts.providerRegistry }}"
   MEV_COMMIT_PRECONF_ADDR: "{{ .Values.global.contracts.preconfStore }}"
   MEV_COMMIT_BLOCK_TRACKER_ADDR: "{{ .Values.global.contracts.blockTracker }}"
   MEV_COMMIT_VALIDATOR_ROUTER_ADDR: "{{ .Values.global.contracts.validatorRouter }}"
-  
+
   # Gas parameters
   MEV_COMMIT_GAS_LIMIT: "{{ .Values.global.gas.limit }}"
   MEV_COMMIT_GAS_TIP_CAP: "{{ .Values.global.gas.tipCap }}"
   MEV_COMMIT_GAS_FEE_CAP: "{{ .Values.global.gas.feeCap }}"
-  
-  # Notification buffer
   MEV_COMMIT_NOTIFICATIONS_BUFFER: "{{ .Values.global.notifications.bufferCapacity | default "100" }}"
-  
-  # Timeout values
   {{- if eq .Values.node.type "bidder" }}
   MEV_COMMIT_BIDDER_BID_TIMEOUT: "{{ .Values.bidder.bidTimeout | default "30s" }}"
   MEV_COMMIT_AUTODEPOSIT_ENABLED: "{{ .Values.bidder.autodeposit.enabled | default "false" }}"
@@ -59,40 +43,22 @@ data:
   MEV_COMMIT_AUTODEPOSIT_AMOUNT: "{{ .Values.bidder.autodeposit.amount }}"
   {{- end }}
   {{- end }}
-  
   {{- if eq .Values.node.type "provider" }}
   MEV_COMMIT_PROVIDER_DECISION_TIMEOUT: "{{ .Values.provider.decisionTimeout | default "30s" }}"
   {{- end }}
-  
-  # RPC Endpoints
   MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT: "{{ .Values.global.rpc.settlementEndpoint }}"
   MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT: "{{ .Values.global.rpc.settlementWsEndpoint }}"
   MEV_COMMIT_L1_RPC_URL: "{{ .Values.global.rpc.l1Endpoint }}"
-  
-  # Additional configuration
   MEV_COMMIT_LAGGARD_MODE: "{{ .Values.global.laggardMode | default "10" }}"
-  
   {{- if eq .Values.node.type "bidder" }}
-  # Provider whitelist (only for bidder)
   {{- if .Values.bidder.providerWhitelist }}
   MEV_COMMIT_PROVIDER_WHITELIST: "{{ .Values.bidder.providerWhitelist }}"
   {{- end }}
   {{- end }}
-  
-  # Bootnode connection string - for provider and bidder nodes
   {{- if ne .Values.node.type "bootnode" }}
   {{- if .Values.node.bootnodeConnectionString }}
   MEV_COMMIT_BOOTNODES: "{{ .Values.node.bootnodeConnectionString }}"
   {{- end }}
   {{- end }}
 
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "mev-commit-p2p.fullname" . }}-{{ .Values.node.type }}-init
-  labels:
-    {{- include "mev-commit-p2p.labels" . | nindent 4 }}
-data:
-  init-account.sh: |-
-    {{- .Files.Get "files/init-account.sh" | nindent 4 }}
+

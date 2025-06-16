@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "l1-transactor.fullname" . }}-scripts
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    {{- include "l1-transactor.labels" . | nindent 4 }}
+data:
+{{ (.Files.Glob "scripts/*").AsConfig | indent 2 }}

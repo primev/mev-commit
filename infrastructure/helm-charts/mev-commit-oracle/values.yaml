@@ -47,34 +47,35 @@ oracle:
 # Network configuration
 network:
   l1RpcUrls:
-    - "https://ethereum.publicnode.com"
-  settlementRpcHttp: "https://chainrpc.testnet.mev-commit.xyz"
-  settlementRpcWs: "wss://chainrpc-wss.testnet.mev-commit.xyz"
+    - "http://mev-commit-mock-l1.default.svc.cluster.local:8545"
+  settlementRpcHttp: "http://snode-geth-archive-leader.default.svc.cluster.local:8545"
+  settlementRpcWs: "ws://snode-geth-archive-leader.default.svc.cluster.local:8546"
   relayUrls:
-    - "https://mainnet.aestus.live"
-    - "https://mainnet.titanrelay.xyz"
-    - "https://bloxroute.max-profit.blxrbdn.com"
-    - "https://boost-relay.flashbots.net"
+    - "http://mev-commit-relay-emulator-mev-commit-emulator.default.svc.cluster.local:8080"
 
 # Contract addresses for mainnet
 contracts:
-  oracle: "0xCd27C2Dc26d37Bb17686F709Db438D3Dc546437C"
-  preconf: "0x8420F290a412D87Ae4Aa12be63e1836b91717910" # did not find this address
-  blockTracker: "0x0b3b6Cf113959214E313d6Ad37Ad56831acb1776"
-  bidderRegistry: "0x948eCD70FaeF6746A30a00F30f8b9fB2659e4062"
-  providerRegistry: "0x1C2a592950E5dAd49c0E2F3A402DCF496bdf7b67"
+  oracle: "0xD69689f6db354cE8810071D4ffE583E70374Cd7f"
+  preconf: "0x3065fD5e5e04582aDAA5C0Ae63F0eD12cca85007" 
+  blockTracker: "0x2aE6b4339768A13dc8D607792120Ad7b26DD8232"
+  bidderRegistry: "0x434d37D48A5eF225E8B103fA5Fb6A5a8ac32d7FF"
+  providerRegistry: "0x50BaB3F4420Eb2533d326D15838110FDfd944c97"
+
+
 
 # Keystore configuration
 keystore:
-
-  autoGenerate: true
-  mountPath: "/keystore"
-  password: "securePassword"
+  downloadUrl: https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/50763323b795fbed7658656d76048977dcfee3c5/keystores/keystore15/UTC--2025-06-11T17-06-15.112805000Z--625b85deafe83ad374fcf1400c8a4c098da45b93
+  password: "harsh"
+  mountPath: /keystore
+  persistentVolumeClaim: mev-oracle-keystore
+  size: 10Mi
+  storageClassName: "standard"  # or "premium-rwo", adjust to your cluster
 
 # External PostgreSQL configuration
 postgresql:
   database: mev_oracle
-  host: postgres.default.svc.cluster.local
+  host: postgres.test.svc.cluster.local
   password: mev_oracle_password
   port: 5432
   username: mev_oracle

@@ -21,67 +21,41 @@ spec:
         app.kubernetes.io/name: {{ include "mev-commit-p2p.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: {{ .Values.node.type }}
-      {{- with .Values.node.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
     spec:
-      {{- with .Values.node.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       securityContext:
         {{- toYaml .Values.node.podSecurityContext | nindent 8 }}
-      # Initialize the keystore if enabled
-      {{- if .Values.global.initKeystore.enabled }}
+
       initContainers:
-        - name: init-keystore
-          image: {{ .Values.global.initKeystore.image.repository }}:{{ .Values.global.initKeystore.image.tag }}
-          imagePullPolicy: {{ .Values.global.initKeystore.image.pullPolicy }}
-          command:
-            - /bin/sh
-            - /scripts/init-account.sh
+        - name: keystore-init
+          image: "alpine/curl:8.5.0"
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "/scripts/keystore-init.sh"]
           env:
-            - name: NODE_TYPE
-              value: {{ .Values.node.type | quote }}
-            - name: KEYSTORE_DIR
-              value: "/keystore"
-            # Get the keystore password from the secrets
-            - name: KEYSTORE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  {{- if .Values.global.externalSecrets.enabled }}
-                  name: {{ include "mev-commit-p2p.fullname" . }}-node-secrets
-                  {{- else }}
-                  name: {{ .Values.node.existingSecret | default (printf "%s-%s-secrets" (include "mev-commit-p2p.fullname" .) .Values.node.type) }}
-                  {{- end }}
-                  key: MEV_COMMIT_KEYSTORE_PASSWORD
+            - name: KEYSTORE_PATH
+              value: "{{ .Values.keystore.path }}"
+            - name: KEYSTORE_DOWNLOAD_URL
+              value: "{{ .Values.keystore.downloadUrl }}"
+            - name: KEYSTORE_RETRIES
+              value: "{{ .Values.keystore.retries | default "3" }}"
           volumeMounts:
             - name: keystore
               mountPath: /keystore
             - name: init-scripts
               mountPath: /scripts
-            - name: account-info
-              mountPath: /account-info
-          resources:
-            requests:
-              cpu: "500m"
-              memory: "1Gi"
-            limits:
-              cpu: "1000m"
-              memory: "2Gi"
-      {{- end }}
-      
+              readOnly: true
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - DAC_OVERRIDE
+
       containers:
         - name: {{ .Values.node.type }}
-          env:
-            - name: MEV_COMMIT_NAT_ADDR
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-          securityContext:
-            {{- toYaml .Values.node.securityContext | nindent 12 }}
-          image: "{{ .Values.global.image.repository }}:{{ .Values.global.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.global.image.repository }}:{{ .Values.global.image.tag }}"
           imagePullPolicy: {{ .Values.global.image.pullPolicy }}
           command: ["mev-commit"]
           ports:
@@ -94,22 +68,18 @@ spec:
             - name: rpc
               containerPort: {{ .Values.node.ports.rpc }}
               protocol: TCP
+          env:
+            - name: MEV_COMMIT_NAT_ADDR
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           envFrom:
             - configMapRef:
                 name: {{ include "mev-commit-p2p.fullname" . }}-{{ .Values.node.type }}-config
-            {{- if .Values.global.externalSecrets.enabled }}
-            - secretRef:
-                name: {{ include "mev-commit-p2p.fullname" . }}-node-secrets
-            {{- else if .Values.node.existingSecret }}
-            - secretRef:
-                name: {{ .Values.node.existingSecret }}
-            {{- else }}
-            # If no ESO or existing secret, then use a basic secret with default values
             - secretRef:
                 name: {{ include "mev-commit-p2p.fullname" . }}-{{ .Values.node.type }}-secrets
-            {{- end }}
-          resources:
-            {{- toYaml .Values.node.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.node.securityContext | nindent 12 }}
           volumeMounts:
             - name: data
               mountPath: /data
@@ -117,65 +87,30 @@ spec:
               mountPath: /keystore
             - name: tls-certs
               mountPath: /certs
-      
-      {{- with .Values.node.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.node.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.node.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+
       volumes:
-        # TLS certificates - either from self-signed secret or provided externally
         - name: tls-certs
           secret:
-            secretName: {{ if .Values.global.tls.existingSecret }}{{ .Values.global.tls.existingSecret }}{{ else }}{{ include "mev-commit-p2p.fullname" . }}-tls{{ end }}
-        
-        {{- if .Values.global.initKeystore.enabled }}
-        # Initialization script
+            secretName: {{ include "mev-commit-p2p.fullname" . }}-tls
         - name: init-scripts
           configMap:
             name: {{ include "mev-commit-p2p.fullname" . }}-{{ .Values.node.type }}-init
             defaultMode: 0755
-        # Temporary volume to store account info
-        - name: account-info
-          emptyDir: {}
-        {{- end }}
-        
-        {{- if not .Values.global.persistence.enabled }}
-        # If persistence is disabled, use emptyDir volumes
-        - name: data
-          emptyDir: {}
-        - name: keystore
-          emptyDir: {}
-        {{- end }}
-  
-  {{- if .Values.global.persistence.enabled }}
-  # Persistent volume claims for data and keystore
+
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
-        accessModes: [ "ReadWriteOnce" ]
-        {{- if .Values.global.persistence.storageClass }}
-        storageClassName: {{ .Values.global.persistence.storageClass }}
-        {{- end }}
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.global.persistence.storageClass | default "premium-rwo" }}
         resources:
           requests:
             storage: {{ .Values.global.persistence.dataSize | default "10Gi" }}
     - metadata:
         name: keystore
       spec:
-        accessModes: [ "ReadWriteOnce" ]
-        {{- if .Values.global.persistence.storageClass }}
-        storageClassName: {{ .Values.global.persistence.storageClass }}
-        {{- end }}
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.global.persistence.storageClass | default "premium-rwo" }}
         resources:
           requests:
-            storage: {{ .Values.global.persistence.keystoreSize | default "1Gi" }}
-  {{- end }}
+            storage: {{ .Values.global.persistence.keystoreSize | default "5Mi" }}
