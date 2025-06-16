@@ -39,7 +39,6 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	go func() {
 		defer close(done)
-		// Simulate block tracking logic
 		for {
 			select {
 			case <-ctx.Done():
@@ -59,12 +58,20 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 					b.blocks[blockNo] = block
 					b.latestBlockNo.Store(block.NumberU64())
 					b.log.Info("New block detected", "number", block.NumberU64(), "hash", block.Hash().Hex())
-					b.checkTrigger <- struct{}{}
+					b.triggerCheck()
 				}
 			}
 		}
 	}()
 	return done
+}
+
+func (b *blockTracker) triggerCheck() {
+	select {
+	case b.checkTrigger <- struct{}{}:
+	default:
+		// Non-blocking send, if channel is full, we skip
+	}
 }
 
 func (b *blockTracker) LatestBlockNumber() uint64 {
