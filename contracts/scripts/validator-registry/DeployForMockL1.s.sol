@@ -34,7 +34,6 @@ contract DeployForMockL1 is Script {
         uint256 payoutPeriodBlocks = 200;
         address owner = msg.sender;
 
-        console.log("Deploying VanillaRegistry...");
         address vanillaRegistryProxy = Upgrades.deployUUPSProxy(
             "VanillaRegistry.sol",
             abi.encodeCall(
@@ -42,20 +41,14 @@ contract DeployForMockL1 is Script {
                 (minStake, slashOracle, slashReceiver, unstakePeriodBlocks, payoutPeriodBlocks, owner)
             )
         );
-        console.log("VanillaRegistry deployed at:", vanillaRegistryProxy);
+        console.log("_VanillaRegistry:", vanillaRegistryProxy);
         VanillaRegistry vanillaRegistry = VanillaRegistry(payable(vanillaRegistryProxy));
 
-        address[] memory stakers = new address[](1);
-        stakers[0] = owner;
-        vanillaRegistry.whitelistStakers(stakers);
-
-        console.log("Deploying mock AVS and Middleware contracts...");
         AlwaysFalseAVS mockAVS = new AlwaysFalseAVS();
         AlwaysFalseMiddleware mockMiddleware = new AlwaysFalseMiddleware();
-        console.log("Mock AVS deployed at:", address(mockAVS));
-        console.log("Mock Middleware deployed at:", address(mockMiddleware));
+        console.log("_MockAVS:", address(mockAVS));
+        console.log("_MockMiddleware:", address(mockMiddleware));
 
-        console.log("Deploying ValidatorOptInRouter...");
         address routerProxy = Upgrades.deployUUPSProxy(
             "ValidatorOptInRouter.sol",
             abi.encodeCall(
@@ -63,7 +56,7 @@ contract DeployForMockL1 is Script {
                 (vanillaRegistryProxy, address(mockAVS), address(mockMiddleware), msg.sender)
             )
         );
-        console.log("ValidatorOptInRouter deployed at:", routerProxy);
+        console.log("ValidatorOptInRouter:", routerProxy);
 
         uint256 batchSize = 5;
         uint256 numKeys = 32;
@@ -104,7 +97,6 @@ contract DeployForMockL1 is Script {
         pubkeysToRegister[31] = hex"ababbfe729893e69384ef1f32c7fa15902be6ace12aeaa21c56be726bc8c71e4e9b884735b82dbc619315752cffdb73e";
 
         uint256 totalKeys = pubkeysToRegister.length;
-        console.log("Registering", totalKeys, "validators in batches of", batchSize);
 
         for (uint256 i = 0; i < totalKeys; i += batchSize) {
             uint256 currentBatchSize = batchSize;
@@ -118,7 +110,6 @@ contract DeployForMockL1 is Script {
             uint256 batchStake = minStake * currentBatchSize;
             vanillaRegistry.stake{value: batchStake}(batchKeys);
         }
-        console.log("Successfully registered all validators");
         vm.stopBroadcast();
     }
 }
