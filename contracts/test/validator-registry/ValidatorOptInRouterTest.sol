@@ -40,7 +40,7 @@ contract ValidatorOptInRouterTest is Test {
 
         vanillaRegistryTest = new VanillaRegistryTest();
         vanillaRegistryTest.setUp();
-        vanillaRegistry = vanillaRegistryTest.validatorRegistry();
+        vanillaRegistry = VanillaRegistry(payable(address(vanillaRegistryTest.validatorRegistry())));
 
         mevCommitAVSTest = new MevCommitAVSTest();
         mevCommitAVSTest.setUp();
