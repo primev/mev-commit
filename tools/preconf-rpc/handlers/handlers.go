@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"math/big"
 	"sync"
-	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -71,6 +70,7 @@ type BlockTracker interface {
 		txnHash common.Hash,
 		blockNumber uint64,
 	) (bool, error)
+	LatestBlockNumber() uint64
 }
 
 type accountNonce struct {
@@ -94,7 +94,6 @@ type rpcMethodHandler struct {
 	pricer       Pricer
 	blockTracker BlockTracker
 	nonceLock    *multex.Multex[string]
-	latestBlock  atomic.Pointer[types.Block]
 	nonceMap     map[string]accountNonce
 	nonceMapLock sync.RWMutex
 }
@@ -114,7 +113,6 @@ func NewRPCMethodHandler(
 		blockTracker: blockTracker,
 		nonceLock:    multex.New[string](),
 		nonceMap:     make(map[string]accountNonce),
-		latestBlock:  atomic.Pointer[types.Block]{},
 	}
 }
 
@@ -416,7 +414,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		return nil, true, nil
 	}
 
-	if h.latestBlock.Load().Number().Uint64() > uint64(commitments[0].BlockNumber) {
+	if h.blockTracker.LatestBlockNumber() > uint64(commitments[0].BlockNumber) {
 		return nil, true, nil
 	}
 
@@ -473,7 +471,7 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 		return nil, true, nil
 	}
 
-	if h.latestBlock.Load().Number().Uint64() > uint64(accNonce.Block) {
+	if h.blockTracker.LatestBlockNumber() > uint64(accNonce.Block) {
 		h.nonceMapLock.Lock()
 		delete(h.nonceMap, account)
 		h.nonceMapLock.Unlock()
