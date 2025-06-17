@@ -1,7 +1,8 @@
-ARG MEV_COMMIT_BUILDER_VERSION=latest
-FROM mev-commit-builder:{$MEV_COMMIT_BUILDER_VERSION} AS builder
+# syntax=docker/dockerfile:1.4
 FROM alpine:3.10
 
-COPY --from=builder /go/bin/p2p /usr/local/bin/mev-commit
+COPY --from=builder_ctx /go/bin/p2p /usr/local/bin/mev-commit
+
+EXPOSE 13522 13523 13524
 
 ENTRYPOINT ["mev-commit"]

@@ -1,7 +1,6 @@
-ARG MEV_COMMIT_BUILDER_VERSION=latest
-FROM mev-commit-builder:{$MEV_COMMIT_BUILDER_VERSION} AS builder
+# syntax=docker/dockerfile:1.4
 FROM alpine:3.10
 
-COPY --from=builder /go/bin/l1-transaction-emulator /usr/local/bin/l1-transactor
+COPY --from=builder_ctx /go/bin/l1-transaction-emulator /usr/local/bin/l1-transactor
 
 ENTRYPOINT ["l1-transactor"]

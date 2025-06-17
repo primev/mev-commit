@@ -1,8 +1,9 @@
-ARG MEV_COMMIT_BUILDER_VERSION=latest
-FROM mev-commit-builder:{$MEV_COMMIT_BUILDER_VERSION} AS builder
+# syntax=docker/dockerfile:1.4
 FROM alpine:3.10
 
-COPY --from=builder /go/bin/real-bidder /usr/local/bin/bidder-emulator
-COPY --from=builder /scripts/bidder-emulator-entrypoint.sh entrypoint.sh
+COPY --from=builder_ctx /go/bin/real-bidder /usr/local/bin/bidder-emulator
+COPY --from=builder_ctx /scripts/bidder-emulator-entrypoint.sh entrypoint.sh
+
+EXPOSE 8080
 
 ENTRYPOINT ["./entrypoint.sh"]
