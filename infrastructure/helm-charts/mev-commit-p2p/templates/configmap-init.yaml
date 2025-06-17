@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mev-commit-p2p.fullname" . }}-{{ .Values.node.type }}-init
+  labels:
+    app.kubernetes.io/name: {{ include "mev-commit-p2p.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: {{ .Values.node.type }}-init
+    {{- include "mev-commit-p2p.labels" . | nindent 4 }}
+data:
+  keystore-init.sh: |-
+    {{- .Files.Get "scripts/keystore-init.sh" | nindent 4 }}

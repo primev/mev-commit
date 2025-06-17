@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "geth-l1.fullname" . }}
+  labels:
+    {{- include "geth-l1.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "geth-l1.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "geth-l1.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: geth
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.geth.ports.http }}
+              protocol: TCP
+            - name: ws
+              containerPort: {{ .Values.geth.ports.ws }}
+              protocol: TCP
+            - name: p2p
+              containerPort: {{ .Values.geth.ports.p2p }}
+              protocol: TCP
+          command: ["geth"]
+          args:
+            {{- if .Values.geth.dev.enabled }}
+            - --dev
+            - --dev.period={{ .Values.geth.dev.period }}
+            {{- end }}
+            - --datadir={{ .Values.geth.dataDir }}
+            - --http
+            - --http.addr=0.0.0.0
+            - --http.port={{ .Values.geth.ports.http }}
+            - --http.api={{ .Values.geth.rpc.apis }}
+            - --http.corsdomain={{ .Values.geth.rpc.cors }}
+            - --http.vhosts={{ .Values.geth.rpc.vhosts }}
+            - --ws
+            - --ws.addr=0.0.0.0
+            - --ws.port={{ .Values.geth.ports.ws }}
+            - --ws.api={{ .Values.geth.rpc.apis }}
+            - --ws.origins={{ .Values.geth.rpc.wsOrigins }}
+            - --networkid={{ .Values.geth.networkId }}
+            - --verbosity={{ .Values.geth.logging.verbosity }}
+            {{- if .Values.geth.allowInsecureUnlock }}
+            - --allow-insecure-unlock
+            {{- end }}
+            {{- if .Values.geth.passwordFile.enabled }}
+            - --password=/etc/geth/password.txt
+            {{- end }}
+            {{- range .Values.geth.extraArgs }}
+            - {{ . }}
+            {{- end }}
+          volumeMounts:
+            - name: geth-data
+              mountPath: {{ .Values.geth.dataDir }}
+            {{- if .Values.geth.passwordFile.enabled }}
+            - name: password-file
+              mountPath: /etc/geth
+              readOnly: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: geth-data
+          persistentVolumeClaim:
+            claimName: {{ include "geth-l1.fullname" . }}
+        {{- else }}
+        - name: geth-data
+          emptyDir: {}
+        {{- end }}
+        {{- if .Values.geth.passwordFile.enabled }}
+        - name: password-file
+          secret:
+            secretName: {{ include "geth-l1.fullname" . }}-password
+        {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "geth-l1.fullname" . }}
+  labels:
+    {{- include "geth-l1.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.http.port }}
+      targetPort: {{ .Values.service.http.targetPort }}
+      protocol: TCP
+      name: http
+    - port: {{ .Values.service.ws.port }}
+      targetPort: {{ .Values.service.ws.targetPort }}
+      protocol: TCP
+      name: ws
+  selector:
+    {{- include "geth-l1.selectorLabels" . | nindent 4 }}

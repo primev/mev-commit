@@ -1,0 +1,160 @@
+# Default values for snode-geth chart
+nameOverride: ""
+fullnameOverride: ""
+
+genesisUrl: "https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/refs/heads/main/snode/genesis/genesis.json"
+
+nodeMode: "archive"  # Options: "full" or "archive"
+
+# Common labels and annotations
+commonLabels:
+  component: leader-node
+commonAnnotations: {}
+
+# Service configuration
+service:
+  selector:
+    component: leader-node
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8545
+      targetPort: 8545
+    - name: ws
+      port: 8546
+      targetPort: 8546
+    - name: p2p
+      port: 30303
+      targetPort: 30303
+    - name: engine
+      port: 8551
+      targetPort: 8551
+    - name: snode-api
+      port: 9090
+      targetPort: 9090
+    - name: health
+      port: 8080
+      targetPort: 8080
+
+# Storage configuration
+storage:
+  geth:
+    size: 100Gi
+    storageClassName: "premium-rwo"
+  snode:
+    size: 20Gi
+    storageClassName: "premium-rwo"
+  shared:
+    size: 1Gi
+    storageClassName: "premium-rwo"
+
+# Geth container configuration
+geth:
+  image: harshsingh07/mev-commit-geth:amd64-latest
+  imagePullPolicy: IfNotPresent
+  verbosity: 3
+  nodiscover: true
+  datadir: /data/geth
+  
+  http:
+    enabled: true
+    port: 8545
+    addr: 0.0.0.0
+    corsdomain: "*"
+    vhosts: "*"
+    api: "admin,eth,net,web3,engine"
+  
+
+  ws:
+    enabled: true
+    port: 8546
+    addr: 0.0.0.0
+    origins: "*"
+    api: "admin,eth,net,web3"
+  
+  p2p:
+    port: 30303
+  
+  authrpc:
+    jwtsecret: /shared/jwt.hex
+    vhosts: "*"
+    port: 8551
+    addr: 0.0.0.0
+  
+  networkid: 141414
+  syncmode: full # Options: "full" or "snap" (use full for archive mode)
+  
+  miner:
+    recommit: 900ms
+  
+  extraArgs:
+    - --metrics
+    - --metrics.addr=0.0.0.0
+    - --metrics.port=6060
+
+# Snode container configuration
+snode:
+  image: harshsingh07/snode-consensus:amd64-v1
+  imagePullPolicy: Always
+  mode: leader  # Can be 'leader' or 'member'
+  instanceId: snode1
+  ethClientUrl: http://localhost:8551
+  priorityFeeRecipient: "0x0000000000000000000000000000000000000000" 
+  evmBuildDelay: 100ms
+  evmBuildDelayEmptyBlock: 2s
+  logLevel: info
+  healthAddr: ":8080"
+  
+  # Leader specific settings
+  apiAddr: ":9090"
+  
+  # External Postgres connection
+  postgresUrl: "postgres://mevcommit:password123@postgres-service.postgres.svc.cluster.local:5432/mevcommit?sslmode=disable"
+  
+  # Member specific settings (only used when mode is 'member')
+  leaderApiUrl: "http://leader-service:9090"
+  pollInterval: "30s"
+  
+  extraArgs: []
+
+secrets:
+  jwtSecret: "6b7dc2b2aa846df3f5e5872878625e8f562c496557fd04f7df9e7848e78a5a18"
+
+# Resources
+resources:
+  geth:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  snode:
+    requests:
+      cpu: 300m
+      memory: 512Mi
+    limits:
+      cpu: 600m
+      memory: 1Gi
+  initContainers:
+    createJwt:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    downloadGenesis:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+    initGeth:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 400m
+        memory: 1Gi

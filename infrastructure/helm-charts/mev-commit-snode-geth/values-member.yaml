@@ -1,0 +1,150 @@
+# Default values for snode-geth chart - MEMBER NODE
+
+nameOverride: "member1"
+fullnameOverride: "mev-commit-snode-geth-full-member"
+
+genesisUrl: "https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/refs/heads/main/snode/genesis/genesis.json"
+
+nodeMode: "archive"  # Options: "full" or "archive"
+
+# Common labels and annotations
+commonLabels: {}
+commonAnnotations: {}
+
+# Service configuration - NO snode-api port for members
+service:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8545
+      targetPort: 8545
+    - name: ws
+      port: 8546
+      targetPort: 8546
+    - name: p2p
+      port: 30304
+      targetPort: 30304
+    - name: engine
+      port: 8551
+      targetPort: 8551
+    - name: health
+      port: 8080
+      targetPort: 8080
+
+# Storage configuration
+storage:
+  geth:
+    size: 100Gi
+    storageClassName: "standard"
+  snode:
+    size: 20Gi
+    storageClassName: "standard"
+  shared:
+    size: 5Gi
+    storageClassName: "standard"
+
+# Geth container configuration
+geth:
+  image: harshsingh07/mev-commit-geth:arm-latest
+  imagePullPolicy: IfNotPresent
+  verbosity: 3
+  nodiscover: true
+  datadir: /data/geth
+  
+  http:
+    enabled: true
+    port: 8545
+    addr: 0.0.0.0
+    corsdomain: "*"
+    vhosts: "*"
+    api: "admin,eth,net,web3,engine"
+  
+  # WebSocket configuration
+  ws:
+    enabled: true
+    port: 8546
+    addr: 0.0.0.0
+    origins: "*"
+    api: "admin,eth,net,web3"
+  
+  p2p:
+    port: 30304
+  
+  authrpc:
+    jwtsecret: /shared/jwt.hex
+    vhosts: "*"
+    port: 8551
+    addr: 0.0.0.0
+  
+  networkid: 141414
+  syncmode: full
+  
+  miner:
+    recommit: 900ms
+  
+  extraArgs:
+    - --metrics
+    - --metrics.addr=0.0.0.0
+    - --metrics.port=6060
+
+# Snode container configuration - MEMBER MODE
+snode:
+  image: harshsingh07/snode-consensus:arm64-latest
+  imagePullPolicy: Always
+  mode: member  # MEMBER MODE
+  instanceId: member1
+  ethClientUrl: http://localhost:8551
+  priorityFeeRecipient: "0x0000000000000000000000000000000000000000"
+  evmBuildDelay: 100ms
+  evmBuildDelayEmptyBlock: 2s
+  logLevel: info
+  healthAddr: ":8080"
+  
+  # Member specific settings
+  leaderApiUrl: "http://mev-commit-snode-geth-full-leader.default.svc.cluster.local:9090"
+  pollInterval: "1s"
+  
+  # NO apiAddr and NO postgresUrl for members
+  extraArgs: []
+
+secrets:
+  jwtSecret: "6b7dc2b2aa846df3f5e5872878625e8f562c496557fd04f7df9e7848e78a5a18"
+
+# Resources
+resources:
+  geth:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  snode:
+    requests:
+      cpu: 300m
+      memory: 512Mi
+    limits:
+      cpu: 600m
+      memory: 1Gi
+  initContainers:
+    createJwt:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    downloadGenesis:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+    initGeth:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 400m
+        memory: 1Gi

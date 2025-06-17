@@ -1,0 +1,59 @@
+# Override values specific to bidder deployment
+
+node:
+  type: "bidder"
+  replicas: 1
+
+  ports:
+    http: 13723
+    p2p: 13722
+    rpc: 13724
+
+  service:
+    type: ClusterIP
+    annotations: {}
+
+  defaultKeystorePassword: "harsh"
+  defaultP2PSecret: ""
+
+  bootnodeConnectionString: "/ip4/34.23.19.82/tcp/13522/p2p/16Uiu2HAky8GQp2Lt6F9wJuVNn9ErzzbT2uww8UTkbY96jy7eum6H"
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2048Mi
+    requests:
+      cpu: 500m
+      memory: 1024Mi
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+
+  podSecurityContext:
+    fsGroup: 0
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podAnnotations: {}
+  imagePullSecrets: []
+
+# Bidder-specific configuration
+bidder:
+  bidTimeout: "30s"
+
+  autodeposit:
+    enabled: false
+    amount: ""  # leave empty or set to a value like "0.01"
+
+  providerWhitelist: ""  # comma-separated addresses, e.g. "0xabc...,0xdef..."
+
+keystore:
+  path: "/keystore"
+  downloadUrl: "https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/refs/heads/main/keystores/keystore13/UTC--2025-06-11T17-06-13.719833000Z--b7efe6d096adf1e5d763d7f2b7a7c20e74145de1"
+  retries: 3

@@ -1,0 +1,217 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "snode-geth.fullname" . }}
+  labels:
+    {{- include "snode-geth.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  serviceName: {{ include "snode-geth.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "snode-geth.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "snode-geth.labels" . | nindent 8 }}
+      {{- with .Values.commonAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: scripts-volume
+          configMap:
+            name: {{ include "snode-geth.fullname" . }}-scripts
+            defaultMode: 0755
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: shared-volume
+
+      initContainers:
+        - name: create-jwt
+          image: busybox:latest
+          command: ["/bin/sh", "-c"]
+          args: ["/scripts/create-jwt.sh"]
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /shared
+            - name: scripts-volume
+              mountPath: /scripts
+          resources:
+            {{- toYaml .Values.resources.initContainers.createJwt | nindent 12 }}
+
+        - name: download-genesis
+          image: ethereum/client-go:alltools-latest
+          command: ["/bin/sh", "-c"]
+          args: ["/scripts/download-genesis.sh"]
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /shared
+            - name: scripts-volume
+              mountPath: /scripts
+          resources:
+            {{- toYaml .Values.resources.initContainers.downloadGenesis | nindent 12 }}
+
+        - name: init-geth
+          image: ethereum/client-go:alltools-latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              {{- if eq .Values.nodeMode "archive" }}
+              echo "[init-geth] Archive mode detected"
+              /scripts/init-geth.sh --state.scheme=hash
+              {{- else }}
+              echo "[init-geth] Full mode detected"
+              /scripts/init-geth.sh
+              {{- end }}
+          volumeMounts:
+            - name: geth-volume
+              mountPath: /data/geth
+            - name: shared-volume
+              mountPath: /shared
+            - name: scripts-volume
+              mountPath: /scripts
+          resources:
+            {{- toYaml .Values.resources.initContainers.initGeth | nindent 12 }}
+
+      containers:
+        - name: geth
+          image: {{ .Values.geth.image }}
+          imagePullPolicy: {{ .Values.geth.imagePullPolicy }}
+          command: ["geth"]
+          args:
+            {{- with .Values.geth }}
+            - --verbosity={{ .verbosity }}
+            {{- if .nodiscover }}
+            - --nodiscover
+            {{- end }}
+            - --datadir={{ .datadir }}
+            {{- if .http.enabled }}
+            - --http
+            - --http.port={{ .http.port }}
+            - --http.addr={{ .http.addr }}
+            - --http.corsdomain={{ .http.corsdomain }}
+            - --http.vhosts={{ .http.vhosts }}
+            - --http.api={{ .http.api }}
+            {{- end }}
+            {{- if .ws.enabled }}
+            - --ws
+            - --ws.port={{ .ws.port }}
+            - --ws.addr={{ .ws.addr }}
+            - --ws.origins={{ .ws.origins }}
+            - --ws.api={{ .ws.api }}
+            {{- end }}
+            - --port={{ .p2p.port }}
+            - --authrpc.jwtsecret=/shared/jwt
+            - --authrpc.vhosts={{ .authrpc.vhosts }}
+            - --authrpc.port={{ .authrpc.port }}
+            - --authrpc.addr={{ .authrpc.addr }}
+            - --networkid={{ .networkid }}
+            - --syncmode={{ .syncmode }}
+            - --miner.recommit={{ .miner.recommit }}
+            {{- if eq $.Values.nodeMode "archive" }}
+            - --gcmode=archive
+            {{- end }}
+            {{- range .extraArgs }}
+            - {{ . }}
+            {{- end }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.geth.http.port }}
+            {{- if .Values.geth.ws.enabled }}
+            - name: ws
+              containerPort: {{ .Values.geth.ws.port }}
+            {{- end }}
+            - name: p2p
+              containerPort: {{ .Values.geth.p2p.port }}
+            - name: authrpc
+              containerPort: {{ .Values.geth.authrpc.port }}
+            - name: metrics
+              containerPort: 6060
+          resources:
+            {{- toYaml .Values.resources.geth | nindent 12 }}
+          volumeMounts:
+            - name: geth-volume
+              mountPath: /data/geth
+            - name: shared-volume
+              mountPath: /shared
+
+        - name: snode
+          image: {{ .Values.snode.image }}
+          imagePullPolicy: {{ .Values.snode.imagePullPolicy }}
+          command: ["./snode"]
+          args:
+            {{- with .Values.snode }}
+            {{- if eq .mode "leader" }}
+            - "leader"
+            - --instance-id={{ .instanceId }}
+            - --eth-client-url={{ .ethClientUrl }}
+            - --jwt-secret={{ $.Values.secrets.jwtSecret }}
+            - --priority-fee-recipient={{ .priorityFeeRecipient }}
+            - --evm-build-delay={{ .evmBuildDelay }}
+            - --evm-build-delay-empty-block={{ .evmBuildDelayEmptyBlock }}
+            - --api-addr={{ .apiAddr }}
+            - --health-addr={{ .healthAddr }}
+            - --postgres-dsn={{ .postgresUrl }}
+            - --log-level={{ .logLevel }}
+            {{- else if eq .mode "member" }}
+            - "member"
+            - --instance-id={{ .instanceId }}
+            - --eth-client-url={{ .ethClientUrl }}
+            - --jwt-secret={{ $.Values.secrets.jwtSecret }}
+            - --leader-api-url={{ .leaderApiUrl }}
+            - --poll-interval={{ .pollInterval }}
+            - --health-addr={{ .healthAddr }}
+            - --log-level={{ .logLevel }}
+            {{- end }}
+            {{- range .extraArgs }}
+            - {{ . }}
+            {{- end }}
+            {{- end }}
+          ports:
+            {{- if eq .Values.snode.mode "leader" }}
+            - name: api
+              containerPort: 9090
+            {{- end }}
+            - name: health
+              containerPort: 8080
+          resources:
+            {{- toYaml .Values.resources.snode | nindent 12 }}
+          volumeMounts:
+            - name: snode-volume
+              mountPath: /data/snode
+            - name: shared-volume
+              mountPath: /shared
+
+  volumeClaimTemplates:
+    - metadata:
+        name: geth-volume
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.storage.geth.size }}
+        storageClassName: {{ .Values.storage.geth.storageClassName }}
+    - metadata:
+        name: snode-volume
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.storage.snode.size }}
+        storageClassName: {{ .Values.storage.snode.storageClassName }}
+    - metadata:
+        name: shared-volume
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.storage.shared.size }}
+        storageClassName: {{ .Values.storage.shared.storageClassName }}

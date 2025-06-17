@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mev-commit-mock-l1
+description: A Helm chart for deploying mev-commit-geth-l1 service
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

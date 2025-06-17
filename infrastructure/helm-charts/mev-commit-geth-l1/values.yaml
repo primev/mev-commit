@@ -1,0 +1,71 @@
+# values.yaml
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: "mev-commit-mock-l1"
+
+image:
+  repository: ethereum/client-go
+  tag: "v1.15.11"
+  pullPolicy: IfNotPresent
+
+# Geth configuration
+geth:
+  dataDir: "/data/geth"
+  networkId: 1337
+  dev:
+    enabled: true
+    period: 5  # Block time in seconds
+  ports:
+    http: 8545
+    ws: 8546
+    p2p: 30303
+  rpc:
+    apis: "eth,net,web3,debug,admin,personal,txpool"
+    cors: "*"
+    vhosts: "*"
+    wsOrigins: "*"
+  logging:
+    verbosity: 3
+  allowInsecureUnlock: true
+  # Extra arguments to pass to geth command
+  extraArgs: []
+    # - "--mine"
+    # - "--miner.threads=1"
+    # - "--gcmode=archive"
+  passwordFile:
+    enabled: true
+    password: "password" 
+# Storage
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# Service configuration
+service:
+  type: ClusterIP
+  http:
+    port: 8545
+    targetPort: 8545
+  ws:
+    port: 8546
+    targetPort: 8546
+
+# Resource limits
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod annotations
+podAnnotations: {}

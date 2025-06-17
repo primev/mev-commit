@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mev-oracle.fullname" . }}-init
+  labels:
+    app.kubernetes.io/name: {{ include "mev-oracle.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: init
+    {{- include "mev-oracle.labels" . | nindent 4 }}
+data:
+  keystore-init.sh: |-
+    {{- .Files.Get "scripts/keystore-init.sh" | nindent 4 }}

@@ -1,0 +1,103 @@
+# Default values for l1-transactor
+
+nameOverride: ""
+fullnameOverride: ""
+namespace: "default"
+
+# Docker image configuration
+image:
+  repository: harshsingh07/flood
+  tag: l1transactor-amd
+  pullPolicy: IfNotPresent
+
+# Application version
+version: "1.0.0"
+
+# L1 RPC endpoint
+l1RpcUrl: "http://mock-l1.default.svc.cluster.local:8545"
+
+# Job configuration
+job:
+  name: "l1-transactor"
+  replicas: 1
+  env:
+    logFormat: "json"      # text or json
+    logLevel: "info"       # debug, info, warn, error
+    logTags: ""           # comma-separated list of name:value pairs
+
+# Default values for l1-transactor
+
+nameOverride: ""
+fullnameOverride: ""
+namespace: "default"
+
+# Docker image configuration
+image:
+  repository: harshsingh07/flood
+  tag: l1transactor-amd
+  pullPolicy: IfNotPresent
+
+# Application version
+version: "1.0.0"
+
+# L1 RPC endpoint
+l1RpcUrl: "http://mev-commit-mock-l1.default.svc.cluster.local:8545"
+
+# Keystore configuration
+keystoreUrl: "https://raw.githubusercontent.com/harshsingh1002/eth-poa-test/50763323b795fbed7658656d76048977dcfee3c5/keystores/keystore11/UTC--2025-06-11T17-06-12.323203000Z--2df229852740358a31cf86b224ea6f4a901c664f"  # URL to download L1 transactor keystore (e.g., "https://example.com/UTC--2023-01-01T00-00-00.000000000Z--abcdef1234567890")
+keystorePassword: "harsh"  # Password for the keystore
+
+# External Secret Operator configuration
+global:
+  externalSecrets:
+    enabled: false
+    secretStore: "aws-secretsmanager"
+    secretStoreKind: "ClusterSecretStore"
+
+# Existing secret (if you want to provide your own)
+existingSecret: ""
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+  # nodePort: 30001  # Only used if type is NodePort
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Liveness probe configuration
+livenessProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe configuration
+readinessProbe:
+  enabled: false
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Pod annotations
+podAnnotations: {}
+
+# Node selection
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
