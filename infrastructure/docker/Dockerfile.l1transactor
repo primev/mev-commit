@@ -1,25 +1,7 @@
-FROM golang:1.23.0-alpine AS builder
-
-WORKDIR /app
-
-COPY tools/go.mod tools/go.sum /app/tools/
-COPY p2p/go.mod p2p/go.sum /app/p2p/
-COPY x/go.mod x/go.sum /app/x/
-COPY contracts-abi/go.mod contracts-abi/go.sum /app/contracts-abi/
-COPY bridge/standard/go.mod bridge/standard/go.sum /app/bridge/standard/
-
-RUN cd /app/tools && go mod download
-RUN cd /app/x && go mod download
-RUN cd /app/contracts-abi && go mod download
-RUN cd /app/p2p && go mod download
-RUN cd /app/bridge/standard && go mod download
-
-COPY . .
-
-RUN go build -o /app/l1-transactor ./tools/l1-transaction-emulator
-
+ARG MEV_COMMIT_BUILDER_VERSION=latest
+FROM mev-commit-builder:{$MEV_COMMIT_BUILDER_VERSION} AS builder
 FROM alpine:3.10
 
-COPY --from=builder /app/l1-transactor /usr/local/bin/l1-transactor
+COPY --from=builder /go/bin/l1-transaction-emulator /usr/local/bin/l1-transactor
 
 ENTRYPOINT ["l1-transactor"]

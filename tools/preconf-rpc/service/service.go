@@ -16,6 +16,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
@@ -151,12 +152,17 @@ func New(config *Config) (*Service, error) {
 		return nil, fmt.Errorf("failed to create store: %w", err)
 	}
 
+	blockTracker := blocktracker.NewBlockTracker(
+		l1RPCClient,
+		config.Logger.With("module", "blocktracker"),
+	)
+
 	handlers := handlers.NewRPCMethodHandler(
 		config.Logger.With("module", "handlers"),
 		bidderClient,
 		rpcstore,
 		bidpricer,
-		&dummyBlockTracker{},
+		blockTracker,
 		config.Signer.GetAddress(),
 	)
 
@@ -198,20 +204,4 @@ func (c channelCloser) Close() error {
 		return errors.New("timed out waiting for channel to close")
 	}
 	return nil
-}
-
-type dummyBlockTracker struct{}
-
-func (d *dummyBlockTracker) CheckTxnInclusion(
-	ctx context.Context,
-	txHash common.Hash,
-	blockNumber uint64,
-) (bool, error) {
-	// Dummy implementation, always returns true
-	return true, nil
-}
-
-func (d *dummyBlockTracker) LatestBlockNumber() uint64 {
-	// Dummy implementation, always returns 0
-	return 0
 }
