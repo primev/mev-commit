@@ -2,6 +2,6 @@ ARG MEV_COMMIT_BUILDER_VERSION=latest
 FROM mev-commit-builder:{$MEV_COMMIT_BUILDER_VERSION} AS builder
 FROM alpine:3.10
 
-COPY --from=builder /go/bin/relayer /usr/local/bin/mev-commit-bridge
+COPY --from=builder /go/bin/preconf-rpc /usr/local/bin/preconf-rpc
 
-ENTRYPOINT ["mev-commit-bridge"]
+ENTRYPOINT ["preconf-rpc"]
