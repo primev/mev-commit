@@ -45,6 +45,10 @@ contract DeployForMockL1 is Script {
         console.log("VanillaRegistry deployed at:", vanillaRegistryProxy);
         VanillaRegistry vanillaRegistry = VanillaRegistry(payable(vanillaRegistryProxy));
 
+        address[] memory stakers = new address[](1);
+        stakers[0] = owner;
+        vanillaRegistry.whitelistStakers(stakers);
+
         console.log("Deploying mock AVS and Middleware contracts...");
         AlwaysFalseAVS mockAVS = new AlwaysFalseAVS();
         AlwaysFalseMiddleware mockMiddleware = new AlwaysFalseMiddleware();
