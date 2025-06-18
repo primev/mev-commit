@@ -127,8 +127,6 @@ job "{{ job.name }}" {
         data = <<-EOH
           #!/usr/bin/env bash
 
-          set -x
-
           {%- raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
@@ -224,8 +222,6 @@ job "{{ job.name }}" {
           | jq -c 'with_entries(select(.key | startswith("_") | not))' \
           > local/${DEPLOY_TYPE}_addresses.json
 
-          forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
-
           {% if profile == 'testnet' %}
           export RPC_URL="{{ job.env['l1_rpc_url'] }}"
           export CHAIN_ID="17000"
@@ -243,6 +239,43 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {% endraw %}
+
+          # Only deploy validator-registry when beacon-emulator is running
+          {%- raw %}
+          BEACON_EMULATOR_RUNNING=false
+          {{- range nomadService "beacon-emulator" }}
+          BEACON_EMULATOR_RUNNING=true
+          {{- end }}
+          {% endraw %}
+
+          if [ "$BEACON_EMULATOR_RUNNING" = true ]; then
+
+            forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
+
+            start_time=$(date +%s)
+            export DEPLOY_TYPE="validator-registry"
+            echo "Deploying ${DEPLOY_TYPE} contracts..."
+            LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
+
+            if [ $? -ne 0 ]; then
+              echo "Failed to deploy ${DEPLOY_TYPE} contracts!"
+              echo "${LOGS}"
+              exit 1
+            fi
+            end_time=$(date +%s)
+            echo "${DEPLOY_TYPE} contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
+            echo "${LOGS}" \
+            | sed -n '/{.*}/p' \
+            | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
+            | jq -c 'with_entries(select(.key | startswith("_") | not))' \
+            > local/${DEPLOY_TYPE}_addresses.json
+          else
+            echo "Skipping validator-registry deployment as beacon-emulator is not running"
+          fi
+
+          {%- endif %}
+
+          forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
 
           start_time=$(date +%s)
           export DEPLOY_TYPE="l1-gateway"
@@ -279,51 +312,10 @@ job "{{ job.name }}" {
           | jq -c 'with_entries(select(.key | startswith("_") | not))' \
           > local/${DEPLOY_TYPE}_addresses.json
 
-          # Only deploy validator-registry when beacon-emulator is running
-          {%- raw %}
-          BEACON_EMULATOR_RUNNING=false
-          {{- range nomadService "beacon-emulator" }}
-            BEACON_EMULATOR_RUNNING=true
-          {{- end }}
-          {% endraw %}
-          
-          if [ "$BEACON_EMULATOR_RUNNING" = true ]; then
-          
-            cd "${TMP_CONTRACTS_DIR}"
-            "${FORGE_BIN_PATH}" clean --root "${CONTRACT_REPO_ROOT_PATH}"
-
-            start_time=$(date +%s)
-            export DEPLOY_TYPE="validator-registry"
-            echo "Deploying ${DEPLOY_TYPE} contracts..."
-            LOGS="$(./entrypoint.sh)"
-
-            # Now cd back to previous directory again.
-            cd ../../
-
-            if [ $? -ne 0 ]; then
-              echo "Failed to deploy ${DEPLOY_TYPE} contracts!"
-              echo "${LOGS}"
-              exit 1
-            fi
-            end_time=$(date +%s)
-            echo "${DEPLOY_TYPE} contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
-            echo "${LOGS}" \
-            | sed -n '/{.*}/p' \
-            | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
-            | jq -c 'with_entries(select(.key | startswith("_") | not))' \
-            > local/${DEPLOY_TYPE}_addresses.json
-          
-          else
-            echo "Skipping validator-registry deployment as beacon-emulator is not running"
-          fi
-
-          {%- endif %}
-
           mkdir -p /local/data/www > /dev/null 2>&1
           jq -s 'add' local/*_addresses.json > local/data/www/contracts.json
 
           exec python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/data/www
-          # endtodo
         EOH
         destination = "local/run.sh"
         change_mode = "noop"
