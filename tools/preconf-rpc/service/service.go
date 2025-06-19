@@ -156,6 +156,8 @@ func New(config *Config) (*Service, error) {
 		l1RPCClient,
 		config.Logger.With("module", "blocktracker"),
 	)
+	blockTrackerDone := blockTracker.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
 
 	handlers := handlers.NewRPCMethodHandler(
 		config.Logger.With("module", "handlers"),
