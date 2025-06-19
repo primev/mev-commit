@@ -126,14 +126,14 @@ var (
 		Name:    "evm-build-delay",
 		Usage:   "Delay after initiating payload construction before calling getPayload (e.g., '200ms')",
 		EnvVars: []string{"LEADER_EVM_BUILD_DELAY"},
-		Value:   100 * time.Millisecond,
+		Value:   1 * time.Millisecond,
 	})
 
 	evmBuildDelayEmptyBlockFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
 		Name:    "evm-build-delay-empty-block",
 		Usage:   "Minimum time since last block to build an empty block (0 to disable skipping, e.g., '2s')",
 		EnvVars: []string{"LEADER_EVM_BUILD_DELAY_EMPTY_BLOCK"},
-		Value:   2 * time.Second,
+		Value:   50 * time.Millisecond,
 	})
 
 	priorityFeeReceiptFlag = altsrc.NewStringFlag(&cli.StringFlag{

@@ -342,7 +342,6 @@ func (app *SingleNodeApp) produceBlock() error {
 	if err := app.blockBuilder.FinalizeBlock(app.appCtx, currentState.PayloadID, currentState.ExecutionPayload, ""); err != nil {
 		return fmt.Errorf("failed to finalize block: %w", err)
 	}
-
 	return nil
 }
 
