@@ -3,7 +3,7 @@
 // solhint-disable no-console
 // solhint-disable one-contract-per-file
 
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 import {Script} from "forge-std/Script.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";

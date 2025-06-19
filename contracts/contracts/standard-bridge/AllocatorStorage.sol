@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 contract AllocatorStorage {
     /// @dev Mapping of whitelisted addresses which can mint native ETH on the mev-commit chain.

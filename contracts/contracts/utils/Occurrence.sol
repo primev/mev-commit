@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSL 1.1
 
 // solhint-disable one-contract-per-file
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 library BlockHeightOccurrence {
     struct Occurrence {
