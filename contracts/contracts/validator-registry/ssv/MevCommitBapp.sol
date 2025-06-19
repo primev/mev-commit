@@ -40,19 +40,12 @@ contract MevCommitBapp is MevCommitBappStorage, OwnableBasedApp {
         delete isWhitelisted[account];
     }
 
-    function pause() external onlyOwner {
-        _pause();
-    }
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
     function optInToBApp(
         uint32, /*strategyId*/
         address[] calldata, /*tokens*/
         uint32[] calldata, /*obligationPercentages*/
         bytes calldata /*data*/
-    ) external override onlySSVBasedAppManager whenNotPaused returns (bool success) {
+    ) external override onlySSVBasedAppManager returns (bool success) {
         if (!isWhitelisted[msg.sender]) revert NonWhitelistedCaller();
         isOptedIn[msg.sender] = true;
         // Before slashing is enabled, strategies are irrelevant to mev-commit.
@@ -60,7 +53,7 @@ contract MevCommitBapp is MevCommitBappStorage, OwnableBasedApp {
     }
 
     /// After opting-in, EOAs must register L1 validator pubkeys that attest to the rules of mev-commit.
-    function registerValidatorPubkeys(bytes[] calldata pubkeys) external whenNotPaused {
+    function registerValidatorPubkeys(bytes[] calldata pubkeys) external {
         if (!isWhitelisted[msg.sender]) revert NonWhitelistedCaller();
         if (!isOptedIn[msg.sender]) revert NotOptedInCaller();
         for (uint256 i = 0; i < pubkeys.length; i++) {
@@ -82,7 +75,7 @@ contract MevCommitBapp is MevCommitBappStorage, OwnableBasedApp {
         }
     }
 
-    function requestDeregistrations(bytes[] calldata pubkeys) external whenNotPaused {
+    function requestDeregistrations(bytes[] calldata pubkeys) external {
         if (!isWhitelisted[msg.sender]) revert NonWhitelistedCaller();
         if (!isOptedIn[msg.sender]) revert NotOptedInCaller();
         for (uint256 i = 0; i < pubkeys.length; i++) {
@@ -94,7 +87,7 @@ contract MevCommitBapp is MevCommitBappStorage, OwnableBasedApp {
         }
     }
 
-    function deregisterValidators(bytes[] calldata pubkeys) external whenNotPaused {
+    function deregisterValidators(bytes[] calldata pubkeys) external {
         if (!isWhitelisted[msg.sender]) revert NonWhitelistedCaller();
         if (!isOptedIn[msg.sender]) revert NotOptedInCaller();
         for (uint256 i = 0; i < pubkeys.length; i++) {
@@ -113,7 +106,7 @@ contract MevCommitBapp is MevCommitBappStorage, OwnableBasedApp {
         }
     }
 
-    function unfreeze(bytes[] calldata valPubKeys) external payable whenNotPaused() {
+    function unfreeze(bytes[] calldata valPubKeys) external payable {
         uint256 requiredFee = unfreezeFee * valPubKeys.length;
         require(msg.value >= requiredFee, UnfreezeFeeRequired(requiredFee));
         uint256 len = valPubKeys.length;
@@ -144,6 +137,4 @@ contract MevCommitBapp is MevCommitBappStorage, OwnableBasedApp {
         if (record.deregRequestOccurrence.exists) return false;
         return true;
     }
-
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 } 
