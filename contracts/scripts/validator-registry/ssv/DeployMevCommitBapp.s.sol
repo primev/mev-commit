@@ -2,7 +2,8 @@
 pragma solidity 0.8.29;
 
 // solhint-disable no-console
-
+import {Script} from "forge-std/Script.sol";
+import {MevCommitBapp} from "../../../contracts/validator-registry/ssv/MevCommitBapp.sol";
 
 contract DeployMevCommitBapp is Script {
 
@@ -12,7 +13,7 @@ contract DeployMevCommitBapp is Script {
         require(block.chainid == 560048, "must deploy on hoodi");
         vm.startBroadcast();
 
-        MevCommitBapp mevCommitBapp = new MevCommitBapp(SSV_NETWORK, OWNER);
+        MevCommitBapp mevCommitBapp = new MevCommitBapp(SSV_NETWORK, msg.sender);
 
         vm.stopBroadcast();
     }
