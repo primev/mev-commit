@@ -2,12 +2,10 @@
 pragma solidity 0.8.28;
 
 import {MevCommitBappStorage} from "./MevCommitBappStorage.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {OwnableUpgradeableBasedApp} from "ssv/src/middleware/modules/roles/OwnableUpgradeableBasedApp.sol";
 import {TimestampOccurrence} from "../../utils/Occurrence.sol";
+import {OwnableBasedApp} from "@ssv/src/middleware/modules/core+roles/OwnableBasedApp.sol";
 
-contract MevCommitBapp is MevCommitBappStorage, UUPSUpgradeable, PausableUpgradeable, OwnableUpgradeableBasedApp {
+contract MevCommitBapp is MevCommitBappStorage, OwnableBasedApp {
 
     event ValidatorRegistered(bytes indexed pubkey, address indexed registrar);
     event ValidatorDeregistrationRequested(bytes indexed pubkey, address indexed deregistrar);
@@ -29,17 +27,7 @@ contract MevCommitBapp is MevCommitBappStorage, UUPSUpgradeable, PausableUpgrade
     error RefundFailed();
     error UnfreezeFeeRequired(uint256 requiredFee);
 
-    // TODO: Need to address constructor pattern mismatch
-    constructor(address _basedAppManager, address owner) OwnableUpgradeableBasedApp(_basedAppManager, owner) {
-        _disableInitializers();
-    }
-    function initialize(uint256 _unfreezePeriod, uint256 _unfreezeFee, address _unfreezeReceiver) public initializer {
-        unfreezePeriod = _unfreezePeriod;
-        unfreezeFee = _unfreezeFee;
-        unfreezeReceiver = _unfreezeReceiver;
-        __UUPSUpgradeable_init();
-        __Pausable_init();
-    }
+    constructor(address _basedAppManager, address owner) OwnableBasedApp(_basedAppManager, owner) {}
 
     function addWhitelisted(address account) external onlyOwner {
         if (isWhitelisted[account]) revert AlreadyWhitelisted();
