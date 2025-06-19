@@ -101,7 +101,7 @@ job "{{ job.name }}" {
           {{- end }}
           {{- range nomadService "mock-l1" }}
             {{- if contains "http" .Tags }}
-          MEV_COMMIT_L1_RPC_ENDPOINT="http://{{ .Address }}:{{ .Port }}"
+          MEV_COMMIT_L1_RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
           {{- range nomadService "beacon-emulator" }}
