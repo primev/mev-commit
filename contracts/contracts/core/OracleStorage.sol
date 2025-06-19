@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.29;
 
 import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
