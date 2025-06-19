@@ -117,6 +117,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.logger.Info("Processing JSON-RPC request", "method", req.Method, "id", req.ID)
+	defer s.logger.Info("Finished processing JSON-RPC request", "method", req.Method, "id", req.ID)
 
 	s.rwLock.RLock()
 	handler, ok := s.methods[req.Method]
@@ -149,6 +150,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *JSONRPCServer) writeResponse(w http.ResponseWriter, id any, result *json.RawMessage) {
+	s.logger.Info("Writing JSON-RPC response", "id", id, "result", result)
 	response := jsonRPCResponse{
 		JSONRPC: "2.0",
 		ID:      id,
@@ -163,6 +165,7 @@ func (s *JSONRPCServer) writeResponse(w http.ResponseWriter, id any, result *jso
 }
 
 func (s *JSONRPCServer) writeError(w http.ResponseWriter, id any, code int, message string) {
+	s.logger.Error("JSON-RPC error", "id", id, "code", code, "message", message)
 	response := jsonRPCResponse{
 		JSONRPC: "2.0",
 		ID:      id,
