@@ -50,7 +50,6 @@ type BlockBuilder struct {
 	buildDelay            time.Duration
 	buildEmptyBlocksDelay time.Duration
 	buildDelayMs          uint64
-	LastCallTime          time.Time
 	lastBlockTime         time.Time
 	feeRecipient          common.Address
 	executionHead         *types.ExecutionHead
@@ -84,7 +83,7 @@ func NewMemberBlockBuilder(engineCL EngineClient, logger *slog.Logger) *BlockBui
 }
 
 func (bb *BlockBuilder) SetLastCallTimeToZero() {
-	bb.LastCallTime = time.Time{}
+	bb.lastBlockTime = time.Time{}
 }
 
 func (bb *BlockBuilder) startBuild(ctx context.Context, head *types.ExecutionHead, ts uint64) (engine.ForkChoiceResponse, error) {
@@ -142,13 +141,12 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 
 	var ts uint64
 
-	if bb.LastCallTime.IsZero() {
+	if bb.lastBlockTime.IsZero() {
 		// First block, initialize LastCallTime and set default timestamp
 		ts = uint64(time.Now().UnixMilli()) + bb.buildDelayMs
-		bb.LastCallTime = currentCallTime
 	} else {
 		// Compute diff in milliseconds
-		diff := currentCallTime.Sub(bb.LastCallTime)
+		diff := currentCallTime.Sub(bb.lastBlockTime)
 		diffMillis := diff.Milliseconds()
 
 		if uint64(diffMillis) <= bb.buildDelayMs {
@@ -158,8 +156,6 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 			multiples := (uint64(diffMillis) + bb.buildDelayMs - 1) / bb.buildDelayMs // Round up to next multiple of buildDelay
 			ts = prevTimestamp + multiples*bb.buildDelayMs
 		}
-
-		bb.LastCallTime = currentCallTime
 	}
 
 	// Very low chance to happen, only after restart and time.Now is broken
@@ -225,16 +221,16 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		return fmt.Errorf("failed to get payload: %w", err)
 	}
 
-	// hasTransactions := len(payloadResp.ExecutionPayload.Transactions) > 0
+	hasTransactions := len(payloadResp.ExecutionPayload.Transactions) > 0
 	now := time.Now()
-	// timeSinceLastBlock := now.Sub(bb.lastBlockTime)
-	// if !hasTransactions && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
-	// 	bb.logger.Info(
-	// 		"Leader: Skipping empty block",
-	// 		"timeSinceLastBlock", timeSinceLastBlock,
-	// 	)
-	// 	return ErrEmptyBlock
-	// }
+	timeSinceLastBlock := now.Sub(bb.lastBlockTime)
+	if !hasTransactions && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
+		bb.logger.Info(
+			"Leader: Skipping empty block",
+			"timeSinceLastBlock", timeSinceLastBlock,
+		)
+		return ErrEmptyBlock
+	}
 
 	payloadData, err := msgpack.Marshal(payloadResp.ExecutionPayload)
 	if err != nil {
