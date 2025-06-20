@@ -1,22 +1,9 @@
-FROM golang:1.23.0-alpine AS builder
-
-WORKDIR /app
-
-COPY p2p/go.mod p2p/go.sum /app/p2p/
-COPY x/go.mod x/go.sum /app/x/
-COPY contracts-abi/go.mod contracts-abi/go.sum /app/contracts-abi/
-
-RUN cd /app/p2p && go mod download
-RUN cd /app/x && go mod download
-RUN cd /app/contracts-abi && go mod download
-
-COPY . .
-
-RUN go build -o /app/provider-emulator ./p2p/integrationtest/provider
-
+# syntax=docker/dockerfile:1.4
 FROM alpine:3.10
 
-COPY --from=builder /app/provider-emulator /usr/local/bin/provider-emulator
-COPY --from=builder /app/p2p/integrationtest/provider/entrypoint.sh entrypoint.sh
+COPY --from=builder_ctx /go/bin/provider /usr/local/bin/provider-emulator
+COPY --from=builder_ctx /scripts/provider-emulator-entrypoint.sh entrypoint.sh
+
+EXPOSE 8080
 
 ENTRYPOINT ["./entrypoint.sh"]

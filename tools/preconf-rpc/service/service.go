@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
+	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,7 +16,11 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
-	"github.com/primev/mev-commit/tools/instant-bridge/api"
+	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
+	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
+	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
+	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
+	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 	"github.com/primev/mev-commit/x/accountsync"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
@@ -27,6 +33,7 @@ import (
 
 type Config struct {
 	Logger                 *slog.Logger
+	DataDir                string
 	Signer                 keysigner.KeySigner
 	BidderRPC              string
 	AutoDepositAmount      *big.Int
@@ -37,7 +44,6 @@ type Config struct {
 	SettlementThreshold    *big.Int
 	SettlementTopup        *big.Int
 	HTTPPort               int
-	MinServiceFee          *big.Int
 	GasTipCap              *big.Int
 	GasFeeCap              *big.Int
 }
@@ -70,18 +76,14 @@ func New(config *Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	l1ChainID, err := l1RPCClient.RawClient().ChainID(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
 	settlementClient, err := ethclient.Dial(config.SettlementRPCUrl)
 	if err != nil {
 		return nil, err
 	}
-	settlementChainID, err := settlementClient.ChainID(context.Background())
+
+	l1ChainID, err := l1RPCClient.ChainID(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get L1 chain ID: %w", err)
 	}
 
 	bidderCli := bidderapiv1.NewBidderClient(conn)
@@ -143,30 +145,49 @@ func New(config *Config) (*Service, error) {
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
 	s.closers = append(s.closers, channelCloser(bidderDone))
 
-	transferer := transfer.NewTransferer(
-		config.Logger.With("module", "transferer"),
-		settlementClient,
-		config.Signer,
-		config.GasTipCap,
-		config.GasFeeCap,
+	rpcServer := rpcserver.NewJSONRPCServer(
+		config.L1RPCUrls[0],
+		config.Logger.With("module", "rpcserver"),
 	)
 
-	apiService := api.NewAPI(
-		config.Logger.With("module", "api"),
-		config.HTTPPort,
-		healthChecker,
+	bidpricer := &pricer.BidPricer{}
+
+	rpcstore, err := store.New(config.DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store: %w", err)
+	}
+
+	blockTracker := blocktracker.NewBlockTracker(
+		l1RPCClient,
+		config.Logger.With("module", "blocktracker"),
+	)
+	blockTrackerDone := blockTracker.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
+
+	handlers := handlers.NewRPCMethodHandler(
+		config.Logger.With("module", "handlers"),
 		bidderClient,
-		transferer,
-		config.MinServiceFee,
+		rpcstore,
+		bidpricer,
+		blockTracker,
 		config.Signer.GetAddress(),
-		l1RPCClient.RawClient(),
-		settlementClient,
 		l1ChainID,
-		settlementChainID,
 	)
 
-	apiService.Start()
-	s.closers = append(s.closers, apiService)
+	handlers.RegisterMethods(rpcServer)
+
+	srv := http.Server{
+		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
+		Handler: rpcServer,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			config.Logger.Error("failed to start HTTP server", "error", err)
+		}
+	}()
+
+	s.closers = append(s.closers, &srv)
 
 	return s, nil
 }
