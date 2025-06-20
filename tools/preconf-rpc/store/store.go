@@ -142,7 +142,9 @@ func (s *rpcstore) GetPreconfirmedTransactionsForBlock(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create iterator for block %d: %w", blockNumber, err)
 	}
-	defer iter.Close()
+	defer func() {
+		_ = iter.Close()
+	}()
 
 	var transactions []*types.Transaction
 	for iter.First(); iter.Valid(); iter.Next() {

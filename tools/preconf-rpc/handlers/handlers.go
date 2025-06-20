@@ -27,8 +27,7 @@ const (
 )
 
 var (
-	preconfBlockHashPrefix    = hex.EncodeToString([]byte("mev-commit"))
-	preconfBlockHashPrefixLen = len(preconfBlockHashPrefix)
+	preconfBlockHashPrefix = hex.EncodeToString([]byte("mev-commit"))
 )
 
 type Bidder interface {
