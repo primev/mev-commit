@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -123,6 +124,47 @@ func (s *rpcstore) GetPreconfirmedTransaction(
 	}
 
 	return txn, commitments, nil
+}
+
+func (s *rpcstore) GetPreconfirmedTransactionsForBlock(
+	ctx context.Context,
+	blockNumber int64,
+) ([]*types.Transaction, error) {
+	if blockNumber <= 0 {
+		return nil, errors.New("invalid block number")
+	}
+
+	keyPrefix := []byte(fmt.Sprintf("%d:", blockNumber))
+	iter, err := s.db.NewIter(&pebble.IterOptions{
+		LowerBound: keyPrefix,
+		UpperBound: append(keyPrefix, 0xFF),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create iterator for block %d: %w", blockNumber, err)
+	}
+	defer iter.Close()
+
+	var transactions []*types.Transaction
+	for iter.First(); iter.Valid(); iter.Next() {
+		if !bytes.Equal(iter.Key()[:len(keyPrefix)], keyPrefix) {
+			continue
+		}
+		txnData := iter.Value()
+		if len(txnData) < 8 {
+			return nil, fmt.Errorf("invalid transaction data length for block %d", blockNumber)
+		}
+		txnDataLen := binary.BigEndian.Uint64(txnData[:8])
+		if len(txnData) < int(8+txnDataLen) {
+			return nil, fmt.Errorf("invalid transaction data length for block %d", blockNumber)
+		}
+
+		txn := new(types.Transaction)
+		if err := txn.UnmarshalBinary(txnData[8 : 8+txnDataLen]); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
+		}
+		transactions = append(transactions, txn)
+	}
+	return transactions, nil
 }
 
 func (s *rpcstore) DeductBalance(

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +24,11 @@ import (
 
 const (
 	blockTime = 12 // seconds, typical Ethereum block time
+)
+
+var (
+	preconfBlockHashPrefix    = hex.EncodeToString([]byte("mev-commit"))
+	preconfBlockHashPrefixLen = len(preconfBlockHashPrefix)
 )
 
 type Bidder interface {
@@ -53,6 +60,10 @@ type Store interface {
 		ctx context.Context,
 		txnHash common.Hash,
 	) (*types.Transaction, []*bidderapiv1.Commitment, error)
+	GetPreconfirmedTransactionsForBlock(
+		ctx context.Context,
+		blockNumber int64,
+	) ([]*types.Transaction, error)
 	DeductBalance(ctx context.Context, account common.Address, amount *big.Int) error
 	HasBalance(ctx context.Context, account common.Address, amount *big.Int) bool
 	GetBalance(ctx context.Context, account common.Address) (*big.Int, error)
@@ -85,6 +96,7 @@ type rpcMethodHandler struct {
 	pricer       Pricer
 	blockTracker BlockTracker
 	owner        common.Address
+	chainID      *big.Int
 	nonceLock    *multex.Multex[string]
 	nonceMap     map[string]accountNonce
 	nonceMapLock sync.RWMutex
@@ -111,12 +123,145 @@ func NewRPCMethodHandler(
 }
 
 func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
+	// Ethereum JSON-RPC methods overridden
+	server.RegisterHandler("eth_getBlockNumber", h.handleGetBlockNumber)
+	server.RegisterHandler("eth_chainId", h.handleChainID)
 	server.RegisterHandler("eth_sendRawTransaction", h.handleSendRawTx)
 	server.RegisterHandler("eth_getTransactionReceipt", h.handleGetTxReceipt)
 	server.RegisterHandler("eth_getTransactionCount", h.handleGetTxCount)
+	server.RegisterHandler("eth_getBlockByHash", h.handleGetBlockByHash)
+	// Custom methods for MEV Commit
 	server.RegisterHandler("mevcommit_getTransactionCommitments", h.handleGetTxCommitments)
 	server.RegisterHandler("mevcommit_getBalance", h.handleMevCommitGetBalance)
 	server.RegisterHandler("mevcommit_estimateFastBid", h.handleMevCommitEstimateFastBid)
+}
+
+func (h *rpcMethodHandler) handleGetBlockNumber(
+	ctx context.Context,
+	params ...any,
+) (json.RawMessage, bool, error) {
+	if len(params) != 0 {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeInvalidRequest,
+			"getBlockNumber does not require any parameters",
+		)
+	}
+
+	blockNumber := h.blockTracker.LatestBlockNumber()
+	h.logger.Info("Retrieved latest block number", "blockNumber", blockNumber)
+
+	blockNumberJSON, err := json.Marshal(hexutil.Uint64(blockNumber))
+	if err != nil {
+		h.logger.Error("Failed to marshal block number to JSON", "error", err)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to marshal block number",
+		)
+	}
+
+	return blockNumberJSON, false, nil
+}
+
+func (h *rpcMethodHandler) handleChainID(
+	ctx context.Context,
+	params ...any,
+) (json.RawMessage, bool, error) {
+	if len(params) != 0 {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeInvalidRequest,
+			"chainID does not require any parameters",
+		)
+	}
+
+	chainIDJSON, err := json.Marshal(hexutil.Uint64(h.chainID.Uint64()))
+	if err != nil {
+		h.logger.Error("Failed to marshal chain ID to JSON", "error", err)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to marshal chain ID",
+		)
+	}
+
+	return chainIDJSON, false, nil
+}
+
+func (h *rpcMethodHandler) handleGetBlockByHash(
+	ctx context.Context,
+	params ...any,
+) (json.RawMessage, bool, error) {
+	if len(params) != 1 {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeInvalidRequest,
+			"getBlock requires exactly one parameter",
+		)
+	}
+
+	if params[0] == nil {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"getBlock parameter cannot be null",
+		)
+	}
+
+	blockHashStr := params[0].(string)
+	if !strings.HasPrefix(blockHashStr, preconfBlockHashPrefix) {
+		return nil, true, nil // Not a preconf block hash, proxy
+	}
+
+	blockNumberWithPadding := strings.TrimPrefix(blockHashStr, preconfBlockHashPrefix)
+	blockNumber, err := strconv.ParseUint(blockNumberWithPadding[:8], 10, 64)
+	if err != nil {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"getBlock parameter must be a valid preconf block hash",
+		)
+	}
+
+	txns, err := h.store.GetPreconfirmedTransactionsForBlock(ctx, int64(blockNumber))
+	if err != nil {
+		h.logger.Error("Failed to get preconfirmed transactions for block", "error", err, "blockNumber", blockNumber)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to get preconfirmed transactions for block",
+		)
+	}
+
+	block := map[string]interface{}{
+		"number":           hexutil.Uint64(blockNumber),
+		"hash":             blockHashStr,
+		"parentHash":       (common.Hash{}).Hex(),
+		"nonce":            "0x0000000000000000",
+		"sha3Uncles":       (common.Hash{}).Hex(),
+		"logsBloom":        hexutil.Bytes(types.Bloom{}.Bytes()),
+		"transactions":     make([]string, len(txns)),
+		"transactionsRoot": (common.Hash{}).Hex(),
+		"stateRoot":        (common.Hash{}).Hex(),
+		"miner":            h.owner.Hex(),
+		"difficulty":       hexutil.Uint64(0),
+		"totalDifficulty":  hexutil.Uint64(0),
+		"size":             hexutil.Uint64(0),
+		"extraData":        "0x",
+		"gasLimit":         hexutil.Uint64(0),
+		"gasUsed":          hexutil.Uint64(0),
+		"timestamp":        hexutil.Uint64(0),
+		"baseFeePerGas":    hexutil.EncodeBig(big.NewInt(0)),
+		"withdrawals":      nil,
+	}
+
+	for i, txn := range txns {
+		block["transactions"].([]string)[i] = txn.Hash().Hex()
+	}
+	blockJSON, err := json.Marshal(block)
+	if err != nil {
+		h.logger.Error("Failed to marshal block to JSON", "error", err, "blockNumber", blockNumber)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to marshal block",
+		)
+	}
+
+	h.logger.Info("Retrieved preconf block", "blockNumber", blockNumber, "txCount", len(txns))
+	return blockJSON, false, nil
 }
 
 func (h *rpcMethodHandler) handleSendRawTx(
@@ -439,11 +584,15 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		)
 	}
 
+	blockHash := fmt.Sprintf("%s%08d", preconfBlockHashPrefix, commitments[0].BlockNumber)
+	padding := strings.Repeat("0", 66-len(blockHash))
+	blockHash = blockHash + padding
+
 	result := map[string]interface{}{
 		"type":              hexutil.Uint(txn.Type()),
 		"transactionHash":   txn.Hash().Hex(),
 		"transactionIndex":  hexutil.Uint(0),
-		"blockHash":         (common.Hash{}).Hex(),
+		"blockHash":         blockHash,
 		"blockNumber":       hexutil.EncodeBig(big.NewInt(commitments[0].BlockNumber)),
 		"from":              sender.Hex(),
 		"to":                nil,
