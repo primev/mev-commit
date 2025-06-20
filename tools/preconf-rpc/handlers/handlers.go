@@ -109,6 +109,7 @@ func NewRPCMethodHandler(
 	pricer Pricer,
 	blockTracker BlockTracker,
 	owner common.Address,
+	chainId *big.Int,
 ) *rpcMethodHandler {
 	return &rpcMethodHandler{
 		logger:       logger,
@@ -117,6 +118,7 @@ func NewRPCMethodHandler(
 		pricer:       pricer,
 		blockTracker: blockTracker,
 		owner:        owner,
+		chainID:      chainId,
 		nonceLock:    multex.New[string](),
 		nonceMap:     make(map[string]accountNonce),
 	}
