@@ -191,10 +191,10 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 	ctx context.Context,
 	params ...any,
 ) (json.RawMessage, bool, error) {
-	if len(params) != 1 {
+	if len(params) == 0 {
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeInvalidRequest,
-			"getBlock requires exactly one parameter",
+			"getBlockByHash requires one or two parameter",
 		)
 	}
 
@@ -208,6 +208,11 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 	blockHashStr := params[0].(string)
 	if !strings.HasPrefix(blockHashStr, preconfBlockHashPrefix) {
 		return nil, true, nil // Not a preconf block hash, proxy
+	}
+
+	details := false
+	if len(params) > 1 && params[1] != nil {
+		details, _ = params[1].(bool)
 	}
 
 	blockNumberWithPadding := strings.TrimPrefix(blockHashStr, preconfBlockHashPrefix)
@@ -235,7 +240,6 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 		"nonce":            "0x0000000000000000",
 		"sha3Uncles":       (common.Hash{}).Hex(),
 		"logsBloom":        hexutil.Bytes(types.Bloom{}.Bytes()),
-		"transactions":     make([]string, len(txns)),
 		"transactionsRoot": (common.Hash{}).Hex(),
 		"stateRoot":        (common.Hash{}).Hex(),
 		"miner":            h.owner.Hex(),
@@ -250,9 +254,52 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 		"withdrawals":      nil,
 	}
 
+	var txnsToReturn any
 	for i, txn := range txns {
-		block["transactions"].([]string)[i] = txn.Hash().Hex()
+		if !details {
+			if txnsToReturn == nil {
+				txnsToReturn = make([]string, 0, len(txns))
+			}
+			txnsToReturn = append(
+				txnsToReturn.([]string),
+				txn.Hash().Hex(),
+			)
+			continue
+		}
+		if txnsToReturn == nil {
+			txnsToReturn = make([]map[string]interface{}, len(txns))
+		}
+		r, s, v := txn.RawSignatureValues()
+		sender, err := types.Sender(types.LatestSignerForChainID(txn.ChainId()), txn)
+		if err != nil {
+			h.logger.Error("Failed to get transaction sender", "error", err, "txnHash", txn.Hash().Hex())
+			continue
+		}
+		txnsToReturn = append(
+			txnsToReturn.([]map[string]interface{}),
+			map[string]interface{}{
+				"hash":                 txn.Hash().Hex(),
+				"blockHash":            blockHashStr,
+				"blockNumber":          hexutil.Uint64(blockNumber),
+				"transactionIndex":     hexutil.Uint64(i),
+				"type":                 hexutil.Uint(txn.Type()),
+				"accessList":           nil, // Access lists are not used in preconf blocks
+				"maxFeePerGas":         hexutil.EncodeBig(txn.GasFeeCap()),
+				"maxPriorityFeePerGas": hexutil.EncodeBig(txn.GasTipCap()),
+				"to":                   txn.To().Hex(),
+				"value":                hexutil.EncodeBig(txn.Value()),
+				"input":                hexutil.Encode(txn.Data()),
+				"from":                 sender.Hex(),
+				"nonce":                hexutil.Uint64(txn.Nonce()),
+				"gas":                  hexutil.Uint64(txn.Gas()),
+				"gasPrice":             hexutil.EncodeBig(txn.GasPrice()),
+				"r":                    hexutil.EncodeBig(r),
+				"s":                    hexutil.EncodeBig(s),
+				"v":                    hexutil.EncodeBig(v),
+			},
+		)
 	}
+	block["transactions"] = txnsToReturn
 	blockJSON, err := json.Marshal(block)
 	if err != nil {
 		h.logger.Error("Failed to marshal block to JSON", "error", err, "blockNumber", blockNumber)
