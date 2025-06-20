@@ -81,6 +81,11 @@ func New(config *Config) (*Service, error) {
 		return nil, err
 	}
 
+	l1ChainID, err := l1RPCClient.ChainID(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L1 chain ID: %w", err)
+	}
+
 	bidderCli := bidderapiv1.NewBidderClient(conn)
 	topologyCli := debugapiv1.NewDebugServiceClient(conn)
 	notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
@@ -166,6 +171,7 @@ func New(config *Config) (*Service, error) {
 		bidpricer,
 		blockTracker,
 		config.Signer.GetAddress(),
+		l1ChainID,
 	)
 
 	handlers.RegisterMethods(rpcServer)
