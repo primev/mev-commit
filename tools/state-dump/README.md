@@ -58,9 +58,3 @@ python3 world_state.py \
 
 - `--output`  
   Path where the merged genesis file will be written (e.g. `out_genesis.json`).
-
----
-
-## License
-
-This project is released under the MIT License. See [LICENSE](LICENSE) for details.
