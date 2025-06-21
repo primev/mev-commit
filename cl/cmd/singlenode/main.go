@@ -133,7 +133,7 @@ var (
 		Name:    "evm-build-delay-empty-block",
 		Usage:   "Minimum time since last block to build an empty block (0 to disable skipping, e.g., '2s')",
 		EnvVars: []string{"LEADER_EVM_BUILD_DELAY_EMPTY_BLOCK"},
-		Value:   50 * time.Millisecond,
+		Value:   1 * time.Minute,
 	})
 
 	priorityFeeReceiptFlag = altsrc.NewStringFlag(&cli.StringFlag{
