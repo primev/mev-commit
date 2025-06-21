@@ -14,7 +14,7 @@ This repository provides a utility to snapshot the Ethereum world state at a giv
 ## Repository Structure
 
 ```bash
-/Users/kant/mev-commit/tools/state-dump
+mev-commit/tools/state-dump
 ├── genesis_test.json
 ├── initial_genesis.json
 ├── requirements.txt
