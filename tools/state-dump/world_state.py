@@ -21,33 +21,40 @@ def rpc_call(rpc_url: str, method: str, params: list) -> dict:
         raise RuntimeError(f"RPC error ({method}): {data['error']}")
     return data["result"]
 
+
 def rpc_get_block_number(rpc_url: str) -> int:
     """Fetch the latest block number (as an int)."""
     hex_bn = rpc_call(rpc_url, "eth_blockNumber", [])
     return int(hex_bn, 16)
 
+
 def rpc_debug_dump_block(rpc_url: str, block_param: str) -> dict:
     """Call debug_dumpBlock at the given block tag or hex number."""
     return rpc_call(rpc_url, "debug_dumpBlock", [block_param])
+
 
 def to_hex(x: str) -> str:
     """Convert a decimal string to a hex string (0x-prefixed)."""
     return hex(int(x))
 
-def build_alloc(accounts: dict) -> dict:
+
+def build_alloc(accounts: dict, include_nonces: bool) -> dict:
     """
     Given the 'accounts' map from debug_dumpBlock, return an 'alloc'
-    dictionary suitable for a genesis file: address → { balance, code?, storage? }.
+    dictionary suitable for a genesis file: address → { balance, code?, storage?, nonce? }.
     """
     alloc = {}
     for addr, acct in accounts.items():
         entry = {"balance": to_hex(acct["balance"])}
+        if include_nonces and acct.get("nonce") is not None:
+            entry["nonce"] = to_hex(acct["nonce"])
         if acct.get("code"):
             entry["code"] = acct["code"]
         if acct.get("storage"):
             entry["storage"] = acct["storage"]
         alloc[addr] = entry
     return alloc
+
 
 def main():
     p = argparse.ArgumentParser(
@@ -75,6 +82,11 @@ def main():
             f"(default: ./{DEFAULT_OUT_NAME})"
         )
     )
+    p.add_argument(
+        "--include-nonces",
+        action="store_true",
+        help="Include account nonces in the alloc entries"
+    )
     args = p.parse_args()
 
     # load template
@@ -85,7 +97,6 @@ def main():
 
     # decide which block to dump
     if args.block is None:
-        # fetch actual latest block number
         block_no = rpc_get_block_number(args.rpc)
         block_param = "latest"
         print(f"⛓  Dumping world-state at latest (block {block_no})…")
@@ -99,7 +110,7 @@ def main():
     print(f"  ↳ {len(dump['accounts'])} accounts loaded")
 
     # build alloc → merge → write out
-    latest_alloc = build_alloc(dump["accounts"])
+    latest_alloc = build_alloc(dump["accounts"], args.include_nonces)
     new_gen = genesis_tpl.copy()
     orig_alloc = new_gen.get("alloc", {})
     new_gen["alloc"] = {**orig_alloc, **latest_alloc}

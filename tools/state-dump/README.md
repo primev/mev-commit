@@ -58,3 +58,6 @@ python3 world_state.py \
 
 - `--output`  
   Path where the merged genesis file will be written (e.g. `out_genesis.json`).
+
+- `--include-nonces`
+  Enabling this flag adds each account’s nonce to the genesis alloc entries
