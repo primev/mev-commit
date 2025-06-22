@@ -117,12 +117,52 @@ def check_storage_roots(w3_source: Web3, w3_target: Web3, src_id, tgt_id, alloc:
     for addr, entry in alloc.items():
         if normalize(addr) in EXCLUDE_ADDRS:
             continue
+
+        # Only contracts
         gen_code = entry.get("code", "").lower()
         if gen_code in ("", "0x"):
             continue
 
         cs = Web3.to_checksum_address(addr)
+        storage_slots = entry.get("storage", {})
 
+        # Single-slot case: compare that slot’s value
+        if len(storage_slots) == 1:
+            # extract the one slot key/value
+            slot_hex, raw_expected = next(iter(storage_slots.items()))
+            # normalize both
+            slot_key = slot_hex if slot_hex.startswith("0x") else "0x" + slot_hex
+            expected_int = int(raw_expected, 16)
+
+            # fetch src and tgt storage
+            try:
+                src_hex = Web3.to_hex(
+                    w3_source.eth.get_storage_at(cs, int(slot_key, 16), block_identifier=src_id)
+                )
+                src_int = int(src_hex, 16)
+            except Web3RPCError:
+                src_int = None
+
+            try:
+                tgt_hex = Web3.to_hex(
+                    w3_target.eth.get_storage_at(cs, int(slot_key, 16), block_identifier=tgt_id)
+                )
+                tgt_int = int(tgt_hex, 16)
+            except Web3RPCError:
+                tgt_int = None
+
+            # padded‐hex helper
+            pad = lambda x: format(x, "#066x") if isinstance(x, int) else None
+
+            if src_int == tgt_int == expected_int:
+                print(f"Address {addr}: ✅ single slot matches "
+                      f"(slot={slot_key}, value={pad(expected_int)})")
+            else:
+                print(f"Address {addr}: ⛔ single slot mismatch "
+                      f"src={pad(src_int)} tgt={pad(tgt_int)} genesis={pad(expected_int)}")
+            continue
+
+        # Multi-slot or zero-slot: fall back to storageHash proof
         try:
             proof_src = w3_source.eth.get_proof(cs, [], block_identifier=src_id)
             hex_src = Web3.to_hex(proof_src["storageHash"])
