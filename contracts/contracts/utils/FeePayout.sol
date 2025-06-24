@@ -14,6 +14,17 @@ library FeePayout {
         uint256 payoutPeriodBlocks;
     }
 
+    struct TimestampTracker {
+        /// @dev Address that accumulates fees
+        address recipient;
+        /// @dev Accumulated fees since last payout
+        uint256 accumulatedAmount;
+        /// @dev Timestamp when the last fee payout was made
+        uint256 lastPayoutTimestamp;
+        /// @dev Min number of seconds (or ms on mev-commit chain) between payouts
+        uint256 payoutTimePeriod;
+    }
+
     /// @dev Event emitted when fees are transferred to the recipient.
     event FeeTransfer(uint256 amount, address indexed recipient);
 
@@ -42,24 +53,6 @@ library FeePayout {
         emit FeeTransfer(amountToPay, tracker.recipient);
     }
 
-    /// @dev Checks if a fee payout is due
-    /// @param tracker The FeePayout.Tracker struct
-    /// @return true if a payout is due, false otherwise
-    function isPayoutDue(Tracker storage tracker) internal view returns (bool) {
-        return block.number > tracker.lastPayoutBlock + tracker.payoutPeriodBlocks;
-    }
-
-    struct TimestampTracker {
-        /// @dev Address that accumulates fees
-        address recipient;
-        /// @dev Accumulated fees since last payout
-        uint256 accumulatedAmount;
-        /// @dev Timestamp when the last fee payout was made
-        uint256 lastPayoutTimestamp;
-        /// @dev Min number of seconds (or ms on mev-commit chain) between payouts
-        uint256 payoutTimePeriod;
-    }
-
     /// @dev Initialize a new timestamp fee tracker in storage
     function initTimestampTracker(TimestampTracker storage self, address _recipient, uint256 _payoutTimePeriod) internal {
         require(_recipient != address(0), FeeRecipientIsZero());
@@ -79,6 +72,13 @@ library FeePayout {
         (bool success, ) = payable(tracker.recipient).call{value: amountToPay}("");
         require(success, TransferToRecipientFailed());
         emit FeeTransfer(amountToPay, tracker.recipient);
+    }
+
+    /// @dev Checks if a fee payout is due
+    /// @param tracker The FeePayout.Tracker struct
+    /// @return true if a payout is due, false otherwise
+    function isPayoutDue(Tracker storage tracker) internal view returns (bool) {
+        return block.number > tracker.lastPayoutBlock + tracker.payoutPeriodBlocks;
     }
 
     /// @dev Checks if a fee payout is due by timestamp
