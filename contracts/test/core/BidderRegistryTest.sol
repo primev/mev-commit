@@ -25,7 +25,7 @@ contract BidderRegistryTest is Test {
 
     event FeeTransfer(uint256 amount, address indexed recipient);
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
-    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+    event FeePayoutPeriodUpdated(uint256 indexed newFeePayoutPeriod);
 
     function setUp() public {
         testNumber = 42;
@@ -140,15 +140,15 @@ contract BidderRegistryTest is Test {
     function test_SetNewFeePayoutPeriodBlocks() public {
         vm.prank(address(this));
         vm.expectEmit(true, true, true, true);
-        emit FeePayoutPeriodBlocksUpdated(890);
-        bidderRegistry.setNewFeePayoutPeriodBlocks(890);
+        emit FeePayoutPeriodUpdated(890);
+        bidderRegistry.setNewFeePayoutPeriod(890);
         (, , , uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(payoutPeriodBlocks, 890);
     }
 
     function testFail_SetNewFeePayoutPeriodBlocks() public {
         vm.expectRevert(bytes(""));
-        bidderRegistry.setNewFeePayoutPeriodBlocks(83424);
+        bidderRegistry.setNewFeePayoutPeriod(83424);
     }
 
     function test_SetNewFeePercent() public {

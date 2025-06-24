@@ -22,7 +22,7 @@ abstract contract BidderRegistryStorage {
     IBlockTracker public blockTrackerContract;
 
     /// Struct enabling automatic protocol fee payouts
-    FeePayout.Tracker public protocolFeeTracker;
+    FeePayout.TimestampTracker public protocolFeeTracker;
 
     // Mapping from bidder addresses and window numbers to their locked funds
     mapping(address => mapping(uint256 => uint256)) public lockedFunds;
