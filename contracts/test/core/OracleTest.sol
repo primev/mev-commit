@@ -187,11 +187,8 @@ contract OracleTest is Test {
         );
         oracle = Oracle(payable(oracleProxy));
 
-        vm.prank(vm.addr(0x111119)); // V2 impl can be deployed by anyone
         OracleV2 newImpl = new OracleV2();
-
         bytes memory data = "";
-        vm.prank(owner);
         Oracle(payable(oracleProxy)).upgradeToAndCall(address(newImpl), data);
 
         vm.stopPrank();
