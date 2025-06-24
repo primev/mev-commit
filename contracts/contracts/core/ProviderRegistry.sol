@@ -60,7 +60,7 @@ contract ProviderRegistry is
      * @param _feePercent The fee percentage for penalty
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _withdrawalDelay The withdrawal delay in milliseconds.
-     * @param _penaltyFeePayoutPeriodBlocks The min number of blocks between penalty fee payouts
+     * @param _penaltyFeePayoutPeriod The min number of seconds (or ms on the mev-commit chain) between penalty fee payouts
      */
     function initialize(
         uint256 _minStake,
@@ -68,12 +68,12 @@ contract ProviderRegistry is
         uint256 _feePercent,
         address _owner,
         uint256 _withdrawalDelay,
-        uint256 _penaltyFeePayoutPeriodBlocks
+        uint256 _penaltyFeePayoutPeriod
     ) external initializer {
-        FeePayout.init(
+        FeePayout.initTimestampTracker(
             penaltyFeeTracker,
             _penaltyFeeRecipient,
-            _penaltyFeePayoutPeriodBlocks
+            _penaltyFeePayoutPeriod
         );
         minStake = _minStake;
         feePercent = _feePercent;
@@ -151,8 +151,8 @@ contract ProviderRegistry is
         providerStakes[provider] = providerStake - totalSlash;
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
 
-        if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
-            FeePayout.transferToRecipient(penaltyFeeTracker);
+        if (FeePayout.isPayoutDueByTimestamp(penaltyFeeTracker)) {
+            FeePayout.transferToRecipientByTimestamp(penaltyFeeTracker);
         }
 
         if (!payable(bidder).send(bidderPortion)) {
@@ -211,13 +211,13 @@ contract ProviderRegistry is
         emit PenaltyFeeRecipientUpdated(newFeeRecipient);
     }
 
-    /// @dev Sets the fee payout period in blocks
-    /// @param _feePayoutPeriodBlocks The new fee payout period in blocks
-    function setFeePayoutPeriodBlocks(
-        uint256 _feePayoutPeriodBlocks
+    /// @dev Sets the fee payout period in seconds (or ms on the mev-commit chain)
+    /// @param _feePayoutPeriod The new fee payout period in seconds (or ms on the mev-commit chain)
+    function setFeePayoutPeriod(
+        uint256 _feePayoutPeriod
     ) external onlyOwner {
-        penaltyFeeTracker.payoutPeriodBlocks = _feePayoutPeriodBlocks;
-        emit FeePayoutPeriodBlocksUpdated(_feePayoutPeriodBlocks);
+        penaltyFeeTracker.payoutTimePeriod = _feePayoutPeriod;
+        emit FeePayoutPeriodUpdated(_feePayoutPeriod);
     }
 
     function overrideAddBLSKey(
@@ -334,7 +334,7 @@ contract ProviderRegistry is
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
     function manuallyWithdrawPenaltyFee() external onlyOwner {
-        FeePayout.transferToRecipient(penaltyFeeTracker);
+        FeePayout.transferToRecipientByTimestamp(penaltyFeeTracker);
     }
 
     /// @dev Allows the owner to pause the contract.

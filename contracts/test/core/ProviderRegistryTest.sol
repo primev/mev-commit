@@ -32,9 +32,7 @@ contract ProviderRegistryTest is Test {
     event WithdrawalCompleted(address indexed provider, uint256 amount);
     event FeeTransfer(uint256 amount, address indexed recipient);
     event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
-    event FeePayoutPeriodBlocksUpdated(
-        uint256 indexed newFeePayoutPeriodBlocks
-    );
+    event FeePayoutPeriodUpdated(uint256 indexed newFeePayoutPeriod);
     event InsufficientFundsToSlash(
         address indexed provider,
         uint256 providerStake,
@@ -242,8 +240,8 @@ contract ProviderRegistryTest is Test {
     function test_SetNewFeePayoutPeriodBlocks() public {
         vm.prank(address(this));
         vm.expectEmit(true, true, true, true);
-        emit FeePayoutPeriodBlocksUpdated(890);
-        providerRegistry.setFeePayoutPeriodBlocks(890);
+        emit FeePayoutPeriodUpdated(890);
+        providerRegistry.setFeePayoutPeriod(890);
         (, , , uint256 payoutPeriodBlocks) = providerRegistry
             .penaltyFeeTracker();
         assertEq(payoutPeriodBlocks, 890);
@@ -251,7 +249,7 @@ contract ProviderRegistryTest is Test {
 
     function testFail_SetNewFeePayoutPeriodBlocks() public {
         vm.expectRevert(bytes(""));
-        providerRegistry.setFeePayoutPeriodBlocks(83424);
+        providerRegistry.setFeePayoutPeriod(83424);
     }
 
     function test_SetNewFeePercent() public {
