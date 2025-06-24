@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {Oracle} from "../../contracts/core/Oracle.sol";
+import {OracleV2} from "../../contracts/core/OracleV2.sol";
 import {PreconfManager} from "../../contracts/core/PreconfManager.sol";
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
@@ -185,6 +186,10 @@ contract OracleTest is Test {
             )
         );
         oracle = Oracle(payable(oracleProxy));
+
+        OracleV2 newImpl = new OracleV2();
+        bytes memory data = "";
+        Oracle(payable(oracleProxy)).upgradeToAndCall(address(newImpl), data);
 
         vm.stopPrank();
 
