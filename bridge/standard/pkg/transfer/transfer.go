@@ -34,7 +34,11 @@ type TransferStatus struct {
 	Error   error
 }
 
-type Transfer struct {
+type Transfer interface {
+	Do(ctx context.Context) <-chan TransferStatus
+}
+
+type transfer struct {
 	signer           keysigner.KeySigner
 	amount           *big.Int
 	destAddress      common.Address
@@ -54,7 +58,7 @@ func NewTransferToSettlement(
 	l1RPCUrl string,
 	l1ContractAddr common.Address,
 	settlementContractAddr common.Address,
-) (*Transfer, error) {
+) (Transfer, error) {
 	l1Client, err := ethclient.Dial(l1RPCUrl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial l1 rpc: %s", err)
@@ -88,7 +92,7 @@ func NewTransferToSettlement(
 		return nil, fmt.Errorf("failed to create settlement filterer: %s", err)
 	}
 
-	return &Transfer{
+	return &transfer{
 		signer:           signer,
 		amount:           amount,
 		destAddress:      destAddress,
@@ -109,7 +113,7 @@ func NewTransferToL1(
 	l1RPCUrl string,
 	l1ContractAddr common.Address,
 	settlementContractAddr common.Address,
-) (*Transfer, error) {
+) (Transfer, error) {
 	l1Client, err := ethclient.Dial(l1RPCUrl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial l1 rpc: %s", err)
@@ -146,7 +150,7 @@ func NewTransferToL1(
 		return nil, fmt.Errorf("failed to create settlement filterer: %s", err)
 	}
 
-	return &Transfer{
+	return &transfer{
 		amount:           amount,
 		destAddress:      destAddress,
 		signer:           signer,
@@ -159,7 +163,7 @@ func NewTransferToL1(
 	}, nil
 }
 
-func (t *Transfer) Do(ctx context.Context) <-chan TransferStatus {
+func (t *transfer) Do(ctx context.Context) <-chan TransferStatus {
 	statusChan := make(chan TransferStatus)
 	go func() {
 		defer close(statusChan)
