@@ -16,24 +16,26 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
-	"github.com/primev/mev-commit/tools/instant-bridge/bidder"
-	"github.com/primev/mev-commit/tools/instant-bridge/transfer"
 	"github.com/primev/mev-commit/x/health"
+	bidder "github.com/primev/mev-commit/x/opt-in-bidder"
+	"github.com/primev/mev-commit/x/transfer"
 )
 
 type API struct {
-	logger           *slog.Logger
-	mux              *http.ServeMux
-	port             int
-	srv              *http.Server
-	health           health.Health
-	bidder           *bidder.BidderClient
-	transferer       *transfer.Transferer
-	minServiceFee    *big.Int
-	status           *status
-	owner            common.Address
-	l1Client         *ethclient.Client
-	settlementClient *ethclient.Client
+	logger            *slog.Logger
+	mux               *http.ServeMux
+	port              int
+	srv               *http.Server
+	health            health.Health
+	bidder            *bidder.BidderClient
+	transferer        *transfer.Transferer
+	minServiceFee     *big.Int
+	status            *status
+	owner             common.Address
+	l1Client          *ethclient.Client
+	settlementClient  *ethclient.Client
+	l1ChainID         *big.Int
+	settlementChainID *big.Int
 }
 
 type bid struct {
@@ -62,19 +64,23 @@ func NewAPI(
 	owner common.Address,
 	l1Client *ethclient.Client,
 	settlementClient *ethclient.Client,
+	l1ChainID *big.Int,
+	settlementChainID *big.Int,
 ) *API {
 	a := &API{
-		logger:           logger,
-		mux:              http.NewServeMux(),
-		port:             port,
-		status:           &status{},
-		health:           health,
-		bidder:           bdr,
-		transferer:       transferer,
-		minServiceFee:    minServiceFee,
-		owner:            owner,
-		l1Client:         l1Client,
-		settlementClient: settlementClient,
+		logger:            logger,
+		mux:               http.NewServeMux(),
+		port:              port,
+		status:            &status{},
+		health:            health,
+		bidder:            bdr,
+		transferer:        transferer,
+		minServiceFee:     minServiceFee,
+		owner:             owner,
+		l1Client:          l1Client,
+		settlementClient:  settlementClient,
+		l1ChainID:         l1ChainID,
+		settlementChainID: settlementChainID,
 	}
 
 	a.status.bridgedAmount.Store(big.NewInt(0))
@@ -170,7 +176,7 @@ func NewAPI(
 			return
 		}
 
-		tx, err := a.transferer.ValidateL1Tx(b.RawTx)
+		tx, err := a.transferer.ValidateTx(b.RawTx, a.l1ChainID)
 		if err != nil {
 			apiserver.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid raw tx: %w", err))
 			return
@@ -216,7 +222,9 @@ func NewAPI(
 			req.Context(),
 			halfFee,
 			bridgeAmt,
+			// bridgeAmt,
 			b.RawTx,
+			nil,
 		)
 		if err != nil {
 			apiserver.WriteError(w, http.StatusInternalServerError, err)
@@ -226,29 +234,28 @@ func NewAPI(
 		for status := range statusC {
 			switch status.Type {
 			case bidder.BidStatusNoOfProviders:
-				a.logger.Info("no of providers", "count", status.Arg1)
+				a.logger.Info("no of providers", "count", status.Arg.(int))
 			case bidder.BidStatusWaitSecs:
-				a.logger.Info("waiting for next slot", "seconds", status.Arg1)
+				a.logger.Info("waiting for next slot", "seconds", status.Arg.(int))
 			case bidder.BidStatusAttempted:
-				a.logger.Info("bid attempted", "block", status.Arg1)
+				a.logger.Info("bid attempted", "block", status.Arg)
 			case bidder.BidStatusFailed:
 				apiserver.WriteError(
 					w,
 					http.StatusInternalServerError,
-					fmt.Errorf("bid failed: %s", status.Arg2),
+					fmt.Errorf("bid failed: %s", status.Arg.(string)),
 				)
 				return
-			case bidder.BidStatusSucceeded:
-				a.logger.Info("bid succeeded", "block", status.Arg1)
 			}
 		}
 
 		a.status.bidsSucceeded.Add(1)
 
 		a.status.transfersAttempted.Add(1)
-		err = a.transferer.TransferOnSettlement(
+		err = a.transferer.Transfer(
 			req.Context(),
 			destAddr,
+			a.settlementChainID,
 			bridgeAmt,
 		)
 		if err != nil {

@@ -1,0 +1,8 @@
+# syntax=docker/dockerfile:1.4
+FROM alpine:3.10
+
+COPY --from=builder_ctx /go/bin/preconf-rpc /usr/local/bin/preconf-rpc
+
+EXPOSE 8080
+
+ENTRYPOINT ["preconf-rpc"]

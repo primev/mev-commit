@@ -1,21 +1,8 @@
-FROM golang:1.23.0-alpine AS builder
-
-WORKDIR /app
-
-COPY bridge/standard/go.mod bridge/standard/go.sum /app/bridge/
-COPY x/go.mod x/go.sum /app/x/
-COPY contracts-abi/go.mod contracts-abi/go.sum /app/contracts-abi/
-
-RUN cd /app/bridge && go mod download
-RUN cd /app/x && go mod download
-RUN cd /app/contracts-abi && go mod download
-
-COPY . .
-
-RUN go build -o /app/mev-commit-bridge ./bridge/cmd
-
+# syntax=docker/dockerfile:1.4
 FROM alpine:3.10
 
-COPY --from=builder /app/mev-commit-bridge /usr/local/bin/mev-commit-bridge
+COPY --from=builder_ctx /go/bin/relayer /usr/local/bin/mev-commit-bridge
+
+EXPOSE 8080
 
 ENTRYPOINT ["mev-commit-bridge"]
