@@ -44,6 +44,20 @@ var (
 		EnvVars: []string{"LEADER_CONFIG"},
 	}
 
+	coinbaseFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "coinbase",
+		Usage:    "coinbase address where you receive the fees",
+		EnvVars:  []string{"COINBASE"},
+		Value:    "http://localhost:8551",
+		Required: true,
+		Action: func(_ *cli.Context, s string) error {
+			if s == "" {
+				return fmt.Errorf("instance-id is required")
+			}
+			return nil
+		},
+	})
+
 	instanceIDFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "instance-id",
 		Usage:    "Unique instance ID for this node (for logging/identification)",
@@ -141,6 +155,7 @@ var (
 		Usage:    "Ethereum address for receiving priority fees (block proposer fee)",
 		EnvVars:  []string{"LEADER_PRIORITY_FEE_RECIPIENT"},
 		Required: true,
+		Value:    "0xfA0B0f5d298d28EFE4d35641724141ef19C05684",
 		Action: func(c *cli.Context, s string) error {
 			if !strings.HasPrefix(s, "0x") || len(s) != 42 {
 				return fmt.Errorf("priority-fee-recipient must be a 0x-prefixed 42-character hex string")

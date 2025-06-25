@@ -44,7 +44,7 @@ func (m *MockEngineClient) ForkchoiceUpdatedV3(ctx context.Context, fcs engine.F
 	return args.Get(0).(engine.ForkChoiceResponse), args.Error(1)
 }
 
-func (m *MockEngineClient) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error) {
+func (m *MockEngineClient) GetPayloadV4(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error) {
 	args := m.Called(ctx, payloadID)
 	return args.Get(0).(*engine.ExecutionPayloadEnvelope), args.Error(1)
 }
