@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/primev/mev-commit/tools/instant-bridge/accountsync"
+	"github.com/primev/mev-commit/x/accountsync"
 )
 
 type mockBalanceGetter struct {

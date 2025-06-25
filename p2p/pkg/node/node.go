@@ -191,6 +191,13 @@ func NewNode(opts *Options) (*Node, error) {
 		setDefault(&opts.BeaconAPIURL, defaults.BeaconAPIURL)
 	}
 
+	opts.Logger.Info(
+		"using L1 contracts",
+		"ValidatorRouter", opts.ValidatorRouterContract,
+		"BeaconAPIURL", opts.BeaconAPIURL,
+		"L1RPCURL", opts.L1RPCURL,
+	)
+
 	notificationsSvc := notifications.New(opts.NotificationsBufferCap)
 	nd.closers = append(
 		nd.closers,
