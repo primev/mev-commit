@@ -44,7 +44,7 @@ func (m *MockEngineClient) ForkchoiceUpdatedV3(ctx context.Context, fcs engine.F
 	return args.Get(0).(engine.ForkChoiceResponse), args.Error(1)
 }
 
-func (m *MockEngineClient) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error) {
+func (m *MockEngineClient) GetPayloadV4(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error) {
 	args := m.Called(ctx, payloadID)
 	return args.Get(0).(*engine.ExecutionPayloadEnvelope), args.Error(1)
 }
@@ -174,7 +174,7 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 			ReceiptsRoot: hash,
 		},
 	}
-	mockEngineClient.On("GetPayloadV3", mock.Anything, *payloadID).Return(executionPayload, nil)
+	mockEngineClient.On("GetPayloadV4", mock.Anything, *payloadID).Return(executionPayload, nil)
 
 	blockBuilder.executionHead = executionHead
 	err = blockBuilder.GetPayload(ctx)
@@ -404,7 +404,7 @@ func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(forkChoiceResponse, nil)
 
-	mockEngineClient.On("GetPayloadV3", mock.Anything, *payloadID).Return(&engine.ExecutionPayloadEnvelope{}, errors.New("Unknown payload"))
+	mockEngineClient.On("GetPayloadV4", mock.Anything, *payloadID).Return(&engine.ExecutionPayloadEnvelope{}, errors.New("Unknown payload"))
 
 	blockBuilder.executionHead = executionHead
 	err = blockBuilder.GetPayload(ctx)

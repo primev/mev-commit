@@ -32,7 +32,7 @@ type EngineClient interface {
 	ForkchoiceUpdatedV3(ctx context.Context, update engine.ForkchoiceStateV1,
 		payloadAttributes *engine.PayloadAttributes) (engine.ForkChoiceResponse, error)
 
-	GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
+	GetPayloadV4(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
 
 	HeaderByNumber(ctx context.Context, number *big.Int) (*etypes.Header, error)
 }
@@ -203,7 +203,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	var payloadResp *engine.ExecutionPayloadEnvelope
 	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
 		var err error
-		payloadResp, err = bb.engineCl.GetPayloadV3(ctx, *payloadID)
+		payloadResp, err = bb.engineCl.GetPayloadV4(ctx, *payloadID)
 		if isUnknownPayload(err) {
 			return backoff.Permanent(err)
 		} else if err != nil {
@@ -476,6 +476,10 @@ func (bb *BlockBuilder) pushNewPayload(ctx context.Context, executionPayload eng
 	emptyVersionHashes := []common.Hash{}
 	return retryFunc(func() error {
 		status, err := bb.engineCl.NewPayloadV4(ctx, executionPayload, emptyVersionHashes, &hash, []hexutil.Bytes{})
+		bb.logger.Debug("newPayload result",
+			"status", status.Status,
+			"validationError", status.ValidationError,
+			"latestValidHash", status.LatestValidHash)
 		if err != nil || isUnknown(status) {
 			bb.logger.Error("Failed to push new payload", "error", err)
 			return err // Will retry
