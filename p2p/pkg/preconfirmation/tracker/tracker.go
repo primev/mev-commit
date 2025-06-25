@@ -533,10 +533,11 @@ func (t *Tracker) openCommitments(
 				continue
 			}
 		}
-		if common.BytesToAddress(commitment.ProviderAddress).Cmp(newL1Block.Winner) != 0 {
-			t.logger.Debug(
+		providerAddress := common.BytesToAddress(commitment.ProviderAddress)
+		if providerAddress.Cmp(newL1Block.Winner) != 0 {
+			t.logger.Error(
 				"provider address does not match the winner",
-				"providerAddress", commitment.ProviderAddress,
+				"providerAddress", providerAddress,
 				"winner", newL1Block.Winner,
 			)
 			continue
