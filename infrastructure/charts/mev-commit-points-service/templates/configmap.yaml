@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "points-service.fullname" . }}-config
+  labels:
+    {{- include "points-service.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  POINTS_DB_PATH: {{ .Values.config.dbPath | quote }}
+  POINTS_LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  POINTS_LOG_FMT: {{ .Values.config.logFormat | quote }}
+  POINTS_ETH_RPC_URL: {{ .Values.config.ethRpcUrl | quote }}
+  POINTS_START_BLOCK: {{ .Values.config.startBlock | quote }}
+  POINTS_MAINNET: {{ .Values.config.mainnet | quote }}
+  POINTS_API_AUTH_TOKEN: {{ .Values.config.apiAuthToken | quote }}
