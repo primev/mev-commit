@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mev-commit-dashboard.fullname" . }}-config
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    {{- include "mev-commit-dashboard.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  DASHBOARD_RPC_URL: {{ .Values.config.rpcUrl | quote }}
+  DASHBOARD_HTTP_PORT: {{ .Values.config.httpPort | quote }}
+  DASHBOARD_START_BLOCK: {{ .Values.config.startBlock | quote }}
+  DASHBOARD_LOG_FMT: {{ .Values.config.logFormat | quote }}
+  DASHBOARD_LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  DASHBOARD_ORACLE_CONTRACT_ADDR: {{ .Values.config.oracleContractAddr | quote }}
+  DASHBOARD_PRECONF_CONTRACT_ADDR: {{ .Values.config.preconfContractAddr | quote }}
+  DASHBOARD_BLOCKTRACKER_CONTRACT_ADDR: {{ .Values.config.blocktrackerContractAddr | quote }}
+  DASHBOARD_BIDDERREGISTRY_CONTRACT_ADDR: {{ .Values.config.bidderregistryContractAddr | quote }}
+  DASHBOARD_PROVIDERREGISTRY_CONTRACT_ADDR: {{ .Values.config.providerregistryContractAddr | quote }}
