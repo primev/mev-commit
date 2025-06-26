@@ -68,9 +68,9 @@ ingress:
           pathType: Prefix
   # TLS configuration using Cloudflare Origin Certificate
   tls:
-    - secretName: cloudflare-origin-cert
+    - secretName: 
       hosts:
-        - points-service.tools.mev-commit.xyz
+        - 
 
 # Configuration for the Points Service
 config:
