@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -54,7 +55,7 @@ type Store interface {
 	StorePreconfirmedTransaction(
 		ctx context.Context,
 		blockNumber int64,
-		txn *types.Transaction,
+		txn *Transaction,
 		commitments []*bidderapiv1.Commitment,
 	) error
 }
@@ -79,7 +80,6 @@ type Pricer interface {
 
 type BlockTracker interface {
 	CheckTxnInclusion(ctx context.Context, txnHash common.Hash, blockNumber uint64) (bool, error)
-	LatestBlockNumber() uint64
 }
 
 type TxSender struct {
@@ -303,7 +303,7 @@ BID_LOOP:
 	if err := t.store.StorePreconfirmedTransaction(
 		ctx,
 		int64(result.blockNumber),
-		txn.Transaction,
+		txn,
 		result.commitments,
 	); err != nil {
 		return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
@@ -369,7 +369,7 @@ func (t *TxSender) sendBid(
 		ctx,
 		price.BidAmount,
 		big.NewInt(0),
-		txn.Raw[2:],
+		strings.TrimPrefix(txn.Raw, "0x"),
 		&optinbidder.BidOpts{
 			WaitForOptIn: optedInSlot,
 			BlockNumber:  uint64(price.BlockNumber),
