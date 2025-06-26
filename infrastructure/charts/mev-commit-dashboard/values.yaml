@@ -1,0 +1,59 @@
+replicaCount: 1
+
+image:
+  repository: 
+  tag: 
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Namespace to deploy resources
+namespace: mev-commit-observability
+
+# Common labels to apply to all resources
+commonLabels: {}
+  # team: blockchain
+  # environment: production
+
+# Common annotations to apply to all resources
+commonAnnotations: {}
+  # prometheus.io/scrape: "true"
+  # prometheus.io/port: "8080"
+
+# Node selector for pod assignment
+nodeSelector: {}
+  # disktype: ssd
+  # kubernetes.io/os: linux
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  # Custom selectors for the service (if empty, uses the default selector labels)
+  customSelectors: {}
+    # app: mev-commit-dashboard
+    # tier: frontend
+
+# resource configuration 
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+# Configuration for the Dashboard
+config:
+  rpcUrl: "ws://<settlement-rpc>:8546"
+  httpPort: "8080"
+  startBlock: "0"
+  logFormat: "json"
+  logLevel: "info"
+  bidderregistryContractAddr: ""
+  blocktrackerContractAddr: ""
+  oracleContractAddr: ""
+  preconfContractAddr: ""
+  providerregistryContractAddr: ""
