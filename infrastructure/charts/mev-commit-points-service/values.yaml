@@ -1,0 +1,96 @@
+replicaCount: 1
+
+image:
+  repository: 
+  tag: 
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: "mev-commit-points-service"
+
+# Common labels to apply to all resources
+commonLabels: {}
+  # team: mev-commit
+  # environment: production
+
+# Common annotations to apply to all resources
+commonAnnotations: {}
+  # prometheus.io/scrape: "true"
+  # prometheus.io/port: "8080"
+
+# Node selector for pod assignment
+nodeSelector: {}
+  # disktype: ssd
+  # kubernetes.io/os: linux
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  # Custom selectors for the service (if empty, uses the default selector labels)
+  customSelectors: {}
+    # app: points-service
+    # tier: backend
+    # environment: production
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 2000m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Persistent Volume Configuration
+persistence:
+  enabled: true
+  size: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClass: "standard"
+  mountPath: /app/data
+  annotations: {}
+  selector: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: "/"
+    # Optional: ExternalDNS annotation
+    external-dns.alpha.kubernetes.io/hostname: ""
+  hosts:
+    - host: 
+      paths:
+        - path: /
+          pathType: Prefix
+  # TLS configuration using Cloudflare Origin Certificate
+  tls:
+    - secretName: cloudflare-origin-cert
+      hosts:
+        - points-service.tools.mev-commit.xyz
+
+# Configuration for the Points Service
+config:
+  dbPath: "/app/data/points.db"
+  logLevel: "info"
+  logFormat: "json"
+  ethRpcUrl: ""
+  startBlock: ""
+  mainnet: "true"
+  apiAuthToken: ""
+
+# Probe configuration
+probes:
+  liveness:
+    path: /health
+    port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 30
+  readiness:
+    path: /health
+    port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
