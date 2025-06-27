@@ -138,7 +138,7 @@ contract ProviderRegistryTest is Test {
             uint256 accumulatedAmount,
             uint256 lastPayoutTimestamp,
             uint256 payoutPeriodMs
-        ) = bidderRegistry.protocolFeeTracker();
+        ) = bidderRegistry.protocolFeeTimestampTracker();
         assertEq(recipient, feeRecipient);
         assertEq(payoutPeriodMs, penaltyFeePayoutPeriodMs);
         assertEq(lastPayoutTimestamp, block.timestamp);
@@ -238,7 +238,7 @@ contract ProviderRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit PenaltyFeeRecipientUpdated(newRecipient);
         providerRegistry.setNewPenaltyFeeRecipient(newRecipient);
-        (address recipient, , , ) = providerRegistry.penaltyFeeTracker();
+        (address recipient, , , ) = providerRegistry.penaltyFeeTimestampTracker();
         assertEq(recipient, newRecipient);
     }
 
@@ -254,7 +254,7 @@ contract ProviderRegistryTest is Test {
         emit FeePayoutPeriodUpdated(890);
         providerRegistry.setFeePayoutPeriod(890);
         (, , , uint256 payoutPeriodMs) = providerRegistry
-            .penaltyFeeTracker();
+            .penaltyFeeTimestampTracker();
         assertEq(payoutPeriodMs, 890);
     }
 

@@ -57,7 +57,7 @@ contract BidderRegistryTest is Test {
         );
 
         vm.startPrank(address(this));
-        blockTracker.setProviderRegistry(address(providerRegistry));
+        blockTracker.setProviderRegistry(providerRegistryProxy);
         vm.stopPrank();
         bidder = vm.addr(1);
         vm.deal(bidder, 1000 ether);
@@ -74,7 +74,11 @@ contract BidderRegistryTest is Test {
     }
 
     function test_VerifyInitialContractState() public view {
-        (address recipient, uint256 accumulatedAmount, uint256 lastPayoutTimestamp, uint256 payoutPeriodMs) = bidderRegistry.protocolFeeTracker();
+        (address recipient,
+        uint256 accumulatedAmount,
+        uint256 lastPayoutTimestamp,
+        uint256 payoutPeriodMs) = bidderRegistry.protocolFeeTimestampTracker();
+
         assertEq(recipient, feeRecipient);
         assertEq(payoutPeriodMs, feePayoutPeriodMs);
         assertEq(lastPayoutTimestamp, block.timestamp);
@@ -138,7 +142,7 @@ contract BidderRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit ProtocolFeeRecipientUpdated(newRecipient);
         bidderRegistry.setNewProtocolFeeRecipient(newRecipient);
-        (address recipient, , , ) = bidderRegistry.protocolFeeTracker();
+        (address recipient, , , ) = bidderRegistry.protocolFeeTimestampTracker();
         assertEq(recipient, newRecipient);
     }
 
@@ -153,7 +157,7 @@ contract BidderRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit FeePayoutPeriodUpdated(890);
         bidderRegistry.setNewFeePayoutPeriod(890);
-        (, , , uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
+        (, , , uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTimestampTracker();
         assertEq(payoutPeriodBlocks, 890);
     }
 
@@ -436,7 +440,7 @@ contract BidderRegistryTest is Test {
     }
 
     function test_ProtocolFeePayout() public {
-        (, , uint256 lastPayoutTimestamp,) = bidderRegistry.protocolFeeTracker();
+        (, , uint256 lastPayoutTimestamp,) = bidderRegistry.protocolFeeTimestampTracker();
         uint256 defaultStartTimestamp = 1;
         assertEq(lastPayoutTimestamp, 1);
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
