@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: BSL 1.1
+pragma solidity 0.8.26;
+
+import {FeePayout} from "../utils/FeePayout.sol";
+import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
+import {IBidderRegistryV2} from "../interfaces/IBidderRegistryV2.sol";
+
+abstract contract BidderRegistryStorageV2 {
+    using FeePayout for FeePayout.Tracker;
+
+    /// @dev For improved precision
+    uint256 constant public PRECISION = 1e16;
+    uint256 constant public ONE_HUNDRED_PERCENT = 100 * PRECISION;
+
+    /// @dev Address of the preconfManager contract
+    address public preconfManager;
+
+    /// @dev Fee percent that would be taken by protocol when provider is slashed
+    uint256 public feePercent;
+
+    /// @dev Block tracker contract
+    IBlockTracker public blockTrackerContract;
+
+    /// @notice DEPRECATED: Use protocolFeeTimestampTracker instead
+    FeePayout.Tracker public protocolFeeTracker;
+
+    // Mapping from bidder addresses and window numbers to their locked funds
+    mapping(address => mapping(uint256 => uint256)) public lockedFunds;
+
+    // Mapping from bidder addresses and blocks to their used funds
+    mapping(address => mapping(uint64 => uint256)) public usedFunds;
+
+    /// Mapping from bidder addresses and window numbers to their funds per window
+    mapping(address => mapping(uint256 => uint256)) public maxBidPerBlock;
+
+    /// @dev Mapping from bidder addresses to their locked amount based on commitmentDigest
+    mapping(bytes32 => IBidderRegistryV2.BidState) public bidPayment;
+
+    /// @dev Amount assigned to bidders
+    mapping(address => uint256) public providerAmount;
+
+    /// Struct enabling automatic protocol fee payouts
+    FeePayout.TimestampTracker public protocolFeeTimestampTracker;
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
+    /// @dev Four slots have been used by the addition of protocolFeeTimestampTracker
+    uint256[44] private __gap;
+}
