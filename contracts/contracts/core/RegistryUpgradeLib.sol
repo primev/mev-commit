@@ -28,7 +28,7 @@ library RegistryUpgradeLib {
         ProviderRegistryV2 prv2 = ProviderRegistryV2(payable(providerRegistryProxyAddress));
         brv2.setNewFeePayoutPeriod(newPayoutPeriodInMs);
         prv2.setFeePayoutPeriod(newPayoutPeriodInMs);
-        console.log("Payout periods updated to 1 hour in ms");
+        console.log("Payout periods updated");
 
         brv2.manuallyWithdrawProtocolFee();
         prv2.manuallyWithdrawPenaltyFee();
