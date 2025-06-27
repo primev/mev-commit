@@ -22,8 +22,8 @@ abstract contract ProviderRegistryStorageV2 {
     /// @dev Configurable withdrawal delay in milliseconds
     uint256 public withdrawalDelay;
 
-    /// Struct enabling automatic penalty fee payouts
-    FeePayout.TimestampTracker public penaltyFeeTracker;
+    /// @notice DEPRECATED: Use penaltyFeeTimestampTracker instead
+    FeePayout.Tracker public penaltyFeeTracker;
 
     /// @dev Mapping from provider address to whether they are registered or not
     mapping(address => bool) public providerRegistered;
@@ -43,6 +43,10 @@ abstract contract ProviderRegistryStorageV2 {
     /// @dev Mapping from a provider's EOA address to their BLS public keys
     mapping(address => bytes[]) public eoaToBlsPubkeys;
 
+    /// Struct enabling automatic penalty fee payouts
+    FeePayout.TimestampTracker public penaltyFeeTimestampTracker;
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
-    uint256[48] private __gap;
+    /// @dev Four slots have been used by the addition of penaltyFeeTimestampTracker
+    uint256[44] private __gap;
 }

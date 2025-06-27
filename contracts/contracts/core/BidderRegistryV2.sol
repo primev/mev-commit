@@ -66,7 +66,7 @@ contract BidderRegistryV2 is
         address _blockTracker,
         uint256 _feePayoutPeriod
     ) external initializer {
-        FeePayout.initTimestampTracker(protocolFeeTracker, _protocolFeeRecipient, _feePayoutPeriod);
+        FeePayout.initTimestampTracker(protocolFeeTimestampTracker, _protocolFeeRecipient, _feePayoutPeriod);
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
         __ReentrancyGuard_init();
@@ -179,9 +179,9 @@ contract BidderRegistryV2 is
             ONE_HUNDRED_PERCENT;
         uint256 amtMinusFeeAndDecay = decayedAmt - feeAmt;
 
-        protocolFeeTracker.accumulatedAmount += feeAmt;
-        if (FeePayout.isPayoutDueByTimestamp(protocolFeeTracker)) {
-            FeePayout.transferToRecipientByTimestamp(protocolFeeTracker);
+        protocolFeeTimestampTracker.accumulatedAmount += feeAmt;
+        if (FeePayout.isPayoutDueByTimestamp(protocolFeeTimestampTracker)) {
+            FeePayout.transferToRecipientByTimestamp(protocolFeeTimestampTracker);
         }
 
         providerAmount[provider] += amtMinusFeeAndDecay;
@@ -312,7 +312,7 @@ contract BidderRegistryV2 is
      * @param newProtocolFeeRecipient The new address to accumulate protocol fees
      */
     function setNewProtocolFeeRecipient(address newProtocolFeeRecipient) external onlyOwner {
-        protocolFeeTracker.recipient = newProtocolFeeRecipient;
+        protocolFeeTimestampTracker.recipient = newProtocolFeeRecipient;
         emit ProtocolFeeRecipientUpdated(newProtocolFeeRecipient);
     }
 
@@ -322,7 +322,7 @@ contract BidderRegistryV2 is
      * @param newFeePayoutPeriod The new fee payout period in seconds or ms on the mev-commit chain
      */
     function setNewFeePayoutPeriod(uint256 newFeePayoutPeriod) external onlyOwner {
-        protocolFeeTracker.payoutTimePeriod = newFeePayoutPeriod;
+        protocolFeeTimestampTracker.payoutTimePeriod = newFeePayoutPeriod;
         emit FeePayoutPeriodUpdated(newFeePayoutPeriod);
     }
 
@@ -377,7 +377,7 @@ contract BidderRegistryV2 is
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
     function manuallyWithdrawProtocolFee() external onlyOwner {
-        FeePayout.transferToRecipientByTimestamp(protocolFeeTracker);
+        FeePayout.transferToRecipientByTimestamp(protocolFeeTimestampTracker);
     }
 
     /// @dev Allows owner to pause the contract.
@@ -415,7 +415,7 @@ contract BidderRegistryV2 is
 
     /// @return protocolFee amount not yet transferred to recipient
     function getAccumulatedProtocolFee() external view returns (uint256) {
-        return protocolFeeTracker.accumulatedAmount;
+        return protocolFeeTimestampTracker.accumulatedAmount;
     }
 
     // solhint-disable-next-line no-empty-blocks

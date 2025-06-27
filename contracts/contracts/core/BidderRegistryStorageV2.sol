@@ -21,8 +21,8 @@ abstract contract BidderRegistryStorageV2 {
     /// @dev Block tracker contract
     IBlockTracker public blockTrackerContract;
 
-    /// Struct enabling automatic protocol fee payouts
-    FeePayout.TimestampTracker public protocolFeeTracker;
+    /// @notice DEPRECATED: Use protocolFeeTimestampTracker instead
+    FeePayout.Tracker public protocolFeeTracker;
 
     // Mapping from bidder addresses and window numbers to their locked funds
     mapping(address => mapping(uint256 => uint256)) public lockedFunds;
@@ -39,6 +39,10 @@ abstract contract BidderRegistryStorageV2 {
     /// @dev Amount assigned to bidders
     mapping(address => uint256) public providerAmount;
 
+    /// Struct enabling automatic protocol fee payouts
+    FeePayout.TimestampTracker public protocolFeeTimestampTracker;
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
-    uint256[48] private __gap;
+    /// @dev Four slots have been used by the addition of protocolFeeTimestampTracker
+    uint256[44] private __gap;
 }

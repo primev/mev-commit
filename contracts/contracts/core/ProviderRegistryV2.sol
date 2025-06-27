@@ -72,7 +72,7 @@ contract ProviderRegistryV2 is
         uint256 _penaltyFeePayoutPeriod
     ) external initializer {
         FeePayout.initTimestampTracker(
-            penaltyFeeTracker,
+            penaltyFeeTimestampTracker,
             _penaltyFeeRecipient,
             _penaltyFeePayoutPeriod
         );
@@ -150,10 +150,10 @@ contract ProviderRegistryV2 is
         }
 
         providerStakes[provider] = providerStake - totalSlash;
-        penaltyFeeTracker.accumulatedAmount += penaltyFee;
+        penaltyFeeTimestampTracker.accumulatedAmount += penaltyFee;
 
-        if (FeePayout.isPayoutDueByTimestamp(penaltyFeeTracker)) {
-            FeePayout.transferToRecipientByTimestamp(penaltyFeeTracker);
+        if (FeePayout.isPayoutDueByTimestamp(penaltyFeeTimestampTracker)) {
+            FeePayout.transferToRecipientByTimestamp(penaltyFeeTimestampTracker);
         }
 
         if (!payable(bidder).send(bidderPortion)) {
@@ -208,7 +208,7 @@ contract ProviderRegistryV2 is
     function setNewPenaltyFeeRecipient(
         address newFeeRecipient
     ) external onlyOwner {
-        penaltyFeeTracker.recipient = newFeeRecipient;
+        penaltyFeeTimestampTracker.recipient = newFeeRecipient;
         emit PenaltyFeeRecipientUpdated(newFeeRecipient);
     }
 
@@ -217,7 +217,7 @@ contract ProviderRegistryV2 is
     function setFeePayoutPeriod(
         uint256 _feePayoutPeriod
     ) external onlyOwner {
-        penaltyFeeTracker.payoutTimePeriod = _feePayoutPeriod;
+        penaltyFeeTimestampTracker.payoutTimePeriod = _feePayoutPeriod;
         emit FeePayoutPeriodUpdated(_feePayoutPeriod);
     }
 
@@ -335,7 +335,7 @@ contract ProviderRegistryV2 is
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
     function manuallyWithdrawPenaltyFee() external onlyOwner {
-        FeePayout.transferToRecipientByTimestamp(penaltyFeeTracker);
+        FeePayout.transferToRecipientByTimestamp(penaltyFeeTimestampTracker);
     }
 
     /// @dev Allows the owner to pause the contract.
@@ -375,7 +375,7 @@ contract ProviderRegistryV2 is
 
     /// @return penaltyFee amount not yet transferred to recipient
     function getAccumulatedPenaltyFee() external view returns (uint256) {
-        return penaltyFeeTracker.accumulatedAmount;
+        return penaltyFeeTimestampTracker.accumulatedAmount;
     }
 
     /**
