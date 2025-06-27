@@ -23,7 +23,7 @@ abstract contract ProviderRegistryStorage {
     uint256 public withdrawalDelay;
 
     /// Struct enabling automatic penalty fee payouts
-    FeePayout.Tracker public penaltyFeeTracker;
+    FeePayout.TimestampTracker public penaltyFeeTracker;
 
     /// @dev Mapping from provider address to whether they are registered or not
     mapping(address => bool) public providerRegistered;

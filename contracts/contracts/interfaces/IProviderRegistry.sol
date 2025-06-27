@@ -24,8 +24,8 @@ interface IProviderRegistry {
     /// @dev Event emitted when the penalty fee recipient is updated
     event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
 
-    /// @dev Event emitted when the fee payout period in blocks is updated
-    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+    /// @dev Event emitted when the fee payout period is updated
+    event FeePayoutPeriodUpdated(uint256 indexed newFeePayoutPeriod);
 
     /// @dev Event emitted when the min stake is updated
     event MinStakeUpdated(uint256 indexed newMinStake);
