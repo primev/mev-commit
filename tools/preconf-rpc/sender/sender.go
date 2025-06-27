@@ -58,18 +58,13 @@ type Transaction struct {
 }
 
 type Store interface {
-	AddQueuedTransaction(tx *Transaction) error
-	GetQueuedTransactions() ([]*Transaction, error)
-	GetCurrentNonce(sender common.Address) uint64
+	AddQueuedTransaction(ctx context.Context, tx *Transaction) error
+	GetQueuedTransactions(ctx context.Context) ([]*Transaction, error)
+	GetCurrentNonce(ctx context.Context, sender common.Address) uint64
 	HasBalance(ctx context.Context, sender common.Address, amount *big.Int) bool
 	AddBalance(ctx context.Context, account common.Address, amount *big.Int) error
 	DeductBalance(ctx context.Context, account common.Address, amount *big.Int) error
-	StorePreconfirmedTransaction(
-		ctx context.Context,
-		blockNumber int64,
-		txn *Transaction,
-		commitments []*bidderapiv1.Commitment,
-	) error
+	StoreTransaction(ctx context.Context, txn *Transaction, commitments []*bidderapiv1.Commitment) error
 }
 
 type Bidder interface {
@@ -151,8 +146,8 @@ func validateTransaction(tx *Transaction) error {
 	return nil
 }
 
-func (t *TxSender) hasLowerNonce(tx *Transaction) bool {
-	currentNonce := t.store.GetCurrentNonce(tx.Sender)
+func (t *TxSender) hasLowerNonce(ctx context.Context, tx *Transaction) bool {
+	currentNonce := t.store.GetCurrentNonce(ctx, tx.Sender)
 	return tx.Transaction.Nonce() < currentNonce
 }
 
@@ -164,17 +159,17 @@ func (t *TxSender) triggerSender() {
 	}
 }
 
-func (t *TxSender) Enqueue(tx *Transaction) error {
+func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	if err := validateTransaction(tx); err != nil {
 		t.logger.Error("Invalid transaction", "error", err, "transaction", tx.Raw)
 		return err
 	}
 
-	if t.hasLowerNonce(tx) {
+	if t.hasLowerNonce(ctx, tx) {
 		return errors.New("transaction has a lower nonce than the current highest nonce")
 	}
 
-	if err := t.store.AddQueuedTransaction(tx); err != nil {
+	if err := t.store.AddQueuedTransaction(ctx, tx); err != nil {
 		return err
 	}
 
@@ -238,7 +233,7 @@ func (t *TxSender) markCompleted(txn *Transaction) {
 }
 
 func (t *TxSender) processQueuedTransactions(ctx context.Context) {
-	txns, err := t.store.GetQueuedTransactions()
+	txns, err := t.store.GetQueuedTransactions(ctx)
 	if err != nil {
 		t.logger.Error("Failed to get queued transactions", "error", err)
 		return
@@ -266,6 +261,9 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 				t.logger.Info("Processing transaction", "sender", txn.Sender.Hex(), "type", txn.Type)
 				if err := t.processTransaction(ctx, txn); err != nil {
 					t.logger.Error("Failed to process transaction", "sender", txn.Sender.Hex(), "error", err)
+					txn.Status = TxStatusFailed
+					txn.Details = err.Error()
+					return t.store.StoreTransaction(ctx, txn, nil)
 				}
 				return nil
 			})
@@ -295,6 +293,8 @@ BID_LOOP:
 				// This means that all builders have committed to the bid and it
 				// is a primev opted in slot. We can safely proceed to inform the
 				// user that the txn was successfully sent and will be processed
+				txn.Status = TxStatusPreConfirmed
+				txn.BlockNumber = int64(result.blockNumber)
 				break BID_LOOP
 			}
 		default:
@@ -308,16 +308,13 @@ BID_LOOP:
 			return fmt.Errorf("failed to check transaction inclusion: %w", err)
 		}
 		if included {
+			txn.Status = TxStatusConfirmed
+			txn.BlockNumber = int64(result.blockNumber)
 			break BID_LOOP
 		}
 	}
 
-	if err := t.store.StorePreconfirmedTransaction(
-		ctx,
-		int64(result.blockNumber),
-		txn,
-		result.commitments,
-	); err != nil {
+	if err := t.store.StoreTransaction(ctx, txn, result.commitments); err != nil {
 		return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 	}
 

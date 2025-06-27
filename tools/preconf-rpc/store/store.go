@@ -1,21 +1,18 @@
 package store
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/cockroachdb/pebble"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -24,7 +21,7 @@ var (
 )
 
 var transactionsTable = `
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE IF NOT EXISTS mcTransactions (
 	hash TEXT PRIMARY KEY,
 	nonce BIGINT,
 	raw_transaction TEXT,
@@ -32,7 +29,16 @@ CREATE TABLE IF NOT EXISTS transactions (
 	sender TEXT,
 	tx_type INTEGER,
 	status TEXT,
-	details TEXT,
+	details TEXT
+);`
+
+var commitmentsTable = `
+CREATE TABLE IF NOT EXISTS commitments (
+	commitment_digest TEXT PRIMARY KEY,
+	transaction_hash TEXT,
+	provider_address TEXT,
+	commitment_data BYTEA,
+	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
 );`
 
 var balancesTable = `
@@ -45,23 +51,42 @@ type rpcstore struct {
 	db *sql.DB
 }
 
-func New(path string) (*rpcstore, error) {
-	return nil, nil
+func New(db *sql.DB) (*rpcstore, error) {
+	for _, table := range []string{
+		transactionsTable,
+		commitmentsTable,
+		balancesTable,
+	} {
+		_, err := db.Exec(table)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &rpcstore{
+		db: db,
+	}, nil
 }
 
 func (s *rpcstore) Close() error {
 	return s.db.Close()
 }
 
-func (s *rpcstore) AddQueuedTransaction(tx *sender.Transaction) error {
-	if tx.Status != sender.TxStatusPending {
-		return fmt.Errorf("transaction must be in pending status, got %s", tx.Status)
-	}
+func (s *rpcstore) AddQueuedTransaction(ctx context.Context, tx *sender.Transaction) error {
 	insertQuery := `
-	INSERT INTO transactions (hash, nonce, raw_transaction, sender, tx_type, status)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	INSERT INTO mcTransactions (hash, nonce, raw_transaction, sender, tx_type, status)
+	VALUES ($1, $2, $3, $4, $5, $6);
 	`
-	_, err := s.db.Exec(insertQuery, tx.Hash().Hex(), tx.Nonce(), tx.Raw, tx.Sender.Hex(), int(tx.Type), string(tx.Status))
+	_, err := s.db.ExecContext(
+		ctx,
+		insertQuery,
+		tx.Hash().Hex(),
+		tx.Nonce(),
+		tx.Raw,
+		tx.Sender.Hex(),
+		int(tx.Type),
+		string(sender.TxStatusPending),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to add queued transaction: %w", err)
 	}
@@ -69,42 +94,18 @@ func (s *rpcstore) AddQueuedTransaction(tx *sender.Transaction) error {
 	return nil
 }
 
-func (s *rpcstore) GetQueuedTransactions() ([]*sender.Transaction, error) {
-	query := `
-	SELECT t1.raw_transaction, t1.sender, t1.tx_type
-	FROM transactions t1
-	INNER JOIN (
-		SELECT sender, MIN(nonce) AS min_nonce
-		FROM transactions
-		WHERE status = 'pending'
-		GROUP BY sender
-	) t2
-	ON t1.sender = t2.sender AND t1.nonce = t2.min_nonce
-	WHERE t1.status = 'pending';
-	`
-
-	rows, err := s.db.Query(query)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []*sender.Transaction{}, nil // No pending transactions found
-		}
-		return nil, fmt.Errorf("failed to get queued transactions: %w", err)
-	}
-
-	defer func() {
-		if err := rows.Close(); err != nil {
-			fmt.Printf("failed to close rows: %v\n", err)
-		}
-	}()
-
+func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 	var transactions []*sender.Transaction
 	for rows.Next() {
 		var (
 			rawTransaction string
 			senderAddress  string
 			txType         int
+			blockNum       sql.NullInt64
+			status         string
+			details        sql.NullString
 		)
-		err := rows.Scan(&rawTransaction, &senderAddress, &txType)
+		err := rows.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
@@ -119,9 +120,11 @@ func (s *rpcstore) GetQueuedTransactions() ([]*sender.Transaction, error) {
 		txn := &sender.Transaction{
 			Transaction: parsedTxn,
 			Raw:         rawTransaction,
+			BlockNumber: blockNum.Int64,
 			Sender:      common.HexToAddress(senderAddress),
 			Type:        sender.TxType(txType),
-			Status:      sender.TxStatusPending,
+			Status:      sender.TxStatus(status),
+			Details:     details.String,
 		}
 		transactions = append(transactions, txn)
 	}
@@ -132,10 +135,45 @@ func (s *rpcstore) GetQueuedTransactions() ([]*sender.Transaction, error) {
 	return transactions, nil
 }
 
+// GetQueuedTransactions retrieves the next pending transaction for each sender.
+func (s *rpcstore) GetQueuedTransactions(ctx context.Context) ([]*sender.Transaction, error) {
+	query := `
+	SELECT t1.raw_transaction, t1.block_number, t1.sender, t1.tx_type, t1.status, t1.details
+	FROM mcTransactions t1
+	INNER JOIN (
+		SELECT sender, MIN(nonce) AS min_nonce
+		FROM mcTransactions
+		WHERE status = 'pending'
+		GROUP BY sender
+	) t2
+	ON t1.sender = t2.sender AND t1.nonce = t2.min_nonce
+	WHERE t1.status = 'pending';
+	`
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []*sender.Transaction{}, nil // No pending transactions found
+		}
+		return nil, fmt.Errorf("failed to get queued transactions: %w", err)
+	}
+
+	transactions, err := parseTransactionsFromRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse transactions from rows: %w", err)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	return transactions, nil
+}
+
 func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error) {
 	query := `
-	SELECT raw_transaction, sender, tx_type, status, details
-	FROM transactions
+	SELECT raw_transaction, block_number, sender, tx_type, status, details
+	FROM mcTransactions
 	WHERE hash = $1;
 	`
 	row := s.db.QueryRowContext(ctx, query, txnHash.Hex())
@@ -144,9 +182,10 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 		senderAddress  string
 		txType         int
 		status         string
+		blockNum       sql.NullInt64
 		details        sql.NullString
 	)
-	err := row.Scan(&rawTransaction, &senderAddress, &txType, &status, &details)
+	err := row.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("transaction %s not found: %w", txnHash.Hex(), ErrNotFound)
@@ -164,6 +203,7 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 	txn := &sender.Transaction{
 		Transaction: parsedTxn,
 		Raw:         rawTransaction,
+		BlockNumber: blockNum.Int64,
 		Sender:      common.HexToAddress(senderAddress),
 		Type:        sender.TxType(txType),
 		Status:      sender.TxStatus(status),
@@ -175,8 +215,8 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 
 func (s *rpcstore) GetTransactionsForBlock(ctx context.Context, blockNumber int64) ([]*sender.Transaction, error) {
 	query := `
-	SELECT raw_transaction, sender, tx_type, status, details
-	FROM transactions
+	SELECT raw_transaction, block_number, sender, tx_type, status, details
+	FROM mcTransactions
 	WHERE block_number = $1 AND status = 'pre-confirmed';
 	`
 	rows, err := s.db.QueryContext(ctx, query, blockNumber)
@@ -186,197 +226,141 @@ func (s *rpcstore) GetTransactionsForBlock(ctx context.Context, blockNumber int6
 		}
 		return nil, fmt.Errorf("failed to get transactions for block %d: %w", blockNumber, err)
 	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			fmt.Printf("failed to close rows: %v\n", err)
-		}
-	}()
-	var transactions []*sender.Transaction
-	for rows.Next() {
-		var (
-			rawTransaction string
-			senderAddress  string
-			txType         int
-			status         string
-			details        sql.NullString
-		)
-		err := rows.Scan(&rawTransaction, &senderAddress, &txType, &status, &details)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan row: %w", err)
-		}
-		txStr, err := hex.DecodeString(rawTransaction)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode raw transaction: %w", err)
-		}
-		parsedTxn := new(types.Transaction)
-		if err := parsedTxn.UnmarshalBinary(txStr); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
-		}
-		txn := &sender.Transaction{
-			Transaction: parsedTxn,
-			Raw:         rawTransaction,
-			Sender:      common.HexToAddress(senderAddress),
-			Type:        sender.TxType(txType),
-			Status:      sender.TxStatus(status),
-			Details:     details.String,
-		}
-		transactions = append(transactions, txn)
+	transactions, err := parseTransactionsFromRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse transactions from rows: %w", err)
 	}
+
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, fmt.Errorf("error iterating rows for block %d: %w", blockNumber, err)
 	}
+
+	// If no transactions found, return an empty slice
+	if len(transactions) == 0 {
+		return []*sender.Transaction{}, nil
+	}
+
 	return transactions, nil
 }
 
-func (s *rpcstore) GetTransactionCommitments(ctx context.Context, txnHash common.Hash) ([]*bidderapiv1.Commitment, error) {
-	return nil, nil
+func (s *rpcstore) StoreTransaction(
+	ctx context.Context,
+	txn *sender.Transaction,
+	commitments []*bidderapiv1.Commitment,
+) error {
+	if txn.Status == sender.TxStatusPending {
+		return fmt.Errorf("transaction must not be in pending status, got %s", txn.Status)
+	}
+
+	if txn.BlockNumber == 0 && txn.Status != sender.TxStatusFailed {
+		return fmt.Errorf("block number must be set for successful transactions, got %d", txn.BlockNumber)
+	}
+
+	dbTxn, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	updateTxns := `
+	UPDATE mcTransactions
+	SET block_number = $1, status = $2, details = $3
+	WHERE hash = $4;
+	`
+
+	_, err = dbTxn.ExecContext(ctx, updateTxns, txn.BlockNumber, string(txn.Status), txn.Details, txn.Hash().Hex())
+	if err != nil {
+		_ = dbTxn.Rollback()
+		return fmt.Errorf("failed to update transaction %s: %w", txn.Hash().Hex(), err)
+	}
+
+	if txn.Status != sender.TxStatusFailed {
+		for _, commitment := range commitments {
+			insertCommitment := `
+			INSERT INTO commitments (commitment_digest, transaction_hash, provider_address, commitment_data)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (commitment_digest) DO NOTHING;
+			`
+			commitmentData, err := proto.Marshal(commitment)
+			if err != nil {
+				_ = dbTxn.Rollback()
+				return fmt.Errorf("failed to marshal commitment: %w", err)
+			}
+
+			_, err = dbTxn.ExecContext(
+				ctx,
+				insertCommitment,
+				commitment.CommitmentDigest,
+				txn.Hash().Hex(),
+				commitment.ProviderAddress,
+				commitmentData,
+			)
+			if err != nil {
+				_ = dbTxn.Rollback()
+				return fmt.Errorf("failed to insert commitment for transaction %s: %w", txn.Hash().Hex(), err)
+			}
+		}
+	}
+
+	if err := dbTxn.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
-func (s *rpcstore) GetCurrentNonce(sender common.Address) uint64 {
+func (s *rpcstore) GetTransactionCommitments(ctx context.Context, txnHash common.Hash) ([]*bidderapiv1.Commitment, error) {
+	query := `
+	SELECT commitment_data
+	FROM commitments
+	WHERE transaction_hash = $1;
+	`
+	rows, err := s.db.QueryContext(ctx, query, txnHash.Hex())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("no commitments found for transaction %s: %w", txnHash.Hex(), ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to get commitments for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	var commitments []*bidderapiv1.Commitment
+	for rows.Next() {
+		var commitmentData []byte
+		err := rows.Scan(&commitmentData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan commitment data for transaction %s: %w", txnHash.Hex(), err)
+		}
+		commitment := &bidderapiv1.Commitment{}
+		if err := proto.Unmarshal(commitmentData, commitment); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal commitment data for transaction %s: %w", txnHash.Hex(), err)
+		}
+		commitments = append(commitments, commitment)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows for transaction %s: %w", txnHash.Hex(), err)
+	}
+	if len(commitments) == 0 {
+		return nil, fmt.Errorf("no commitments found for transaction %s: %w", txnHash.Hex(), ErrNotFound)
+	}
+	return commitments, nil
+}
+
+// GetCurrentNonce retrieves the next nonce for a given sender address by looking at the
+// pending transactions in the database. If there are no pending transactions, it returns 0.
+// The RPC would proxy this call to the underlying Ethereum node to get the current nonce in
+// case if 0 is returned.
+func (s *rpcstore) GetCurrentNonce(ctx context.Context, sender common.Address) uint64 {
 	query := `
 	SELECT COALESCE(MAX(nonce), 0) + 1
-	FROM transactions
+	FROM mcTransactions
 	WHERE sender = $1 AND status = 'pending';
 	`
-	row := s.db.QueryRow(query, sender.Hex())
+	row := s.db.QueryRowContext(ctx, query, sender.Hex())
 	var nextNonce uint64
 	err := row.Scan(&nextNonce)
 	if err != nil {
 		return 0 // If no pending transactions found, return 0 as the next nonce
 	}
 	return nextNonce
-}
-
-func (s *rpcstore) StorePreconfirmedTransaction(
-	ctx context.Context,
-	blockNumber int64,
-	txn *types.Transaction,
-	commitments []*bidderapiv1.Commitment,
-) error {
-	if blockNumber <= 0 || txn == nil || commitments == nil {
-		return errors.New("invalid input parameters")
-	}
-
-	// Serialize the transaction and commitments
-	txnData, err := txn.MarshalBinary()
-	if err != nil {
-		return err
-	}
-
-	txnDataLenBuf := make([]byte, 8)
-	binary.BigEndian.PutUint64(txnDataLenBuf, uint64(len(txnData)))
-	txnDataWithLen := append(txnDataLenBuf, txnData...)
-
-	commitmentsData, err := json.Marshal(commitments)
-	if err != nil {
-		return err
-	}
-
-	// Create a composite key for the block number and transaction hash
-	key := []byte(fmt.Sprintf("%d:%s", blockNumber, txn.Hash().Hex()))
-	// Store the transaction and commitments in the database
-	if err := s.db.Set(key, append(txnDataWithLen, commitmentsData...), nil); err != nil {
-		return err
-	}
-
-	blockNumBuf := make([]byte, 8)
-	binary.BigEndian.PutUint64(blockNumBuf, uint64(blockNumber))
-
-	txnKey := []byte(fmt.Sprintf("txn:%s", txn.Hash().Hex()))
-	if err := s.db.Set(txnKey, blockNumBuf, nil); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *rpcstore) GetPreconfirmedTransaction(
-	ctx context.Context,
-	txnHash common.Hash,
-) (*types.Transaction, []*bidderapiv1.Commitment, error) {
-	if txnHash == (common.Hash{}) {
-		return nil, nil, errors.New("transaction hash cannot be empty")
-	}
-
-	txnKey := []byte(fmt.Sprintf("txn:%s", txnHash.Hex()))
-	blkNumBuf, closer, err := s.db.Get(txnKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	blockNumber := binary.BigEndian.Uint64(blkNumBuf)
-	if blockNumber == 0 {
-		return nil, nil, fmt.Errorf("transaction %s not found", txnHash)
-	}
-
-	_ = closer.Close() // Close the closer from Get
-
-	key := []byte(fmt.Sprintf("%d:%s", blockNumber, txnHash.Hex()))
-	txnData, closer, err := s.db.Get(key)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer func() {
-		_ = closer.Close()
-	}()
-
-	// The first 8 bytes are the length of the transaction data
-	txnDataLen := binary.BigEndian.Uint64(txnData[:8])
-
-	txn := new(types.Transaction)
-	if err := txn.UnmarshalBinary(txnData[8 : 8+txnDataLen]); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
-	}
-
-	var commitments []*bidderapiv1.Commitment
-	if err := json.Unmarshal(txnData[8+txnDataLen:], &commitments); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal commitments: %w", err)
-	}
-
-	return txn, commitments, nil
-}
-
-func (s *rpcstore) GetPreconfirmedTransactionsForBlock(
-	ctx context.Context,
-	blockNumber int64,
-) ([]*types.Transaction, error) {
-	if blockNumber <= 0 {
-		return nil, errors.New("invalid block number")
-	}
-
-	keyPrefix := []byte(fmt.Sprintf("%d:", blockNumber))
-	iter, err := s.db.NewIter(&pebble.IterOptions{
-		LowerBound: keyPrefix,
-		UpperBound: append(keyPrefix, 0xFF),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create iterator for block %d: %w", blockNumber, err)
-	}
-	defer func() {
-		_ = iter.Close()
-	}()
-
-	var transactions []*types.Transaction
-	for iter.First(); iter.Valid(); iter.Next() {
-		if !bytes.Equal(iter.Key()[:len(keyPrefix)], keyPrefix) {
-			continue
-		}
-		txnData := iter.Value()
-		if len(txnData) < 8 {
-			return nil, fmt.Errorf("invalid transaction data length for block %d", blockNumber)
-		}
-		txnDataLen := binary.BigEndian.Uint64(txnData[:8])
-		if len(txnData) < int(8+txnDataLen) {
-			return nil, fmt.Errorf("invalid transaction data length for block %d", blockNumber)
-		}
-
-		txn := new(types.Transaction)
-		if err := txn.UnmarshalBinary(txnData[8 : 8+txnDataLen]); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
-		}
-		transactions = append(transactions, txn)
-	}
-	return transactions, nil
 }
 
 func (s *rpcstore) DeductBalance(
@@ -389,7 +373,7 @@ func (s *rpcstore) DeductBalance(
 	SET balance = balance - $1
 	WHERE account = $2 AND balance >= $1;
 	`
-	err := s.db.ExecContext(ctx, query, amount.Bytes(), account.Hex())
+	_, err := s.db.ExecContext(ctx, query, amount.String(), account.Hex())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("account %s not found or insufficient balance: %w", account.Hex(), ErrInsufficientBalance)
@@ -406,31 +390,22 @@ func (s *rpcstore) AddBalance(
 	amount *big.Int,
 ) error {
 	if account == (common.Address{}) || amount == nil || amount.Sign() <= 0 {
-		return errors.New("invalid account or amount")
+		return fmt.Errorf("invalid account or amount: account=%s, amount=%s", account.Hex(), amount.String())
 	}
 
-	balanceKey := []byte(fmt.Sprintf("balance:%s", account.Hex()))
-	currentBalance, closer, err := s.db.Get(balanceKey)
+	query := `
+	INSERT INTO balances (account, balance)
+	VALUES ($1, $2)
+	ON CONFLICT (account) DO UPDATE SET balance = balances.balance + $2
+	WHERE balances.balance + $2 >= 0;
+	`
+
+	_, err := s.db.ExecContext(ctx, query, account.Hex(), amount.String())
 	if err != nil {
-		if errors.Is(err, pebble.ErrNotFound) {
-			// If the account does not exist, we create a new one with the initial balance
-			bal := new(big.Int)
-			currentBalance = bal.Bytes() // Default balance for a new account
-		} else {
-			return fmt.Errorf("failed to get balance for account %s: %w", account, err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("account %s not found or insufficient balance: %w", account.Hex(), ErrInsufficientBalance)
 		}
-	}
-	defer func() {
-		if closer != nil {
-			_ = closer.Close()
-		}
-	}()
-
-	currentBalanceBig := new(big.Int).SetBytes(currentBalance)
-
-	newBalance := new(big.Int).Add(currentBalanceBig, amount)
-	if err := s.db.Set(balanceKey, newBalance.Bytes(), nil); err != nil {
-		return fmt.Errorf("failed to update balance for account %s: %w", account, err)
+		return fmt.Errorf("failed to add balance for account %s: %w", account.Hex(), err)
 	}
 
 	return nil
@@ -445,18 +420,24 @@ func (s *rpcstore) HasBalance(
 		return false
 	}
 
-	balanceKey := []byte(fmt.Sprintf("balance:%s", account.Hex()))
-	currentBalance, closer, err := s.db.Get(balanceKey)
+	query := `
+	SELECT balance
+	FROM balances
+	WHERE account = $1;
+	`
+
+	row := s.db.QueryRowContext(ctx, query, account.Hex())
+	var currentBalanceString string
+	err := row.Scan(&currentBalanceString)
 	if err != nil {
 		return false
 	}
-	defer func() {
-		_ = closer.Close()
-	}()
+	currentBalance, ok := new(big.Int).SetString(currentBalanceString, 10)
+	if !ok {
+		return false
+	}
 
-	currentBalanceBig := new(big.Int).SetBytes(currentBalance)
-
-	return currentBalanceBig.Cmp(amount) >= 0
+	return currentBalance.Cmp(amount) >= 0
 }
 
 func (s *rpcstore) GetBalance(
@@ -467,14 +448,34 @@ func (s *rpcstore) GetBalance(
 		return nil, errors.New("account cannot be empty")
 	}
 
-	balanceKey := []byte(fmt.Sprintf("balance:%s", account.Hex()))
-	currentBalance, closer, err := s.db.Get(balanceKey)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = closer.Close()
-	}()
+	query := `
+	SELECT balance
+	FROM balances
+	WHERE account = $1;
+	`
 
-	return new(big.Int).SetBytes(currentBalance), nil
+	row := s.db.QueryRowContext(ctx, query, account.Hex())
+	if row.Err() != nil {
+		if errors.Is(row.Err(), sql.ErrNoRows) {
+			return nil, fmt.Errorf("account %s not found: %w", account.Hex(), ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to get balance for account %s: %w", account.Hex(), row.Err())
+	}
+
+	var balance string
+	err := row.Scan(&balance)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("account %s not found: %w", account.Hex(), ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to scan balance for account %s: %w", account.Hex(), err)
+	}
+
+	// Convert the balance string to a big.Int
+	balanceInt, ok := big.NewInt(0).SetString(balance, 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to convert balance string to big.Int for account %s", account.Hex())
+	}
+
+	return balanceInt, nil
 }
