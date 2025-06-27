@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -18,7 +17,6 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
-	"resenje.org/multex"
 )
 
 const (
@@ -34,22 +32,15 @@ type Bidder interface {
 }
 
 type Pricer interface {
-	EstimatePrice(
-		ctx context.Context,
-		txn *types.Transaction,
-	) (*pricer.BlockPrice, error)
+	EstimatePrice(ctx context.Context, txn *types.Transaction) (*pricer.BlockPrice, error)
 }
 
 type Store interface {
-	GetPreconfirmedTransaction(
-		ctx context.Context,
-		txnHash common.Hash,
-	) (*types.Transaction, []*bidderapiv1.Commitment, error)
-	GetPreconfirmedTransactionsForBlock(
-		ctx context.Context,
-		blockNumber int64,
-	) ([]*types.Transaction, error)
+	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error)
+	GetTransactionsForBlock(ctx context.Context, blockNumber int64) ([]*sender.Transaction, error)
+	GetTransactionCommitments(ctx context.Context, txnHash common.Hash) ([]*bidderapiv1.Commitment, error)
 	GetBalance(ctx context.Context, account common.Address) (*big.Int, error)
+	GetCurrentNonce(ctx context.Context, account common.Address) uint64
 }
 
 type BlockTracker interface {
@@ -58,12 +49,6 @@ type BlockTracker interface {
 
 type Sender interface {
 	Enqueue(txn *sender.Transaction) error
-}
-
-type accountNonce struct {
-	Account string `json:"account"`
-	Nonce   uint64 `json:"nonce"`
-	Block   int64  `json:"block"`
 }
 
 type bidResult struct {
@@ -84,9 +69,6 @@ type rpcMethodHandler struct {
 	depositAddress common.Address
 	bridgeAddress  common.Address
 	chainID        *big.Int
-	nonceLock      *multex.Multex[string]
-	nonceMap       map[string]accountNonce
-	nonceMapLock   sync.RWMutex
 }
 
 func NewRPCMethodHandler(
@@ -108,8 +90,6 @@ func NewRPCMethodHandler(
 		depositAddress: depositAddress,
 		bridgeAddress:  bridgeAddress,
 		chainID:        chainId,
-		nonceLock:      multex.New[string](),
-		nonceMap:       make(map[string]accountNonce),
 	}
 }
 
@@ -164,7 +144,7 @@ func (h *rpcMethodHandler) handleChainID(
 		)
 	}
 
-	chainIDJSON, err := json.Marshal(hexutil.Uint64(h.chainID.Uint64()))
+	chainIDJSON, err := json.Marshal(h.chainID.String())
 	if err != nil {
 		h.logger.Error("Failed to marshal chain ID to JSON", "error", err)
 		return nil, false, rpcserver.NewJSONErr(
@@ -213,7 +193,7 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 		)
 	}
 
-	txns, err := h.store.GetPreconfirmedTransactionsForBlock(ctx, int64(blockNumber))
+	txns, err := h.store.GetTransactionsForBlock(ctx, int64(blockNumber))
 	if err != nil {
 		h.logger.Error("Failed to get preconfirmed transactions for block", "error", err, "blockNumber", blockNumber)
 		return nil, false, rpcserver.NewJSONErr(
@@ -245,6 +225,10 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 
 	var txnsToReturn any
 	for i, txn := range txns {
+		if txn.Status != sender.TxStatusPreConfirmed {
+			h.logger.Warn("Skipping transaction not in preconfirmed state", "txnHash", txn.Hash().Hex(), "status", txn.Status)
+			continue
+		}
 		if !details {
 			if txnsToReturn == nil {
 				txnsToReturn = make([]string, 0, len(txns))
@@ -259,11 +243,6 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 			txnsToReturn = make([]map[string]interface{}, len(txns))
 		}
 		r, s, v := txn.RawSignatureValues()
-		sender, err := types.Sender(types.LatestSignerForChainID(txn.ChainId()), txn)
-		if err != nil {
-			h.logger.Error("Failed to get transaction sender", "error", err, "txnHash", txn.Hash().Hex())
-			continue
-		}
 		txnsToReturn = append(
 			txnsToReturn.([]map[string]interface{}),
 			map[string]interface{}{
@@ -271,14 +250,14 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 				"blockHash":            blockHashStr,
 				"blockNumber":          hexutil.Uint64(blockNumber),
 				"transactionIndex":     hexutil.Uint64(i),
-				"type":                 hexutil.Uint(txn.Type()),
+				"type":                 hexutil.Uint(txn.Transaction.Type()),
 				"accessList":           nil, // Access lists are not used in preconf blocks
 				"maxFeePerGas":         hexutil.EncodeBig(txn.GasFeeCap()),
 				"maxPriorityFeePerGas": hexutil.EncodeBig(txn.GasTipCap()),
 				"to":                   txn.To().Hex(),
 				"value":                hexutil.EncodeBig(txn.Value()),
 				"input":                hexutil.Encode(txn.Data()),
-				"from":                 sender.Hex(),
+				"from":                 txn.Sender.Hex(),
 				"nonce":                hexutil.Uint64(txn.Nonce()),
 				"gas":                  hexutil.Uint64(txn.Gas()),
 				"gasPrice":             hexutil.EncodeBig(txn.GasPrice()),
@@ -365,6 +344,7 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		Raw:         rawTxHex,
 		Sender:      txSender,
 		Type:        txType,
+		Status:      sender.TxStatusPending,
 	})
 	if err != nil {
 		h.logger.Error("Failed to enqueue transaction for sending", "error", err, "sender", txSender.Hex())
@@ -411,35 +391,26 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 	txHash := common.HexToHash(txHashStr)
 
 	h.logger.Info("Retrieving transaction receipt", "txHash", txHash)
-	txn, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
+	txn, err := h.store.GetTransactionByHash(ctx, txHash)
 	if err != nil {
 		return nil, true, nil
 	}
 
-	if h.blockTracker.LatestBlockNumber() > uint64(commitments[0].BlockNumber) {
+	if txn.Status != sender.TxStatusPreConfirmed || h.blockTracker.LatestBlockNumber() > uint64(txn.BlockNumber) {
 		return nil, true, nil
 	}
 
-	sender, err := types.Sender(types.LatestSignerForChainID(txn.ChainId()), txn)
-	if err != nil {
-		h.logger.Error("Failed to get transaction sender", "error", err, "txHash", txHash)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to get transaction sender",
-		)
-	}
-
-	blockHash := fmt.Sprintf("%s%08d", preconfBlockHashPrefix, commitments[0].BlockNumber)
+	blockHash := fmt.Sprintf("%s%08d", preconfBlockHashPrefix, txn.BlockNumber)
 	padding := strings.Repeat("0", 66-len(blockHash))
 	blockHash = blockHash + padding
 
 	result := map[string]interface{}{
-		"type":              hexutil.Uint(txn.Type()),
+		"type":              hexutil.Uint(txn.Transaction.Type()),
 		"transactionHash":   txn.Hash().Hex(),
 		"transactionIndex":  hexutil.Uint(0),
 		"blockHash":         blockHash,
-		"blockNumber":       hexutil.EncodeBig(big.NewInt(commitments[0].BlockNumber)),
-		"from":              sender.Hex(),
+		"blockNumber":       hexutil.EncodeBig(big.NewInt(txn.BlockNumber)),
+		"from":              txn.Sender.Hex(),
 		"to":                nil,
 		"contractAddress":   (common.Address{}).Hex(),
 		"gasUsed":           hexutil.Uint64(0),
@@ -485,25 +456,12 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 		)
 	}
 
-	h.nonceLock.Lock(account)
-	defer h.nonceLock.Unlock(account)
-
-	h.nonceMapLock.RLock()
-	accNonce, found := h.nonceMap[account]
-	h.nonceMapLock.RUnlock()
-
-	if !found {
+	accNonce := h.store.GetCurrentNonce(ctx, common.HexToAddress(account))
+	if accNonce == 0 {
 		return nil, true, nil
 	}
 
-	if h.blockTracker.LatestBlockNumber() > uint64(accNonce.Block) {
-		h.nonceMapLock.Lock()
-		delete(h.nonceMap, account)
-		h.nonceMapLock.Unlock()
-		return nil, true, nil
-	}
-
-	nonceJSON, err := json.Marshal(accNonce.Nonce)
+	nonceJSON, err := json.Marshal(accNonce)
 	if err != nil {
 		h.logger.Error("Failed to marshal nonce to JSON", "error", err, "account", account)
 		return nil, false, rpcserver.NewJSONErr(
@@ -512,7 +470,7 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 		)
 	}
 
-	h.logger.Info("Retrieved account nonce from cache", "account", account, "nonce", accNonce.Nonce)
+	h.logger.Info("Retrieved account nonce from cache", "account", account, "nonce", accNonce)
 	return nonceJSON, false, nil
 }
 
@@ -544,9 +502,12 @@ func (h *rpcMethodHandler) handleGetTxCommitments(
 
 	txHash := common.HexToHash(txHashStr)
 
-	_, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
+	commitments, err := h.store.GetTransactionCommitments(ctx, txHash)
 	if err != nil {
-		return nil, true, nil
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to get transaction commitments",
+		)
 	}
 
 	if len(commitments) == 0 {

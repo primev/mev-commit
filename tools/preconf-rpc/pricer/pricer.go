@@ -87,3 +87,5 @@ func (b *BidPricer) EstimatePrice(ctx context.Context, txn *types.Transaction) (
 	// This could happen if the API response format changes or if no 99% confidence price is available.
 	return nil, errors.New("no suitable price found for the next block")
 }
+
+

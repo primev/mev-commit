@@ -25,6 +25,15 @@ const (
 	TxTypeInstantBridge
 )
 
+type TxStatus string
+
+const (
+	TxStatusPending      TxStatus = "pending"
+	TxStatusPreConfirmed TxStatus = "pre-confirmed"
+	TxStatusConfirmed    TxStatus = "confirmed"
+	TxStatusFailed       TxStatus = "failed"
+)
+
 const (
 	blockTime = 12 // seconds, typical Ethereum block time
 )
@@ -40,9 +49,12 @@ var (
 
 type Transaction struct {
 	*types.Transaction
-	Sender common.Address
-	Raw    string
-	Type   TxType
+	Sender      common.Address
+	Raw         string
+	Type        TxType
+	Status      TxStatus
+	Details     string
+	BlockNumber int64
 }
 
 type Store interface {
