@@ -9,6 +9,7 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {console} from "forge-std/console.sol";
 import {BidderRegistryV2} from "../../contracts/core/BidderRegistryV2.sol";
 import {ProviderRegistryV2} from "../../contracts/core/ProviderRegistryV2.sol";
+import {RegistryUpgradeLib} from "../../contracts/core/RegistryUpgradeLib.sol";
 
 contract UpgradeRegistries is Script {
     function run() external {
@@ -18,28 +19,12 @@ contract UpgradeRegistries is Script {
         address providerRegistryProxyAddress = vm.envAddress("PROVIDER_REGISTRY_PROXY");
         console.log("BidderRegistry proxy address:", bidderRegistryProxyAddress);
         console.log("ProviderRegistry proxy address:", providerRegistryProxyAddress);
-
-        Upgrades.upgradeProxy(
+        uint256 newPayoutPeriodInMs = 1 hours * 1000; // 1 hour on mev-commit chain (ms timestamps)
+        RegistryUpgradeLib.upgradeRegistries(
             bidderRegistryProxyAddress,
-            "BidderRegistryV2.sol",
-            ""
-        );
-        Upgrades.upgradeProxy(
             providerRegistryProxyAddress,
-            "ProviderRegistryV2.sol",
-            ""
+            newPayoutPeriodInMs
         );
-        console.log("Registries upgraded to V2");
-
-        BidderRegistryV2 brv2 = BidderRegistryV2(payable(bidderRegistryProxyAddress));
-        ProviderRegistryV2 prv2 = ProviderRegistryV2(payable(providerRegistryProxyAddress));
-        brv2.setNewFeePayoutPeriod(1 hours * 1000);
-        prv2.setFeePayoutPeriod(1 hours * 1000);
-        console.log("Payout periods updated to 1 hour in ms");
-
-        brv2.manuallyWithdrawProtocolFee();
-        prv2.manuallyWithdrawPenaltyFee();
-        console.log("Fees manually withdrawn to overwrite last payout timestamp");
 
         vm.stopBroadcast();
     }
