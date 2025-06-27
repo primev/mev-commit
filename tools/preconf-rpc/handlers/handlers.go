@@ -48,7 +48,7 @@ type BlockTracker interface {
 }
 
 type Sender interface {
-	Enqueue(txn *sender.Transaction) error
+	Enqueue(ctx context.Context, txn *sender.Transaction) error
 }
 
 type bidResult struct {
@@ -339,7 +339,7 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		txType = sender.TxTypeInstantBridge
 	}
 
-	err = h.sndr.Enqueue(&sender.Transaction{
+	err = h.sndr.Enqueue(ctx, &sender.Transaction{
 		Transaction: txn,
 		Raw:         rawTxHex,
 		Sender:      txSender,
@@ -390,26 +390,19 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 
 	txHash := common.HexToHash(txHashStr)
 
-	h.logger.Info("Retrieving transaction receipt", "txHash", txHash)
 	txn, err := h.store.GetTransactionByHash(ctx, txHash)
 	if err != nil {
 		return nil, true, nil
 	}
 
-	if txn.Status != sender.TxStatusPreConfirmed || h.blockTracker.LatestBlockNumber() > uint64(txn.BlockNumber) {
+	if txn.Status != sender.TxStatusFailed && (txn.Status != sender.TxStatusPreConfirmed || h.blockTracker.LatestBlockNumber() > uint64(txn.BlockNumber)) {
 		return nil, true, nil
 	}
-
-	blockHash := fmt.Sprintf("%s%08d", preconfBlockHashPrefix, txn.BlockNumber)
-	padding := strings.Repeat("0", 66-len(blockHash))
-	blockHash = blockHash + padding
 
 	result := map[string]interface{}{
 		"type":              hexutil.Uint(txn.Transaction.Type()),
 		"transactionHash":   txn.Hash().Hex(),
 		"transactionIndex":  hexutil.Uint(0),
-		"blockHash":         blockHash,
-		"blockNumber":       hexutil.EncodeBig(big.NewInt(txn.BlockNumber)),
 		"from":              txn.Sender.Hex(),
 		"to":                nil,
 		"contractAddress":   (common.Address{}).Hex(),
@@ -417,8 +410,15 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		"cumulativeGasUsed": hexutil.Uint64(1),
 		"logs":              []*types.Log{}, // should be [] not null
 		"logsBloom":         hexutil.Bytes(types.Bloom{}.Bytes()),
-		"status":            hexutil.Uint64(types.ReceiptStatusSuccessful),
 		"effectiveGasPrice": hexutil.EncodeBig(big.NewInt(0)),
+	}
+
+	if txn.Status == sender.TxStatusFailed {
+		result["status"] = hexutil.Uint64(types.ReceiptStatusFailed)
+	} else {
+		result["status"] = hexutil.Uint64(types.ReceiptStatusSuccessful)
+		result["blockHash"] = fmt.Sprintf("%s%08d", preconfBlockHashPrefix, txn.BlockNumber) + strings.Repeat("0", 66-len(fmt.Sprintf("%s%08d", preconfBlockHashPrefix, txn.BlockNumber)))
+		result["blockNumber"] = hexutil.EncodeBig(big.NewInt(txn.BlockNumber))
 	}
 
 	receiptJSON, err := json.Marshal(result)
