@@ -3,29 +3,33 @@ pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
+import {BidderRegistryV2} from "../../contracts/core/BidderRegistryV2.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
-import {IBidderRegistry} from "../../contracts/interfaces/IBidderRegistry.sol";
+import {IBidderRegistryV2} from "../../contracts/interfaces/IBidderRegistryV2.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
+import {ProviderRegistryV2} from "../../contracts/core/ProviderRegistryV2.sol";
+import {RegistryUpgradeLib} from "../../contracts/core/RegistryUpgradeLib.sol";
 
 contract BidderRegistryTest is Test {
     uint256 public testNumber;
-    BidderRegistry public bidderRegistry;
+    BidderRegistryV2 public bidderRegistry;
     uint256 public feePercent;
     uint256 public minStake;
     address public bidder;
     address public feeRecipient;
     uint256 public feePayoutPeriodBlocks;
+    uint256 public feePayoutPeriodMs;
     BlockTracker public blockTracker;
-    ProviderRegistry public providerRegistry;
+    ProviderRegistryV2 public providerRegistry;
 
     /// @dev Event emitted when a bidder is registered with their staked amount
     event BidderRegistered(address indexed bidder, uint256 indexed stakedAmount, uint256 indexed windowNumber);
 
     event FeeTransfer(uint256 amount, address indexed recipient);
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
-    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+    event FeePayoutPeriodUpdated(uint256 indexed newFeePayoutPeriod);
 
     function setUp() public {
         testNumber = 42;
@@ -43,7 +47,6 @@ contract BidderRegistryTest is Test {
             "BidderRegistry.sol",
             abi.encodeCall(BidderRegistry.initialize, (feeRecipient, feePercent, address(this), address(blockTracker), feePayoutPeriodBlocks))
         );
-        bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
 
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
@@ -52,7 +55,6 @@ contract BidderRegistryTest is Test {
                 (minStake, feeRecipient, feePercent, address(this), 24 hours , 5 hours )
             )
         );
-        providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
 
         vm.startPrank(address(this));
         blockTracker.setProviderRegistry(address(providerRegistry));
@@ -60,13 +62,22 @@ contract BidderRegistryTest is Test {
         bidder = vm.addr(1);
         vm.deal(bidder, 1000 ether);
         vm.deal(address(this), 1000 ether);
+
+        feePayoutPeriodMs = 10000;
+        RegistryUpgradeLib.upgradeRegistries(
+            bidderRegistryProxy,
+            providerRegistryProxy,
+            feePayoutPeriodMs
+        );
+        bidderRegistry = BidderRegistryV2(payable(bidderRegistryProxy));
+        providerRegistry = ProviderRegistryV2(payable(providerRegistryProxy));
     }
 
     function test_VerifyInitialContractState() public view {
-        (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
+        (address recipient, uint256 accumulatedAmount, uint256 lastPayoutTimestamp, uint256 payoutPeriodMs) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
-        assertEq(payoutPeriodBlocks, feePayoutPeriodBlocks);
-        assertEq(lastPayoutBlock, block.number);
+        assertEq(payoutPeriodMs, feePayoutPeriodMs);
+        assertEq(lastPayoutTimestamp, block.timestamp);
         assertEq(accumulatedAmount, 0);
         assertEq(bidderRegistry.feePercent(), feePercent);
         assertEq(bidderRegistry.preconfManager(), address(0));
@@ -140,15 +151,15 @@ contract BidderRegistryTest is Test {
     function test_SetNewFeePayoutPeriodBlocks() public {
         vm.prank(address(this));
         vm.expectEmit(true, true, true, true);
-        emit FeePayoutPeriodBlocksUpdated(890);
-        bidderRegistry.setNewFeePayoutPeriodBlocks(890);
+        emit FeePayoutPeriodUpdated(890);
+        bidderRegistry.setNewFeePayoutPeriod(890);
         (, , , uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(payoutPeriodBlocks, 890);
     }
 
     function testFail_SetNewFeePayoutPeriodBlocks() public {
         vm.expectRevert(bytes(""));
-        bidderRegistry.setNewFeePayoutPeriodBlocks(83424);
+        bidderRegistry.setNewFeePayoutPeriod(83424);
     }
 
     function test_SetNewFeePercent() public {
@@ -418,17 +429,18 @@ contract BidderRegistryTest is Test {
         uint256 expectedBidAmt = availableAmount;
         
         // Verify the bid state
-        (address storedBidder, uint256 storedBidAmt, IBidderRegistry.State storedState) = bidderRegistry.bidPayment(commitmentDigest);
+        (address storedBidder, uint256 storedBidAmt, IBidderRegistryV2.State storedState) = bidderRegistry.bidPayment(commitmentDigest);
         assertEq(storedBidder, testBidder);
         assertEq(storedBidAmt, expectedBidAmt);
-        assertEq(uint(storedState), uint(IBidderRegistry.State.PreConfirmed));
+        assertEq(uint(storedState), uint(IBidderRegistryV2.State.PreConfirmed));
     }
 
     function test_ProtocolFeePayout() public {
-        (, , uint256 lastPayoutBlock,) = bidderRegistry.protocolFeeTracker();
-        assertEq(lastPayoutBlock, 1);
+        (, , uint256 lastPayoutTimestamp,) = bidderRegistry.protocolFeeTracker();
+        uint256 defaultStartTimestamp = 1;
+        assertEq(lastPayoutTimestamp, 1);
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
-        vm.roll(250); // roll past protocol fee payout period
+        vm.warp(defaultStartTimestamp + 10000 + 1); // roll past protocol fee payout period
 
         bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
@@ -554,7 +566,7 @@ contract BidderRegistryTest is Test {
 
         vm.startPrank(bidder);
 
-        vm.expectRevert(IBidderRegistry.DepositAmountIsZero.selector);
+        vm.expectRevert(IBidderRegistryV2.DepositAmountIsZero.selector);
         bidderRegistry.depositForWindow{value: 0 ether}(nextWindow);   
     }
 }

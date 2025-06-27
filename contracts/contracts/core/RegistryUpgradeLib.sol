@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {Options} from "openzeppelin-foundry-upgrades/Options.sol";
 import {console} from "forge-std/console.sol";
 import {BidderRegistryV2} from "../../contracts/core/BidderRegistryV2.sol";
 import {ProviderRegistryV2} from "../../contracts/core/ProviderRegistryV2.sol";
@@ -12,15 +13,19 @@ library RegistryUpgradeLib {
         address providerRegistryProxyAddress,
         uint256 newPayoutPeriodInMs
     ) external {
+        Options memory opts;
+        opts.unsafeSkipStorageCheck = true; // Required since we're renaming struct variables
         Upgrades.upgradeProxy(
             bidderRegistryProxyAddress,
             "BidderRegistryV2.sol",
-            ""
+            "",
+            opts
         );
         Upgrades.upgradeProxy(
             providerRegistryProxyAddress,
             "ProviderRegistryV2.sol",
-            ""
+            "",
+            opts
         );
         console.log("Registries upgraded to V2");
 

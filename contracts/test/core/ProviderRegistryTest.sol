@@ -3,21 +3,24 @@ pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
+import {ProviderRegistryV2} from "../../contracts/core/ProviderRegistryV2.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
+import {BidderRegistryV2} from "../../contracts/core/BidderRegistryV2.sol";
 import {PreconfManager} from "../../contracts/core/PreconfManager.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {IProviderRegistry} from "../../contracts/interfaces/IProviderRegistry.sol";
+import {IProviderRegistryV2} from "../../contracts/interfaces/IProviderRegistryV2.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
+import {RegistryUpgradeLib} from "../../contracts/core/RegistryUpgradeLib.sol";
 
 contract ProviderRegistryTest is Test {
     uint256 public testNumber;
-    ProviderRegistry public providerRegistry;
+    ProviderRegistryV2 public providerRegistry;
     uint256 public feePercent;
     uint256 public minStake;
     address public provider;
     address public feeRecipient;
-    BidderRegistry public bidderRegistry;
+    BidderRegistryV2 public bidderRegistry;
     PreconfManager public preconfManager;
     BlockTracker public blockTracker;
     uint256 public withdrawalDelay;
@@ -27,14 +30,13 @@ contract ProviderRegistryTest is Test {
         hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
     uint256 public penaltyFeePayoutPeriodBlocks;
+    uint256 public penaltyFeePayoutPeriodMs;
     event ProviderRegistered(address indexed provider, uint256 stakedAmount);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
     event FeeTransfer(uint256 amount, address indexed recipient);
     event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
-    event FeePayoutPeriodBlocksUpdated(
-        uint256 indexed newFeePayoutPeriodBlocks
-    );
+    event FeePayoutPeriodUpdated(uint256 indexed newFeePayoutPeriod);
     event InsufficientFundsToSlash(
         address indexed provider,
         uint256 providerStake,
@@ -70,7 +72,6 @@ contract ProviderRegistryTest is Test {
                 )
             )
         );
-        providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
@@ -94,7 +95,6 @@ contract ProviderRegistryTest is Test {
                 )
             )
         );
-        bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
 
         address preconfStoreProxy = Upgrades.deployUUPSProxy(
             "PreconfManager.sol",
@@ -115,6 +115,15 @@ contract ProviderRegistryTest is Test {
         provider = vm.addr(1);
         vm.deal(provider, 100 ether);
         vm.deal(address(this), 100 ether);
+
+        penaltyFeePayoutPeriodMs = 10000;
+        RegistryUpgradeLib.upgradeRegistries(
+            bidderRegistryProxy,
+            providerRegistryProxy,
+            penaltyFeePayoutPeriodMs
+        );
+        providerRegistry = ProviderRegistryV2(payable(providerRegistryProxy));
+        bidderRegistry = BidderRegistryV2(payable(bidderRegistryProxy));
     }
 
     function test_VerifyInitialContractState() public view {
@@ -127,12 +136,12 @@ contract ProviderRegistryTest is Test {
         (
             address recipient,
             uint256 accumulatedAmount,
-            uint256 lastPayoutBlock,
-            uint256 payoutPeriodBlocks
+            uint256 lastPayoutTimestamp,
+            uint256 payoutPeriodMs
         ) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
-        assertEq(payoutPeriodBlocks, penaltyFeePayoutPeriodBlocks);
-        assertEq(lastPayoutBlock, block.number);
+        assertEq(payoutPeriodMs, penaltyFeePayoutPeriodMs);
+        assertEq(lastPayoutTimestamp, block.timestamp);
         assertEq(accumulatedAmount, 0);
     }
 
@@ -239,19 +248,19 @@ contract ProviderRegistryTest is Test {
         providerRegistry.setNewPenaltyFeeRecipient(newRecipient);
     }
 
-    function test_SetNewFeePayoutPeriodBlocks() public {
+    function test_SetNewFeePayoutPeriod() public {
         vm.prank(address(this));
         vm.expectEmit(true, true, true, true);
-        emit FeePayoutPeriodBlocksUpdated(890);
-        providerRegistry.setFeePayoutPeriodBlocks(890);
-        (, , , uint256 payoutPeriodBlocks) = providerRegistry
+        emit FeePayoutPeriodUpdated(890);
+        providerRegistry.setFeePayoutPeriod(890);
+        (, , , uint256 payoutPeriodMs) = providerRegistry
             .penaltyFeeTracker();
-        assertEq(payoutPeriodBlocks, 890);
+        assertEq(payoutPeriodMs, 890);
     }
 
-    function testFail_SetNewFeePayoutPeriodBlocks() public {
+    function testFail_SetNewFeePayoutPeriod() public {
         vm.expectRevert(bytes(""));
-        providerRegistry.setFeePayoutPeriodBlocks(83424);
+        providerRegistry.setFeePayoutPeriod(83424);
     }
 
     function test_SetNewFeePercent() public {
@@ -452,7 +461,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2 ether}();
 
-        vm.roll(350); // roll past protocol fee payout period
+        vm.warp(block.timestamp + 10000 + 1); // roll past protocol fee payout period
 
         vm.expectEmit(true, true, true, true);
         emit FeeTransfer(1e17 wei, vm.addr(6));
@@ -614,7 +623,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(newProvider);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IProviderRegistry.DelayNotPassed.selector,
+                IProviderRegistryV2.DelayNotPassed.selector,
                 block.timestamp - 23 hours, // withdrawalRequestTimestamp
                 24 hours, // withdrawalDelay
                 block.timestamp // currentBlockTimestamp
@@ -632,7 +641,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(newProvider);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IProviderRegistry.NoUnstakeRequest.selector,
+                IProviderRegistryV2.NoUnstakeRequest.selector,
                 newProvider
             )
         );
