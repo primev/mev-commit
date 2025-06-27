@@ -38,11 +38,39 @@ var (
 		Required: true,
 	}
 
-	optionDataDir = &cli.StringFlag{
-		Name:    "data-dir",
-		Usage:   "directory where data is stored",
-		EnvVars: []string{"PRECONF_RPC_DATA_DIR"},
-		Value:   "~/data",
+	optionPgHost = &cli.StringFlag{
+		Name:    "pg-host",
+		Usage:   "PostgreSQL host",
+		EnvVars: []string{"PRECONF_RPC_PG_HOST"},
+		Value:   "localhost",
+	}
+
+	optionPgPort = &cli.IntFlag{
+		Name:    "pg-port",
+		Usage:   "PostgreSQL port",
+		EnvVars: []string{"PRECONF_RPC_PG_PORT"},
+		Value:   5432,
+	}
+
+	optionPgUser = &cli.StringFlag{
+		Name:    "pg-user",
+		Usage:   "PostgreSQL user",
+		EnvVars: []string{"PRECONF_RPC_PG_USER"},
+		Value:   "postgres",
+	}
+
+	optionPgPassword = &cli.StringFlag{
+		Name:    "pg-password",
+		Usage:   "PostgreSQL password",
+		EnvVars: []string{"PRECONF_RPC_PG_PASSWORD"},
+		Value:   "postgres",
+	}
+
+	optionPgDbname = &cli.StringFlag{
+		Name:    "pg-dbname",
+		Usage:   "PostgreSQL database name",
+		EnvVars: []string{"PRECONF_RPC_PG_DBNAME"},
+		Value:   "mev_oracle",
 	}
 
 	optionL1RPCUrls = &cli.StringSliceFlag{
@@ -115,6 +143,32 @@ var (
 		Required: true,
 	}
 
+	optionDepositAddress = &cli.StringFlag{
+		Name:     "deposit-address",
+		Usage:    "address to deposit funds to",
+		EnvVars:  []string{"PRECONF_RPC_DEPOSIT_ADDRESS"},
+		Required: true,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid deposit address: %s", s)
+			}
+			return nil
+		},
+	}
+
+	optionBridgeAddress = &cli.StringFlag{
+		Name:     "bridge-address",
+		Usage:    "address to bridge to",
+		EnvVars:  []string{"PRECONF_RPC_BRIDGE_ADDRESS"},
+		Required: true,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid bridge address: %s", s)
+			}
+			return nil
+		},
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -162,7 +216,11 @@ func main() {
 		Usage: "Preconf RPC service",
 		Flags: []cli.Flag{
 			optionHTTPPort,
-			optionDataDir,
+			optionPgHost,
+			optionPgPort,
+			optionPgUser,
+			optionPgPassword,
+			optionPgDbname,
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
@@ -178,6 +236,8 @@ func main() {
 			optionGasFeeCap,
 			optionSettlementContractAddr,
 			optionAutoDepositAmount,
+			optionDepositAddress,
+			optionBridgeAddress,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -223,18 +283,16 @@ func main() {
 				return fmt.Errorf("failed to create signer: %w", err)
 			}
 
-			if _, err := os.Stat(c.String(optionDataDir.Name)); os.IsNotExist(err) {
-				if err := os.MkdirAll(c.String(optionDataDir.Name), 0755); err != nil {
-					return fmt.Errorf("failed to create data directory: %w", err)
-				}
-			}
-
 			sigc := make(chan os.Signal, 1)
 			signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 
 			config := service.Config{
 				HTTPPort:               c.Int(optionHTTPPort.Name),
-				DataDir:                c.String(optionDataDir.Name),
+				PgHost:                 c.String(optionPgHost.Name),
+				PgPort:                 c.Int(optionPgPort.Name),
+				PgUser:                 c.String(optionPgUser.Name),
+				PgPassword:             c.String(optionPgPassword.Name),
+				PgDbname:               c.String(optionPgDbname.Name),
 				Logger:                 logger,
 				GasTipCap:              gasTipCap,
 				GasFeeCap:              gasFeeCap,
@@ -247,6 +305,8 @@ func main() {
 				L1ContractAddr:         common.HexToAddress(c.String(optionL1ContractAddr.Name)),
 				SettlementContractAddr: common.HexToAddress(c.String(optionSettlementContractAddr.Name)),
 				Signer:                 signer,
+				DepositAddress:         common.HexToAddress(c.String(optionDepositAddress.Name)),
+				BridgeAddress:          common.HexToAddress(c.String(optionBridgeAddress.Name)),
 			}
 
 			s, err := service.New(&config)
