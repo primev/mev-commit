@@ -344,7 +344,6 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		Raw:         rawTxHex,
 		Sender:      txSender,
 		Type:        txType,
-		Status:      sender.TxStatusPending,
 	})
 	if err != nil {
 		h.logger.Error("Failed to enqueue transaction for sending", "error", err, "sender", txSender.Hex())
@@ -395,7 +394,8 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		return nil, true, nil
 	}
 
-	if txn.Status != sender.TxStatusFailed && (txn.Status != sender.TxStatusPreConfirmed || h.blockTracker.LatestBlockNumber() > uint64(txn.BlockNumber)) {
+	if txn.Status != sender.TxStatusFailed &&
+		(txn.Status != sender.TxStatusPreConfirmed || h.blockTracker.LatestBlockNumber() > uint64(txn.BlockNumber)) {
 		return nil, true, nil
 	}
 
@@ -417,7 +417,9 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		result["status"] = hexutil.Uint64(types.ReceiptStatusFailed)
 	} else {
 		result["status"] = hexutil.Uint64(types.ReceiptStatusSuccessful)
-		result["blockHash"] = fmt.Sprintf("%s%08d", preconfBlockHashPrefix, txn.BlockNumber) + strings.Repeat("0", 66-len(fmt.Sprintf("%s%08d", preconfBlockHashPrefix, txn.BlockNumber)))
+		blockHash := fmt.Sprintf("%s%08d", preconfBlockHashPrefix, txn.BlockNumber)
+		blockHash += strings.Repeat("0", 66-len(blockHash))
+		result["blockHash"] = blockHash
 		result["blockNumber"] = hexutil.EncodeBig(big.NewInt(txn.BlockNumber))
 	}
 

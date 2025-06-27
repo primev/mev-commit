@@ -89,19 +89,25 @@ type BlockTracker interface {
 	CheckTxnInclusion(ctx context.Context, txnHash common.Hash, blockNumber uint64) (bool, error)
 }
 
+type Transferer interface {
+	Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error
+}
+
 type TxSender struct {
-	logger          *slog.Logger
-	store           Store
-	bidder          Bidder
-	pricer          Pricer
-	blockTracker    BlockTracker
-	eg              *errgroup.Group
-	egCtx           context.Context
-	trigger         chan struct{}
-	workerPool      chan struct{}
-	inflightTxns    map[common.Hash]struct{}
-	inflightAccount map[common.Address]struct{}
-	inflightMu      sync.Mutex
+	logger            *slog.Logger
+	store             Store
+	bidder            Bidder
+	pricer            Pricer
+	blockTracker      BlockTracker
+	transferer        Transferer
+	settlementChainId *big.Int
+	eg                *errgroup.Group
+	egCtx             context.Context
+	trigger           chan struct{}
+	workerPool        chan struct{}
+	inflightTxns      map[common.Hash]struct{}
+	inflightAccount   map[common.Address]struct{}
+	inflightMu        sync.Mutex
 }
 
 func NewTxSender(
@@ -109,18 +115,22 @@ func NewTxSender(
 	bidder Bidder,
 	pricer Pricer,
 	blockTracker BlockTracker,
+	transferer Transferer,
+	settlementChainId *big.Int,
 	logger *slog.Logger,
 ) *TxSender {
 	return &TxSender{
-		store:           st,
-		bidder:          bidder,
-		pricer:          pricer,
-		blockTracker:    blockTracker,
-		logger:          logger.With("component", "TxSender"),
-		workerPool:      make(chan struct{}, 512),
-		trigger:         make(chan struct{}, 1),
-		inflightTxns:    make(map[common.Hash]struct{}),
-		inflightAccount: make(map[common.Address]struct{}),
+		store:             st,
+		bidder:            bidder,
+		pricer:            pricer,
+		blockTracker:      blockTracker,
+		transferer:        transferer,
+		settlementChainId: settlementChainId,
+		logger:            logger.With("component", "TxSender"),
+		workerPool:        make(chan struct{}, 512),
+		trigger:           make(chan struct{}, 1),
+		inflightTxns:      make(map[common.Hash]struct{}),
+		inflightAccount:   make(map[common.Address]struct{}),
 	}
 }
 
@@ -330,6 +340,10 @@ BID_LOOP:
 			return fmt.Errorf("failed to add balance for sender: %w", err)
 		}
 	case TxTypeInstantBridge:
+		if err := t.transferer.Transfer(ctx, txn.Sender, t.settlementChainId, txn.Value()); err != nil {
+			t.logger.Error("Failed to transfer funds for instant bridge", "sender", txn.Sender.Hex(), "error", err)
+			return fmt.Errorf("failed to transfer funds for instant bridge: %w", err)
+		}
 	}
 
 	return nil

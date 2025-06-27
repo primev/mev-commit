@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +21,7 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
+	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 	"github.com/primev/mev-commit/x/accountsync"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
@@ -33,7 +35,11 @@ import (
 
 type Config struct {
 	Logger                 *slog.Logger
-	DataDir                string
+	PgHost                 string
+	PgPort                 int
+	PgUser                 string
+	PgPassword             string
+	PgDbname               string
 	Signer                 keysigner.KeySigner
 	BidderRPC              string
 	AutoDepositAmount      *big.Int
@@ -41,6 +47,8 @@ type Config struct {
 	SettlementRPCUrl       string
 	L1ContractAddr         common.Address
 	SettlementContractAddr common.Address
+	DepositAddress         common.Address
+	BridgeAddress          common.Address
 	SettlementThreshold    *big.Int
 	SettlementTopup        *big.Int
 	HTTPPort               int
@@ -84,6 +92,11 @@ func New(config *Config) (*Service, error) {
 	l1ChainID, err := l1RPCClient.ChainID(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 chain ID: %w", err)
+	}
+
+	settlementChainID, err := settlementClient.ChainID(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get settlement chain ID: %w", err)
 	}
 
 	bidderCli := bidderapiv1.NewBidderClient(conn)
@@ -132,6 +145,14 @@ func New(config *Config) (*Service, error) {
 		l1RPCClient,
 	)
 
+	transferer := transfer.NewTransferer(
+		config.Logger.With("module", "transferer"),
+		settlementClient,
+		config.Signer,
+		config.GasTipCap,
+		config.GasFeeCap,
+	)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
@@ -152,7 +173,12 @@ func New(config *Config) (*Service, error) {
 
 	bidpricer := &pricer.BidPricer{}
 
-	rpcstore, err := store.New(config.DataDir)
+	db, err := initDB(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+
+	rpcstore, err := store.New(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create store: %w", err)
 	}
@@ -164,13 +190,27 @@ func New(config *Config) (*Service, error) {
 	blockTrackerDone := blockTracker.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
 
+	sndr := sender.NewTxSender(
+		rpcstore,
+		bidderClient,
+		bidpricer,
+		blockTracker,
+		transferer,
+		settlementChainID,
+		config.Logger.With("module", "txsender"),
+	)
+
+	senderDone := sndr.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("TxSender", senderDone))
+
 	handlers := handlers.NewRPCMethodHandler(
 		config.Logger.With("module", "handlers"),
 		bidderClient,
 		rpcstore,
-		bidpricer,
 		blockTracker,
-		config.Signer.GetAddress(),
+		sndr,
+		config.DepositAddress,
+		config.BridgeAddress,
 		l1ChainID,
 	)
 
@@ -212,4 +252,30 @@ func (c channelCloser) Close() error {
 		return errors.New("timed out waiting for channel to close")
 	}
 	return nil
+}
+
+func initDB(opts *Config) (db *sql.DB, err error) {
+	// Connection string
+	psqlInfo := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		opts.PgHost, opts.PgPort, opts.PgUser, opts.PgPassword, opts.PgDbname,
+	)
+
+	// Open a connection
+	db, err = sql.Open("postgres", psqlInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check the connection
+	err = db.Ping()
+	if err != nil {
+		return nil, err
+	}
+
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(1 * time.Hour)
+
+	return db, err
 }

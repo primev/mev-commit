@@ -40,7 +40,7 @@ func newMockStore() *mockStore {
 	}
 }
 
-func (m *mockStore) AddQueuedTransaction(tx *sender.Transaction) error {
+func (m *mockStore) AddQueuedTransaction(_ context.Context, tx *sender.Transaction) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -50,7 +50,7 @@ func (m *mockStore) AddQueuedTransaction(tx *sender.Transaction) error {
 	return nil
 }
 
-func (m *mockStore) GetQueuedTransactions() ([]*sender.Transaction, error) {
+func (m *mockStore) GetQueuedTransactions(_ context.Context) ([]*sender.Transaction, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var txns []*sender.Transaction
@@ -65,7 +65,7 @@ func (m *mockStore) GetQueuedTransactions() ([]*sender.Transaction, error) {
 	return txns, nil
 }
 
-func (m *mockStore) GetCurrentNonce(sender common.Address) uint64 {
+func (m *mockStore) GetCurrentNonce(_ context.Context, sender common.Address) uint64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -117,16 +117,15 @@ func (m *mockStore) DeductBalance(ctx context.Context, account common.Address, a
 	return nil
 }
 
-func (m *mockStore) StorePreconfirmedTransaction(
+func (m *mockStore) StoreTransaction(
 	ctx context.Context,
-	blockNumber int64,
 	txn *sender.Transaction,
 	commitments []*bidderapiv1.Commitment,
 ) error {
 	m.preconfirmedTxns <- result{
 		txn:         txn,
 		commitments: commitments,
-		blockNumber: blockNumber,
+		blockNumber: txn.BlockNumber,
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -220,6 +219,12 @@ func (m *mockBlockTracker) CheckTxnInclusion(ctx context.Context, txnHash common
 	}
 }
 
+type mockTransferer struct{}
+
+func (m *mockTransferer) Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error {
+	return nil
+}
+
 func TestSender(t *testing.T) {
 	t.Parallel()
 
@@ -238,24 +243,39 @@ func TestSender(t *testing.T) {
 		out: make(chan bool, 10),
 	}
 
-	sndr := sender.NewTxSender(st, bidder, testPricer, blockTracker, util.NewTestLogger(io.Discard))
+	sndr := sender.NewTxSender(
+		st,
+		bidder,
+		testPricer,
+		blockTracker,
+		&mockTransferer{},
+		big.NewInt(1), // Settlement chain ID
+		util.NewTestLogger(io.Discard),
+	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	done := sndr.Start(ctx)
 
 	tx1 := &sender.Transaction{
-		Transaction: types.NewTransaction(1, common.HexToAddress("0x1234567890123456789012345678901234567890"), big.NewInt(100), 21000, big.NewInt(1), nil),
-		Sender:      common.HexToAddress("0x1234567890123456789012345678901234567890"),
-		Type:        sender.TxTypeRegular,
-		Raw:         "0x1234567890123456789012345678901234567890",
+		Transaction: types.NewTransaction(
+			1,
+			common.HexToAddress("0x1234567890123456789012345678901234567890"),
+			big.NewInt(100),
+			21000,
+			big.NewInt(1),
+			nil,
+		),
+		Sender: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		Type:   sender.TxTypeRegular,
+		Raw:    "0x1234567890123456789012345678901234567890",
 	}
 
 	if err := st.AddBalance(ctx, tx1.Sender, big.NewInt(1000)); err != nil {
 		t.Fatalf("failed to add balance: %v", err)
 	}
 
-	if err := sndr.Enqueue(tx1); err != nil {
+	if err := sndr.Enqueue(ctx, tx1); err != nil {
 		t.Fatalf("failed to enqueue transaction: %v", err)
 	}
 
@@ -323,13 +343,20 @@ func TestSender(t *testing.T) {
 	}
 
 	tx2 := &sender.Transaction{
-		Transaction: types.NewTransaction(2, common.HexToAddress("0x1234567890123456789012345678901234567890"), big.NewInt(100), 21000, big.NewInt(1), nil),
-		Sender:      common.HexToAddress("0x1234567890123456789012345678901234567890"),
-		Type:        sender.TxTypeDeposit,
-		Raw:         "0x1234567890123456789012345678901234567890",
+		Transaction: types.NewTransaction(
+			2,
+			common.HexToAddress("0x1234567890123456789012345678901234567890"),
+			big.NewInt(100),
+			21000,
+			big.NewInt(1),
+			nil,
+		),
+		Sender: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		Type:   sender.TxTypeDeposit,
+		Raw:    "0x1234567890123456789012345678901234567890",
 	}
 
-	if err := sndr.Enqueue(tx2); err != nil {
+	if err := sndr.Enqueue(ctx, tx2); err != nil {
 		t.Fatalf("failed to enqueue transaction: %v", err)
 	}
 
