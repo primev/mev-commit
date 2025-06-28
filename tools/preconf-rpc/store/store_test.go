@@ -173,7 +173,7 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("GetTransactionByHash", func(t *testing.T) {
-		retrievedTxn, err := st.GetTransactionByHash(context.Background(), wrappedTxn1.Transaction.Hash())
+		retrievedTxn, err := st.GetTransactionByHash(context.Background(), wrappedTxn1.Hash())
 		if err != nil {
 			t.Fatalf("failed to get transaction by hash: %v", err)
 		}
@@ -204,7 +204,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("failed to store preconfirmed transaction: %v", err)
 		}
 
-		commitments, err := st.GetTransactionCommitments(context.Background(), wrappedTxn1.Transaction.Hash())
+		commitments, err := st.GetTransactionCommitments(context.Background(), wrappedTxn1.Hash())
 		if err != nil {
 			t.Errorf("failed to get transaction commitments: %v", err)
 		}
@@ -247,7 +247,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("failed to store failed transaction: %v", err)
 		}
 
-		failedTxn, err := st.GetTransactionByHash(context.Background(), wrappedTxn2.Transaction.Hash())
+		failedTxn, err := st.GetTransactionByHash(context.Background(), wrappedTxn2.Hash())
 		if err != nil {
 			t.Errorf("failed to get failed transaction by hash: %v", err)
 		}
