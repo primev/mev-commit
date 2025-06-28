@@ -390,7 +390,7 @@ func TestSender(t *testing.T) {
 	resC <- optinbidder.BidStatus{
 		Type: optinbidder.BidStatusCommitment,
 		Arg: &bidderapiv1.Commitment{
-			TxHashes:        []string{tx1.Transaction.Hash().Hex()},
+			TxHashes:        []string{tx1.Hash().Hex()},
 			BidAmount:       big.NewInt(100).String(),
 			BlockNumber:     2,
 			ProviderAddress: "provider1",
@@ -400,8 +400,8 @@ func TestSender(t *testing.T) {
 	bidder.out <- resC
 
 	checkOp := <-blockTracker.in
-	if checkOp.hash != tx2.Transaction.Hash() {
-		t.Fatalf("expected transaction hash %s, got %s", tx2.Transaction.Hash().Hex(), checkOp.hash.Hex())
+	if checkOp.hash != tx2.Hash() {
+		t.Fatalf("expected transaction hash %s, got %s", tx2.Hash().Hex(), checkOp.hash.Hex())
 	}
 	if checkOp.block != 2 {
 		t.Fatalf("expected block number 2, got %d", checkOp.block)
@@ -419,14 +419,14 @@ func TestSender(t *testing.T) {
 	if res.txn.Sender != tx2.Sender {
 		t.Fatalf("expected sender %s, got %s", tx2.Sender.Hex(), res.txn.Sender.Hex())
 	}
-	if res.txn.Transaction.Nonce() != tx2.Transaction.Nonce() {
-		t.Fatalf("expected nonce %d, got %d", tx2.Transaction.Nonce(), res.txn.Transaction.Nonce())
+	if res.txn.Nonce() != tx2.Nonce() {
+		t.Fatalf("expected nonce %d, got %d", tx2.Nonce(), res.txn.Nonce())
 	}
 	if res.txn.Type != tx2.Type {
 		t.Fatalf("expected transaction type %d, got %d", tx2.Type, res.txn.Type)
 	}
-	if res.txn.Transaction.Hash() != tx2.Transaction.Hash() {
-		t.Fatalf("expected transaction hash %s, got %s", tx2.Transaction.Hash().Hex(), res.txn.Transaction.Hash().Hex())
+	if res.txn.Hash() != tx2.Hash() {
+		t.Fatalf("expected transaction hash %s, got %s", tx2.Hash().Hex(), res.txn.Hash().Hex())
 	}
 	// Check that the commitments are as expected
 	if len(res.commitments) != 1 {
