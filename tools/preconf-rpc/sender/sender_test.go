@@ -130,7 +130,7 @@ func (m *mockStore) StoreTransaction(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for i, queuedTxn := range m.queued[txn.Sender] {
-		if queuedTxn.Transaction.Hash() == txn.Transaction.Hash() {
+		if queuedTxn.Hash() == txn.Hash() {
 			// Remove the transaction from the queue
 			m.queued[txn.Sender] = append(m.queued[txn.Sender][:i], m.queued[txn.Sender][i+1:]...)
 			break
@@ -284,8 +284,8 @@ func TestSender(t *testing.T) {
 
 	// Simulate a price estimate
 	op := <-testPricer.in
-	if op.Hash().Hex() != tx1.Transaction.Hash().Hex() {
-		t.Fatalf("expected transaction hash %s, got %s", tx1.Transaction.Hash().Hex(), op.Hash().Hex())
+	if op.Hash().Hex() != tx1.Hash().Hex() {
+		t.Fatalf("expected transaction hash %s, got %s", tx1.Hash().Hex(), op.Hash().Hex())
 	}
 	testPricer.out <- &pricer.BlockPrice{
 		BlockNumber: 1,
@@ -309,7 +309,7 @@ func TestSender(t *testing.T) {
 	resC <- optinbidder.BidStatus{
 		Type: optinbidder.BidStatusCommitment,
 		Arg: &bidderapiv1.Commitment{
-			TxHashes:        []string{tx1.Transaction.Hash().Hex()},
+			TxHashes:        []string{tx1.Hash().Hex()},
 			BidAmount:       big.NewInt(100).String(),
 			BlockNumber:     1,
 			ProviderAddress: "provider1",
@@ -328,14 +328,14 @@ func TestSender(t *testing.T) {
 	if res.txn.Sender != tx1.Sender {
 		t.Fatalf("expected sender %s, got %s", tx1.Sender.Hex(), res.txn.Sender.Hex())
 	}
-	if res.txn.Transaction.Nonce() != tx1.Transaction.Nonce() {
-		t.Fatalf("expected nonce %d, got %d", tx1.Transaction.Nonce(), res.txn.Transaction.Nonce())
+	if res.txn.Nonce() != tx1.Nonce() {
+		t.Fatalf("expected nonce %d, got %d", tx1.Nonce(), res.txn.Nonce())
 	}
 	if res.txn.Type != tx1.Type {
 		t.Fatalf("expected transaction type %d, got %d", tx1.Type, res.txn.Type)
 	}
-	if res.txn.Transaction.Hash() != tx1.Transaction.Hash() {
-		t.Fatalf("expected transaction hash %s, got %s", tx1.Transaction.Hash().Hex(), res.txn.Transaction.Hash().Hex())
+	if res.txn.Hash() != tx1.Hash() {
+		t.Fatalf("expected transaction hash %s, got %s", tx1.Hash().Hex(), res.txn.Hash().Hex())
 	}
 	// Check that the commitments are as expected
 	if len(res.commitments) != 1 {
@@ -365,8 +365,8 @@ func TestSender(t *testing.T) {
 
 	// Simulate a price estimate
 	op = <-testPricer.in
-	if op.Hash().Hex() != tx2.Transaction.Hash().Hex() {
-		t.Fatalf("expected transaction hash %s, got %s", tx2.Transaction.Hash().Hex(), op.Hash().Hex())
+	if op.Hash().Hex() != tx2.Hash().Hex() {
+		t.Fatalf("expected transaction hash %s, got %s", tx2.Hash().Hex(), op.Hash().Hex())
 	}
 	testPricer.out <- &pricer.BlockPrice{
 		BlockNumber: 2,
