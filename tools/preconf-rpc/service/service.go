@@ -223,7 +223,7 @@ func New(config *Config) (*Service, error) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 	mux.Handle("/", rpcServer)
 
