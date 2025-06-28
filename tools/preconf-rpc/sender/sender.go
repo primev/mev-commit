@@ -144,13 +144,13 @@ func validateTransaction(tx *Transaction) error {
 	if tx.Raw == "" {
 		return ErrEmptyRawTransaction
 	}
-	if tx.Transaction.To() == nil {
+	if tx.To() == nil {
 		return ErrEmptyTransactionTo
 	}
-	if tx.Transaction.Value().Sign() < 0 {
+	if tx.Value().Sign() < 0 {
 		return ErrNegativeTransactionValue
 	}
-	if tx.Transaction.Gas() == 0 {
+	if tx.Gas() == 0 {
 		return ErrZeroGasLimit
 	}
 	return nil

@@ -14,13 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
-)
-
-const (
-	blockTime = 12 // seconds, typical Ethereum block time
 )
 
 var (
@@ -29,10 +24,6 @@ var (
 
 type Bidder interface {
 	Estimate() (int64, error)
-}
-
-type Pricer interface {
-	EstimatePrice(ctx context.Context, txn *types.Transaction) (*pricer.BlockPrice, error)
 }
 
 type Store interface {
@@ -51,18 +42,9 @@ type Sender interface {
 	Enqueue(ctx context.Context, txn *sender.Transaction) error
 }
 
-type bidResult struct {
-	noOfProviders int
-	blockNumber   uint64
-	optedInSlot   bool
-	bidAmount     *big.Int
-	commitments   []*bidderapiv1.Commitment
-}
-
 type rpcMethodHandler struct {
 	logger         *slog.Logger
 	bidder         Bidder
-	pricer         Pricer
 	store          Store
 	blockTracker   BlockTracker
 	sndr           Sender
