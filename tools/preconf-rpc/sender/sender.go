@@ -158,7 +158,7 @@ func validateTransaction(tx *Transaction) error {
 
 func (t *TxSender) hasLowerNonce(ctx context.Context, tx *Transaction) bool {
 	currentNonce := t.store.GetCurrentNonce(ctx, tx.Sender)
-	return tx.Transaction.Nonce() < currentNonce
+	return tx.Nonce() < currentNonce
 }
 
 func (t *TxSender) triggerSender() {
