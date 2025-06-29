@@ -106,7 +106,7 @@ job "{{ job.name }}" {
             echo "Initialized and configured database found."
             cp "${POSTGRES_DATA}/.env" /alloc/data/postgres.env
             source "${POSTGRES_DATA}/.env"
-            postgres -D ${POSTGRES_DATA} -p ${POSTGRES_PORT}
+            postgres -D ${POSTGRES_DATA}
             exit $?
           fi
 
@@ -141,7 +141,7 @@ job "{{ job.name }}" {
             exit 1
           fi
 
-          exec postgres -D "${POSTGRES_DATA}"
+          exec postgres -D "${POSTGRES_DATA}" -p "${POSTGRES_PORT}"
           {% endraw %}
         EOH
         destination = "local/run.sh"
