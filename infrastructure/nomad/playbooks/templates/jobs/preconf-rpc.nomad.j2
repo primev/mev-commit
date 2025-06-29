@@ -78,7 +78,14 @@ job "{{ job.name }}" {
           POSTGRES_DB="preconf-rpc"
           POSTGRES_USERNAME="preconf-rpc"
           POSTGRES_PASSWORD="{{ lookup('password', '/dev/null', length=64) }}"
-          POSTGRES_DATA="/local/pgdata-{% raw %}{{ env "NOMAD_ALLOC_INDEX" }}{% endraw %}"
+          {%- raw %}
+          POSTGRES_DATA="/local/pgdata-{{ env "NOMAD_ALLOC_INDEX" }}"
+          {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
+            {{- if contains "db" .Tags }}
+          POSTGRES_PORT="{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {% endraw %}
         EOH
         destination = "alloc/data/postgres.env"
         env = true

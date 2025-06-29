@@ -755,7 +755,7 @@ jobs:
     ports:
       - db:
           static: 5434
-          to: 5432
+          to: 5434
         http:
           static: 10545
           to: 8080
