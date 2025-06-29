@@ -106,7 +106,7 @@ job "{{ job.name }}" {
             echo "Initialized and configured database found."
             cp "${POSTGRES_DATA}/.env" /alloc/data/postgres.env
             source "${POSTGRES_DATA}/.env"
-            postgres -D ${POSTGRES_DATA}
+            postgres -D ${POSTGRES_DATA} -p ${POSTGRES_PORT}
             exit $?
           fi
 
@@ -214,12 +214,6 @@ job "{{ job.name }}" {
           CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/deployer_keystore"
           CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ $secret.Data.data.contract_deployer_keystore_filename }}"
           CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ $secret.Data.data.contract_deployer_keystore_password }}"
-          DEPOSIT_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/deposit_keystore"
-          DEPOSIT_KEYSTORE_FILENAME="{{ $secret.Data.data.deposit_keystore_filename }}"
-          PRECONF_RPC_DEPOSIT_ADDRESS="$(cat "$DEPOSIT_KEYSTORE_PATH/$DEPOSIT_KEYSTORE_FILENAME" | jq -r '.address')"
-          BRIDGE_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/bridge_keystore"
-          BRIDGE_KEYSTORE_FILENAME="{{ $secret.Data.data.bridge_keystore_filename }}"
-          PRECONF_RPC_BRIDGE_ADDRESS="$(cat "$BRIDGE_KEYSTORE_PATH/$BRIDGE_KEYSTORE_FILENAME" | jq -r '.address')"
           {% endraw %}
           {% endif %}
           PRECONF_RPC_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
@@ -304,6 +298,9 @@ job "{{ job.name }}" {
           export PRECONF_RPC_PG_USER="${POSTGRES_USERNAME}"
           export PRECONF_RPC_PG_PASSWORD="${POSTGRES_PASSWORD}"
           export PRECONF_RPC_PG_DBNAME="${POSTGRES_DB}"
+
+          export PRECONF_RPC_DEPOSIT_ADDRESS="$(echo '{{ $secret.Data.data.deposit_keystore }}' | jq -r '.address')"
+          export PRECONF_RPC_BRIDGE_ADDRESS="$(echo '{{ $secret.Data.data.bridge_keystore }}' | jq -r '.address')"
 
           if ! timeout 5m bash -c 'until pg_isready -h ${PRECONF_RPC_PG_HOST} -p ${PRECONF_RPC_PG_PORT} -U ${PRECONF_RPC_PG_USER} -d ${PRECONF_RPC_PG_DBNAME}; do sleep 2; done'; then
             echo "Waiting for PostgreSQL to start..."
