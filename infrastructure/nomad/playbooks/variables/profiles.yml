@@ -748,10 +748,16 @@ jobs:
       - *preconf_rpc_artifact
       - keystores:
           preconf_rpc_keystore:
+          deposit_keystore:
+          bridge_keystore:
     count: 1
     target: *mev_commit_bidder_node1_job
     ports:
-      - http:
+      - db:
+          static: 5434
+          to: 5434
+        http:
+          static: 10545
           to: 8080
     env:
       l1_chain_id: "{{ environments[env].chain_id }}"
