@@ -305,6 +305,13 @@ BID_LOOP:
 				// user that the txn was successfully sent and will be processed
 				txn.Status = TxStatusPreConfirmed
 				txn.BlockNumber = int64(result.blockNumber)
+				t.logger.Info(
+					"Transaction pre-confirmed",
+					"sender", txn.Sender.Hex(),
+					"type", txn.Type,
+					"blockNumber", result.blockNumber,
+					"bidAmount", result.bidAmount.String(),
+				)
 				break BID_LOOP
 			}
 		default:
@@ -320,6 +327,13 @@ BID_LOOP:
 		if included {
 			txn.Status = TxStatusConfirmed
 			txn.BlockNumber = int64(result.blockNumber)
+			t.logger.Info(
+				"Transaction confirmed for non opted-in slot",
+				"sender", txn.Sender.Hex(),
+				"type", txn.Type,
+				"blockNumber", result.blockNumber,
+				"bidAmount", result.bidAmount.String(),
+			)
 			break BID_LOOP
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -109,7 +110,7 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-		txStr, err := hex.DecodeString(rawTransaction)
+		txStr, err := hex.DecodeString(strings.TrimPrefix(rawTransaction, "0x"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode raw transaction: %w", err)
 		}
@@ -192,7 +193,7 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 		}
 		return nil, fmt.Errorf("failed to get transaction by hash: %w", err)
 	}
-	txStr, err := hex.DecodeString(rawTransaction)
+	txStr, err := hex.DecodeString(strings.TrimPrefix(rawTransaction, "0x"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode raw transaction: %w", err)
 	}
