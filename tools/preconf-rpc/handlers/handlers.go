@@ -126,7 +126,7 @@ func (h *rpcMethodHandler) handleChainID(
 		)
 	}
 
-	chainIDJSON, err := json.Marshal(h.chainID.String())
+	chainIDJSON, err := json.Marshal(hexutil.Uint64(h.chainID.Uint64()))
 	if err != nil {
 		h.logger.Error("Failed to marshal chain ID to JSON", "error", err)
 		return nil, false, rpcserver.NewJSONErr(
