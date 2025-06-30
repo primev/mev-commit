@@ -157,6 +157,8 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 	}
 
 	blockHashStr := params[0].(string)
+	// Remove "0x" prefix if present
+	blockHashStr = strings.TrimPrefix(blockHashStr, "0x")
 	if !strings.HasPrefix(blockHashStr, preconfBlockHashPrefix) {
 		return nil, true, nil // Not a preconf block hash, proxy
 	}
@@ -399,7 +401,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		result["status"] = hexutil.Uint64(types.ReceiptStatusFailed)
 	} else {
 		result["status"] = hexutil.Uint64(types.ReceiptStatusSuccessful)
-		blockHash := fmt.Sprintf("%s%08d", preconfBlockHashPrefix, txn.BlockNumber)
+		blockHash := fmt.Sprintf("0x%s%08d", preconfBlockHashPrefix, txn.BlockNumber)
 		blockHash += strings.Repeat("0", 66-len(blockHash))
 		result["blockHash"] = blockHash
 		result["blockNumber"] = hexutil.EncodeBig(big.NewInt(txn.BlockNumber))
