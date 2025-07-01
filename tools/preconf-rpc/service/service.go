@@ -206,6 +206,7 @@ func New(config *Config) (*Service, error) {
 
 	handlers := handlers.NewRPCMethodHandler(
 		config.Logger.With("module", "handlers"),
+		bidpricer,
 		bidderClient,
 		rpcstore,
 		blockTracker,

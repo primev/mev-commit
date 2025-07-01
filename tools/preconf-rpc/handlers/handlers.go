@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 )
@@ -24,6 +25,10 @@ var (
 
 type Bidder interface {
 	Estimate() (int64, error)
+}
+
+type Pricer interface {
+	EstimatePrice(ctx context.Context, txn *types.Transaction) (*pricer.BlockPrice, error)
 }
 
 type Store interface {
@@ -44,6 +49,7 @@ type Sender interface {
 
 type rpcMethodHandler struct {
 	logger         *slog.Logger
+	pricer         Pricer
 	bidder         Bidder
 	store          Store
 	blockTracker   BlockTracker
@@ -55,6 +61,7 @@ type rpcMethodHandler struct {
 
 func NewRPCMethodHandler(
 	logger *slog.Logger,
+	pricer Pricer,
 	bidder Bidder,
 	store Store,
 	blockTracker BlockTracker,
@@ -65,6 +72,7 @@ func NewRPCMethodHandler(
 ) *rpcMethodHandler {
 	return &rpcMethodHandler{
 		logger:         logger,
+		pricer:         pricer,
 		bidder:         bidder,
 		store:          store,
 		blockTracker:   blockTracker,
@@ -77,8 +85,45 @@ func NewRPCMethodHandler(
 
 func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	// Ethereum JSON-RPC methods overridden
-	server.RegisterHandler("eth_getBlockNumber", h.handleGetBlockNumber)
-	server.RegisterHandler("eth_chainId", h.handleChainID)
+	server.RegisterHandler("eth_getBlockNumber", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		blockNumber := h.blockTracker.LatestBlockNumber()
+		h.logger.Debug("Retrieved latest block number", "blockNumber", blockNumber)
+
+		blockNumberJSON, err := json.Marshal(hexutil.Uint64(blockNumber))
+		if err != nil {
+			h.logger.Error("Failed to marshal block number to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal block number",
+			)
+		}
+
+		return blockNumberJSON, false, nil
+	})
+	server.RegisterHandler("eth_chainId", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		chainIDJSON, err := json.Marshal(hexutil.Uint64(h.chainID.Uint64()))
+		if err != nil {
+			h.logger.Error("Failed to marshal chain ID to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal chain ID",
+			)
+		}
+		return chainIDJSON, false, nil
+	})
+	server.RegisterHandler("eth_maxPriorityFeePerGas", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		// Return zero value for maxPriorityFeePerGas
+		maxPriorityFee := big.NewInt(0)
+		maxPriorityFeeJSON, err := json.Marshal(hexutil.EncodeBig(maxPriorityFee))
+		if err != nil {
+			h.logger.Error("Failed to marshal maxPriorityFeePerGas to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal maxPriorityFeePerGas",
+			)
+		}
+		return maxPriorityFeeJSON, false, nil
+	})
 	server.RegisterHandler("eth_sendRawTransaction", h.handleSendRawTx)
 	server.RegisterHandler("eth_getTransactionReceipt", h.handleGetTxReceipt)
 	server.RegisterHandler("eth_getTransactionCount", h.handleGetTxCount)
@@ -86,56 +131,85 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	// Custom methods for MEV Commit
 	server.RegisterHandler("mevcommit_getTransactionCommitments", h.handleGetTxCommitments)
 	server.RegisterHandler("mevcommit_getBalance", h.handleMevCommitGetBalance)
-	server.RegisterHandler("mevcommit_optInBlock", h.handleMevCommitOptInBlock)
-}
-
-func (h *rpcMethodHandler) handleGetBlockNumber(
-	ctx context.Context,
-	params ...any,
-) (json.RawMessage, bool, error) {
-	if len(params) != 0 {
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeInvalidRequest,
-			"getBlockNumber does not require any parameters",
+	server.RegisterHandler("mevcommit_optInBlock", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		timeToOptIn, err := h.bidder.Estimate()
+		if err != nil {
+			h.logger.Error("Failed to estimate time to opt in", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to estimate opt in time",
+			)
+		}
+		return json.RawMessage(fmt.Sprintf(`{"timeInSecs": "%d"}`, timeToOptIn)), false, nil
+	})
+	server.RegisterHandler("mevcommit_estimateDeposit", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		blockPrice, err := h.pricer.EstimatePrice(
+			ctx,
+			types.NewTransaction(0, h.depositAddress, big.NewInt(0), 21000, big.NewInt(0), nil),
 		)
-	}
+		if err != nil {
+			h.logger.Error("Failed to estimate deposit price", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to estimate deposit price",
+			)
+		}
+		if blockPrice == nil {
+			h.logger.Warn("No block price estimated for deposit")
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"no block price available for deposit",
+			)
+		}
+		result := map[string]interface{}{
+			"bidAmount":      hexutil.EncodeBig(blockPrice.BidAmount),
+			"depositAddress": h.depositAddress.Hex(),
+		}
 
-	blockNumber := h.blockTracker.LatestBlockNumber()
-	h.logger.Info("Retrieved latest block number", "blockNumber", blockNumber)
-
-	blockNumberJSON, err := json.Marshal(hexutil.Uint64(blockNumber))
-	if err != nil {
-		h.logger.Error("Failed to marshal block number to JSON", "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to marshal block number",
+		resultJSON, err := json.Marshal(result)
+		if err != nil {
+			h.logger.Error("Failed to marshal deposit estimate to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal deposit estimate",
+			)
+		}
+		h.logger.Debug("Estimated deposit price", "bidAmount", blockPrice.BidAmount, "depositAddress", h.depositAddress.Hex())
+		return resultJSON, false, nil
+	})
+	server.RegisterHandler("mevcommit_estimateBridge", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		blockPrice, err := h.pricer.EstimatePrice(
+			ctx,
+			types.NewTransaction(0, h.bridgeAddress, big.NewInt(0), 21000, big.NewInt(0), nil),
 		)
-	}
+		if err != nil {
+			h.logger.Error("Failed to estimate bridge price", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to estimate bridge price",
+			)
+		}
+		if blockPrice == nil {
+			h.logger.Warn("No block price estimated for bridge")
+			return nil, true, nil // No price available, proxy
+		}
+		bridgeCost := new(big.Int).Mul(blockPrice.BidAmount, big.NewInt(2))
+		result := map[string]interface{}{
+			"bidAmount":     hexutil.EncodeBig(bridgeCost),
+			"bridgeAddress": h.bridgeAddress.Hex(),
+		}
 
-	return blockNumberJSON, false, nil
-}
-
-func (h *rpcMethodHandler) handleChainID(
-	ctx context.Context,
-	params ...any,
-) (json.RawMessage, bool, error) {
-	if len(params) != 0 {
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeInvalidRequest,
-			"chainID does not require any parameters",
-		)
-	}
-
-	chainIDJSON, err := json.Marshal(hexutil.Uint64(h.chainID.Uint64()))
-	if err != nil {
-		h.logger.Error("Failed to marshal chain ID to JSON", "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to marshal chain ID",
-		)
-	}
-
-	return chainIDJSON, false, nil
+		resultJSON, err := json.Marshal(result)
+		if err != nil {
+			h.logger.Error("Failed to marshal bridge estimate to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal bridge estimate",
+			)
+		}
+		h.logger.Debug("Estimated bridge price", "bidAmount", blockPrice.BidAmount, "bridgeAddress", h.bridgeAddress.Hex())
+		return resultJSON, false, nil
+	})
 }
 
 func (h *rpcMethodHandler) handleGetBlockByHash(

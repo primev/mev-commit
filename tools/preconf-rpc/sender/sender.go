@@ -79,10 +79,7 @@ type Bidder interface {
 }
 
 type Pricer interface {
-	EstimatePrice(
-		ctx context.Context,
-		txn *types.Transaction,
-	) (*pricer.BlockPrice, error)
+	EstimatePrice(ctx context.Context, txn *types.Transaction) (*pricer.BlockPrice, error)
 }
 
 type BlockTracker interface {
