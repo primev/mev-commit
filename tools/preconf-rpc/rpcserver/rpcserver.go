@@ -116,8 +116,10 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.logger.Info("Processing JSON-RPC request", "method", req.Method, "id", req.ID)
-	defer s.logger.Info("Finished processing JSON-RPC request", "method", req.Method, "id", req.ID)
+	start := time.Now()
+	defer func() {
+		s.logger.Info("Request processing time", "method", req.Method, "id", req.ID, "duration", time.Since(start))
+	}()
 
 	s.rwLock.RLock()
 	handler, ok := s.methods[req.Method]
@@ -150,7 +152,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *JSONRPCServer) writeResponse(w http.ResponseWriter, id any, result *json.RawMessage) {
-	s.logger.Info("Writing JSON-RPC response", "id", id, "result", result)
+	s.logger.Debug("Writing JSON-RPC response", "id", id, "result", result)
 	response := jsonRPCResponse{
 		JSONRPC: "2.0",
 		ID:      id,
@@ -194,7 +196,7 @@ func (s *JSONRPCServer) proxyRequest(w http.ResponseWriter, body []byte) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	s.logger.Info("Proxying request", "url", s.proxyURL, "body", string(body))
+	s.logger.Debug("Proxying request", "url", s.proxyURL, "body", string(body))
 	resp, err := client.Do(req)
 	if err != nil {
 		http.Error(w, "Failed to execute proxy request", http.StatusInternalServerError)
