@@ -349,13 +349,13 @@ BID_LOOP:
 			return fmt.Errorf("failed to deduct balance for sender: %w", err)
 		}
 	case TxTypeDeposit:
-		balanceToAdd := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(result.bidAmount, big.NewInt(2)))
+		balanceToAdd := new(big.Int).Sub(txn.Value(), result.bidAmount)
 		if err := t.store.AddBalance(ctx, txn.Sender, balanceToAdd); err != nil {
 			t.logger.Error("Failed to add balance for sender", "sender", txn.Sender.Hex(), "error", err)
 			return fmt.Errorf("failed to add balance for sender: %w", err)
 		}
 	case TxTypeInstantBridge:
-		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(result.bidAmount, big.NewInt(5)))
+		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(result.bidAmount, big.NewInt(2)))
 		if err := t.transferer.Transfer(ctx, txn.Sender, t.settlementChainId, amountToBridge); err != nil {
 			t.logger.Error("Failed to transfer funds for instant bridge", "sender", txn.Sender.Hex(), "error", err)
 			return fmt.Errorf("failed to transfer funds for instant bridge: %w", err)
@@ -404,23 +404,22 @@ func (t *TxSender) sendBid(
 			return bidResult{}, fmt.Errorf("insufficient balance for sender: %s", txn.Sender.Hex())
 		}
 	case TxTypeDeposit:
-		costOfDeposit := new(big.Int).Mul(price.BidAmount, big.NewInt(2)) // 2x the price for deposit
-		if txn.Value().Cmp(costOfDeposit) < 0 {
+		if txn.Value().Cmp(price.BidAmount) < 0 {
 			t.logger.Error(
 				"Deposit amount is less than price of deposit",
 				"sender", txn.Sender.Hex(),
 				"deposit", txn.Value().String(),
-				"price", costOfDeposit.String(),
+				"price", price.BidAmount.String(),
 			)
 			return bidResult{}, fmt.Errorf(
 				"deposit amount is less than price of deposit: %s, deposit: %s, price: %s",
 				txn.Sender.Hex(),
 				txn.Value().String(),
-				costOfDeposit.String(),
+				price.BidAmount.String(),
 			)
 		}
 	case TxTypeInstantBridge:
-		costOfBridge := new(big.Int).Mul(price.BidAmount, big.NewInt(5)) // 5x the price for instant bridge
+		costOfBridge := new(big.Int).Mul(price.BidAmount, big.NewInt(2)) // 2x the price for instant bridge
 		if txn.Value().Cmp(costOfBridge) < 0 {
 			t.logger.Error(
 				"Instant bridge amount is less than price of bridge",

@@ -3,8 +3,8 @@ package sender_test
 import (
 	"context"
 	"errors"
-	"io"
 	"math/big"
+	"os"
 	"sync"
 	"testing"
 
@@ -250,7 +250,7 @@ func TestSender(t *testing.T) {
 		blockTracker,
 		&mockTransferer{},
 		big.NewInt(1), // Settlement chain ID
-		util.NewTestLogger(io.Discard),
+		util.NewTestLogger(os.Stdout),
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -346,7 +346,7 @@ func TestSender(t *testing.T) {
 		Transaction: types.NewTransaction(
 			2,
 			common.HexToAddress("0x1234567890123456789012345678901234567890"),
-			big.NewInt(100),
+			big.NewInt(1000),
 			21000,
 			big.NewInt(1),
 			nil,

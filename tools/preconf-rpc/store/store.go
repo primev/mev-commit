@@ -351,7 +351,7 @@ func (s *rpcstore) GetTransactionCommitments(ctx context.Context, txnHash common
 // case if 0 is returned.
 func (s *rpcstore) GetCurrentNonce(ctx context.Context, sender common.Address) uint64 {
 	query := `
-	SELECT COALESCE(MAX(nonce), 0) + 1
+	SELECT COALESCE(MAX(nonce), 0)
 	FROM mcTransactions
 	WHERE sender = $1 AND status = 'pending';
 	`
