@@ -72,21 +72,21 @@ library RegistryUpgradeLib {
 
         (address newProtocolFeeRecipient,
         uint256 newProtocolFeeAccumulatedAmount,
-        uint256 newProtocolFeeLastPayoutBlock,
-        uint256 newProtocolFeePayoutPeriodInBlocks) = brv2.protocolFeeTimestampTracker();
+        uint256 newProtocolFeeLastPayoutTimestamp,
+        uint256 newProtocolFeePayoutPeriodInMs) = brv2.protocolFeeTimestampTracker();
         console.log("V2 protocol fee recipient:", newProtocolFeeRecipient);
         console.log("V2 protocol fee accumulated amount:", newProtocolFeeAccumulatedAmount);
-        console.log("V2 protocol fee last payout block:", newProtocolFeeLastPayoutBlock);
-        console.log("V2 protocol fee payout period in blocks:", newProtocolFeePayoutPeriodInBlocks);
+        console.log("V2 protocol fee last payout timestamp:", newProtocolFeeLastPayoutTimestamp);
+        console.log("V2 protocol fee payout period in ms:", newProtocolFeePayoutPeriodInMs);
 
         (address newPenaltyFeeRecipient,
         uint256 newPenaltyFeeAccumulatedAmount,
-        uint256 newPenaltyFeeLastPayoutBlock,
-        uint256 newPenaltyFeePayoutPeriodInBlocks) = prv2.penaltyFeeTimestampTracker();
+        uint256 newPenaltyFeeLastPayoutTimestamp,
+        uint256 newPenaltyFeePayoutPeriodInMs) = prv2.penaltyFeeTimestampTracker();
         console.log("V2 penalty fee recipient:", newPenaltyFeeRecipient);
         console.log("V2 penalty fee accumulated amount:", newPenaltyFeeAccumulatedAmount);
-        console.log("V2 penalty fee last payout block:", newPenaltyFeeLastPayoutBlock);
-        console.log("V2 penalty fee payout period in blocks:", newPenaltyFeePayoutPeriodInBlocks);
+        console.log("V2 penalty fee last payout timestamp:", newPenaltyFeeLastPayoutTimestamp);
+        console.log("V2 penalty fee payout period in ms:", newPenaltyFeePayoutPeriodInMs);
 
         brv2.unpause();
         prv2.unpause();
