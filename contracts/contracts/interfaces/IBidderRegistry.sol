@@ -64,8 +64,8 @@ interface IBidderRegistry {
     /// @dev Event emitted when the block tracker is updated
     event BlockTrackerUpdated(address indexed newBlockTracker);
 
-    /// @dev Event emitted when the fee payout period in blocks is updated
-    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+    /// @dev Event emitted when the fee payout period is updated
+    event FeePayoutPeriodUpdated(uint256 indexed newFeePayoutPeriod);
 
     /// @dev Event emitted when the protocol fee recipient is updated
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);

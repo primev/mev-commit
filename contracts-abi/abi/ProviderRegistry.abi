@@ -277,7 +277,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "_penaltyFeePayoutPeriodBlocks",
+        "name": "_penaltyFeePayoutPeriod",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -385,12 +385,12 @@
         "internalType": "uint256"
       },
       {
-        "name": "lastPayoutBlock",
+        "name": "lastPayoutTimestamp",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "payoutPeriodBlocks",
+        "name": "payoutTimePeriod",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -490,10 +490,10 @@
   },
   {
     "type": "function",
-    "name": "setFeePayoutPeriodBlocks",
+    "name": "setFeePayoutPeriod",
     "inputs": [
       {
-        "name": "_feePayoutPeriodBlocks",
+        "name": "_feePayoutPeriod",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -766,10 +766,10 @@
   },
   {
     "type": "event",
-    "name": "FeePayoutPeriodBlocksUpdated",
+    "name": "FeePayoutPeriodUpdated",
     "inputs": [
       {
-        "name": "newFeePayoutPeriodBlocks",
+        "name": "newFeePayoutPeriod",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
