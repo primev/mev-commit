@@ -447,6 +447,8 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 		return nil, true, nil
 	}
 
+	accNonce += 1
+
 	nonceJSON, err := json.Marshal(accNonce)
 	if err != nil {
 		h.logger.Error("Failed to marshal nonce to JSON", "error", err, "account", account)
