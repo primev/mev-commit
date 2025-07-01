@@ -623,19 +623,3 @@ func (h *rpcMethodHandler) handleMevCommitGetBalance(ctx context.Context, params
 
 	return json.RawMessage(fmt.Sprintf(`{"balance": "%s"}`, balance)), false, nil
 }
-
-func (h *rpcMethodHandler) handleMevCommitOptInBlock(
-	ctx context.Context,
-	_ ...any,
-) (json.RawMessage, bool, error) {
-	timeToOptIn, err := h.bidder.Estimate()
-	if err != nil {
-		h.logger.Error("Failed to estimate time to opt in", "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to estimate opt in time",
-		)
-	}
-
-	return json.RawMessage(fmt.Sprintf(`{"timeInSecs": "%d"}`, timeToOptIn)), false, nil
-}
