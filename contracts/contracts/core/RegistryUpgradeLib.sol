@@ -18,6 +18,10 @@ library RegistryUpgradeLib {
 
         BidderRegistry brv1 = BidderRegistry(payable(bidderRegistryProxyAddress));
         ProviderRegistry prv1 = ProviderRegistry(payable(providerRegistryProxyAddress));
+        brv1.pause();
+        prv1.pause();
+        console.log("V1 contracts paused");
+
         brv1.manuallyWithdrawProtocolFee();
         prv1.manuallyWithdrawPenaltyFee();
         console.log("Fees manually withdrawn from v1 contracts");
@@ -83,5 +87,9 @@ library RegistryUpgradeLib {
         console.log("V2 penalty fee accumulated amount:", newPenaltyFeeAccumulatedAmount);
         console.log("V2 penalty fee last payout block:", newPenaltyFeeLastPayoutBlock);
         console.log("V2 penalty fee payout period in blocks:", newPenaltyFeePayoutPeriodInBlocks);
+
+        brv2.unpause();
+        prv2.unpause();
+        console.log("V2 contracts unpaused");
     }
 }
