@@ -176,6 +176,7 @@ func main() {
 			optionAutoDepositAmount,
 			optionBidAmount,
 			optionUseFullNotifier,
+			optionBlockInterval,
 			optionCheckBalances,
 		},
 		Action: func(c *cli.Context) error {
