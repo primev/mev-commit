@@ -440,7 +440,7 @@ func (t *TxSender) sendBid(
 		strings.TrimPrefix(txn.Raw, "0x"),
 		&optinbidder.BidOpts{
 			WaitForOptIn: optedInSlot,
-			// BlockNumber:  uint64(price.BlockNumber),
+			BlockNumber:  uint64(price.BlockNumber),
 		},
 	)
 	if err != nil {

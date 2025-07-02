@@ -86,7 +86,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.logger.Info("Received JSON-RPC request", "method", r.Method)
+	s.logger.Debug("Received JSON-RPC request", "method", r.Method)
 
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "Invalid content type", http.StatusUnsupportedMediaType)
