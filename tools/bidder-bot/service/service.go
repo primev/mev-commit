@@ -39,6 +39,7 @@ type Config struct {
 	GasFeeCap         *big.Int
 	BidAmount         *big.Int
 	IsFullNotifier    bool
+	BlockInterval     uint64
 	CheckBalances     bool
 }
 
@@ -113,6 +114,7 @@ func New(config *Config) (*Service, error) {
 			config.Logger.With("module", "full_notifier"),
 			l1WsClient,
 			targetBlockChan, // send-and-receive for draining capability
+			config.BlockInterval,
 		)
 	} else {
 		if len(config.BeaconApiUrls) == 0 {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -52,6 +53,7 @@ func TestHandleHeader(t *testing.T) {
 				logger,
 				nil,
 				targetBlockChan,
+				1, // Setting block interval to 1 ensures no headers are skipped
 			)
 			header := &types.Header{
 				Number: big.NewInt(int64(71)),
@@ -89,6 +91,7 @@ func TestChannelTimeout(t *testing.T) {
 		logger,
 		nil,
 		targetBlockChan,
+		1, // Setting block interval to 1 ensures no headers are skipped
 	)
 
 	err := notifier.HandleHeader(ctx, &types.Header{Number: big.NewInt(5)})
@@ -145,5 +148,88 @@ func TestChannelTimeout(t *testing.T) {
 	case <-targetBlockChan:
 		t.Fatal("expected no more blocks in channel")
 	default:
+	}
+}
+
+func TestBlockInterval(t *testing.T) {
+	t.Parallel()
+	logger := util.NewTestLogger(os.Stdout)
+
+	tests := []struct {
+		name                 string
+		blockInterval        uint64
+		headers              []types.Header
+		expectedTargetBlocks []uint64
+	}{
+		{
+			name:          "block interval 1, should receive all headers",
+			blockInterval: 1,
+			headers: []types.Header{
+				{Number: big.NewInt(1)},
+				{Number: big.NewInt(2)},
+				{Number: big.NewInt(777)},
+				{Number: big.NewInt(778)},
+			},
+			expectedTargetBlocks: []uint64{2, 3, 778, 779}, // target = header + 1
+		},
+
+		{
+			name:          "block interval 2, should receive 2nd, 4th, 444th headers",
+			blockInterval: 2,
+			headers: []types.Header{
+				{Number: big.NewInt(1)},
+				{Number: big.NewInt(2)},
+				{Number: big.NewInt(3)},
+				{Number: big.NewInt(4)},
+				{Number: big.NewInt(444)},
+			},
+			expectedTargetBlocks: []uint64{3, 5, 445}, // target = header + 1
+		},
+
+		{
+			name:          "block interval 7, should receive 7th, 14th, 700th headers",
+			blockInterval: 7,
+			headers: []types.Header{
+				{Number: big.NewInt(1)},
+				{Number: big.NewInt(2)},
+				{Number: big.NewInt(3)},
+				{Number: big.NewInt(4)},
+				{Number: big.NewInt(7)},
+				{Number: big.NewInt(14)},
+				{Number: big.NewInt(700)},
+				{Number: big.NewInt(701)},
+			},
+			expectedTargetBlocks: []uint64{8, 15, 701}, // target = header + 1
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			targetBlockChan := make(chan bidder.TargetBlock, len(test.headers))
+			notifier := notifier.NewFullNotifier(
+				logger,
+				nil,
+				targetBlockChan,
+				test.blockInterval,
+			)
+			for _, header := range test.headers {
+				err := notifier.HandleHeader(context.Background(), &header)
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+			}
+			receivedTargetBlocks := make([]uint64, 0, len(test.expectedTargetBlocks))
+			for i := 0; i < len(test.expectedTargetBlocks); i++ {
+				select {
+				case targetBlock := <-targetBlockChan:
+					receivedTargetBlocks = append(receivedTargetBlocks, targetBlock.Num)
+				case <-time.After(1 * time.Second):
+					t.Fatal("timeout waiting for target block")
+				}
+			}
+			if !slices.Equal(receivedTargetBlocks, test.expectedTargetBlocks) {
+				t.Fatalf("expected to receive blocks %v, but got %v", test.expectedTargetBlocks, receivedTargetBlocks)
+			}
+		})
 	}
 }
