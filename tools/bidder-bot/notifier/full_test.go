@@ -219,7 +219,7 @@ func TestBlockInterval(t *testing.T) {
 				}
 			}
 			receivedTargetBlocks := make([]uint64, 0, len(test.expectedTargetBlocks))
-			for i := 0; i < len(test.expectedTargetBlocks); i++ {
+			for len(targetBlockChan) > 0 {
 				select {
 				case targetBlock := <-targetBlockChan:
 					receivedTargetBlocks = append(receivedTargetBlocks, targetBlock.Num)
