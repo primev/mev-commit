@@ -402,7 +402,7 @@ func TestTracker(t *testing.T) {
 	var cmts []*store.Commitment
 	start := time.Now()
 	for {
-		cmts, err := st.GetAllCommitments()
+		cmts, err := st.ListCommitments(nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -455,7 +455,7 @@ func TestTracker(t *testing.T) {
 		if time.Since(start) > 15*time.Second {
 			t.Fatal("timeout waiting for tracker to finish")
 		}
-		cmts, err = st.GetAllCommitments()
+		cmts, err = st.ListCommitments(nil)
 		if err != nil {
 			t.Fatal(err)
 		}
