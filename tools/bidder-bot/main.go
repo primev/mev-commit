@@ -87,6 +87,13 @@ var (
 		Value:   false,
 	}
 
+	optionBlockInterval = &cli.Uint64Flag{
+		Name:    "block-interval",
+		Usage:   "Only used for full notifier. Headers that are not a multiple of this interval will be skipped",
+		EnvVars: []string{"BLOCK_INTERVAL"},
+		Value:   4,
+	}
+
 	optionCheckBalances = &cli.BoolFlag{
 		Name:    "check-balances",
 		Usage:   "whether to periodically check account balances",
@@ -169,6 +176,7 @@ func main() {
 			optionAutoDepositAmount,
 			optionBidAmount,
 			optionUseFullNotifier,
+			optionBlockInterval,
 			optionCheckBalances,
 		},
 		Action: func(c *cli.Context) error {
@@ -225,6 +233,7 @@ func main() {
 				L1WsUrls:          c.StringSlice(optionL1WsUrls.Name),
 				BeaconApiUrls:     c.StringSlice(optionBeaconApiUrls.Name),
 				IsFullNotifier:    c.Bool(optionUseFullNotifier.Name),
+				BlockInterval:     c.Uint64(optionBlockInterval.Name),
 				Signer:            signer,
 				CheckBalances:     c.Bool(optionCheckBalances.Name),
 			}

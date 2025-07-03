@@ -99,7 +99,10 @@ func TestBlockTracker(t *testing.T) {
 		},
 	}
 
-	tracker := blocktracker.NewBlockTracker(client, slog.Default())
+	tracker, err := blocktracker.NewBlockTracker(client, slog.Default())
+	if err != nil {
+		t.Fatalf("Failed to create block tracker: %v", err)
+	}
 	done := tracker.Start(ctx)
 
 	blkNo := tracker.LatestBlockNumber()
