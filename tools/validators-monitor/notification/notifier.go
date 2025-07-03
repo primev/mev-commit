@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/big"
 	"net/http"
@@ -79,12 +81,12 @@ func (n *Notifier) SendMessage(ctx context.Context, message Message) error {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	var errorOccurred bool
+	var errs []error
 	for _, webhookURL := range n.webhookURLs {
 		req, err := http.NewRequestWithContext(ctx, "POST", webhookURL, bytes.NewBuffer(messageJSON))
 		if err != nil {
 			n.logger.Error("Failed to create request", "webhook", webhookURL, "error", err)
-			errorOccurred = true
+			errs = append(errs, fmt.Errorf("create request (%s): %w", webhookURL, err))
 			continue
 		}
 
@@ -93,21 +95,30 @@ func (n *Notifier) SendMessage(ctx context.Context, message Message) error {
 		resp, err := n.client.Do(req)
 		if err != nil {
 			n.logger.Error("Failed to send notification", "webhook", webhookURL, "error", err)
-			errorOccurred = true
+			errs = append(errs, fmt.Errorf("send notification (%s): %w", webhookURL, err))
 			continue
 		}
-		defer resp.Body.Close()
+
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			n.logger.Error("Failed to read response body", "webhook", webhookURL, "error", err)
+			errs = append(errs, fmt.Errorf("read response body (%s): %w", webhookURL, err))
+		}
+
+		if err := resp.Body.Close(); err != nil {
+			n.logger.Error("Failed to close response body", "webhook", webhookURL, "error", err)
+			errs = append(errs, fmt.Errorf("close response body (%s): %w", webhookURL, err))
+		}
 
 		if resp.StatusCode != http.StatusOK {
 			n.logger.Error("Notification API returned non-200 status code", "webhook", webhookURL, "status", resp.StatusCode)
-			errorOccurred = true
+			errs = append(errs, fmt.Errorf("non-200 status (%s): %d", webhookURL, resp.StatusCode))
 			continue
 		}
 		n.logger.Debug("Notification sent successfully", "webhook", webhookURL)
 	}
 
-	if errorOccurred {
-		return fmt.Errorf("one or more notifications failed")
+	if len(errs) > 0 {
+		return fmt.Errorf("one or more notifications failed: %w", errors.Join(errs...))
 	}
 	return nil
 }
