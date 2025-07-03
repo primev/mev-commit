@@ -37,7 +37,7 @@ func New(
 		FetchIntervalSec:       cfg.FetchIntervalSec,
 		EthereumRPCURL:         cfg.EthereumRPCURL,
 		ValidatorOptInContract: cfg.ValidatorOptInContract,
-		SlackWebhookURL:        cfg.SlackWebhookURL,
+		WebhookURLs:            cfg.WebhookURLs,
 		RelayURLs:              cfg.RelayURLs,
 		DashboardApiUrl:        cfg.DashboardApiUrl,
 		LaggardMode:            cfg.LaggardMode,

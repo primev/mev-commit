@@ -152,7 +152,7 @@ func New(
 		beacon:          beaconClient,
 		relay:           api.NewRelayClient(cfg.RelayURLs, log, httpClient),
 		dashboard:       dashboardClient,
-		notifier:        notification.NewSlackNotifier(cfg.SlackWebhookURL, log),
+		notifier:        notification.NewNotifier(cfg.WebhookURLs, log),
 		optChecker:      optInChecker,
 		dutiesCache:     make(map[uint64]cachedDuties),
 		processedBlocks: make(map[uint64]time.Time),

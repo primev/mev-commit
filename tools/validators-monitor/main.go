@@ -48,10 +48,10 @@ var (
 		),
 	}
 
-	optionSlackWebhook = &cli.StringFlag{
-		Name:    "slack-webhook",
-		Usage:   "Slack webhook URL for notifications",
-		EnvVars: []string{"SLACK_WEBHOOK_URL"},
+	optionWebhookUrls = &cli.StringSliceFlag{
+		Name:    "webhooks",
+		Usage:   "webhook URLs for notifications",
+		EnvVars: []string{"WEBHOOK_URLS"},
 	}
 
 	optionDashboardApiUrl = &cli.StringFlag{
@@ -187,7 +187,7 @@ func main() {
 			optionEthereumRpcUrl,
 			optionValidatorOptInContract,
 			optionTrackMissed,
-			optionSlackWebhook,
+			optionWebhookUrls,
 			optionDashboardApiUrl,
 			optionRelayUrls,
 			optionHealthPort,
@@ -220,7 +220,7 @@ func main() {
 				EthereumRPCURL:         c.String(optionEthereumRpcUrl.Name),
 				ValidatorOptInContract: c.String(optionValidatorOptInContract.Name),
 				FetchIntervalSec:       12, // Use epoch duration
-				SlackWebhookURL:        c.String(optionSlackWebhook.Name),
+				WebhookURLs:            c.StringSlice(optionWebhookUrls.Name),
 				DashboardApiUrl:        c.String(optionDashboardApiUrl.Name),
 				RelayURLs:              c.StringSlice(optionRelayUrls.Name),
 				HealthPort:             c.Int(optionHealthPort.Name),
