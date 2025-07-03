@@ -18,17 +18,20 @@ type FullNotifier struct {
 	l1Client             L1Client
 	lastNotifiedBlockNum uint64
 	mu                   sync.Mutex
+	blockInterval        uint64
 }
 
 func NewFullNotifier(
 	logger *slog.Logger,
 	l1Client L1Client,
 	targetBlockChan chan bidder.TargetBlock,
+	blockInterval uint64,
 ) *FullNotifier {
 	return &FullNotifier{
 		logger:          logger,
 		l1Client:        l1Client,
 		targetBlockChan: targetBlockChan,
+		blockInterval:   blockInterval,
 	}
 }
 
@@ -83,6 +86,11 @@ func (b *FullNotifier) handleHeader(ctx context.Context, header *types.Header) e
 		"target_block_number", targetBlock.Num,
 		"target_block_time", targetBlock.Time,
 	)
+
+	if header.Number.Uint64()%b.blockInterval != 0 {
+		b.logger.Debug("skipping header", "header_number", header.Number.Uint64())
+		return nil
+	}
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
