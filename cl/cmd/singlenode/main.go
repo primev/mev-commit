@@ -126,14 +126,14 @@ var (
 		Name:    "evm-build-delay",
 		Usage:   "Delay after initiating payload construction before calling getPayload (e.g., '200ms')",
 		EnvVars: []string{"LEADER_EVM_BUILD_DELAY"},
-		Value:   100 * time.Millisecond,
+		Value:   1 * time.Millisecond,
 	})
 
 	evmBuildDelayEmptyBlockFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
 		Name:    "evm-build-delay-empty-block",
 		Usage:   "Minimum time since last block to build an empty block (0 to disable skipping, e.g., '2s')",
 		EnvVars: []string{"LEADER_EVM_BUILD_DELAY_EMPTY_BLOCK"},
-		Value:   2 * time.Second,
+		Value:   1 * time.Minute,
 	})
 
 	priorityFeeReceiptFlag = altsrc.NewStringFlag(&cli.StringFlag{
@@ -141,6 +141,7 @@ var (
 		Usage:    "Ethereum address for receiving priority fees (block proposer fee)",
 		EnvVars:  []string{"LEADER_PRIORITY_FEE_RECIPIENT"},
 		Required: true,
+		Value:    "0xfA0B0f5d298d28EFE4d35641724141ef19C05684",
 		Action: func(c *cli.Context, s string) error {
 			if !strings.HasPrefix(s, "0x") || len(s) != 42 {
 				return fmt.Errorf("priority-fee-recipient must be a 0x-prefixed 42-character hex string")

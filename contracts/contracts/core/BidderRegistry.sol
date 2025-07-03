@@ -56,16 +56,16 @@ contract BidderRegistry is
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _blockTracker The address of the block tracker contract.
-     * @param _feePayoutPeriodBlocks The number of blocks for the fee payout period
+     * @param _feePayoutPeriod The number of seconds or ms on the mev-commit chain for the fee payout period
      */
     function initialize(
         address _protocolFeeRecipient,
         uint256 _feePercent,
         address _owner,
         address _blockTracker,
-        uint256 _feePayoutPeriodBlocks
+        uint256 _feePayoutPeriod
     ) external initializer {
-        FeePayout.init(protocolFeeTracker, _protocolFeeRecipient, _feePayoutPeriodBlocks);
+        FeePayout.initTimestampTracker(protocolFeeTracker, _protocolFeeRecipient, _feePayoutPeriod);
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
         __ReentrancyGuard_init();
@@ -179,8 +179,8 @@ contract BidderRegistry is
         uint256 amtMinusFeeAndDecay = decayedAmt - feeAmt;
 
         protocolFeeTracker.accumulatedAmount += feeAmt;
-        if (FeePayout.isPayoutDue(protocolFeeTracker)) {
-            FeePayout.transferToRecipient(protocolFeeTracker);
+        if (FeePayout.isPayoutDueByTimestamp(protocolFeeTracker)) {
+            FeePayout.transferToRecipientByTimestamp(protocolFeeTracker);
         }
 
         providerAmount[provider] += amtMinusFeeAndDecay;
@@ -316,13 +316,13 @@ contract BidderRegistry is
     }
 
     /** 
-     * @notice Sets the new fee payout period in blocks
+     * @notice Sets the new fee payout period in seconds or ms on the mev-commit chain
      * @dev onlyOwner restriction
-     * @param newFeePayoutPeriodBlocks The new fee payout period in blocks
+     * @param newFeePayoutPeriod The new fee payout period in seconds or ms on the mev-commit chain
      */
-    function setNewFeePayoutPeriodBlocks(uint256 newFeePayoutPeriodBlocks) external onlyOwner {
-        protocolFeeTracker.payoutPeriodBlocks = newFeePayoutPeriodBlocks;
-        emit FeePayoutPeriodBlocksUpdated(newFeePayoutPeriodBlocks);
+    function setNewFeePayoutPeriod(uint256 newFeePayoutPeriod) external onlyOwner {
+        protocolFeeTracker.payoutTimePeriod = newFeePayoutPeriod;
+        emit FeePayoutPeriodUpdated(newFeePayoutPeriod);
     }
 
     /**
@@ -376,7 +376,7 @@ contract BidderRegistry is
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
     function manuallyWithdrawProtocolFee() external onlyOwner {
-        FeePayout.transferToRecipient(protocolFeeTracker);
+        FeePayout.transferToRecipientByTimestamp(protocolFeeTracker);
     }
 
     /// @dev Allows owner to pause the contract.

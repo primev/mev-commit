@@ -14,13 +14,13 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
-	"github.com/primev/mev-commit/tools/instant-bridge/accountsync"
 	"github.com/primev/mev-commit/tools/instant-bridge/api"
-	"github.com/primev/mev-commit/tools/instant-bridge/bidder"
-	"github.com/primev/mev-commit/tools/instant-bridge/transfer"
+	"github.com/primev/mev-commit/x/accountsync"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
+	bidder "github.com/primev/mev-commit/x/opt-in-bidder"
+	"github.com/primev/mev-commit/x/transfer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -146,8 +146,6 @@ func New(config *Config) (*Service, error) {
 	transferer := transfer.NewTransferer(
 		config.Logger.With("module", "transferer"),
 		settlementClient,
-		l1ChainID,
-		settlementChainID,
 		config.Signer,
 		config.GasTipCap,
 		config.GasFeeCap,
@@ -163,6 +161,8 @@ func New(config *Config) (*Service, error) {
 		config.Signer.GetAddress(),
 		l1RPCClient.RawClient(),
 		settlementClient,
+		l1ChainID,
+		settlementChainID,
 	)
 
 	apiService.Start()

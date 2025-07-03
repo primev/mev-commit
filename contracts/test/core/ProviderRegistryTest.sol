@@ -26,15 +26,13 @@ contract ProviderRegistryTest is Test {
     bytes public dummyBLSSignature =
         hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
-    uint256 public penaltyFeePayoutPeriodBlocks;
+    uint256 public penaltyFeePayoutPeriodMs;
     event ProviderRegistered(address indexed provider, uint256 stakedAmount);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
     event FeeTransfer(uint256 amount, address indexed recipient);
     event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
-    event FeePayoutPeriodBlocksUpdated(
-        uint256 indexed newFeePayoutPeriodBlocks
-    );
+    event FeePayoutPeriodUpdated(uint256 indexed newFeePayoutPeriod);
     event InsufficientFundsToSlash(
         address indexed provider,
         uint256 providerStake,
@@ -55,7 +53,7 @@ contract ProviderRegistryTest is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         withdrawalDelay = 24 hours; // 24 hours
-        penaltyFeePayoutPeriodBlocks = 100;
+        penaltyFeePayoutPeriodMs = 10000;
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(
@@ -66,7 +64,7 @@ contract ProviderRegistryTest is Test {
                     feePercent,
                     address(this),
                     withdrawalDelay,
-                    penaltyFeePayoutPeriodBlocks
+                    penaltyFeePayoutPeriodMs
                 )
             )
         );
@@ -90,7 +88,7 @@ contract ProviderRegistryTest is Test {
                     feePercent,
                     address(this),
                     address(blockTracker),
-                    penaltyFeePayoutPeriodBlocks
+                    penaltyFeePayoutPeriodMs
                 )
             )
         );
@@ -127,12 +125,12 @@ contract ProviderRegistryTest is Test {
         (
             address recipient,
             uint256 accumulatedAmount,
-            uint256 lastPayoutBlock,
-            uint256 payoutPeriodBlocks
+            uint256 lastPayoutTimestamp,
+            uint256 payoutPeriodMs
         ) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
-        assertEq(payoutPeriodBlocks, penaltyFeePayoutPeriodBlocks);
-        assertEq(lastPayoutBlock, block.number);
+        assertEq(payoutPeriodMs, penaltyFeePayoutPeriodMs);
+        assertEq(lastPayoutTimestamp, block.timestamp);
         assertEq(accumulatedAmount, 0);
     }
 
@@ -239,19 +237,19 @@ contract ProviderRegistryTest is Test {
         providerRegistry.setNewPenaltyFeeRecipient(newRecipient);
     }
 
-    function test_SetNewFeePayoutPeriodBlocks() public {
+    function test_SetNewFeePayoutPeriod() public {
         vm.prank(address(this));
         vm.expectEmit(true, true, true, true);
-        emit FeePayoutPeriodBlocksUpdated(890);
-        providerRegistry.setFeePayoutPeriodBlocks(890);
-        (, , , uint256 payoutPeriodBlocks) = providerRegistry
+        emit FeePayoutPeriodUpdated(890);
+        providerRegistry.setFeePayoutPeriod(890);
+        (, , , uint256 payoutPeriodMs) = providerRegistry
             .penaltyFeeTracker();
-        assertEq(payoutPeriodBlocks, 890);
+        assertEq(payoutPeriodMs, 890);
     }
 
-    function testFail_SetNewFeePayoutPeriodBlocks() public {
+    function testFail_SetNewFeePayoutPeriod() public {
         vm.expectRevert(bytes(""));
-        providerRegistry.setFeePayoutPeriodBlocks(83424);
+        providerRegistry.setFeePayoutPeriod(83424);
     }
 
     function test_SetNewFeePercent() public {
@@ -452,7 +450,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2 ether}();
 
-        vm.roll(350); // roll past protocol fee payout period
+        vm.warp(block.timestamp + 10000 + 1); // roll past protocol fee payout period
 
         vm.expectEmit(true, true, true, true);
         emit FeeTransfer(1e17 wei, vm.addr(6));

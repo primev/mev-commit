@@ -42,6 +42,9 @@ artifacts:
   instant-bridge: &instant_bridge_artifact
     type: binary
     path: tools/instant-bridge
+  preconf-rpc: &preconf_rpc_artifact
+    type: binary
+    path: tools/preconf-rpc
 
 jobs:
   artifacts: &artifacts_job
@@ -738,6 +741,30 @@ jobs:
       settlement_rpc_url: "{{ settlement_rpc_url if settlement_rpc_url is defined else '' }}"
       contracts_json_url: "{{ contracts_json_url if contracts_json_url is defined else '' }}"
 
+  preconf_rpc: &preconf_rpc_job
+    name: preconf-rpc
+    template: preconf-rpc.nomad.j2
+    artifacts:
+      - *preconf_rpc_artifact
+      - keystores:
+          preconf_rpc_keystore:
+          deposit_keystore:
+          bridge_keystore:
+    count: 1
+    target: *mev_commit_bidder_node1_job
+    ports:
+      - db:
+          static: 5434
+          to: 5434
+        http:
+          static: 10545
+          to: 8080
+    env:
+      l1_chain_id: "{{ environments[env].chain_id }}"
+      l1_rpc_urls: "{{ resolved_l1_rpc_urls }}"
+      settlement_rpc_url: "{{ settlement_rpc_url if settlement_rpc_url is defined else '' }}"
+      contracts_json_url: "{{ contracts_json_url if contracts_json_url is defined else '' }}"
+
 profiles:
   ci:
     jobs:
@@ -941,6 +968,34 @@ profiles:
       - *mev_commit_bidder_node1_job
       - *mev_commit_bidder_node1_funder_job
       - *instant_bridge_job
+      - *datadog_agent_metrics_collector_job
+
+  preconf-rpc-test:
+    jobs:
+      - *artifacts_job
+      - *datadog_agent_logs_collector_job
+      - *otel_collector_job
+      - *beacon_emulator_job
+      - *mock_l1_job
+      - *mev_commit_geth_bootnode1_job
+      - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_member_node_job
+      - *relay_emulator_job
+      - *contracts_deployer_job
+      - *mev_commit_bridge_job
+      - *mev_commit_dashboard_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_provider_node1_job
+      - *mev_commit_provider_node1_funder_job
+      - *mev_commit_provider_node2_job
+      - *mev_commit_provider_node2_funder_job
+      - *mev_commit_provider_node3_job
+      - *mev_commit_provider_node3_funder_job
+      - *mev_commit_provider_emulator_nodes_job
+      - *mev_commit_oracle_job
+      - *mev_commit_bidder_node1_job
+      - *mev_commit_bidder_node1_funder_job
+      - *preconf_rpc_job
       - *datadog_agent_metrics_collector_job
 
   instant-bridge:

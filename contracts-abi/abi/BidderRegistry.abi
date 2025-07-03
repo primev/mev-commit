@@ -220,7 +220,7 @@
         "internalType": "address"
       },
       {
-        "name": "_feePayoutPeriodBlocks",
+        "name": "_feePayoutPeriod",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -392,12 +392,12 @@
         "internalType": "uint256"
       },
       {
-        "name": "lastPayoutBlock",
+        "name": "lastPayoutTimestamp",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "payoutPeriodBlocks",
+        "name": "payoutTimePeriod",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -486,10 +486,10 @@
   },
   {
     "type": "function",
-    "name": "setNewFeePayoutPeriodBlocks",
+    "name": "setNewFeePayoutPeriod",
     "inputs": [
       {
-        "name": "newFeePayoutPeriodBlocks",
+        "name": "newFeePayoutPeriod",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -725,10 +725,10 @@
   },
   {
     "type": "event",
-    "name": "FeePayoutPeriodBlocksUpdated",
+    "name": "FeePayoutPeriodUpdated",
     "inputs": [
       {
-        "name": "newFeePayoutPeriodBlocks",
+        "name": "newFeePayoutPeriod",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"

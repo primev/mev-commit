@@ -23,7 +23,7 @@ const (
 	forkchoiceUpdatedV3 = "engine_forkchoiceUpdatedV3"
 
 	getPayloadV2 = "engine_getPayloadV2"
-	getPayloadV3 = "engine_getPayloadV3"
+	getPayloadV4 = "engine_getPayloadV4"
 )
 
 // EngineClient defines the Engine API authenticated JSON-RPC endpoints.
@@ -53,7 +53,7 @@ type EngineClient interface {
 	// GetPayloadV2 returns a cached payload by id.
 	GetPayloadV2(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
 	// GetPayloadV3 returns a cached payload by id.
-	GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
+	GetPayloadV4(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
 }
 
 // engineClient implements EngineClient using JSON-RPC.
@@ -174,17 +174,17 @@ func (c engineClient) GetPayloadV2(ctx context.Context, payloadID engine.Payload
 	return &resp, nil
 }
 
-func (c engineClient) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (
+func (c engineClient) GetPayloadV4(ctx context.Context, payloadID engine.PayloadID) (
 	*engine.ExecutionPayloadEnvelope, error,
 ) {
-	const endpoint = "get_payload_v3"
+	const endpoint = "get_payload_v4"
 	defer latency(c.chain, endpoint)()
 
 	var resp engine.ExecutionPayloadEnvelope
-	err := c.cl.Client().CallContext(ctx, &resp, getPayloadV3, payloadID)
+	err := c.cl.Client().CallContext(ctx, &resp, getPayloadV4, payloadID)
 	if err != nil {
 		incError(c.chain, endpoint)
-		return nil, fmt.Errorf("rpc get payload v3: %w", err)
+		return nil, fmt.Errorf("rpc get payload v4: %w", err)
 	}
 
 	return &resp, nil
