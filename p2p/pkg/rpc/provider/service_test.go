@@ -152,7 +152,7 @@ type testStore struct {
 	commitments []*preconfstore.Commitment
 }
 
-func (t *testStore) GetAllCommitments() ([]*preconfstore.Commitment, error) {
+func (t *testStore) ListCommitments(_ *preconfstore.ListOpts) ([]*preconfstore.Commitment, error) {
 	return t.commitments, nil
 }
 
