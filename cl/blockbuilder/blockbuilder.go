@@ -114,6 +114,9 @@ func (bb *BlockBuilder) startBuild(ctx context.Context, head *types.ExecutionHea
 }
 
 func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
+	// SLOT STARTS: call fork choice updated here with payload attributes null.
+	// Note ForkchoiceState param will be identical to previous fork choice updated call since we don't have reorgs.
+	// We mainly call it again at start of slot for good measure.
 	var (
 		payloadID *engine.PayloadID
 		head      *types.ExecutionHead
@@ -164,6 +167,8 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	}
 
 	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
+		// DON'T CALL fork choice updated here, already called above.
+		// DON'T add payload attributes param here which starts building. This was already started last slot.
 		response, err := bb.startBuild(ctx, head, ts)
 		if err != nil {
 			bb.logger.Warn(
@@ -191,6 +196,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		return errors.New("payloadID is nil")
 	}
 
+	// REMOVE BLOCKING HERE. No need to wait if misc validations and api calls take long enough that payload is built by now.
 	waitTo := time.Now().Add(bb.buildDelay)
 	select {
 	case <-ctx.Done():
@@ -420,6 +426,7 @@ func (bb *BlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, executi
 	hash := common.BytesToHash(head.BlockHash)
 	retryFunc := bb.selectRetryFunction(ctx, msgID)
 
+	// No changes here, still just call NewPayload
 	if err := bb.pushNewPayload(ctx, executionPayload, hash, retryFunc); err != nil {
 		return fmt.Errorf("failed to push new payload: %w", err)
 	}
@@ -430,6 +437,8 @@ func (bb *BlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, executi
 		FinalizedBlockHash: executionPayload.BlockHash,
 	}
 
+	// STILL UPDATE FORK CHOICE WITH NEWEST PAYLOAD HERE. BUT ADD PAYLOAD ATTRIBUTES PARAM TO THE CALL.
+	// THIS IS WHERE NEXT BLOCK WILL START BEING BUILT.
 	if err := bb.updateForkChoice(ctx, fcs, retryFunc); err != nil {
 		return fmt.Errorf("failed to finalize fork choice update: %w", err)
 	}
