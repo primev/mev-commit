@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -18,12 +16,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
-	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
-	"resenje.org/multex"
-)
-
-const (
-	blockTime = 12 // seconds, typical Ethereum block time
+	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 )
 
 var (
@@ -32,101 +25,104 @@ var (
 
 type Bidder interface {
 	Estimate() (int64, error)
-	Bid(
-		ctx context.Context,
-		bidAmount *big.Int,
-		slashAmount *big.Int,
-		rawTx string,
-		opts *optinbidder.BidOpts,
-	) (chan optinbidder.BidStatus, error)
 }
 
 type Pricer interface {
-	EstimatePrice(
-		ctx context.Context,
-		txn *types.Transaction,
-	) (*pricer.BlockPrice, error)
+	EstimatePrice(ctx context.Context, txn *types.Transaction) (*pricer.BlockPrice, error)
 }
 
 type Store interface {
-	StorePreconfirmedTransaction(
-		ctx context.Context,
-		blockNumber int64,
-		txn *types.Transaction,
-		commitments []*bidderapiv1.Commitment,
-	) error
-	GetPreconfirmedTransaction(
-		ctx context.Context,
-		txnHash common.Hash,
-	) (*types.Transaction, []*bidderapiv1.Commitment, error)
-	GetPreconfirmedTransactionsForBlock(
-		ctx context.Context,
-		blockNumber int64,
-	) ([]*types.Transaction, error)
-	DeductBalance(ctx context.Context, account common.Address, amount *big.Int) error
-	HasBalance(ctx context.Context, account common.Address, amount *big.Int) bool
+	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error)
+	GetTransactionsForBlock(ctx context.Context, blockNumber int64) ([]*sender.Transaction, error)
+	GetTransactionCommitments(ctx context.Context, txnHash common.Hash) ([]*bidderapiv1.Commitment, error)
 	GetBalance(ctx context.Context, account common.Address) (*big.Int, error)
-	AddBalance(ctx context.Context, account common.Address, amount *big.Int) error
+	GetCurrentNonce(ctx context.Context, account common.Address) uint64
 }
 
 type BlockTracker interface {
-	CheckTxnInclusion(ctx context.Context, txnHash common.Hash, blockNumber uint64) (bool, error)
 	LatestBlockNumber() uint64
 }
 
-type accountNonce struct {
-	Account string `json:"account"`
-	Nonce   uint64 `json:"nonce"`
-	Block   int64  `json:"block"`
-}
-
-type bidResult struct {
-	noOfProviders int
-	blockNumber   uint64
-	optedInSlot   bool
-	bidAmount     *big.Int
-	commitments   []*bidderapiv1.Commitment
+type Sender interface {
+	Enqueue(ctx context.Context, txn *sender.Transaction) error
 }
 
 type rpcMethodHandler struct {
-	logger       *slog.Logger
-	bidder       Bidder
-	store        Store
-	pricer       Pricer
-	blockTracker BlockTracker
-	owner        common.Address
-	chainID      *big.Int
-	nonceLock    *multex.Multex[string]
-	nonceMap     map[string]accountNonce
-	nonceMapLock sync.RWMutex
+	logger         *slog.Logger
+	pricer         Pricer
+	bidder         Bidder
+	store          Store
+	blockTracker   BlockTracker
+	sndr           Sender
+	depositAddress common.Address
+	bridgeAddress  common.Address
+	chainID        *big.Int
 }
 
 func NewRPCMethodHandler(
 	logger *slog.Logger,
+	pricer Pricer,
 	bidder Bidder,
 	store Store,
-	pricer Pricer,
 	blockTracker BlockTracker,
-	owner common.Address,
+	sndr Sender,
+	depositAddress common.Address,
+	bridgeAddress common.Address,
 	chainId *big.Int,
 ) *rpcMethodHandler {
 	return &rpcMethodHandler{
-		logger:       logger,
-		bidder:       bidder,
-		store:        store,
-		pricer:       pricer,
-		blockTracker: blockTracker,
-		owner:        owner,
-		chainID:      chainId,
-		nonceLock:    multex.New[string](),
-		nonceMap:     make(map[string]accountNonce),
+		logger:         logger,
+		pricer:         pricer,
+		bidder:         bidder,
+		store:          store,
+		blockTracker:   blockTracker,
+		sndr:           sndr,
+		depositAddress: depositAddress,
+		bridgeAddress:  bridgeAddress,
+		chainID:        chainId,
 	}
 }
 
 func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	// Ethereum JSON-RPC methods overridden
-	server.RegisterHandler("eth_getBlockNumber", h.handleGetBlockNumber)
-	server.RegisterHandler("eth_chainId", h.handleChainID)
+	server.RegisterHandler("eth_getBlockNumber", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		blockNumber := h.blockTracker.LatestBlockNumber()
+
+		blockNumberJSON, err := json.Marshal(hexutil.Uint64(blockNumber))
+		if err != nil {
+			h.logger.Error("Failed to marshal block number to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal block number",
+			)
+		}
+
+		return blockNumberJSON, false, nil
+	})
+	server.RegisterHandler("eth_chainId", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		chainIDJSON, err := json.Marshal(hexutil.Uint64(h.chainID.Uint64()))
+		if err != nil {
+			h.logger.Error("Failed to marshal chain ID to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal chain ID",
+			)
+		}
+		return chainIDJSON, false, nil
+	})
+	server.RegisterHandler("eth_maxPriorityFeePerGas", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		// Return zero value for maxPriorityFeePerGas
+		maxPriorityFee := big.NewInt(0)
+		maxPriorityFeeJSON, err := json.Marshal(hexutil.EncodeBig(maxPriorityFee))
+		if err != nil {
+			h.logger.Error("Failed to marshal maxPriorityFeePerGas to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal maxPriorityFeePerGas",
+			)
+		}
+		return maxPriorityFeeJSON, false, nil
+	})
 	server.RegisterHandler("eth_sendRawTransaction", h.handleSendRawTx)
 	server.RegisterHandler("eth_getTransactionReceipt", h.handleGetTxReceipt)
 	server.RegisterHandler("eth_getTransactionCount", h.handleGetTxCount)
@@ -134,56 +130,85 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	// Custom methods for MEV Commit
 	server.RegisterHandler("mevcommit_getTransactionCommitments", h.handleGetTxCommitments)
 	server.RegisterHandler("mevcommit_getBalance", h.handleMevCommitGetBalance)
-	server.RegisterHandler("mevcommit_estimateFastBid", h.handleMevCommitEstimateFastBid)
-}
-
-func (h *rpcMethodHandler) handleGetBlockNumber(
-	ctx context.Context,
-	params ...any,
-) (json.RawMessage, bool, error) {
-	if len(params) != 0 {
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeInvalidRequest,
-			"getBlockNumber does not require any parameters",
+	server.RegisterHandler("mevcommit_optInBlock", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		timeToOptIn, err := h.bidder.Estimate()
+		if err != nil {
+			h.logger.Error("Failed to estimate time to opt in", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to estimate opt in time",
+			)
+		}
+		return json.RawMessage(fmt.Sprintf(`{"timeInSecs": "%d"}`, timeToOptIn)), false, nil
+	})
+	server.RegisterHandler("mevcommit_estimateDeposit", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		blockPrice, err := h.pricer.EstimatePrice(
+			ctx,
+			types.NewTransaction(0, h.depositAddress, big.NewInt(0), 21000, big.NewInt(0), nil),
 		)
-	}
+		if err != nil {
+			h.logger.Error("Failed to estimate deposit price", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to estimate deposit price",
+			)
+		}
+		if blockPrice == nil {
+			h.logger.Warn("No block price estimated for deposit")
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"no block price available for deposit",
+			)
+		}
+		result := map[string]interface{}{
+			"bidAmount":      hexutil.EncodeBig(blockPrice.BidAmount),
+			"depositAddress": h.depositAddress.Hex(),
+		}
 
-	blockNumber := h.blockTracker.LatestBlockNumber()
-	h.logger.Info("Retrieved latest block number", "blockNumber", blockNumber)
-
-	blockNumberJSON, err := json.Marshal(hexutil.Uint64(blockNumber))
-	if err != nil {
-		h.logger.Error("Failed to marshal block number to JSON", "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to marshal block number",
+		resultJSON, err := json.Marshal(result)
+		if err != nil {
+			h.logger.Error("Failed to marshal deposit estimate to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal deposit estimate",
+			)
+		}
+		h.logger.Debug("Estimated deposit price", "bidAmount", blockPrice.BidAmount, "depositAddress", h.depositAddress.Hex())
+		return resultJSON, false, nil
+	})
+	server.RegisterHandler("mevcommit_estimateBridge", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		blockPrice, err := h.pricer.EstimatePrice(
+			ctx,
+			types.NewTransaction(0, h.bridgeAddress, big.NewInt(0), 21000, big.NewInt(0), nil),
 		)
-	}
+		if err != nil {
+			h.logger.Error("Failed to estimate bridge price", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to estimate bridge price",
+			)
+		}
+		if blockPrice == nil {
+			h.logger.Warn("No block price estimated for bridge")
+			return nil, true, nil // No price available, proxy
+		}
+		bridgeCost := new(big.Int).Mul(blockPrice.BidAmount, big.NewInt(2))
+		result := map[string]interface{}{
+			"bidAmount":     hexutil.EncodeBig(bridgeCost),
+			"bridgeAddress": h.bridgeAddress.Hex(),
+		}
 
-	return blockNumberJSON, false, nil
-}
-
-func (h *rpcMethodHandler) handleChainID(
-	ctx context.Context,
-	params ...any,
-) (json.RawMessage, bool, error) {
-	if len(params) != 0 {
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeInvalidRequest,
-			"chainID does not require any parameters",
-		)
-	}
-
-	chainIDJSON, err := json.Marshal(hexutil.Uint64(h.chainID.Uint64()))
-	if err != nil {
-		h.logger.Error("Failed to marshal chain ID to JSON", "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to marshal chain ID",
-		)
-	}
-
-	return chainIDJSON, false, nil
+		resultJSON, err := json.Marshal(result)
+		if err != nil {
+			h.logger.Error("Failed to marshal bridge estimate to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal bridge estimate",
+			)
+		}
+		h.logger.Debug("Estimated bridge price", "bidAmount", blockPrice.BidAmount, "bridgeAddress", h.bridgeAddress.Hex())
+		return resultJSON, false, nil
+	})
 }
 
 func (h *rpcMethodHandler) handleGetBlockByHash(
@@ -205,6 +230,8 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 	}
 
 	blockHashStr := params[0].(string)
+	// Remove "0x" prefix if present
+	blockHashStr = strings.TrimPrefix(blockHashStr, "0x")
 	if !strings.HasPrefix(blockHashStr, preconfBlockHashPrefix) {
 		return nil, true, nil // Not a preconf block hash, proxy
 	}
@@ -223,7 +250,7 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 		)
 	}
 
-	txns, err := h.store.GetPreconfirmedTransactionsForBlock(ctx, int64(blockNumber))
+	txns, err := h.store.GetTransactionsForBlock(ctx, int64(blockNumber))
 	if err != nil {
 		h.logger.Error("Failed to get preconfirmed transactions for block", "error", err, "blockNumber", blockNumber)
 		return nil, false, rpcserver.NewJSONErr(
@@ -241,7 +268,7 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 		"logsBloom":        hexutil.Bytes(types.Bloom{}.Bytes()),
 		"transactionsRoot": (common.Hash{}).Hex(),
 		"stateRoot":        (common.Hash{}).Hex(),
-		"miner":            h.owner.Hex(),
+		"miner":            (common.Address{}).Hex(),
 		"difficulty":       hexutil.Uint64(0),
 		"totalDifficulty":  hexutil.Uint64(0),
 		"size":             hexutil.Uint64(0),
@@ -255,6 +282,10 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 
 	var txnsToReturn any
 	for i, txn := range txns {
+		if txn.Status != sender.TxStatusPreConfirmed {
+			h.logger.Warn("Skipping transaction not in preconfirmed state", "txnHash", txn.Hash().Hex(), "status", txn.Status)
+			continue
+		}
 		if !details {
 			if txnsToReturn == nil {
 				txnsToReturn = make([]string, 0, len(txns))
@@ -269,11 +300,6 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 			txnsToReturn = make([]map[string]interface{}, len(txns))
 		}
 		r, s, v := txn.RawSignatureValues()
-		sender, err := types.Sender(types.LatestSignerForChainID(txn.ChainId()), txn)
-		if err != nil {
-			h.logger.Error("Failed to get transaction sender", "error", err, "txnHash", txn.Hash().Hex())
-			continue
-		}
 		txnsToReturn = append(
 			txnsToReturn.([]map[string]interface{}),
 			map[string]interface{}{
@@ -281,14 +307,14 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 				"blockHash":            blockHashStr,
 				"blockNumber":          hexutil.Uint64(blockNumber),
 				"transactionIndex":     hexutil.Uint64(i),
-				"type":                 hexutil.Uint(txn.Type()),
+				"type":                 hexutil.Uint(txn.Transaction.Type()),
 				"accessList":           nil, // Access lists are not used in preconf blocks
 				"maxFeePerGas":         hexutil.EncodeBig(txn.GasFeeCap()),
 				"maxPriorityFeePerGas": hexutil.EncodeBig(txn.GasTipCap()),
 				"to":                   txn.To().Hex(),
 				"value":                hexutil.EncodeBig(txn.Value()),
 				"input":                hexutil.Encode(txn.Data()),
-				"from":                 sender.Hex(),
+				"from":                 txn.Sender.Hex(),
 				"nonce":                hexutil.Uint64(txn.Nonce()),
 				"gas":                  hexutil.Uint64(txn.Gas()),
 				"gasPrice":             hexutil.EncodeBig(txn.GasPrice()),
@@ -353,7 +379,7 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		)
 	}
 
-	sender, err := types.Sender(types.LatestSignerForChainID(txn.ChainId()), txn)
+	txSender, err := types.Sender(types.LatestSignerForChainID(txn.ChainId()), txn)
 	if err != nil {
 		h.logger.Error("Failed to get transaction sender", "error", err)
 		return nil, false, rpcserver.NewJSONErr(
@@ -362,98 +388,28 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		)
 	}
 
-	// Once we are ready to send the bid, we need to ensure that the nonce for the
-	// sender is not locked by another transaction.
-	h.nonceLock.Lock(sender.Hex())
-	defer h.nonceLock.Unlock(sender.Hex())
-
-	// This is a txn to add balance to the bidder's account, so we will pay this
-	// out of the owner's account. We will add the balance to the bidder's
-	// account and then proceed with the bid process.
-	depositTxn := txn.To().Cmp(h.owner) == 0 && txn.Value().Cmp(big.NewInt(0)) > 0
-
-BID_LOOP:
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, false, rpcserver.NewJSONErr(
-				rpcserver.CodeCustomError,
-				"context cancelled while processing transaction",
-			)
-		default:
-		}
-
-		result, err := h.sendBid(ctx, txn, sender, rawTxHex, depositTxn)
-		switch {
-		case err != nil:
-			h.logger.Error("Failed to send bid", "error", err)
-			return nil, false, rpcserver.NewJSONErr(
-				rpcserver.CodeCustomError,
-				"failed to send bid",
-			)
-		case result.optedInSlot:
-			if result.noOfProviders == len(result.commitments) {
-				// This means that all builders have committed to the bid and it
-				// is a primev opted in slot. We can safely proceed to inform the
-				// user that the txn was successfully sent and will be processed
-				if err := h.storePreconfAndDeductBalance(
-					ctx,
-					txn,
-					result.commitments,
-					sender,
-					int64(result.blockNumber),
-					result.bidAmount,
-					depositTxn,
-				); err != nil {
-					return nil, false, rpcserver.NewJSONErr(
-						rpcserver.CodeCustomError,
-						"failed to update preconfirmed transaction and deduct balance",
-					)
-				}
-				// Update the nonce locally if user wants to send more transactions
-				h.nonceMapLock.Lock()
-				h.nonceMap[sender.Hex()] = accountNonce{
-					Account: sender.Hex(),
-					Nonce:   txn.Nonce() + 1,
-					Block:   int64(result.blockNumber),
-				}
-				h.nonceMapLock.Unlock()
-				break BID_LOOP
-			}
-		default:
-		}
-
-		// Wait for block number to be updated to confirm transaction. If failed
-		// we will retry the bid process till user cancels the operation
-		included, err := h.blockTracker.CheckTxnInclusion(ctx, txn.Hash(), result.blockNumber)
-		if err != nil {
-			h.logger.Error("Failed to check transaction inclusion", "error", err)
-			return nil, false, rpcserver.NewJSONErr(
-				rpcserver.CodeCustomError,
-				"failed to check transaction inclusion",
-			)
-		}
-		if included {
-			if err := h.storePreconfAndDeductBalance(
-				ctx,
-				txn,
-				result.commitments,
-				sender,
-				int64(result.blockNumber),
-				result.bidAmount,
-				depositTxn,
-			); err != nil {
-				h.logger.Error("Failed to update preconfirmed transaction and deduct balance", "error", err)
-				return nil, false, rpcserver.NewJSONErr(
-					rpcserver.CodeCustomError,
-					"failed to update preconfirmed transaction and deduct balance",
-				)
-			}
-			break BID_LOOP
-		}
+	txType := sender.TxTypeRegular
+	switch {
+	case txn.To().Cmp(h.depositAddress) == 0:
+		txType = sender.TxTypeDeposit
+	case txn.To().Cmp(h.bridgeAddress) == 0:
+		txType = sender.TxTypeInstantBridge
 	}
 
-	// If we reach here, we have a successful bid with commitments
+	err = h.sndr.Enqueue(ctx, &sender.Transaction{
+		Transaction: txn,
+		Raw:         rawTxHex,
+		Sender:      txSender,
+		Type:        txType,
+	})
+	if err != nil {
+		h.logger.Error("Failed to enqueue transaction for sending", "error", err, "sender", txSender.Hex())
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to enqueue transaction for sending",
+		)
+	}
+
 	txHashJSON, err := json.Marshal(txn.Hash().Hex())
 	if err != nil {
 		h.logger.Error("Failed to marshal transaction hash to JSON", "error", err)
@@ -464,129 +420,6 @@ BID_LOOP:
 	}
 
 	return txHashJSON, false, nil
-}
-
-func (h *rpcMethodHandler) sendBid(
-	ctx context.Context,
-	txn *types.Transaction,
-	sender common.Address,
-	rawTxHex string,
-	depositTxn bool,
-) (bidResult, error) {
-	timeToOptIn, err := h.bidder.Estimate()
-	if err != nil {
-		h.logger.Error("Failed to estimate time to opt-in", "error", err)
-		if !errors.Is(err, optinbidder.ErrNoSlotInCurrentEpoch) && !errors.Is(err, optinbidder.ErrNoEpochInfo) {
-			return bidResult{}, err
-		}
-		// If we cannot estimate the time to opt-in, we assume a default value and
-		// proceed with the bid process. The default value should be higher than
-		// the typical block time to ensure we consider the next slot as a non-opt-in slot.
-		timeToOptIn = blockTime * 32
-	}
-
-	optedInSlot := timeToOptIn <= blockTime
-
-	price, err := h.pricer.EstimatePrice(ctx, txn)
-	if err != nil {
-		h.logger.Error("Failed to estimate transaction price", "error", err)
-		return bidResult{}, fmt.Errorf("failed to estimate transaction price: %w", err)
-	}
-
-	if !depositTxn && !h.store.HasBalance(ctx, sender, price.BidAmount) {
-		h.logger.Error("Insufficient balance for sender", "sender", sender.Hex())
-		return bidResult{}, fmt.Errorf("insufficient balance for sender: %s", sender.Hex())
-	}
-
-	bidC, err := h.bidder.Bid(
-		ctx,
-		price.BidAmount,
-		big.NewInt(0),
-		rawTxHex[2:],
-		&optinbidder.BidOpts{
-			WaitForOptIn: optedInSlot,
-			// BlockNumber:  uint64(price.BlockNumber),
-		},
-	)
-	if err != nil {
-		h.logger.Error("Failed to place bid", "error", err)
-		return bidResult{}, fmt.Errorf("failed to place bid: %w", err)
-	}
-
-	result := bidResult{
-		commitments: make([]*bidderapiv1.Commitment, 0),
-		bidAmount:   price.BidAmount,
-	}
-BID_LOOP:
-	for {
-		select {
-		case <-ctx.Done():
-			h.logger.Info("Context cancelled while waiting for bid status")
-			return bidResult{}, ctx.Err()
-		case bidStatus, more := <-bidC:
-			if !more {
-				h.logger.Info("Bid channel closed, no more bid statuses")
-				break BID_LOOP
-			}
-			switch bidStatus.Type {
-			case optinbidder.BidStatusNoOfProviders:
-				result.noOfProviders = bidStatus.Arg.(int)
-			case optinbidder.BidStatusAttempted:
-				result.blockNumber = bidStatus.Arg.(uint64)
-			case optinbidder.BidStatusCommitment:
-				result.commitments = append(result.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
-			case optinbidder.BidStatusCancelled:
-				h.logger.Warn("Bid context cancelled by the bidder")
-				break BID_LOOP
-			case optinbidder.BidStatusFailed:
-				h.logger.Error("Bid failed", "error", bidStatus.Arg)
-				break BID_LOOP
-			}
-		}
-	}
-	if len(result.commitments) == 0 {
-		h.logger.Error("Bid completed with no commitments")
-		return bidResult{}, fmt.Errorf("bid completed with no commitments")
-	}
-	h.logger.Info(
-		"Bid successful with commitments",
-		"noOfProviders", result.noOfProviders,
-		"noOfCommitments", len(result.commitments),
-		"blockNumber", result.blockNumber,
-		"optedInSlot", optedInSlot,
-	)
-
-	result.optedInSlot = optedInSlot
-	return result, nil
-}
-
-func (h *rpcMethodHandler) storePreconfAndDeductBalance(
-	ctx context.Context,
-	txn *types.Transaction,
-	commitments []*bidderapiv1.Commitment,
-	sender common.Address,
-	blockNumber int64,
-	amount *big.Int,
-	depositTxn bool,
-) error {
-	if err := h.store.StorePreconfirmedTransaction(ctx, blockNumber, txn, commitments); err != nil {
-		h.logger.Error("Failed to store preconfirmed transaction", "error", err)
-		return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
-	}
-
-	if !depositTxn {
-		if err := h.store.DeductBalance(ctx, sender, amount); err != nil {
-			h.logger.Error("Failed to deduct balance for sender", "sender", sender.Hex(), "error", err)
-			return fmt.Errorf("failed to deduct balance for sender: %w", err)
-		}
-	} else {
-		if err := h.store.AddBalance(ctx, sender, txn.Value()); err != nil {
-			h.logger.Error("Failed to add balance for sender", "sender", sender.Hex(), "error", err)
-			return fmt.Errorf("failed to add balance for sender: %w", err)
-		}
-	}
-
-	return nil
 }
 
 func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
@@ -613,44 +446,38 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 
 	txHash := common.HexToHash(txHashStr)
 
-	h.logger.Info("Retrieving transaction receipt", "txHash", txHash)
-	txn, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
+	txn, err := h.store.GetTransactionByHash(ctx, txHash)
 	if err != nil {
 		return nil, true, nil
 	}
 
-	if h.blockTracker.LatestBlockNumber() > uint64(commitments[0].BlockNumber) {
+	if txn.Status != sender.TxStatusFailed &&
+		(txn.Status != sender.TxStatusPreConfirmed || h.blockTracker.LatestBlockNumber() > uint64(txn.BlockNumber)) {
 		return nil, true, nil
 	}
-
-	sender, err := types.Sender(types.LatestSignerForChainID(txn.ChainId()), txn)
-	if err != nil {
-		h.logger.Error("Failed to get transaction sender", "error", err, "txHash", txHash)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to get transaction sender",
-		)
-	}
-
-	blockHash := fmt.Sprintf("%s%08d", preconfBlockHashPrefix, commitments[0].BlockNumber)
-	padding := strings.Repeat("0", 66-len(blockHash))
-	blockHash = blockHash + padding
 
 	result := map[string]interface{}{
-		"type":              hexutil.Uint(txn.Type()),
+		"type":              hexutil.Uint(txn.Transaction.Type()),
 		"transactionHash":   txn.Hash().Hex(),
 		"transactionIndex":  hexutil.Uint(0),
-		"blockHash":         blockHash,
-		"blockNumber":       hexutil.EncodeBig(big.NewInt(commitments[0].BlockNumber)),
-		"from":              sender.Hex(),
+		"from":              txn.Sender.Hex(),
 		"to":                nil,
 		"contractAddress":   (common.Address{}).Hex(),
 		"gasUsed":           hexutil.Uint64(0),
 		"cumulativeGasUsed": hexutil.Uint64(1),
 		"logs":              []*types.Log{}, // should be [] not null
 		"logsBloom":         hexutil.Bytes(types.Bloom{}.Bytes()),
-		"status":            hexutil.Uint64(types.ReceiptStatusSuccessful),
 		"effectiveGasPrice": hexutil.EncodeBig(big.NewInt(0)),
+	}
+
+	if txn.Status == sender.TxStatusFailed {
+		result["status"] = hexutil.Uint64(types.ReceiptStatusFailed)
+	} else {
+		result["status"] = hexutil.Uint64(types.ReceiptStatusSuccessful)
+		blockHash := fmt.Sprintf("0x%s%08d", preconfBlockHashPrefix, txn.BlockNumber)
+		blockHash += strings.Repeat("0", 66-len(blockHash))
+		result["blockHash"] = blockHash
+		result["blockNumber"] = hexutil.EncodeBig(big.NewInt(txn.BlockNumber))
 	}
 
 	receiptJSON, err := json.Marshal(result)
@@ -688,25 +515,14 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 		)
 	}
 
-	h.nonceLock.Lock(account)
-	defer h.nonceLock.Unlock(account)
-
-	h.nonceMapLock.RLock()
-	accNonce, found := h.nonceMap[account]
-	h.nonceMapLock.RUnlock()
-
-	if !found {
+	accNonce := h.store.GetCurrentNonce(ctx, common.HexToAddress(account))
+	if accNonce == 0 {
 		return nil, true, nil
 	}
 
-	if h.blockTracker.LatestBlockNumber() > uint64(accNonce.Block) {
-		h.nonceMapLock.Lock()
-		delete(h.nonceMap, account)
-		h.nonceMapLock.Unlock()
-		return nil, true, nil
-	}
+	accNonce += 1
 
-	nonceJSON, err := json.Marshal(accNonce.Nonce)
+	nonceJSON, err := json.Marshal(accNonce)
 	if err != nil {
 		h.logger.Error("Failed to marshal nonce to JSON", "error", err, "account", account)
 		return nil, false, rpcserver.NewJSONErr(
@@ -715,7 +531,7 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 		)
 	}
 
-	h.logger.Info("Retrieved account nonce from cache", "account", account, "nonce", accNonce.Nonce)
+	h.logger.Info("Retrieved account nonce from cache", "account", account, "nonce", accNonce)
 	return nonceJSON, false, nil
 }
 
@@ -747,9 +563,12 @@ func (h *rpcMethodHandler) handleGetTxCommitments(
 
 	txHash := common.HexToHash(txHashStr)
 
-	_, commitments, err := h.store.GetPreconfirmedTransaction(ctx, txHash)
+	commitments, err := h.store.GetTransactionCommitments(ctx, txHash)
 	if err != nil {
-		return nil, true, nil
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to get transaction commitments",
+		)
 	}
 
 	if len(commitments) == 0 {
@@ -802,20 +621,4 @@ func (h *rpcMethodHandler) handleMevCommitGetBalance(ctx context.Context, params
 	}
 
 	return json.RawMessage(fmt.Sprintf(`{"balance": "%s"}`, balance)), false, nil
-}
-
-func (h *rpcMethodHandler) handleMevCommitEstimateFastBid(
-	ctx context.Context,
-	_ ...any,
-) (json.RawMessage, bool, error) {
-	timeToOptIn, err := h.bidder.Estimate()
-	if err != nil {
-		h.logger.Error("Failed to estimate fast bid", "error", err)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to estimate fast bid",
-		)
-	}
-
-	return json.RawMessage(fmt.Sprintf(`{"timeInSecs": "%d"}`, timeToOptIn)), false, nil
 }
