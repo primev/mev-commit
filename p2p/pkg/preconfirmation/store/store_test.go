@@ -527,7 +527,7 @@ func TestStore_GetAllCommitments(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	allCommitments, err := st.GetAllCommitments()
+	allCommitments, err := st.ListCommitments(nil)
 	if err != nil {
 		t.Fatal(err)
 	}

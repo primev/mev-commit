@@ -73,7 +73,7 @@ type Watcher interface {
 
 type CommitmentStore interface {
 	GetCommitments(blockNumber int64) ([]*preconfstore.Commitment, error)
-	GetAllCommitments() ([]*preconfstore.Commitment, error)
+	ListCommitments(opts *preconfstore.ListOpts) ([]*preconfstore.Commitment, error)
 }
 
 type OptsGetter func(ctx context.Context) (*bind.TransactOpts, error)
@@ -517,10 +517,17 @@ func (s *Service) GetCommitmentInfo(
 		page, limit = int(req.Page), int(req.Limit)
 	)
 
+	if limit == 0 {
+		limit = defaultLimit
+	}
+
 	if req.BlockNumber != 0 {
 		cmts, err = s.cs.GetCommitments(req.BlockNumber)
 	} else {
-		cmts, err = s.cs.GetAllCommitments()
+		cmts, err = s.cs.ListCommitments(&preconfstore.ListOpts{
+			Page:  page,
+			Limit: limit,
+		})
 	}
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting commitments: %v", err)
@@ -531,10 +538,6 @@ func (s *Service) GetCommitmentInfo(
 		}, nil
 	}
 
-	if limit == 0 {
-		limit = defaultLimit
-	}
-	cmts = cmts[min(page*limit, len(cmts)):min((page+1)*limit, len(cmts))]
 	blockCommitments := make([]*providerapiv1.CommitmentInfoResponse_BlockCommitments, 0)
 	for _, c := range cmts {
 		if len(blockCommitments) == 0 || blockCommitments[len(blockCommitments)-1].BlockNumber != c.Bid.BlockNumber {
