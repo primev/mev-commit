@@ -184,10 +184,14 @@ func New(config *Config) (*Service, error) {
 		return nil, fmt.Errorf("failed to create store: %w", err)
 	}
 
-	blockTracker := blocktracker.NewBlockTracker(
+	blockTracker, err := blocktracker.NewBlockTracker(
 		l1RPCClient,
 		config.Logger.With("module", "blocktracker"),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create block tracker: %w", err)
+	}
+
 	blockTrackerDone := blockTracker.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
 

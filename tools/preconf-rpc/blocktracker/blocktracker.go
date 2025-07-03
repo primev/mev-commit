@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 type EthClient interface {
@@ -18,20 +19,25 @@ type EthClient interface {
 
 type blockTracker struct {
 	latestBlockNo atomic.Uint64
-	blocks        map[uint64]*types.Block
+	blocks        *lru.Cache[uint64, *types.Block]
 	client        EthClient
 	log           *slog.Logger
 	checkTrigger  chan struct{}
 }
 
-func NewBlockTracker(client EthClient, log *slog.Logger) *blockTracker {
+func NewBlockTracker(client EthClient, log *slog.Logger) (*blockTracker, error) {
+	cache, err := lru.New[uint64, *types.Block](1000)
+	if err != nil {
+		log.Error("Failed to create LRU cache", "error", err)
+		return nil, err
+	}
 	return &blockTracker{
 		latestBlockNo: atomic.Uint64{},
-		blocks:        make(map[uint64]*types.Block),
+		blocks:        cache,
 		client:        client,
 		log:           log,
 		checkTrigger:  make(chan struct{}, 1),
-	}
+	}, nil
 }
 
 func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
@@ -55,7 +61,7 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 						b.log.Error("Failed to get block by number", "error", err)
 						continue
 					}
-					b.blocks[blockNo] = block
+					_ = b.blocks.Add(blockNo, block)
 					b.latestBlockNo.Store(block.NumberU64())
 					b.log.Info("New block detected", "number", block.NumberU64(), "hash", block.Hash().Hex())
 					b.triggerCheck()
@@ -95,14 +101,14 @@ WaitForBlock:
 		}
 	}
 
-	block, ok := b.blocks[blockNumber]
+	block, ok := b.blocks.Get(blockNumber)
 	if !ok {
 		block, err := b.client.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
 		if err != nil {
 			b.log.Error("Failed to get block by number", "error", err, "blockNumber", blockNumber)
 			return false, err
 		}
-		b.blocks[blockNumber] = block
+		_ = b.blocks.Add(blockNumber, block)
 	}
 
 	for _, tx := range block.Transactions() {
