@@ -209,18 +209,42 @@ func (s *Store) GetCommitments(blockNum int64) ([]*Commitment, error) {
 	return commitments, nil
 }
 
-func (s *Store) GetAllCommitments() ([]*Commitment, error) {
+type ListOpts struct {
+	Page  int
+	Limit int
+}
+
+var defaultListOpts = &ListOpts{
+	Page:  0,
+	Limit: 100,
+}
+
+func (s *Store) ListCommitments(opts *ListOpts) ([]*Commitment, error) {
+	if opts == nil {
+		opts = defaultListOpts
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	commitments := make([]*Commitment, 0)
+	start := opts.Page * opts.Limit
+	count := 0
+
+	commitments := make([]*Commitment, 0, opts.Limit)
 	err := s.st.WalkPrefix(commitmentNS, func(key string, value []byte) bool {
+		if count < start {
+			count++
+			return false // Skip this entry
+		}
 		commitment := new(Commitment)
 		err := msgpack.Unmarshal(value, commitment)
 		if err != nil {
 			return false
 		}
 		commitments = append(commitments, commitment)
+		if len(commitments) >= opts.Limit {
+			return true // Stop walking once we reach the limit
+		}
 		return false
 	})
 	if err != nil {

@@ -107,7 +107,7 @@ type ProviderRegistryContract interface {
 
 type CommitmentStore interface {
 	GetCommitments(blockNumber int64) ([]*preconfstore.Commitment, error)
-	GetAllCommitments() ([]*preconfstore.Commitment, error)
+	ListCommitments(opts *preconfstore.ListOpts) ([]*preconfstore.Commitment, error)
 }
 
 type BlockTrackerContract interface {
@@ -750,10 +750,17 @@ func (s *Service) GetBidInfo(
 		page, limit = int(req.Page), int(req.Limit)
 	)
 
+	if limit == 0 {
+		limit = defaultLimit
+	}
+
 	if req.BlockNumber != 0 {
 		cmts, err = s.cs.GetCommitments(req.BlockNumber)
 	} else {
-		cmts, err = s.cs.GetAllCommitments()
+		cmts, err = s.cs.ListCommitments(&preconfstore.ListOpts{
+			Page:  page,
+			Limit: limit,
+		})
 	}
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting commitments: %v", err)
@@ -761,10 +768,6 @@ func (s *Service) GetBidInfo(
 	if len(cmts) == 0 {
 		return &bidderapiv1.GetBidInfoResponse{}, nil
 	}
-	if limit == 0 {
-		limit = defaultLimit
-	}
-	cmts = cmts[min(page*limit, len(cmts)):min((page+1)*limit, len(cmts))]
 	blockBids := make([]*bidderapiv1.GetBidInfoResponse_BlockBidInfo, 0)
 LOOP:
 	for _, c := range cmts {
