@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	pb "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
@@ -68,9 +69,11 @@ func (b *bidder) SendBid(ctx context.Context, txn *types.Transaction, blockNumbe
 	bidAmount := new(big.Int).Add(big.NewInt(int64(n)), big.NewInt(1_000_000_000))
 
 	req := &pb.Bid{
-		RawTransactions: []string{hex.EncodeToString(txBytes)},
-		BlockNumber:     blockNumber,
-		Amount:          bidAmount.String(),
+		RawTransactions:     []string{hex.EncodeToString(txBytes)},
+		BlockNumber:         blockNumber,
+		Amount:              bidAmount.String(),
+		DecayStartTimestamp: time.Now().Add(100 * time.Millisecond).UnixMilli(),
+		DecayEndTimestamp:   time.Now().Add(12 * time.Second).UnixMilli(),
 	}
 
 	resp, err := b.client.SendBid(ctx, req)
