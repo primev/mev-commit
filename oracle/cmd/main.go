@@ -253,6 +253,7 @@ var (
 			"https://mainnet.titanrelay.xyz",
 			"https://bloxroute.max-profit.blxrbdn.com",
 			"https://boost-relay.flashbots.net",
+			"https://bloxroute.regulated.blxrbdn.com",
 		),
 	})
 )
