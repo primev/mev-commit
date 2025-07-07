@@ -94,6 +94,7 @@ func (f *fakeNotifier) NotifyRelayData(
 	relaysWithData []string,
 	totalRelays []string,
 	blockInfo *api.DashboardResponse,
+	builderPubkey string,
 ) error {
 	f.called = true
 	return f.err

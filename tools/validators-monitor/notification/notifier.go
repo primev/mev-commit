@@ -135,6 +135,7 @@ func (n *Notifier) NotifyRelayData(
 	relaysWithData,
 	allRelays []string,
 	dashboardInfo *api.DashboardResponse,
+	builderPubkey string,
 ) error {
 	color := "#36a64f"
 	if len(relaysWithData) == 0 {
@@ -151,6 +152,7 @@ func (n *Notifier) NotifyRelayData(
 		{"Slot", fmt.Sprintf("%d", slot), true},
 		{"Block Number", fmt.Sprintf("%d", blockNumber), true},
 		{"Validator Pubkey", pubkey, false},
+		{"Builder Pubkey", builderPubkey, false},
 		{"Relays With Data", fmt.Sprintf("```%s```", relaysWithDataStr), false},
 		{"Data Availability", fmt.Sprintf("%d of %d relays have data", len(relaysWithData), len(allRelays)), false},
 	}
