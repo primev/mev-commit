@@ -1,6 +1,0 @@
-# syntax=docker/dockerfile:1.4
-FROM alpine:3.10
-
-COPY --from=builder_ctx /go/bin/l1-transaction-emulator /usr/local/bin/l1-transactor
-
-ENTRYPOINT ["l1-transactor"]

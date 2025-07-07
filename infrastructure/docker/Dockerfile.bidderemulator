@@ -1,9 +1,8 @@
 # syntax=docker/dockerfile:1.4
 FROM alpine:3.10
 
-COPY --from=builder_ctx /go/bin/real-bidder /usr/local/bin/bidder-emulator
-COPY --from=builder_ctx /scripts/bidder-emulator-entrypoint.sh entrypoint.sh
+COPY --from=builder_ctx /go/bin/bidder-emulator /usr/local/bin/bidder-emulator
 
 EXPOSE 8080
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["bidder-emulator"]

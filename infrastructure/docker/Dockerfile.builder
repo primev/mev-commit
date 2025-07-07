@@ -14,7 +14,6 @@ COPY bridge/standard/go.mod  bridge/standard/go.sum ./bridge/standard/
 COPY cl/go.mod               cl/go.sum              ./cl/
 COPY infrastructure/tools/keystore-generator/go.mod infrastructure/tools/keystore-generator/go.sum ./infrastructure/tools/keystore-generator/
 
-COPY p2p/integrationtest/real-bidder/entrypoint.sh /scripts/bidder-emulator-entrypoint.sh
 COPY p2p/integrationtest/provider/entrypoint.sh /scripts/provider-emulator-entrypoint.sh
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
@@ -35,11 +34,10 @@ ARG TARGETS="./oracle/cmd \
              ./tools/dashboard \
              ./tools/bidder-cli \
              ./tools/bls-signer \
-             ./tools/l1-transaction-emulator \
+             ./tools/bidder-emulator \
              ./tools/relay-emulator \
              ./tools/validators-monitor \
              ./tools/points-service \
-             ./p2p/integrationtest/real-bidder \
              ./p2p/integrationtest/provider"
 
 RUN --mount=type=cache,target=/root/.cache/go-build \

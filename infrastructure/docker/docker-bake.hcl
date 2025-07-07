@@ -77,16 +77,7 @@ target "relay-emulator" {
   tags = ["ghcr.io/primev/relay-emulator:${TAG}"]
 }
 
-target "l1-transactor" {
-  context    = "./"
-  dockerfile = "Dockerfile.l1transactor"
-  contexts = {
-    builder_ctx = "target:mev-commit-builder"
-  }
-  tags = ["ghcr.io/primev/l1-transactor:${TAG}"]
-}
-
 group "default" {
-  targets = ["mev-commit-builder", "mev-commit-oracle", "mev-commit", "mev-commit-bridge", "mev-commit-dashboard", "preconf-rpc", "bidder-emulator", "provider-emulator", "relay-emulator", "l1-transactor"]
+  targets = ["mev-commit-builder", "mev-commit-oracle", "mev-commit", "mev-commit-bridge", "mev-commit-dashboard", "preconf-rpc", "bidder-emulator", "provider-emulator", "relay-emulator"]
 }
 
