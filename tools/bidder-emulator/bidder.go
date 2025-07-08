@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -13,7 +14,7 @@ import (
 	pb "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"golang.org/x/exp/rand"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
 type bidder struct {
@@ -27,8 +28,12 @@ type result struct {
 }
 
 func newBidder(rpcURL string, depositAmount string) (*bidder, error) {
-	creds := insecure.NewCredentials()
-	conn, err := grpc.NewClient(rpcURL, grpc.WithTransportCredentials(creds))
+	conn, err := grpc.NewClient(
+		rpcURL,
+		grpc.WithTransportCredentials(credentials.NewTLS(
+			&tls.Config{InsecureSkipVerify: true},
+		)),
+	)
 	if err != nil {
 		return nil, err
 	}
