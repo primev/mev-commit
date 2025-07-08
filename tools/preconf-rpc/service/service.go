@@ -223,7 +223,7 @@ func New(config *Config) (*Service, error) {
 	handlers.RegisterMethods(rpcServer)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		if err := healthChecker.Health(); err != nil {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
