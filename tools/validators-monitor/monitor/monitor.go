@@ -61,6 +61,7 @@ type SlackNotifier interface {
 		relaysWithData []string,
 		totalRelays []string,
 		blockInfo *api.DashboardResponse,
+		builderPubkey string,
 	) error
 }
 
@@ -349,6 +350,7 @@ func (m *DutyMonitor) processBlockData(
 	relaysWithData := []string{}
 	mevReward := new(big.Int)
 	var feeReceipient string
+	var builderPubkey string
 	for relayURL, result := range relayResults {
 		if result.Error != "" {
 			m.logger.Warn(
@@ -380,6 +382,7 @@ func (m *DutyMonitor) processBlockData(
 					"block", blockNumber,
 					"slot", duty.Slot,
 					"validator_pubkey", duty.PubKey,
+					"builder_pubkey", trace.BuilderPubkey,
 					"bid_value", trace.Value,
 					"num_tx", trace.NumTx,
 				)
@@ -394,6 +397,7 @@ func (m *DutyMonitor) processBlockData(
 				}
 
 				feeReceipient = trace.ProposerFeeRecipient
+				builderPubkey = trace.BuilderPubkey
 				break
 			}
 		}
@@ -406,7 +410,7 @@ func (m *DutyMonitor) processBlockData(
 	m.fetchAndSaveCommitments(ctx, blockNumber)
 
 	/* notifications & DB */
-	m.sendNotification(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)
+	m.sendNotification(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo, builderPubkey)
 
 	if m.db != nil {
 		m.saveRelayData(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)
@@ -458,6 +462,7 @@ func (m *DutyMonitor) sendNotification(
 	feeReceipient string,
 	relaysWithData []string,
 	blockInfo *api.DashboardResponse,
+	builderPubkey string,
 ) {
 	if err := m.notifier.NotifyRelayData(
 		ctx,
@@ -470,6 +475,7 @@ func (m *DutyMonitor) sendNotification(
 		relaysWithData,
 		m.config.RelayURLs,
 		blockInfo,
+		builderPubkey,
 	); err != nil {
 		m.logger.Error(
 			"slack notification error",

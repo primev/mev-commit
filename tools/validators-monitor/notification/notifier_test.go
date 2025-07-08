@@ -108,7 +108,7 @@ func TestNotifyRelayData(t *testing.T) {
 	relays := []string{"relay1"}
 	allRelays := []string{"relay1", "relay2"}
 
-	err := n.NotifyRelayData(context.Background(), "0xabc", 123, 456, 789, big.NewInt(2e18), "0xfee", relays, allRelays, nil)
+	err := n.NotifyRelayData(context.Background(), "0xabc", 123, 456, 789, big.NewInt(2e18), "0xfee", relays, allRelays, nil, "0xbuilder")
 	require.NoError(t, err)
 
 	require.Len(t, payload.Attachments, 1)
