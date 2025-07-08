@@ -128,6 +128,7 @@ func main() {
 			optionL1RPCURL,
 			optionBidderRPCURL,
 			optionDepositAmount,
+			optionBidWorkers,
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
