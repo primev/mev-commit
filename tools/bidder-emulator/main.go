@@ -20,6 +20,7 @@ import (
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
+	"resenje.org/multex"
 )
 
 var (
@@ -200,6 +201,8 @@ func bidWorker(
 		return fmt.Errorf("at least 2 transactor accounts are required")
 	}
 
+	mtx := multex.New[string]()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -219,11 +222,14 @@ func bidWorker(
 		// random amount between 0 and 1_000_000_000_000
 		amount := big.NewInt(rand.Int64N(1_000_000_000_000) + 1)
 
+		mtx.Lock(from.Address().Hex())
 		txn, err := from.SendTransaction(ctx, to.Address(), amount)
 		if err != nil {
+			mtx.Unlock(from.Address().Hex())
 			logger.Error("failed to send transaction", "error", err)
 			continue
 		}
+		mtx.Unlock(from.Address().Hex())
 
 		signingDuration := time.Since(start)
 
