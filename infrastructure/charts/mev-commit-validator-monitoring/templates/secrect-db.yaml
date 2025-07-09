@@ -1,0 +1,13 @@
+{{- if .Values.database.credentials.createSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "mev-commit-validator-monitor.dbSecretName" . }}
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    {{- include "mev-commit-validator-monitor.labels" . | nindent 4 }}
+type: Opaque
+data:
+  db-user: {{ .Values.database.credentials.user | b64enc }}
+  db-password: {{ .Values.database.credentials.password | b64enc }}
+{{- end }}

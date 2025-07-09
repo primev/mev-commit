@@ -1,0 +1,12 @@
+{{- if .Values.notifications.slack.createSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "mev-commit-validator-monitor.slackSecretName" . }}
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    {{- include "mev-commit-validator-monitor.labels" . | nindent 4 }}
+type: Opaque
+data:
+  webhook-url: {{ .Values.notifications.slack.webhookUrl | b64enc }}
+{{- end }}

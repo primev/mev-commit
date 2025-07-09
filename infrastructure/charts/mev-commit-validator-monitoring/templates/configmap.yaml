@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mev-commit-validator-monitor.fullname" . }}-config
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    {{- include "mev-commit-validator-monitor.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  DB_ENABLED: {{ .Values.database.enabled | quote }}
+  DB_HOST: {{ .Values.database.host | quote }}
+  DB_PORT: {{ .Values.database.port | quote }}
+  DB_NAME: {{ .Values.database.name | quote }}
+  DB_SSLMODE: {{ .Values.database.sslMode | quote }}
+  BEACON_API_URL: {{ .Values.ethereum.beaconApiUrl | quote }}
+  ETHEREUM_RPC_URL: {{ .Values.ethereum.rpcUrl | quote }}
+  VALIDATOR_OPT_IN_CONTRACT: {{ .Values.ethereum.validatorOptInContract | quote }}
+  {{- if .Values.relayUrls }}
+  RELAY_URLS: {{ join "," .Values.relayUrls | quote }}
+  {{- end }}
+  DASHBOARD_API_URL: {{ .Values.dashboard.apiUrl | quote }}
+  LOG_LEVEL: {{ .Values.logging.level | quote }}
+  LOG_FMT: {{ .Values.logging.format | quote }}
+  HEALTH_PORT: {{ .Values.monitoring.healthPort | quote }}
+  LAGGARD_MODE: {{ .Values.monitoring.laggardMode | quote }}
+  TRACK_MISSED: {{ .Values.monitoring.trackMissed | quote }}
