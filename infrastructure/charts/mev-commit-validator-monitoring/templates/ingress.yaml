@@ -1,0 +1,37 @@
+{{- $ingress := .Values.ingress | default dict }}
+{{- if $ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "mev-commit-validator-monitor.fullname" . }}
+  namespace: {{ $ingress.namespace | default "default" }}
+  labels:
+    {{- include "mev-commit-validator-monitor.labels" . | nindent 4 }}
+  {{- with $ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if $ingress.className }}
+  ingressClassName: {{ $ingress.className }}
+  {{- end }}
+  {{- with $ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range $ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $ingress.backend.serviceName }}
+                port:
+                  number: {{ $ingress.backend.servicePort }}
+          {{- end }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,105 @@
+replicaCount: 1
+
+image:
+  repository: 
+  tag: 
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Namespace to deploy resources
+namespace: mev-commit-observability
+
+# Common labels to apply to all resources
+commonLabels: {}
+  # team: blockchain
+  # environment: production
+
+# Common annotations to apply to all resources
+commonAnnotations: {}
+  # prometheus.io/scrape: "true"
+  # prometheus.io/port: "9090"
+
+# Node selector for pod assignment
+nodeSelector: {}
+  # disktype: ssd
+  # kubernetes.io/os: linux
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 9090
+  targetPort: 9090
+  # Custom selectors for the service (if empty, uses the default selector labels)
+  customSelectors: {}
+    # app: mev-commit-validator-monitor
+    # tier: monitoring
+
+# Database configuration
+database:
+  enabled: "true"
+  host: ""
+  port: "5432"
+  name: ""
+  sslMode: "disable"
+
+  # Credentials - these will be stored as secrets
+  credentials:
+    createSecret: true  # Set to false if you want to use an existing secret
+    existingSecret: ""  # Name of existing secret to use if createSecret is false
+    user: ""
+    password: ""
+
+# Ethereum and Beacon configuration
+ethereum:
+  validatorOptInContract: ""
+  rpcUrl: ""
+  beaconApiUrl: ""
+
+# Relay configuration
+relayUrls:
+  - https://relay1.xyz  # please note these are dummy urls
+  - https://relay2.xyz
+
+
+# Dashboard configuration
+dashboard:
+  apiUrl: ""
+
+# Monitoring configuration
+monitoring:
+  healthPort: "9090"
+  laggardMode: "10"
+  trackMissed: "true"
+
+# Logging configuration
+logging:
+  level: "info"
+  format: "json"
+
+# Notifications
+notifications:
+  slack:
+    createSecret: true  # Set to false if you want to use an existing secret
+    existingSecret: ""  # Name of existing secret to use if createSecret is false
+    webhookUrl: "https://hooks.slack.com/services/"
+
+ingress:
+  enabled: false
+  namespace:   # Ingress in default namespace for CloudFlare secret access
+  className: 
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: 
+      paths:
+        - path: /health
+          pathType: Prefix
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  backend:
+    serviceName: mev-commit-validator-monitoring
+    servicePort: 9090
