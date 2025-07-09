@@ -173,10 +173,12 @@ func main() {
 			ctx, cancel := signal.NotifyContext(c.Context, syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()
 
+			mtx := multex.New[string]()
+
 			eg, egCtx := errgroup.WithContext(ctx)
 			for i := 0; i < c.Int(optionBidWorkers.Name); i++ {
 				eg.Go(func() error {
-					return bidWorker(egCtx, logger, txtors, bidderClient, l1RPC)
+					return bidWorker(egCtx, logger, txtors, bidderClient, l1RPC, mtx)
 				})
 			}
 
@@ -196,12 +198,11 @@ func bidWorker(
 	txtors []*transactorAccount,
 	bidderClient *bidder,
 	l1RPC *ethclient.Client,
+	mtx *multex.Multex[string],
 ) error {
 	if len(txtors) < 2 {
 		return fmt.Errorf("at least 2 transactor accounts are required")
 	}
-
-	mtx := multex.New[string]()
 
 	for {
 		select {
