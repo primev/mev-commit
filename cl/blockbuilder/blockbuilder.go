@@ -35,6 +35,7 @@ type EngineClient interface {
 	GetPayloadV4(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
 
 	HeaderByNumber(ctx context.Context, number *big.Int) (*etypes.Header, error)
+	PendingTransactionCount(ctx context.Context) (uint, error)
 }
 
 type stateManager interface {
@@ -120,6 +121,19 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		err       error
 	)
 	currentCallTime := time.Now()
+
+	pendingTxCount, err := bb.engineCl.PendingTransactionCount(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get pending transaction count: %w", err)
+	}
+	timeSinceLastBlock := currentCallTime.Sub(bb.lastBlockTime)
+	if pendingTxCount == 0 && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
+		bb.logger.Info(
+			"Leader: Skipping empty block",
+			"timeSinceLastBlock", timeSinceLastBlock,
+		)
+		return ErrEmptyBlock
+	}
 
 	// Load execution head to get previous block timestamp
 	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
@@ -221,17 +235,6 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		return fmt.Errorf("failed to get payload: %w", err)
 	}
 
-	hasTransactions := len(payloadResp.ExecutionPayload.Transactions) > 0
-	now := time.Now()
-	timeSinceLastBlock := now.Sub(bb.lastBlockTime)
-	if !hasTransactions && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
-		bb.logger.Info(
-			"Leader: Skipping empty block",
-			"timeSinceLastBlock", timeSinceLastBlock,
-		)
-		return ErrEmptyBlock
-	}
-
 	payloadData, err := msgpack.Marshal(payloadResp.ExecutionPayload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
@@ -255,7 +258,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		"PayloadID", payloadIDStr,
 	)
 
-	bb.lastBlockTime = now
+	bb.lastBlockTime = time.Now()
 	return nil
 }
 
