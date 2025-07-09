@@ -376,10 +376,7 @@ func (t *TxSender) sendBid(
 ) (bidResult, error) {
 	timeToOptIn, err := t.bidder.Estimate()
 	if err != nil {
-		t.logger.Error("Failed to estimate time to opt-in", "error", err)
-		if !errors.Is(err, optinbidder.ErrNoSlotInCurrentEpoch) && !errors.Is(err, optinbidder.ErrNoEpochInfo) {
-			return bidResult{}, err
-		}
+		t.logger.Warn("Failed to estimate time to opt-in", "error", err)
 		// If we cannot estimate the time to opt-in, we assume a default value and
 		// proceed with the bid process. The default value should be higher than
 		// the typical block time to ensure we consider the next slot as a non-opt-in slot.
@@ -439,7 +436,7 @@ func (t *TxSender) sendBid(
 		big.NewInt(0),
 		strings.TrimPrefix(txn.Raw, "0x"),
 		&optinbidder.BidOpts{
-			WaitForOptIn: optedInSlot,
+			WaitForOptIn: false,
 			BlockNumber:  uint64(price.BlockNumber),
 		},
 	)
@@ -479,12 +476,8 @@ BID_LOOP:
 			}
 		}
 	}
-	if len(result.commitments) == 0 {
-		t.logger.Error("Bid completed with no commitments")
-		return bidResult{}, fmt.Errorf("bid completed with no commitments")
-	}
 	t.logger.Info(
-		"Bid successful with commitments",
+		"Bid operation complete",
 		"noOfProviders", result.noOfProviders,
 		"noOfCommitments", len(result.commitments),
 		"blockNumber", result.blockNumber,
