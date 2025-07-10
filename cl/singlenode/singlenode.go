@@ -62,6 +62,7 @@ type SingleNodeApp struct {
 	wg                sync.WaitGroup
 	connectionStatus  sync.Mutex
 	connectionRefused bool
+	ethClient         *gethclient.Client
 }
 
 // NewSingleNodeApp creates and initializes a new SingleNodeApp.
@@ -92,11 +93,10 @@ func NewSingleNodeApp(
 		return nil, err
 	}
 
-	gethClient, err := gethclient.Dial(cfg.NonAuthEthClientURL)
+	gethClient, err := gethclient.DialContext(ctx, cfg.NonAuthEthClientURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to Ethereum client: %v", err)
 	}
-	defer gethClient.Close()
 
 	stateMgr := localstate.NewLocalStateManager(logger.With("component", "LocalStateManager"))
 	bb := blockbuilder.NewBlockBuilder(
@@ -149,6 +149,7 @@ func NewSingleNodeApp(
 		appCtx:            ctx,
 		cancel:            cancel,
 		connectionRefused: false,
+		ethClient:         gethClient,
 	}, nil
 }
 
@@ -381,6 +382,11 @@ func (app *SingleNodeApp) Stop() {
 		} else {
 			app.logger.Info("Payload repository closed.")
 		}
+	}
+
+	if app.ethClient != nil {
+		app.ethClient.Close()
+		app.logger.Info("Ethereum client closed.")
 	}
 
 	app.logger.Info("SingleNodeApp stopped.")
