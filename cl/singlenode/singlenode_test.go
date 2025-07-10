@@ -68,7 +68,8 @@ func TestNewSingleNodeApp(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"pending":"0x1","queued":"0x0"}}`))
+		_, err := w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"pending":"0x1","queued":"0x0"}}`))
+		require.NoError(t, err)
 	}))
 	defer mockServer.Close()
 
