@@ -270,7 +270,9 @@ func (app *SingleNodeApp) runLoop() {
 
 			if err != nil {
 				if errors.Is(err, blockbuilder.ErrEmptyBlock) {
-					app.logger.Info("empty block produced, waiting for new payload")
+					noPendingTxesTimeout := 10 * time.Millisecond
+					app.logger.Info("no pending transactions, will try again in: ", "timeout", noPendingTxesTimeout)
+					time.Sleep(noPendingTxesTimeout)
 					continue
 				} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					app.logger.Info("context canceled or deadline exceeded, stopping block production")
