@@ -204,6 +204,14 @@ var (
 		},
 	})
 
+	txPoolPollingIntervalFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
+		Name:     "tx-pool-polling-interval",
+		Usage:    "Wait interval for polling the tx pool while there are no pending transactions (e.g., '5ms')",
+		EnvVars:  []string{"LEADER_TX_POOL_POLLING_INTERVAL"},
+		Value:    5 * time.Millisecond,
+		Category: categoryDebug,
+	})
+
 	// Member node specific flags
 	leaderAPIURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "leader-api-url",
@@ -246,6 +254,7 @@ func main() {
 		postgresDSNFlag,
 		apiAddrFlag,
 		nonAuthEthClientURLFlag,
+		txPoolPollingIntervalFlag,
 	}
 
 	memberFlags := []cli.Flag{
@@ -346,6 +355,7 @@ func startLeaderNode(c *cli.Context) error {
 		PostgresDSN:              c.String(postgresDSNFlag.Name),
 		APIAddr:                  c.String(apiAddrFlag.Name),
 		NonAuthEthClientURL:      c.String(nonAuthEthClientURLFlag.Name),
+		TxPoolPollingInterval:    c.Duration(txPoolPollingIntervalFlag.Name),
 	}
 
 	logger.Info("Starting leader node with configuration", "config", cfg)
