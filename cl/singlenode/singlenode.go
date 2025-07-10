@@ -5,12 +5,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	gethclient "github.com/ethereum/go-ethereum/ethclient"
 	"github.com/primev/mev-commit/cl/blockbuilder"
 	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/singlenode/api"
@@ -88,6 +90,12 @@ func NewSingleNodeApp(
 		return nil, err
 	}
 
+	gethClient, err := gethclient.Dial("http://localhost:8545")
+	if err != nil {
+		log.Fatalf("Failed to connect to Ethereum client: %v", err)
+	}
+	defer gethClient.Close()
+
 	stateMgr := localstate.NewLocalStateManager(logger.With("component", "LocalStateManager"))
 	bb := blockbuilder.NewBlockBuilder(
 		stateMgr,
@@ -96,6 +104,7 @@ func NewSingleNodeApp(
 		cfg.EVMBuildDelay,
 		cfg.EVMBuildDelayEmptyBlocks,
 		cfg.PriorityFeeReceipt,
+		gethClient,
 	)
 
 	var pRepo types.PayloadRepository

@@ -76,7 +76,7 @@ func NewMevCommitChain(
 		)
 		return nil, err
 	}
-	blockBuilder := blockbuilder.NewBlockBuilder(coordinator, engineCL, logger, buildDelay, buildDelayEmptyBlocks, feeReceipt)
+	blockBuilder := blockbuilder.NewBlockBuilder(coordinator, engineCL, logger, buildDelay, buildDelayEmptyBlocks, feeReceipt, nil)
 
 	lfm, err := leaderfollower.NewLeaderFollowerManager(
 		instanceID,
