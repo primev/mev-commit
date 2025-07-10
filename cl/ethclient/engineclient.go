@@ -26,6 +26,11 @@ const (
 	getPayloadV4 = "engine_getPayloadV4"
 )
 
+type MempoolStatus struct {
+	Pending uint64 `json:"pending"`
+	Queued  uint64 `json:"queued"`
+}
+
 // EngineClient defines the Engine API authenticated JSON-RPC endpoints.
 // It extends the normal Client interface with the Engine API.
 type EngineClient interface {
@@ -54,6 +59,8 @@ type EngineClient interface {
 	GetPayloadV2(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
 	// GetPayloadV3 returns a cached payload by id.
 	GetPayloadV4(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
+
+	GetMempoolStatus(ctx context.Context) (*MempoolStatus, error)
 }
 
 // engineClient implements EngineClient using JSON-RPC.
@@ -188,4 +195,18 @@ func (c engineClient) GetPayloadV4(ctx context.Context, payloadID engine.Payload
 	}
 
 	return &resp, nil
+}
+
+func (c engineClient) GetMempoolStatus(ctx context.Context) (*MempoolStatus, error) {
+	const endpoint = "mempool_status"
+	defer latency(c.chain, endpoint)()
+
+	var result MempoolStatus
+	err := c.cl.Client().CallContext(ctx, &result, "txpool_status")
+	if err != nil {
+		incError(c.chain, endpoint)
+		return nil, fmt.Errorf("rpc txpool_status: %w", err)
+	}
+
+	return &result, nil
 }

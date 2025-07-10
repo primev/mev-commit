@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	etypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/types"
 	"github.com/primev/mev-commit/cl/util"
 	"github.com/vmihailenco/msgpack/v5"
@@ -35,7 +36,7 @@ type EngineClient interface {
 	GetPayloadV4(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
 
 	HeaderByNumber(ctx context.Context, number *big.Int) (*etypes.Header, error)
-	PendingTransactionCount(ctx context.Context) (uint, error)
+	GetMempoolStatus(ctx context.Context) (*ethclient.MempoolStatus, error)
 }
 
 type stateManager interface {
@@ -122,22 +123,26 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	)
 	currentCallTime := time.Now()
 
-	pendingTxCount, err := bb.engineCl.PendingTransactionCount(ctx)
+	mempoolStatus, err := bb.engineCl.GetMempoolStatus(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get pending transaction count: %w", err)
 	}
-	if pendingTxCount == 0 {
+	if mempoolStatus.Pending == 0 {
 		timeSinceLastBlock := currentCallTime.Sub(bb.lastBlockTime)
 		if timeSinceLastBlock < bb.buildEmptyBlocksDelay {
 			bb.logger.Debug(
 				"Leader: Skipping empty block",
 				"timeSinceLastBlock", timeSinceLastBlock,
+				"pendingTxes", mempoolStatus.Pending,
+				"queuedTxes", mempoolStatus.Queued,
 			)
 			return ErrEmptyBlock
 		}
 		bb.logger.Info(
 			"Leader: Empty block will be created",
 			"timeSinceLastBlock", timeSinceLastBlock,
+			"pendingTxes", mempoolStatus.Pending,
+			"queuedTxes", mempoolStatus.Queued,
 		)
 	}
 
