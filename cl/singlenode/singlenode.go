@@ -38,6 +38,7 @@ type Config struct {
 	PostgresDSN              string
 	APIAddr                  string
 	NonAuthEthClientURL      string
+	TxPoolPollingInterval    time.Duration
 }
 
 type BlockBuilder interface {
@@ -280,9 +281,8 @@ func (app *SingleNodeApp) runLoop() {
 
 			if err != nil {
 				if errors.Is(err, blockbuilder.ErrEmptyBlock) {
-					noPendingTxesTimeout := 10 * time.Millisecond
-					app.logger.Debug("no pending transactions, will try again in: %s", "timeout", noPendingTxesTimeout)
-					time.Sleep(noPendingTxesTimeout)
+					app.logger.Debug("no pending transactions, will try again in: %s", "timeout", app.cfg.TxPoolPollingInterval)
+					time.Sleep(app.cfg.TxPoolPollingInterval)
 					continue
 				} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					app.logger.Info("context canceled or deadline exceeded, stopping block production")

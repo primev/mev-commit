@@ -129,6 +129,8 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get pending transaction count: %w", err)
 	}
+	bb.logger.Debug("GetMempoolStatus rpc duration", "duration", time.Since(currentCallTime))
+
 	if mempoolStatus.Pending == 0 {
 		timeSinceLastBlock := currentCallTime.Sub(bb.lastBlockTime)
 		if timeSinceLastBlock < bb.buildEmptyBlocksDelay {
