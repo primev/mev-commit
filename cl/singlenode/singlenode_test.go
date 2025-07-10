@@ -65,14 +65,23 @@ func TestNewSingleNodeApp(t *testing.T) {
 	ctx := context.Background()
 	logger := setupTestLogger()
 
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"pending":"0x1","queued":"0x0"}}`))
+	}))
+	defer mockServer.Close()
+
 	validCfg := Config{
 		InstanceID:               "test-instance",
 		EthClientURL:             "http://localhost:8545",
+		NonAuthRpcURL:            mockServer.URL,
 		JWTSecret:                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		EVMBuildDelay:            time.Second,
 		EVMBuildDelayEmptyBlocks: time.Second * 2,
 		PriorityFeeReceipt:       "0x1234567890abcdef1234567890abcdef12345678",
 		HealthAddr:               ":8080",
+		TxPoolPollingInterval:    time.Second,
 	}
 
 	app, err := NewSingleNodeApp(ctx, validCfg, logger)
