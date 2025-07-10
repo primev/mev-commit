@@ -271,7 +271,7 @@ func (app *SingleNodeApp) runLoop() {
 			if err != nil {
 				if errors.Is(err, blockbuilder.ErrEmptyBlock) {
 					noPendingTxesTimeout := 10 * time.Millisecond
-					app.logger.Info("no pending transactions, will try again in: ", "timeout", noPendingTxesTimeout)
+					app.logger.Debug("no pending transactions, will try again in: %s", "timeout", noPendingTxesTimeout)
 					time.Sleep(noPendingTxesTimeout)
 					continue
 				} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
