@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	etypes "github.com/ethereum/go-ethereum/core/types"
-	gethclient "github.com/ethereum/go-ethereum/ethclient"
 	"github.com/primev/mev-commit/cl/types"
 	"github.com/primev/mev-commit/cl/util"
 	"github.com/vmihailenco/msgpack/v5"
@@ -44,10 +43,14 @@ type stateManager interface {
 	ResetBlockState(ctx context.Context) error
 }
 
+type rpcClient interface {
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+}
+
 type BlockBuilder struct {
 	stateManager          stateManager
 	engineCl              EngineClient
-	ethClient             *gethclient.Client
+	rpcClient             rpcClient
 	logger                *slog.Logger
 	buildDelay            time.Duration
 	buildEmptyBlocksDelay time.Duration
@@ -64,7 +67,7 @@ func NewBlockBuilder(
 	buildDelay,
 	buildDelayEmptyBlocks time.Duration,
 	feeReceipt string,
-	ethClient *gethclient.Client,
+	rpcClient rpcClient,
 ) *BlockBuilder {
 	return &BlockBuilder{
 		stateManager:          stateManager,
@@ -75,7 +78,7 @@ func NewBlockBuilder(
 		buildEmptyBlocksDelay: buildDelayEmptyBlocks,
 		feeRecipient:          common.HexToAddress(feeReceipt),
 		lastBlockTime:         time.Now().Add(-buildDelayEmptyBlocks),
-		ethClient:             ethClient,
+		rpcClient:             rpcClient,
 	}
 }
 
@@ -561,7 +564,7 @@ type MempoolStatus struct {
 
 func (bb *BlockBuilder) GetMempoolStatus(ctx context.Context) (*MempoolStatus, error) {
 	var result MempoolStatus
-	err := bb.ethClient.Client().CallContext(ctx, &result, "txpool_status")
+	err := bb.rpcClient.CallContext(ctx, &result, "txpool_status")
 	if err != nil {
 		return nil, err
 	}

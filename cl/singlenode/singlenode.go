@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	gethclient "github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/primev/mev-commit/cl/blockbuilder"
 	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/singlenode/api"
@@ -62,7 +62,7 @@ type SingleNodeApp struct {
 	wg                sync.WaitGroup
 	connectionStatus  sync.Mutex
 	connectionRefused bool
-	ethClient         *gethclient.Client
+	rpcClient         *rpc.Client
 }
 
 // NewSingleNodeApp creates and initializes a new SingleNodeApp.
@@ -93,7 +93,7 @@ func NewSingleNodeApp(
 		return nil, err
 	}
 
-	gethClient, err := gethclient.DialContext(ctx, cfg.NonAuthEthClientURL)
+	rpcClient, err := rpc.DialContext(ctx, cfg.NonAuthEthClientURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to Ethereum client: %v", err)
 	}
@@ -106,7 +106,7 @@ func NewSingleNodeApp(
 		cfg.EVMBuildDelay,
 		cfg.EVMBuildDelayEmptyBlocks,
 		cfg.PriorityFeeReceipt,
-		gethClient,
+		rpcClient,
 	)
 
 	var pRepo types.PayloadRepository
@@ -149,7 +149,7 @@ func NewSingleNodeApp(
 		appCtx:            ctx,
 		cancel:            cancel,
 		connectionRefused: false,
-		ethClient:         gethClient,
+		rpcClient:         rpcClient,
 	}, nil
 }
 
@@ -384,8 +384,8 @@ func (app *SingleNodeApp) Stop() {
 		}
 	}
 
-	if app.ethClient != nil {
-		app.ethClient.Close()
+	if app.rpcClient != nil {
+		app.rpcClient.Close()
 		app.logger.Info("Ethereum client closed.")
 	}
 
