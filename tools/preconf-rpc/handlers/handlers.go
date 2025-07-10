@@ -17,10 +17,6 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 )
 
-var (
-	preconfBlockHashPrefix = hex.EncodeToString([]byte("mev-commit"))
-)
-
 type Bidder interface {
 	Estimate() (int64, error)
 }
