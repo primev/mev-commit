@@ -90,7 +90,7 @@ func NewSingleNodeApp(
 		return nil, err
 	}
 
-	gethClient, err := gethclient.Dial("http://localhost:8545")
+	gethClient, err := gethclient.Dial("http://erigon:8545")
 	if err != nil {
 		log.Fatalf("Failed to connect to Ethereum client: %v", err)
 	}
