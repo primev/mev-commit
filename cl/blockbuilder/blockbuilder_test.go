@@ -59,6 +59,11 @@ func (m *MockEngineClient) HeaderByNumber(ctx context.Context, number *big.Int) 
 	return args.Get(0).(*etypes.Header), args.Error(1)
 }
 
+func (m *MockEngineClient) PendingTransactionCount(ctx context.Context) (uint, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(uint), args.Error(1)
+}
+
 func TestBlockBuilder_startBuild(t *testing.T) {
 	ctx := context.Background()
 
@@ -108,6 +113,7 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
+// TODO
 func TestBlockBuilder_getPayload(t *testing.T) {
 	ctx := context.Background()
 
