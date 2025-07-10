@@ -59,11 +59,6 @@ func (m *MockEngineClient) HeaderByNumber(ctx context.Context, number *big.Int) 
 	return args.Get(0).(*etypes.Header), args.Error(1)
 }
 
-func (m *MockEngineClient) PendingTransactionCount(ctx context.Context) (uint, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(uint), args.Error(1)
-}
-
 func TestBlockBuilder_startBuild(t *testing.T) {
 	ctx := context.Background()
 
@@ -159,8 +154,6 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 		SafeBlockHash:      hash,
 		FinalizedBlockHash: hash,
 	}
-
-	mockEngineClient.On("PendingTransactionCount", mock.Anything).Return(uint(1), nil)
 
 	payloadID := &engine.PayloadID{0x01, 0x02, 0x03}
 	forkChoiceResponse := engine.ForkChoiceResponse{
@@ -401,8 +394,6 @@ func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 		SafeBlockHash:      hash,
 		FinalizedBlockHash: hash,
 	}
-
-	mockEngineClient.On("PendingTransactionCount", mock.Anything).Return(uint(1), nil)
 
 	payloadID := &engine.PayloadID{0x01, 0x02, 0x03}
 	forkChoiceResponse := engine.ForkChoiceResponse{
