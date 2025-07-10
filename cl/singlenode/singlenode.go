@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -95,7 +94,12 @@ func NewSingleNodeApp(
 
 	rpcClient, err := rpc.DialContext(ctx, cfg.NonAuthRpcURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to Ethereum client: %v", err)
+		cancel()
+		logger.Error(
+			"failed to create non-authenticated Ethereum RPC client",
+			"error", err,
+		)
+		return nil, err
 	}
 
 	stateMgr := localstate.NewLocalStateManager(logger.With("component", "LocalStateManager"))
@@ -282,7 +286,7 @@ func (app *SingleNodeApp) runLoop() {
 
 			if err != nil {
 				if errors.Is(err, blockbuilder.ErrEmptyBlock) {
-					app.logger.Debug("no pending transactions, will try again in: %s", "timeout", app.cfg.TxPoolPollingInterval)
+					app.logger.Debug("no pending transactions, will try again after timeout", "timeout", app.cfg.TxPoolPollingInterval)
 					time.Sleep(app.cfg.TxPoolPollingInterval)
 					continue
 				} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
