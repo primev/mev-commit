@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/primev/mev-commit/cl/ethclient"
+	gethclient "github.com/ethereum/go-ethereum/ethclient"
 	"github.com/primev/mev-commit/cl/types"
 	"github.com/primev/mev-commit/cl/util"
 	"github.com/vmihailenco/msgpack/v5"
@@ -36,7 +36,6 @@ type EngineClient interface {
 	GetPayloadV4(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
 
 	HeaderByNumber(ctx context.Context, number *big.Int) (*etypes.Header, error)
-	GetMempoolStatus(ctx context.Context) (*ethclient.MempoolStatus, error)
 }
 
 type stateManager interface {
@@ -48,6 +47,7 @@ type stateManager interface {
 type BlockBuilder struct {
 	stateManager          stateManager
 	engineCl              EngineClient
+	ethClient             *gethclient.Client
 	logger                *slog.Logger
 	buildDelay            time.Duration
 	buildEmptyBlocksDelay time.Duration
@@ -64,6 +64,7 @@ func NewBlockBuilder(
 	buildDelay,
 	buildDelayEmptyBlocks time.Duration,
 	feeReceipt string,
+	ethClient *gethclient.Client,
 ) *BlockBuilder {
 	return &BlockBuilder{
 		stateManager:          stateManager,
@@ -74,6 +75,7 @@ func NewBlockBuilder(
 		buildEmptyBlocksDelay: buildDelayEmptyBlocks,
 		feeRecipient:          common.HexToAddress(feeReceipt),
 		lastBlockTime:         time.Now().Add(-buildDelayEmptyBlocks),
+		ethClient:             ethClient,
 	}
 }
 
@@ -115,6 +117,20 @@ func (bb *BlockBuilder) startBuild(ctx context.Context, head *types.ExecutionHea
 	return resp, nil
 }
 
+type MempoolStatus struct {
+	Pending hexutil.Uint64 `json:"pending"`
+	Queued  hexutil.Uint64 `json:"queued"`
+}
+
+func getMempoolStatus(gethclient *gethclient.Client, ctx context.Context) (*MempoolStatus, error) {
+	var result MempoolStatus
+	err := gethclient.Client().CallContext(ctx, &result, "txpool_status")
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	var (
 		payloadID *engine.PayloadID
@@ -123,7 +139,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	)
 	currentCallTime := time.Now()
 
-	mempoolStatus, err := bb.engineCl.GetMempoolStatus(ctx)
+	mempoolStatus, err := getMempoolStatus(bb.ethClient, ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get pending transaction count: %w", err)
 	}
