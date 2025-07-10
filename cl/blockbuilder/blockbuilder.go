@@ -126,13 +126,19 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get pending transaction count: %w", err)
 	}
-	timeSinceLastBlock := currentCallTime.Sub(bb.lastBlockTime)
-	if pendingTxCount == 0 && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
+	if pendingTxCount == 0 {
+		timeSinceLastBlock := currentCallTime.Sub(bb.lastBlockTime)
+		if timeSinceLastBlock < bb.buildEmptyBlocksDelay {
+			bb.logger.Debug(
+				"Leader: Skipping empty block",
+				"timeSinceLastBlock", timeSinceLastBlock,
+			)
+			return ErrEmptyBlock
+		}
 		bb.logger.Info(
-			"Leader: Skipping empty block",
+			"Leader: Empty block will be created",
 			"timeSinceLastBlock", timeSinceLastBlock,
 		)
-		return ErrEmptyBlock
 	}
 
 	// Load execution head to get previous block timestamp

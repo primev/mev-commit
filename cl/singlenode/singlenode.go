@@ -270,8 +270,9 @@ func (app *SingleNodeApp) runLoop() {
 
 			if err != nil {
 				if errors.Is(err, blockbuilder.ErrEmptyBlock) {
-					app.logger.Debug("no pending transactions, will try again in evm build delay amount of time", "evm_build_delay", app.cfg.EVMBuildDelay)
-					time.Sleep(app.cfg.EVMBuildDelay)
+					noPendingTxesTimeout := 10 * time.Millisecond
+					app.logger.Debug("no pending transactions, will try again in: %s", "timeout", noPendingTxesTimeout)
+					time.Sleep(noPendingTxesTimeout)
 					continue
 				} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					app.logger.Info("context canceled or deadline exceeded, stopping block production")
