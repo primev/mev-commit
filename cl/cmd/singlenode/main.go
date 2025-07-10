@@ -57,6 +57,13 @@ var (
 		},
 	})
 
+	nonAuthEthClientURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "non-auth-eth-client-url",
+		Usage:   "Ethereum Execution client Engine API URL (e.g., http://localhost:8545)",
+		EnvVars: []string{"LEADER_NON_AUTH_ETH_CLIENT_URL"},
+		Value:   "http://localhost:8545",
+	})
+
 	ethClientURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "eth-client-url",
 		Usage:   "Ethereum Execution client Engine API URL (e.g., http://localhost:8551)",
@@ -238,6 +245,7 @@ func main() {
 		healthAddrPortFlag,
 		postgresDSNFlag,
 		apiAddrFlag,
+		nonAuthEthClientURLFlag,
 	}
 
 	memberFlags := []cli.Flag{
@@ -337,6 +345,7 @@ func startLeaderNode(c *cli.Context) error {
 		HealthAddr:               c.String(healthAddrPortFlag.Name),
 		PostgresDSN:              c.String(postgresDSNFlag.Name),
 		APIAddr:                  c.String(apiAddrFlag.Name),
+		NonAuthEthClientURL:      c.String(nonAuthEthClientURLFlag.Name),
 	}
 
 	logger.Info("Starting leader node with configuration", "config", cfg)

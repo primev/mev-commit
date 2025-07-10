@@ -37,6 +37,7 @@ type Config struct {
 	HealthAddr               string
 	PostgresDSN              string
 	APIAddr                  string
+	NonAuthEthClientURL      string
 }
 
 type BlockBuilder interface {
@@ -90,7 +91,7 @@ func NewSingleNodeApp(
 		return nil, err
 	}
 
-	gethClient, err := gethclient.Dial("http://erigon:8545")
+	gethClient, err := gethclient.Dial(cfg.NonAuthEthClientURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to Ethereum client: %v", err)
 	}
