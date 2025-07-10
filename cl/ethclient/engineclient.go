@@ -198,7 +198,7 @@ func (c engineClient) GetPayloadV4(ctx context.Context, payloadID engine.Payload
 }
 
 func (c engineClient) GetMempoolStatus(ctx context.Context) (*MempoolStatus, error) {
-	const endpoint = "mempool_status"
+	const endpoint = "txpool_status"
 	defer latency(c.chain, endpoint)()
 
 	var result MempoolStatus
