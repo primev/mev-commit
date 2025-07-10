@@ -59,6 +59,23 @@ func (m *MockEngineClient) HeaderByNumber(ctx context.Context, number *big.Int) 
 	return args.Get(0).(*etypes.Header), args.Error(1)
 }
 
+func createMockRPCClient() rpcClient {
+	mockRPC := &MockRPCClient{}
+	return mockRPC
+}
+
+type MockRPCClient struct{}
+
+func (m *MockRPCClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	if method == "txpool_status" && result != nil {
+		if mempoolStatus, ok := result.(*MempoolStatus); ok {
+			mempoolStatus.Pending = 1
+			mempoolStatus.Queued = 0
+		}
+	}
+	return nil
+}
+
 func TestBlockBuilder_startBuild(t *testing.T) {
 	ctx := context.Background()
 
@@ -78,6 +95,7 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
+		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
@@ -142,6 +160,7 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
+		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
@@ -208,6 +227,7 @@ func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
+		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
@@ -290,6 +310,7 @@ func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
+		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
@@ -334,6 +355,7 @@ func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
+		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
@@ -383,6 +405,7 @@ func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
+		rpcClient:    createMockRPCClient(),
 		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 	}
@@ -434,6 +457,7 @@ func TestBlockBuilder_FinalizeBlock_InvalidBlockHeight(t *testing.T) {
 	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
+		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
@@ -489,6 +513,7 @@ func TestBlockBuilder_FinalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
+		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
@@ -549,6 +574,7 @@ func TestBlockBuilder_FinalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
+		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
