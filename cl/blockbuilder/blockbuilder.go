@@ -117,20 +117,6 @@ func (bb *BlockBuilder) startBuild(ctx context.Context, head *types.ExecutionHea
 	return resp, nil
 }
 
-type MempoolStatus struct {
-	Pending hexutil.Uint64 `json:"pending"`
-	Queued  hexutil.Uint64 `json:"queued"`
-}
-
-func getMempoolStatus(gethclient *gethclient.Client, ctx context.Context) (*MempoolStatus, error) {
-	var result MempoolStatus
-	err := gethclient.Client().CallContext(ctx, &result, "txpool_status")
-	if err != nil {
-		return nil, err
-	}
-	return &result, nil
-}
-
 func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	var (
 		payloadID *engine.PayloadID
@@ -139,7 +125,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	)
 	currentCallTime := time.Now()
 
-	mempoolStatus, err := getMempoolStatus(bb.ethClient, ctx)
+	mempoolStatus, err := bb.GetMempoolStatus(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get pending transaction count: %w", err)
 	}
@@ -564,4 +550,18 @@ func (bb *BlockBuilder) loadExecutionHead(ctx context.Context) (*types.Execution
 
 func (bb *BlockBuilder) GetExecutionHead() *types.ExecutionHead {
 	return bb.executionHead
+}
+
+type MempoolStatus struct {
+	Pending hexutil.Uint64 `json:"pending"`
+	Queued  hexutil.Uint64 `json:"queued"`
+}
+
+func (bb *BlockBuilder) GetMempoolStatus(ctx context.Context) (*MempoolStatus, error) {
+	var result MempoolStatus
+	err := bb.ethClient.Client().CallContext(ctx, &result, "txpool_status")
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
