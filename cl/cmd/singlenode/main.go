@@ -57,10 +57,10 @@ var (
 		},
 	})
 
-	nonAuthEthClientURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "non-auth-eth-client-url",
-		Usage:   "Ethereum Execution client Engine API URL (e.g., http://localhost:8545)",
-		EnvVars: []string{"LEADER_NON_AUTH_ETH_CLIENT_URL"},
+	nonAuthRpcUrlFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "non-auth-rpc-url",
+		Usage:   "Non-authenticated Ethereum RPC URL (e.g., http://localhost:8545)",
+		EnvVars: []string{"LEADER_NON_AUTH_RPC_URL"},
 		Value:   "http://localhost:8545",
 	})
 
@@ -205,11 +205,10 @@ var (
 	})
 
 	txPoolPollingIntervalFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
-		Name:     "tx-pool-polling-interval",
-		Usage:    "Wait interval for polling the tx pool while there are no pending transactions (e.g., '5ms')",
-		EnvVars:  []string{"LEADER_TX_POOL_POLLING_INTERVAL"},
-		Value:    5 * time.Millisecond,
-		Category: categoryDebug,
+		Name:    "tx-pool-polling-interval",
+		Usage:   "Wait interval for polling the tx pool while there are no pending transactions (e.g., '5ms')",
+		EnvVars: []string{"LEADER_TX_POOL_POLLING_INTERVAL"},
+		Value:   5 * time.Millisecond,
 	})
 
 	// Member node specific flags
@@ -253,7 +252,7 @@ func main() {
 		healthAddrPortFlag,
 		postgresDSNFlag,
 		apiAddrFlag,
-		nonAuthEthClientURLFlag,
+		nonAuthRpcUrlFlag,
 		txPoolPollingIntervalFlag,
 	}
 
@@ -354,7 +353,7 @@ func startLeaderNode(c *cli.Context) error {
 		HealthAddr:               c.String(healthAddrPortFlag.Name),
 		PostgresDSN:              c.String(postgresDSNFlag.Name),
 		APIAddr:                  c.String(apiAddrFlag.Name),
-		NonAuthEthClientURL:      c.String(nonAuthEthClientURLFlag.Name),
+		NonAuthRpcURL:            c.String(nonAuthRpcUrlFlag.Name),
 		TxPoolPollingInterval:    c.Duration(txPoolPollingIntervalFlag.Name),
 	}
 

@@ -37,7 +37,7 @@ type Config struct {
 	HealthAddr               string
 	PostgresDSN              string
 	APIAddr                  string
-	NonAuthEthClientURL      string
+	NonAuthRpcURL            string
 	TxPoolPollingInterval    time.Duration
 }
 
@@ -93,7 +93,7 @@ func NewSingleNodeApp(
 		return nil, err
 	}
 
-	rpcClient, err := rpc.DialContext(ctx, cfg.NonAuthEthClientURL)
+	rpcClient, err := rpc.DialContext(ctx, cfg.NonAuthRpcURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to Ethereum client: %v", err)
 	}
