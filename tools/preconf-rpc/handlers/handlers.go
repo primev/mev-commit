@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -17,10 +15,6 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
-)
-
-var (
-	preconfBlockHashPrefix = hex.EncodeToString([]byte("mev-commit"))
 )
 
 type Bidder interface {
@@ -161,7 +155,7 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 			)
 		}
 		result := map[string]interface{}{
-			"bidAmount":      hexutil.EncodeBig(blockPrice.BidAmount),
+			"bidAmount":      blockPrice.BidAmount.String(),
 			"depositAddress": h.depositAddress.Hex(),
 		}
 
@@ -194,7 +188,7 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 		}
 		bridgeCost := new(big.Int).Mul(blockPrice.BidAmount, big.NewInt(2))
 		result := map[string]interface{}{
-			"bidAmount":     hexutil.EncodeBig(bridgeCost),
+			"bidAmount":     bridgeCost.String(),
 			"bridgeAddress": h.bridgeAddress.Hex(),
 		}
 
@@ -225,15 +219,21 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 	if params[0] == nil {
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeParseError,
-			"getBlock parameter cannot be null",
+			"block hash parameter cannot be null",
 		)
 	}
 
 	blockHashStr := params[0].(string)
-	// Remove "0x" prefix if present
-	blockHashStr = strings.TrimPrefix(blockHashStr, "0x")
-	if !strings.HasPrefix(blockHashStr, preconfBlockHashPrefix) {
-		return nil, true, nil // Not a preconf block hash, proxy
+	blockHash := common.HexToHash(blockHashStr)
+
+	txn, err := h.store.GetTransactionByHash(ctx, blockHash)
+	if err != nil {
+		return nil, true, nil
+	}
+
+	if txn.Status != sender.TxStatusPreConfirmed {
+		h.logger.Warn("Transaction not in preconfirmed state", "txnHash", txn.Hash().Hex(), "status", txn.Status)
+		return nil, true, nil // Not a preconfirmed block
 	}
 
 	details := false
@@ -241,26 +241,8 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 		details, _ = params[1].(bool)
 	}
 
-	blockNumberWithPadding := strings.TrimPrefix(blockHashStr, preconfBlockHashPrefix)
-	blockNumber, err := strconv.ParseUint(blockNumberWithPadding[:8], 10, 64)
-	if err != nil {
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeParseError,
-			"getBlock parameter must be a valid preconf block hash",
-		)
-	}
-
-	txns, err := h.store.GetTransactionsForBlock(ctx, int64(blockNumber))
-	if err != nil {
-		h.logger.Error("Failed to get preconfirmed transactions for block", "error", err, "blockNumber", blockNumber)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to get preconfirmed transactions for block",
-		)
-	}
-
 	block := map[string]interface{}{
-		"number":           hexutil.Uint64(blockNumber),
+		"number":           hexutil.Uint64(txn.BlockNumber),
 		"hash":             blockHashStr,
 		"parentHash":       (common.Hash{}).Hex(),
 		"nonce":            "0x0000000000000000",
@@ -281,32 +263,16 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 	}
 
 	var txnsToReturn any
-	for i, txn := range txns {
-		if txn.Status != sender.TxStatusPreConfirmed {
-			h.logger.Warn("Skipping transaction not in preconfirmed state", "txnHash", txn.Hash().Hex(), "status", txn.Status)
-			continue
-		}
-		if !details {
-			if txnsToReturn == nil {
-				txnsToReturn = make([]string, 0, len(txns))
-			}
-			txnsToReturn = append(
-				txnsToReturn.([]string),
-				txn.Hash().Hex(),
-			)
-			continue
-		}
-		if txnsToReturn == nil {
-			txnsToReturn = make([]map[string]interface{}, len(txns))
-		}
+	if !details {
+		txnsToReturn = []string{txn.Hash().Hex()}
+	} else {
 		r, s, v := txn.RawSignatureValues()
-		txnsToReturn = append(
-			txnsToReturn.([]map[string]interface{}),
-			map[string]interface{}{
+		txnsToReturn = []map[string]interface{}{
+			{
 				"hash":                 txn.Hash().Hex(),
 				"blockHash":            blockHashStr,
-				"blockNumber":          hexutil.Uint64(blockNumber),
-				"transactionIndex":     hexutil.Uint64(i),
+				"blockNumber":          hexutil.Uint64(txn.BlockNumber),
+				"transactionIndex":     hexutil.Uint64(0),
 				"type":                 hexutil.Uint(txn.Transaction.Type()),
 				"accessList":           nil, // Access lists are not used in preconf blocks
 				"maxFeePerGas":         hexutil.EncodeBig(txn.GasFeeCap()),
@@ -322,19 +288,19 @@ func (h *rpcMethodHandler) handleGetBlockByHash(
 				"s":                    hexutil.EncodeBig(s),
 				"v":                    hexutil.EncodeBig(v),
 			},
-		)
+		}
 	}
 	block["transactions"] = txnsToReturn
 	blockJSON, err := json.Marshal(block)
 	if err != nil {
-		h.logger.Error("Failed to marshal block to JSON", "error", err, "blockNumber", blockNumber)
+		h.logger.Error("Failed to marshal block to JSON", "error", err, "blockNumber", txn.BlockNumber)
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeCustomError,
 			"failed to marshal block",
 		)
 	}
 
-	h.logger.Info("Retrieved preconf block", "blockNumber", blockNumber, "txCount", len(txns))
+	h.logger.Info("Retrieved preconf block", "blockNumber", txn.BlockNumber, "tx", txn)
 	return blockJSON, false, nil
 }
 
@@ -474,9 +440,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		result["status"] = hexutil.Uint64(types.ReceiptStatusFailed)
 	} else {
 		result["status"] = hexutil.Uint64(types.ReceiptStatusSuccessful)
-		blockHash := fmt.Sprintf("0x%s%08d", preconfBlockHashPrefix, txn.BlockNumber)
-		blockHash += strings.Repeat("0", 66-len(blockHash))
-		result["blockHash"] = blockHash
+		result["blockHash"] = txn.Hash().Hex()
 		result["blockNumber"] = hexutil.EncodeBig(big.NewInt(txn.BlockNumber))
 	}
 
