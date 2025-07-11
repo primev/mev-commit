@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.29;
 
 import {VanillaRegistryStorage} from "../VanillaRegistryStorage.sol";
 import {MevCommitAVSStorage} from "../avs/MevCommitAVSStorage.sol";
