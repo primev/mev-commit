@@ -1,11 +1,14 @@
 # Contracts
 
-## Mainnet Contract Changelog
-
-This changelog tracks deployments of **Ethereum mainnet** contracts. This changelog is only valid from the `main` branch.
+## Changelogs
 
 * Add a row to **Current Deployments** when a contract is first deployed from a release branch and tagged commit. Note the proxy address, release branch, and initial tag should not change.
 * After any on-chain upgrade, append a row to **Upgrade History**. The `Upgrade Tag` contains the most up-to-date source code for that contract.
+* If an existing contract is ever redeployed (ex. because its required changes are not possible via contract upgrade), simply replace the appropriate row in **Current Deployments** with the new proxy address, release branch, and initial tag.
+
+## Mainnet (L1) Contract Changelog
+
+This changelog tracks deployments of **Ethereum mainnet** contracts. This changelog is only valid from the `main` branch.
 
 ### Current Deployments
 
@@ -22,6 +25,26 @@ This changelog tracks deployments of **Ethereum mainnet** contracts. This change
 | Timestamp (UTC)             | Contract            | New Impl Version      | Upgrade Tag       |
 |-----------------------------|---------------------|-----------------------|-------------------|
 | Mar-12-2025 03:33:35 AM UTC | MevCommitMiddleware | MevCommitMiddlewareV2 | v1.1.0-middleware |
+
+## Core Contract Changelog
+
+This changelog tracks "core" contract deployments on the mev-commit chain. This changelog is only valid from the `main` branch.
+
+### Current Deployments
+
+| Contract              | Proxy Address                                | Release Branch      | Initial Tag           |
+|-----------------------|----------------------------------------------|---------------------|--------------------------|
+| BidderRegistry        | `0xC973D09e51A20C9Ab0214c439e4B34Dbac52AD67` | `release/v1.1.x`    | `v1.1.0`      |
+| ProviderRegistry      | `0xb772Add4718E5BD6Fe57Fb486A6f7f008E52167E` | `release/v1.1.x`    | `v1.1.0`      |
+| PreconfManager        | `0x3761bF3932cD22d684A7485002E1424c3aCCD69c` | `release/v1.1.x`    | `v1.1.0`      |
+| Oracle                | `0xa1aaCA1e4583dB498D47f3D5901f2B2EB49Bd8f6` | `release/v1.1.x`    | `v1.1.0`      |
+| BlockTracker          | `0x0DA2a367C51f2a34465ACd6AE5d8A48385e9cB03` | `release/v1.1.x`    | `v1.1.0`      |
+
+### Upgrade History
+
+| Timestamp (UTC)             | Contract            | New Impl Version      | Upgrade Tag       |
+|-----------------------------|---------------------|-----------------------|-------------------|
+| April 7th 2025 | Oracle | OracleV2 | No tag, see commit `bc4ebddd70f23d58ba6f9b2e8701e7f45d89cf82` in `release/v1.1.x`. |
 
 ## L1 Deployer CLI
 
