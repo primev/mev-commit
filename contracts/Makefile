@@ -66,3 +66,22 @@ vault-actions:
 		--keystore $$KEYSTORE \
 		--password $$PASSWORD \
 		--broadcast
+
+deploy-mev-commit-bapp:
+	forge script scripts/validator-registry/ssv/DeployMevCommitBapp.s.sol:DeployMevCommitBapp \
+		--via-ir \
+		--rpc-url https://ethereum-hoodi-rpc.publicnode.com \
+		--keystore $$KEYSTORE \
+		--password $$PASSWORD \
+		--sender 0x4535bd6ff24860b5fd2889857651a85fb3d3c6b1 \
+		--verify \
+		--broadcast
+
+register-bapp:
+	forge script scripts/validator-registry/ssv/DeployMevCommitBapp.s.sol:RegisterBapp \
+		--via-ir \
+		--rpc-url https://ethereum-hoodi-rpc.publicnode.com \
+		--keystore $$KEYSTORE \
+		--password $$PASSWORD \
+		--sender 0x4535bd6ff24860b5fd2889857651a85fb3d3c6b1 \
+		--broadcast
