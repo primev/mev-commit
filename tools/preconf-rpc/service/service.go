@@ -41,6 +41,7 @@ type Config struct {
 	PgUser                 string
 	PgPassword             string
 	PgDbname               string
+	PgSSL                  bool
 	Signer                 keysigner.KeySigner
 	BidderRPC              string
 	AutoDepositAmount      *big.Int
@@ -273,9 +274,13 @@ func (c channelCloser) Close() error {
 
 func initDB(opts *Config) (db *sql.DB, err error) {
 	// Connection string
+	sslMode := "disable"
+	if opts.PgSSL {
+		sslMode = "require"
+	}
 	psqlInfo := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		opts.PgHost, opts.PgPort, opts.PgUser, opts.PgPassword, opts.PgDbname,
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		opts.PgHost, opts.PgPort, opts.PgUser, opts.PgPassword, opts.PgDbname, sslMode,
 	)
 
 	// Open a connection
