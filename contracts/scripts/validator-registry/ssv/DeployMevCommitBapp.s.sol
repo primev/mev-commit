@@ -8,7 +8,7 @@ import {console} from "forge-std/console.sol";
 
 contract DeployMevCommitBapp is Script {
 
-    address constant public SSV_NETWORK = 0x58410Bef803ECd7E63B23664C586A6DB72DAf59c;
+    address constant public SSV_NETWORK = 0xc7fCFeEc5FB9962bDC2234A7a25dCec739e27f9f;
 
     function run() external {
         require(block.chainid == 560048, "must deploy on hoodi");
@@ -23,7 +23,7 @@ contract RegisterBapp is Script {
     function run() external {
         require(block.chainid == 560048, "must deploy on hoodi");
         vm.startBroadcast();
-        MevCommitBapp mevCommitBapp = MevCommitBapp(payable(0x43895A07EF22560e9e1319871870b788e6458797));
+        MevCommitBapp mevCommitBapp = MevCommitBapp(payable(0x7B55f595e6Db48d643e2263974776469f3d9aE41));
         address[] memory tokens = new address[](1);
         tokens[0] = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
         mevCommitBapp.registerBApp(
