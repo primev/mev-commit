@@ -85,12 +85,12 @@ keystore:
   secretStore:
     name: "aws-cluster-secret-store"
     kind: "ClusterSecretStore"
-  awsSecretName: "mainenv/mainnet/mev-commit"  # AWS Secret Manager secret name
+  awsSecretName: ""  # AWS Secret Manager secret name
   # Properties from AWS (match the secret keys
   properties:
-    keystore: "preconfrpc_operator_keystore"
-    keystoreFilename: "preconfrpc_operator_keystore_filename"
-    keystorePassword: "preconfrpc_operator_keystore_password"
+    keystore: ""
+    keystoreFilename: ""
+    keystorePassword: ""
 
 # PostgreSQL configuration
 postgresql:
