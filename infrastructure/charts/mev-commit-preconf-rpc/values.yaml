@@ -1,0 +1,105 @@
+# Default values for preconf-rpc
+replicaCount: 1
+
+image:
+  repository:
+  pullPolicy: IfNotPresent
+  tag: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: preconf-rpc.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Health check probes configuration
+probes:
+  liveness:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  readiness:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Non-sensitive application config (CLI flags)
+config:
+  httpPort: 8080
+  logLevel: "info"
+  logFormat: "json"
+  logTags: ""
+  l1RpcUrls:
+    - ""
+  settlementRpcUrl: ""
+  bidderRpcUrl: ""
+  l1ContractAddr: ""
+  settlementContractAddr: ""
+  depositAddress: ""
+  bridgeAddress: ""
+  settlementThreshold: "2000000000000000000"  # 2 ETH
+  settlementTopup: "2000000000000000000"     # 10 ETH
+  autoDepositAmount: "100000000000000000"    # 1 ETH
+  gasTipCap: "50000000"                       # 0.05 gWEI
+  gasFeeCap: "60000000"                       # 0.06 gWEI
+
+# Keystore configuration (using ESO for AWS Secrets Manager)
+keystore:
+  dir: "/app/keystore"
+  refreshInterval: "1h"
+  secretStore:
+    name: "aws-cluster-secret-store"
+    kind: "ClusterSecretStore"
+  awsSecretName: "mainenv/mainnet/mev-commit"  # AWS Secret Manager secret name
+  # Properties from AWS (match the secret keys
+  properties:
+    keystore: "preconfrpc_operator_keystore"
+    keystoreFilename: "preconfrpc_operator_keystore_filename"
+    keystorePassword: "preconfrpc_operator_keystore_password"
+
+# PostgreSQL configuration
+postgresql:
+  host: "preconf-rpc-pg.default.svc.cluster.local"
+  port: 5432
+  username: ""
+  database: ""
+  password: ""
+
+service:
+  type: ClusterIP
+  port: 8080
