@@ -73,6 +73,13 @@ var (
 		Value:   "mev_oracle",
 	}
 
+	optionPgSSL = &cli.BoolFlag{
+		Name:    "pg-ssl",
+		Usage:   "use SSL for PostgreSQL connection",
+		EnvVars: []string{"PRECONF_RPC_PG_SSL"},
+		Value:   false,
+	}
+
 	optionL1RPCUrls = &cli.StringSliceFlag{
 		Name:     "l1-rpc-urls",
 		Usage:    "URLs for L1 RPC",
@@ -221,6 +228,7 @@ func main() {
 			optionPgUser,
 			optionPgPassword,
 			optionPgDbname,
+			optionPgSSL,
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
@@ -293,6 +301,7 @@ func main() {
 				PgUser:                 c.String(optionPgUser.Name),
 				PgPassword:             c.String(optionPgPassword.Name),
 				PgDbname:               c.String(optionPgDbname.Name),
+				PgSSL:                  c.Bool(optionPgSSL.Name),
 				Logger:                 logger,
 				GasTipCap:              gasTipCap,
 				GasFeeCap:              gasFeeCap,
