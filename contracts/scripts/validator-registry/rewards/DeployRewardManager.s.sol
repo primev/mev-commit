@@ -8,6 +8,7 @@ import {RewardManager} from "../../../contracts/validator-registry/rewards/Rewar
 import {Script} from "forge-std/Script.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MainnetConstants} from "../../MainnetConstants.sol";
+import {console} from "forge-std/console.sol";
 
 contract DeployMainnet is Script {
     address constant public VANILLA_REGISTRY = 0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9;
