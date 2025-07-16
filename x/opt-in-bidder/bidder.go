@@ -185,8 +185,9 @@ type BidStatus struct {
 }
 
 type BidOpts struct {
-	WaitForOptIn bool
-	BlockNumber  uint64
+	WaitForOptIn      bool
+	BlockNumber       uint64
+	RevertingTxHashes []string
 }
 
 var defaultBidOpts = &BidOpts{
@@ -275,6 +276,7 @@ func (b *BidderClient) Bid(
 			DecayStartTimestamp: nowFunc().Add(100 * time.Millisecond).UnixMilli(),
 			DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
 			SlashAmount:         slashAmount.String(),
+			RevertingTxHashes:   opts.RevertingTxHashes,
 		})
 		if err != nil {
 			b.logger.Error("failed to send bid", "error", err)
