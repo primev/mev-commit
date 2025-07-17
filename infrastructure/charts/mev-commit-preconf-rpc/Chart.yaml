@@ -1,0 +1,6 @@
+apiVersion: v2
+name: preconf-rpc
+description: A Helm chart for MEV Commit Preconf RPC service
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

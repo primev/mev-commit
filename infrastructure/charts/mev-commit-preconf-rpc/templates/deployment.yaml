@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "preconf-rpc.fullname" . }}
+  labels:
+    {{- include "preconf-rpc.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "preconf-rpc.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "preconf-rpc.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.httpPort }}
+              protocol: TCP
+          args:
+            - --http-port={{ .Values.config.httpPort }}
+            - --log-level={{ .Values.config.logLevel }}
+            - --log-fmt={{ .Values.config.logFormat }}
+            {{- if .Values.config.logTags }}
+            - --log-tags={{ .Values.config.logTags }}
+            {{- end }}
+            - --keystore-dir={{ .Values.keystore.dir }}
+            - --keystore-password=$(KEYSTORE_PASSWORD)
+            {{- range .Values.config.l1RpcUrls }}
+            - --l1-rpc-urls={{ . }}
+            {{- end }}
+            - --settlement-rpc-url={{ .Values.config.settlementRpcUrl }}
+            - --bidder-rpc-url={{ .Values.config.bidderRpcUrl }}
+            - --l1-contract-addr={{ .Values.config.l1ContractAddr }}
+            - --settlement-contract-addr={{ .Values.config.settlementContractAddr }}
+            - --deposit-address={{ .Values.config.depositAddress }}
+            - --bridge-address={{ .Values.config.bridgeAddress }}
+            - --settlement-threshold={{ .Values.config.settlementThreshold }}
+            - --settlement-topup={{ .Values.config.settlementTopup }}
+            - --auto-deposit-amount={{ .Values.config.autoDepositAmount }}
+            - --gas-tip-cap={{ .Values.config.gasTipCap }}
+            - --gas-fee-cap={{ .Values.config.gasFeeCap }}
+          env:
+            - name: KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "preconf-rpc.fullname" . }}-keystore-password
+                  key: password
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgresql.password | quote }}
+            - name: PRECONF_RPC_PG_HOST
+              value: {{ .Values.postgresql.host | quote }}
+            - name: PRECONF_RPC_PG_PORT
+              value: {{ .Values.postgresql.port | quote }}
+            - name: PRECONF_RPC_PG_USER
+              value: {{ .Values.postgresql.username | quote }}
+            - name: PRECONF_RPC_PG_PASSWORD
+              value: {{ .Values.postgresql.password | quote }}
+            - name: PRECONF_RPC_PG_DBNAME
+              value: {{ .Values.postgresql.database | quote }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              {{- toYaml .Values.probes.liveness.httpGet | nindent 14 }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            successThreshold: {{ .Values.probes.liveness.successThreshold }}
+          {{- end }}
+
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              {{- toYaml .Values.probes.readiness.httpGet | nindent 14 }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            successThreshold: {{ .Values.probes.readiness.successThreshold }}
+          {{- end }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: keystore-dir
+              mountPath: {{ .Values.keystore.dir }}
+              readOnly: false
+
+      initContainers:
+        - name: rename-keystore
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - |
+              FILENAME=$(cat /temp/filename.txt)
+              cp /temp/temp_keystore.json /keystore/"$FILENAME"
+          volumeMounts:
+            - mountPath: /temp
+              name: temp-keystore
+              readOnly: true
+            - mountPath: /keystore
+              name: keystore-dir
+
+      volumes:
+        - name: temp-keystore
+          secret:
+            secretName: {{ include "preconf-rpc.fullname" . }}-keystore
+        - name: keystore-dir
+          emptyDir: {}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
