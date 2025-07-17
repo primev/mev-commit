@@ -43,9 +43,14 @@ type stateManager interface {
 	ResetBlockState(ctx context.Context) error
 }
 
+type rpcClient interface {
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+}
+
 type BlockBuilder struct {
 	stateManager          stateManager
 	engineCl              EngineClient
+	rpcClient             rpcClient
 	logger                *slog.Logger
 	buildDelay            time.Duration
 	buildEmptyBlocksDelay time.Duration
@@ -62,6 +67,7 @@ func NewBlockBuilder(
 	buildDelay,
 	buildDelayEmptyBlocks time.Duration,
 	feeReceipt string,
+	rpcClient rpcClient,
 ) *BlockBuilder {
 	return &BlockBuilder{
 		stateManager:          stateManager,
@@ -72,6 +78,7 @@ func NewBlockBuilder(
 		buildEmptyBlocksDelay: buildDelayEmptyBlocks,
 		feeRecipient:          common.HexToAddress(feeReceipt),
 		lastBlockTime:         time.Now().Add(-buildDelayEmptyBlocks),
+		rpcClient:             rpcClient,
 	}
 }
 
@@ -120,6 +127,31 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		err       error
 	)
 	currentCallTime := time.Now()
+
+	mempoolStatus, err := bb.GetMempoolStatus(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get pending transaction count: %w", err)
+	}
+	bb.logger.Debug("GetMempoolStatus rpc duration", "duration", time.Since(currentCallTime))
+
+	if mempoolStatus.Pending == 0 {
+		timeSinceLastBlock := currentCallTime.Sub(bb.lastBlockTime)
+		if timeSinceLastBlock < bb.buildEmptyBlocksDelay {
+			bb.logger.Debug(
+				"Leader: Skipping empty block",
+				"timeSinceLastBlock", timeSinceLastBlock,
+				"pendingTxes", mempoolStatus.Pending,
+				"queuedTxes", mempoolStatus.Queued,
+			)
+			return ErrEmptyBlock
+		}
+		bb.logger.Info(
+			"Leader: Empty block will be created",
+			"timeSinceLastBlock", timeSinceLastBlock,
+			"pendingTxes", mempoolStatus.Pending,
+			"queuedTxes", mempoolStatus.Queued,
+		)
+	}
 
 	// Load execution head to get previous block timestamp
 	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
@@ -221,17 +253,6 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		return fmt.Errorf("failed to get payload: %w", err)
 	}
 
-	hasTransactions := len(payloadResp.ExecutionPayload.Transactions) > 0
-	now := time.Now()
-	timeSinceLastBlock := now.Sub(bb.lastBlockTime)
-	if !hasTransactions && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
-		bb.logger.Info(
-			"Leader: Skipping empty block",
-			"timeSinceLastBlock", timeSinceLastBlock,
-		)
-		return ErrEmptyBlock
-	}
-
 	payloadData, err := msgpack.Marshal(payloadResp.ExecutionPayload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
@@ -255,7 +276,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		"PayloadID", payloadIDStr,
 	)
 
-	bb.lastBlockTime = now
+	bb.lastBlockTime = time.Now()
 	return nil
 }
 
@@ -534,4 +555,18 @@ func (bb *BlockBuilder) loadExecutionHead(ctx context.Context) (*types.Execution
 
 func (bb *BlockBuilder) GetExecutionHead() *types.ExecutionHead {
 	return bb.executionHead
+}
+
+type MempoolStatus struct {
+	Pending hexutil.Uint64 `json:"pending"`
+	Queued  hexutil.Uint64 `json:"queued"`
+}
+
+func (bb *BlockBuilder) GetMempoolStatus(ctx context.Context) (*MempoolStatus, error) {
+	var result MempoolStatus
+	err := bb.rpcClient.CallContext(ctx, &result, "txpool_status")
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
