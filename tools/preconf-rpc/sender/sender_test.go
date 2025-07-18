@@ -176,21 +176,18 @@ func (m *mockBidder) Bid(
 }
 
 type mockPricer struct {
-	in  chan *types.Transaction
-	out chan *pricer.BlockPrice
+	out chan *pricer.BlockPrices
 }
 
 func (m *mockPricer) EstimatePrice(
 	ctx context.Context,
-	txn *types.Transaction,
-) (*pricer.BlockPrice, error) {
-	m.in <- txn
+) (*pricer.BlockPrices, error) {
 	select {
-	case price := <-m.out:
-		if price == nil {
+	case prices := <-m.out:
+		if prices == nil {
 			return nil, errors.New("nil price returned")
 		}
-		return price, nil
+		return prices, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -230,8 +227,7 @@ func TestSender(t *testing.T) {
 
 	st := newMockStore()
 	testPricer := &mockPricer{
-		in:  make(chan *types.Transaction, 10),
-		out: make(chan *pricer.BlockPrice, 10),
+		out: make(chan *pricer.BlockPrices, 10),
 	}
 	bidder := &mockBidder{
 		optinEstimate: make(chan int64, 10),
@@ -243,7 +239,7 @@ func TestSender(t *testing.T) {
 		out: make(chan bool, 10),
 	}
 
-	sndr := sender.NewTxSender(
+	sndr, err := sender.NewTxSender(
 		st,
 		bidder,
 		testPricer,
@@ -252,6 +248,9 @@ func TestSender(t *testing.T) {
 		big.NewInt(1), // Settlement chain ID
 		util.NewTestLogger(os.Stdout),
 	)
+	if err != nil {
+		t.Fatalf("failed to create sender: %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -283,13 +282,27 @@ func TestSender(t *testing.T) {
 	bidder.optinEstimate <- 1
 
 	// Simulate a price estimate
-	op := <-testPricer.in
-	if op.Hash().Hex() != tx1.Hash().Hex() {
-		t.Fatalf("expected transaction hash %s, got %s", tx1.Hash().Hex(), op.Hash().Hex())
-	}
-	testPricer.out <- &pricer.BlockPrice{
-		BlockNumber: 1,
-		BidAmount:   big.NewInt(100),
+	testPricer.out <- &pricer.BlockPrices{
+		CurrentBlockNumber: 0,
+		Prices: []pricer.BlockPrice{
+			{
+				BlockNumber: 1,
+				EstimatedPrices: []pricer.EstimatedPrice{
+					{
+						Confidence:            90,
+						PriorityFeePerGasGwei: 1.0,
+					},
+					{
+						Confidence:            95,
+						PriorityFeePerGasGwei: 1.5,
+					},
+					{
+						Confidence:            99,
+						PriorityFeePerGasGwei: 2.0,
+					},
+				},
+			},
+		},
 	}
 
 	// Simulate a bid response
@@ -364,13 +377,27 @@ func TestSender(t *testing.T) {
 	bidder.optinEstimate <- 20
 
 	// Simulate a price estimate
-	op = <-testPricer.in
-	if op.Hash().Hex() != tx2.Hash().Hex() {
-		t.Fatalf("expected transaction hash %s, got %s", tx2.Hash().Hex(), op.Hash().Hex())
-	}
-	testPricer.out <- &pricer.BlockPrice{
-		BlockNumber: 2,
-		BidAmount:   big.NewInt(100),
+	testPricer.out <- &pricer.BlockPrices{
+		CurrentBlockNumber: 1,
+		Prices: []pricer.BlockPrice{
+			{
+				BlockNumber: 2,
+				EstimatedPrices: []pricer.EstimatedPrice{
+					{
+						Confidence:            90,
+						PriorityFeePerGasGwei: 1.0,
+					},
+					{
+						Confidence:            95,
+						PriorityFeePerGasGwei: 1.5,
+					},
+					{
+						Confidence:            99,
+						PriorityFeePerGasGwei: 2.0,
+					},
+				},
+			},
+		},
 	}
 
 	// Simulate a bid response

@@ -8,9 +8,11 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
@@ -35,7 +37,8 @@ const (
 )
 
 const (
-	blockTime = 12 // seconds, typical Ethereum block time
+	blockTime  = 12              // seconds, typical Ethereum block time
+	bidTimeout = 4 * time.Second // timeout for bid operations
 )
 
 var (
@@ -79,7 +82,7 @@ type Bidder interface {
 }
 
 type Pricer interface {
-	EstimatePrice(ctx context.Context, txn *types.Transaction) (*pricer.BlockPrice, error)
+	EstimatePrice(ctx context.Context) (*pricer.BlockPrices, error)
 }
 
 type BlockTracker interface {
@@ -88,6 +91,17 @@ type BlockTracker interface {
 
 type Transferer interface {
 	Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error
+}
+
+type blockAttempt struct {
+	blockNumber int64
+	attempts    int
+}
+
+type txnAttempt struct {
+	txnHash   common.Hash
+	startTime time.Time
+	attempts  []*blockAttempt
 }
 
 type TxSender struct {
@@ -105,6 +119,7 @@ type TxSender struct {
 	inflightTxns      map[common.Hash]struct{}
 	inflightAccount   map[common.Address]struct{}
 	inflightMu        sync.Mutex
+	txnAttemptHistory *lru.Cache[common.Hash, *txnAttempt]
 }
 
 func NewTxSender(
@@ -115,7 +130,13 @@ func NewTxSender(
 	transferer Transferer,
 	settlementChainId *big.Int,
 	logger *slog.Logger,
-) *TxSender {
+) (*TxSender, error) {
+	txnAttemptHistory, err := lru.New[common.Hash, *txnAttempt](1000)
+	if err != nil {
+		logger.Error("Failed to create transaction attempt history cache", "error", err)
+		return nil, fmt.Errorf("failed to create transaction attempt history cache: %w", err)
+	}
+
 	return &TxSender{
 		store:             st,
 		bidder:            bidder,
@@ -128,7 +149,8 @@ func NewTxSender(
 		trigger:           make(chan struct{}, 1),
 		inflightTxns:      make(map[common.Hash]struct{}),
 		inflightAccount:   make(map[common.Address]struct{}),
-	}
+		txnAttemptHistory: txnAttemptHistory,
+	}, nil
 }
 
 func validateTransaction(tx *Transaction) error {
@@ -309,6 +331,7 @@ BID_LOOP:
 					"blockNumber", result.blockNumber,
 					"bidAmount", result.bidAmount.String(),
 				)
+				t.clearBlockAttemptHistory(txn.Hash())
 				break BID_LOOP
 			}
 		default:
@@ -331,6 +354,7 @@ BID_LOOP:
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
+			t.clearBlockAttemptHistory(txn.Hash())
 			break BID_LOOP
 		}
 	}
@@ -385,35 +409,42 @@ func (t *TxSender) sendBid(
 
 	optedInSlot := timeToOptIn <= blockTime
 
-	price, err := t.pricer.EstimatePrice(ctx, txn.Transaction)
+	prices, err := t.pricer.EstimatePrice(ctx)
 	if err != nil {
 		t.logger.Error("Failed to estimate transaction price", "error", err)
 		return bidResult{}, fmt.Errorf("failed to estimate transaction price: %w", err)
 	}
 
+	cost, blockNo, err := t.calculatePriceForNextBlock(txn, prices)
+	if err != nil {
+		t.logger.Error("Failed to calculate price for next block", "error", err)
+		return bidResult{}, fmt.Errorf("failed to calculate price: %w", err)
+	}
+
+	slashAmount := big.NewInt(0)
 	switch txn.Type {
 	case TxTypeRegular:
-		if !t.store.HasBalance(ctx, txn.Sender, price.BidAmount) {
+		if !t.store.HasBalance(ctx, txn.Sender, cost) {
 			t.logger.Error("Insufficient balance for sender", "sender", txn.Sender.Hex())
 			return bidResult{}, fmt.Errorf("insufficient balance for sender: %s", txn.Sender.Hex())
 		}
 	case TxTypeDeposit:
-		if txn.Value().Cmp(price.BidAmount) < 0 {
+		if txn.Value().Cmp(cost) < 0 {
 			t.logger.Error(
 				"Deposit amount is less than price of deposit",
 				"sender", txn.Sender.Hex(),
 				"deposit", txn.Value().String(),
-				"price", price.BidAmount.String(),
+				"price", cost.String(),
 			)
 			return bidResult{}, fmt.Errorf(
 				"deposit amount is less than price of deposit: %s, deposit: %s, price: %s",
 				txn.Sender.Hex(),
 				txn.Value().String(),
-				price.BidAmount.String(),
+				cost.String(),
 			)
 		}
 	case TxTypeInstantBridge:
-		costOfBridge := new(big.Int).Mul(price.BidAmount, big.NewInt(2)) // 2x the price for instant bridge
+		costOfBridge := new(big.Int).Mul(cost, big.NewInt(2)) // 2x the price for instant bridge
 		if txn.Value().Cmp(costOfBridge) < 0 {
 			t.logger.Error(
 				"Instant bridge amount is less than price of bridge",
@@ -428,17 +459,22 @@ func (t *TxSender) sendBid(
 				costOfBridge.String(),
 			)
 		}
+		slashAmount = new(big.Int).Set(txn.Value())
 	}
 
+	cctx, cancel := context.WithTimeout(ctx, bidTimeout)
+	defer cancel()
+
 	bidC, err := t.bidder.Bid(
-		ctx,
-		price.BidAmount,
-		big.NewInt(0),
+		cctx,
+		cost,
+		slashAmount,
 		strings.TrimPrefix(txn.Raw, "0x"),
 		&optinbidder.BidOpts{
 			WaitForOptIn:      false,
-			BlockNumber:       uint64(price.BlockNumber),
+			BlockNumber:       uint64(blockNo),
 			RevertingTxHashes: []string{txn.Hash().Hex()},
+			DecayDuration:     bidTimeout,
 		},
 	)
 	if err != nil {
@@ -448,7 +484,7 @@ func (t *TxSender) sendBid(
 
 	result := bidResult{
 		commitments: make([]*bidderapiv1.Commitment, 0),
-		bidAmount:   price.BidAmount,
+		bidAmount:   cost,
 	}
 BID_LOOP:
 	for {
@@ -487,4 +523,86 @@ BID_LOOP:
 
 	result.optedInSlot = optedInSlot
 	return result, nil
+}
+
+func (t *TxSender) calculatePriceForNextBlock(txn *Transaction, prices *pricer.BlockPrices) (*big.Int, int64, error) {
+	attempts, found := t.txnAttemptHistory.Get(txn.Hash())
+	if !found {
+		attempts = &txnAttempt{
+			txnHash:   txn.Hash(),
+			startTime: time.Now(),
+		}
+	}
+
+	// default confidence level for the next block
+	confidence := 90
+
+	for _, attempt := range attempts.attempts {
+		if attempt.blockNumber == prices.CurrentBlockNumber+1 {
+			attempt.attempts++
+			switch {
+			case attempt.attempts == 2:
+				confidence = 95 // Increase confidence for the second attempt
+			case attempt.attempts > 2:
+				confidence = 99 // Max confidence for subsequent attempts
+			}
+		}
+	}
+	// If this is the first attempt for the next block, we add it with confidence 90
+	if confidence == 90 {
+		attempts.attempts = append(attempts.attempts, &blockAttempt{
+			blockNumber: prices.CurrentBlockNumber + 1,
+			attempts:    1,
+		})
+	}
+
+	_ = t.txnAttemptHistory.Add(txn.Hash(), attempts)
+
+	var (
+		cost    *big.Int
+		blockNo int64
+	)
+
+	for _, price := range prices.Prices {
+		if price.BlockNumber == prices.CurrentBlockNumber+1 {
+			for _, estimatedPrice := range price.EstimatedPrices {
+				if estimatedPrice.Confidence == confidence {
+					priceWei := new(big.Int).Mul(big.NewInt(int64(estimatedPrice.PriorityFeePerGasGwei)), big.NewInt(1e9))
+					cost = new(big.Int).Mul(priceWei, big.NewInt(int64(txn.Gas())))
+					blockNo = price.BlockNumber
+					break
+				}
+			}
+		}
+	}
+	if cost == nil || blockNo == 0 {
+		return nil, 0, fmt.Errorf(
+			"no estimated price found for block %d with confidence %d", prices.CurrentBlockNumber+1, confidence,
+		)
+	}
+
+	return cost, blockNo, nil
+}
+
+func (t *TxSender) clearBlockAttemptHistory(txnHash common.Hash) {
+	attempts, found := t.txnAttemptHistory.Get(txnHash)
+	if !found {
+		return
+	}
+
+	totalAttempts := 0
+	for _, attempt := range attempts.attempts {
+		totalAttempts += attempt.attempts
+	}
+
+	t.logger.Info(
+		"Clearing block attempt history for transaction",
+		"hash", txnHash.Hex(),
+		"blockAttempts", len(attempts.attempts),
+		"startTime", attempts.startTime.Format(time.RFC3339),
+		"startBlockNumber", attempts.attempts[0].blockNumber,
+		"totalAttempts", totalAttempts,
+	)
+
+	_ = t.txnAttemptHistory.Remove(txnHash)
 }
