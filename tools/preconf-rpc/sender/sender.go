@@ -38,7 +38,7 @@ const (
 
 const (
 	blockTime  = 12              // seconds, typical Ethereum block time
-	bidTimeout = 4 * time.Second // timeout for bid operations
+	bidTimeout = 3 * time.Second // timeout for bid operations
 )
 
 var (
@@ -337,6 +337,21 @@ BID_LOOP:
 		default:
 		}
 
+		if result.noOfProviders > len(result.commitments) {
+			t.logger.Warn(
+				"Not all builders committed to the bid",
+				"noOfProviders", result.noOfProviders,
+				"noOfCommitments", len(result.commitments),
+				"sender", txn.Sender.Hex(),
+				"type", txn.Type,
+				"blockNumber", result.blockNumber,
+				"bidAmount", result.bidAmount.String(),
+			)
+			// If not all builders committed, we will retry the bid process
+			// till we either get a primev opted in slot or the user cancels the operation
+			continue
+		}
+
 		// Wait for block number to be updated to confirm transaction. If failed
 		// we will retry the bid process till user cancels the operation
 		included, err := t.blockTracker.CheckTxnInclusion(ctx, txn.Hash(), result.blockNumber)
@@ -386,12 +401,23 @@ BID_LOOP:
 	return nil
 }
 
+type errRetry struct {
+	err        error
+	retryAfter time.Duration
+}
+
+func (e *errRetry) Error() string {
+	return fmt.Sprintf("retry after %s: %v", e.retryAfter, e.err)
+}
+
 type bidResult struct {
-	noOfProviders int
-	blockNumber   uint64
-	optedInSlot   bool
-	bidAmount     *big.Int
-	commitments   []*bidderapiv1.Commitment
+	startTime        time.Time
+	msSinceLastBlock int64
+	noOfProviders    int
+	blockNumber      uint64
+	optedInSlot      bool
+	bidAmount        *big.Int
+	commitments      []*bidderapiv1.Commitment
 }
 
 func (t *TxSender) sendBid(
@@ -409,16 +435,24 @@ func (t *TxSender) sendBid(
 
 	optedInSlot := timeToOptIn <= blockTime
 
+	start := time.Now()
+
 	prices, err := t.pricer.EstimatePrice(ctx)
 	if err != nil {
 		t.logger.Error("Failed to estimate transaction price", "error", err)
-		return bidResult{}, fmt.Errorf("failed to estimate transaction price: %w", err)
+		return bidResult{}, &errRetry{
+			err:        fmt.Errorf("failed to estimate transaction price: %w", err),
+			retryAfter: time.Second,
+		}
 	}
 
 	cost, blockNo, err := t.calculatePriceForNextBlock(txn, prices)
 	if err != nil {
 		t.logger.Error("Failed to calculate price for next block", "error", err)
-		return bidResult{}, fmt.Errorf("failed to calculate price: %w", err)
+		return bidResult{}, &errRetry{
+			err:        fmt.Errorf("failed to calculate price: %w", err),
+			retryAfter: time.Second,
+		}
 	}
 
 	slashAmount := big.NewInt(0)
@@ -483,8 +517,10 @@ func (t *TxSender) sendBid(
 	}
 
 	result := bidResult{
-		commitments: make([]*bidderapiv1.Commitment, 0),
-		bidAmount:   cost,
+		commitments:      make([]*bidderapiv1.Commitment, 0),
+		bidAmount:        cost,
+		startTime:        start,
+		msSinceLastBlock: prices.MsSinceLastBlock,
 	}
 BID_LOOP:
 	for {
