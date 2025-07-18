@@ -22,6 +22,7 @@ type BlockPrice struct {
 }
 
 type BlockPrices struct {
+	MsSinceLastBlock   int64        `json:"msSinceLastBlock"`
 	CurrentBlockNumber int64        `json:"currentBlockNumber"`
 	Prices             []BlockPrice `json:"blockPrices"`
 }
