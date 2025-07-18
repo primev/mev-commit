@@ -188,6 +188,7 @@ type BidOpts struct {
 	WaitForOptIn      bool
 	BlockNumber       uint64
 	RevertingTxHashes []string
+	DecayDuration     time.Duration
 }
 
 var defaultBidOpts = &BidOpts{
@@ -269,15 +270,22 @@ func (b *BidderClient) Bid(
 			"slashAmount", slashAmount,
 		)
 
-		pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
+		bidReq := &bidderapiv1.Bid{
 			Amount:              bidAmount.String(),
 			BlockNumber:         int64(blkNumber),
 			RawTransactions:     []string{rawTx},
 			DecayStartTimestamp: nowFunc().Add(100 * time.Millisecond).UnixMilli(),
-			DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
 			SlashAmount:         slashAmount.String(),
 			RevertingTxHashes:   opts.RevertingTxHashes,
-		})
+		}
+
+		if opts.DecayDuration > 0 {
+			bidReq.DecayEndTimestamp = time.UnixMilli(bidReq.DecayStartTimestamp).Add(opts.DecayDuration).UnixMilli()
+		} else {
+			bidReq.DecayEndTimestamp = time.UnixMilli(bidReq.DecayStartTimestamp).Add(12 * time.Second).UnixMilli()
+		}
+
+		pc, err := b.bidderClient.SendBid(ctx, bidReq)
 		if err != nil {
 			b.logger.Error("failed to send bid", "error", err)
 			res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
@@ -305,10 +313,8 @@ func (b *BidderClient) Bid(
 				res <- BidStatus{Type: BidStatusFailed, Arg: err.Error()}
 				return
 			}
-
 			res <- BidStatus{Type: BidStatusCommitment, Arg: msg}
 		}
-
 	}()
 
 	return res, nil
