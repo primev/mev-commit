@@ -270,7 +270,7 @@ func TestSender(t *testing.T) {
 		Raw:    "0x1234567890123456789012345678901234567890",
 	}
 
-	if err := st.AddBalance(ctx, tx1.Sender, big.NewInt(1000)); err != nil {
+	if err := st.AddBalance(ctx, tx1.Sender, big.NewInt(5e18)); err != nil {
 		t.Fatalf("failed to add balance: %v", err)
 	}
 
@@ -359,7 +359,7 @@ func TestSender(t *testing.T) {
 		Transaction: types.NewTransaction(
 			2,
 			common.HexToAddress("0x1234567890123456789012345678901234567890"),
-			big.NewInt(1000),
+			big.NewInt(1e18),
 			21000,
 			big.NewInt(1),
 			nil,

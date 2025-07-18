@@ -558,30 +558,21 @@ func (t *TxSender) calculatePriceForNextBlock(txn *Transaction, prices *pricer.B
 
 	_ = t.txnAttemptHistory.Add(txn.Hash(), attempts)
 
-	var (
-		cost    *big.Int
-		blockNo int64
-	)
-
 	for _, price := range prices.Prices {
 		if price.BlockNumber == prices.CurrentBlockNumber+1 {
 			for _, estimatedPrice := range price.EstimatedPrices {
 				if estimatedPrice.Confidence == confidence {
-					priceWei := new(big.Int).Mul(big.NewInt(int64(estimatedPrice.PriorityFeePerGasGwei)), big.NewInt(1e9))
-					cost = new(big.Int).Mul(priceWei, big.NewInt(int64(txn.Gas())))
-					blockNo = price.BlockNumber
-					break
+					// the gwei value is in float, so we need to convert it to wei before multiplying with gas limit
+					priceInWei := estimatedPrice.PriorityFeePerGasGwei * 1e9 // Convert Gwei to Wei
+					return new(big.Int).Mul(big.NewInt(int64(priceInWei)), big.NewInt(int64(txn.Gas()))), price.BlockNumber, nil
 				}
 			}
 		}
 	}
-	if cost == nil || blockNo == 0 {
-		return nil, 0, fmt.Errorf(
-			"no estimated price found for block %d with confidence %d", prices.CurrentBlockNumber+1, confidence,
-		)
-	}
 
-	return cost, blockNo, nil
+	return nil, 0, fmt.Errorf(
+		"no estimated price found for block %d with confidence %d", prices.CurrentBlockNumber+1, confidence,
+	)
 }
 
 func (t *TxSender) clearBlockAttemptHistory(txnHash common.Hash) {
