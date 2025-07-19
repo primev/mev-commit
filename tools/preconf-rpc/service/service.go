@@ -56,6 +56,7 @@ type Config struct {
 	HTTPPort               int
 	GasTipCap              *big.Int
 	GasFeeCap              *big.Int
+	PricerAPIKey           string
 }
 
 type Service struct {
@@ -173,7 +174,7 @@ func New(config *Config) (*Service, error) {
 		config.Logger.With("module", "rpcserver"),
 	)
 
-	bidpricer := &pricer.BidPricer{}
+	bidpricer := pricer.NewPricer(config.PricerAPIKey)
 
 	db, err := initDB(config)
 	if err != nil {
@@ -196,7 +197,7 @@ func New(config *Config) (*Service, error) {
 	blockTrackerDone := blockTracker.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
 
-	sndr := sender.NewTxSender(
+	sndr, err := sender.NewTxSender(
 		rpcstore,
 		bidderClient,
 		bidpricer,
@@ -205,6 +206,9 @@ func New(config *Config) (*Service, error) {
 		settlementChainID,
 		config.Logger.With("module", "txsender"),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction sender: %w", err)
+	}
 
 	senderDone := sndr.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("TxSender", senderDone))

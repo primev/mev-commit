@@ -2,41 +2,46 @@ package pricer_test
 
 import (
 	"context"
-	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 )
 
 func TestEstimatePrice(t *testing.T) {
 	t.Parallel()
 
-	bp := pricer.BidPricer{}
+	bp := pricer.NewPricer("")
 
 	ctx := context.Background()
-	txn := types.NewTransaction(
-		0,
-		common.HexToAddress("0x1234567890123456789012345678901234567890"),
-		big.NewInt(1000000000), // 1 Gwei
-		21000,                  // gas limit
-		big.NewInt(1000000000), // gas price
-		nil,                    // no data
-	)
 
-	price, err := bp.EstimatePrice(ctx, txn)
+	prices, err := bp.EstimatePrice(ctx)
 	if err != nil {
 		t.Fatalf("failed to estimate price: %v", err)
 	}
 
+	if prices.CurrentBlockNumber == 0 {
+		t.Error("expected non-zero current block number")
+	}
+
+	if len(prices.Prices) == 0 {
+		t.Error("expected at least one block price")
+	}
+
+	price := prices.Prices[0]
+
 	if price.BlockNumber == 0 {
-		t.Error("expected non-zero block number in estimated price")
+		t.Error("expected non-zero block number in price")
 	}
 
-	if price.BidAmount.Cmp(big.NewInt(0)) <= 0 {
-		t.Error("expected estimated price to be greater than zero")
+	if len(price.EstimatedPrices) == 0 {
+		t.Error("expected at least one estimated price")
 	}
 
-	t.Logf("Estimated price: %s at block %d", price.BidAmount.String(), price.BlockNumber)
+	for _, estPrice := range price.EstimatedPrices {
+		if estPrice.PriorityFeePerGasGwei <= 0 {
+			t.Errorf("expected positive priority fee per gas, got %f", estPrice.PriorityFeePerGasGwei)
+		}
+	}
+
+	t.Logf("Estimated prices: %v", prices)
 }
