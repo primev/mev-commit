@@ -176,12 +176,22 @@ func (m *mockBidder) Bid(
 }
 
 type mockPricer struct {
-	out chan *pricer.BlockPrices
+	out    chan *pricer.BlockPrices
+	errOut chan error
 }
 
 func (m *mockPricer) EstimatePrice(
 	ctx context.Context,
 ) (*pricer.BlockPrices, error) {
+	select {
+	case err := <-m.errOut:
+		if err != nil {
+			return nil, err
+		}
+	default:
+		// No error, continue
+	}
+
 	select {
 	case prices := <-m.out:
 		if prices == nil {
@@ -227,7 +237,8 @@ func TestSender(t *testing.T) {
 
 	st := newMockStore()
 	testPricer := &mockPricer{
-		out: make(chan *pricer.BlockPrices, 10),
+		out:    make(chan *pricer.BlockPrices, 10),
+		errOut: make(chan error, 1),
 	}
 	bidder := &mockBidder{
 		optinEstimate: make(chan int64, 10),
@@ -279,11 +290,17 @@ func TestSender(t *testing.T) {
 	}
 
 	// Simulate opted in block
+	bidder.optinEstimate <- 2
+
+	// simulate error and ensure retry happens
+	testPricer.errOut <- errors.New("simulated error for testing")
+
 	bidder.optinEstimate <- 1
 
 	// Simulate a price estimate
 	testPricer.out <- &pricer.BlockPrices{
 		CurrentBlockNumber: 0,
+		MsSinceLastBlock:   1000,
 		Prices: []pricer.BlockPrice{
 			{
 				BlockNumber: 1,
@@ -379,6 +396,53 @@ func TestSender(t *testing.T) {
 	// Simulate a price estimate
 	testPricer.out <- &pricer.BlockPrices{
 		CurrentBlockNumber: 1,
+		MsSinceLastBlock:   1000,
+		Prices: []pricer.BlockPrice{
+			{
+				BlockNumber: 2,
+				EstimatedPrices: []pricer.EstimatedPrice{
+					{
+						Confidence:            90,
+						PriorityFeePerGasGwei: 1.0,
+					},
+					{
+						Confidence:            95,
+						PriorityFeePerGasGwei: 1.5,
+					},
+					{
+						Confidence:            99,
+						PriorityFeePerGasGwei: 2.0,
+					},
+				},
+			},
+		},
+	}
+
+	// Simulate a bid response
+	bidOp = <-bidder.in
+	if bidOp.rawTx != tx2.Raw[2:] {
+		t.Fatalf("expected raw transaction %s, got %s", tx1.Raw, bidOp.rawTx)
+	}
+	resC = make(chan optinbidder.BidStatus, 3)
+	resC <- optinbidder.BidStatus{
+		Type: optinbidder.BidStatusNoOfProviders,
+		Arg:  1,
+	}
+	resC <- optinbidder.BidStatus{
+		Type: optinbidder.BidStatusAttempted,
+		Arg:  uint64(2),
+	}
+	// Simulate retry due to incomplete commitments
+	close(resC)
+	bidder.out <- resC
+
+	// Simulate non opted in block
+	bidder.optinEstimate <- 18
+
+	// Simulate a price estimate
+	testPricer.out <- &pricer.BlockPrices{
+		CurrentBlockNumber: 1,
+		MsSinceLastBlock:   1000,
 		Prices: []pricer.BlockPrice{
 			{
 				BlockNumber: 2,

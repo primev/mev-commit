@@ -316,6 +316,20 @@ BID_LOOP:
 		result, err = t.sendBid(ctx, txn)
 		switch {
 		case err != nil:
+			if retryErr, ok := err.(*errRetry); ok {
+				t.logger.Warn(
+					"Retrying bid due to error",
+					"error", retryErr.err,
+					"retryAfter", retryErr.retryAfter,
+				)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(retryErr.retryAfter):
+					// Wait for the specified retry duration before retrying
+				}
+				continue
+			}
 			return err
 		case result.optedInSlot:
 			if result.noOfProviders == len(result.commitments) {
@@ -347,9 +361,12 @@ BID_LOOP:
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
-			// If not all builders committed, we will retry the bid process
-			// till we either get a primev opted in slot or the user cancels the operation
-			continue
+			blockTimeUsed := time.Since(result.startTime).Milliseconds() + result.msSinceLastBlock
+			if blockTimeUsed < (blockTime*1000 - bidTimeout.Milliseconds()) {
+				// If not all builders committed, we will retry the bid process
+				// immediately if we have atleast 3 seconds left before the next block
+				continue
+			}
 		}
 
 		// Wait for block number to be updated to confirm transaction. If failed
