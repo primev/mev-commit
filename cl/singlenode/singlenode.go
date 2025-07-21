@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/primev/mev-commit/cl/blockbuilder"
 	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/singlenode/api"
@@ -35,6 +36,8 @@ type Config struct {
 	HealthAddr               string
 	PostgresDSN              string
 	APIAddr                  string
+	NonAuthRpcURL            string
+	TxPoolPollingInterval    time.Duration
 }
 
 type BlockBuilder interface {
@@ -58,6 +61,7 @@ type SingleNodeApp struct {
 	wg                sync.WaitGroup
 	connectionStatus  sync.Mutex
 	connectionRefused bool
+	rpcClient         *rpc.Client
 }
 
 // NewSingleNodeApp creates and initializes a new SingleNodeApp.
@@ -88,6 +92,16 @@ func NewSingleNodeApp(
 		return nil, err
 	}
 
+	rpcClient, err := rpc.DialContext(ctx, cfg.NonAuthRpcURL)
+	if err != nil {
+		cancel()
+		logger.Error(
+			"failed to create non-authenticated Ethereum RPC client",
+			"error", err,
+		)
+		return nil, err
+	}
+
 	stateMgr := localstate.NewLocalStateManager(logger.With("component", "LocalStateManager"))
 	bb := blockbuilder.NewBlockBuilder(
 		stateMgr,
@@ -96,6 +110,7 @@ func NewSingleNodeApp(
 		cfg.EVMBuildDelay,
 		cfg.EVMBuildDelayEmptyBlocks,
 		cfg.PriorityFeeReceipt,
+		rpcClient,
 	)
 
 	var pRepo types.PayloadRepository
@@ -138,6 +153,7 @@ func NewSingleNodeApp(
 		appCtx:            ctx,
 		cancel:            cancel,
 		connectionRefused: false,
+		rpcClient:         rpcClient,
 	}, nil
 }
 
@@ -270,7 +286,8 @@ func (app *SingleNodeApp) runLoop() {
 
 			if err != nil {
 				if errors.Is(err, blockbuilder.ErrEmptyBlock) {
-					app.logger.Info("empty block produced, waiting for new payload")
+					app.logger.Debug("no pending transactions, will try again after timeout", "timeout", app.cfg.TxPoolPollingInterval)
+					time.Sleep(app.cfg.TxPoolPollingInterval)
 					continue
 				} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					app.logger.Info("context canceled or deadline exceeded, stopping block production")
@@ -369,6 +386,11 @@ func (app *SingleNodeApp) Stop() {
 		} else {
 			app.logger.Info("Payload repository closed.")
 		}
+	}
+
+	if app.rpcClient != nil {
+		app.rpcClient.Close()
+		app.logger.Info("Ethereum client closed.")
 	}
 
 	app.logger.Info("SingleNodeApp stopped.")
