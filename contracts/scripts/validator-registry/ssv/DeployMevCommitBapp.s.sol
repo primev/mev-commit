@@ -29,7 +29,7 @@ contract RegisterBapp is Script {
         mevCommitBapp.registerBApp(
             tokens,
             new uint32[](1),
-            "https://github.com/primev/mev-commit/blob/main/static/avs-metadata.json"
+            "https://raw.githubusercontent.com/primev/mev-commit/refs/heads/main/static/avs-metadata.json"
         );
         vm.stopBroadcast();
     }
