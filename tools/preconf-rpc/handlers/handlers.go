@@ -192,11 +192,11 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 
 func getNextBlockPrice(blockPrices *pricer.BlockPrices) *big.Int {
 	for _, price := range blockPrices.Prices {
-		if price.BlockNumber == blockPrices.CurrentBlockNumber {
+		if price.BlockNumber == blockPrices.CurrentBlockNumber+1 {
 			for _, estimate := range price.EstimatedPrices {
 				if estimate.Confidence == 99 {
-					priceInWei := estimate.PriorityFeePerGasGwei * 1e9                                     // Convert Gwei to Wei
-					return new(big.Int).Mul(new(big.Int).SetUint64(uint64(priceInWei)), big.NewInt(21000)) // Estimate for a standard transaction
+					priceInWei := estimate.PriorityFeePerGasGwei * 1e9
+					return new(big.Int).Mul(new(big.Int).SetUint64(uint64(priceInWei)), big.NewInt(21000))
 				}
 			}
 		}

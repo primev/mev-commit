@@ -177,11 +177,10 @@ var (
 	}
 
 	optionBlocknativeAPIKey = &cli.StringFlag{
-		Name:     "blocknative-api-key",
-		Usage:    "Blocknative API key for transaction pricing",
-		EnvVars:  []string{"PRECONF_RPC_BLOCKNATIVE_API_KEY"},
-		Value:    "",
-		Required: true,
+		Name:    "blocknative-api-key",
+		Usage:   "Blocknative API key for transaction pricing",
+		EnvVars: []string{"PRECONF_RPC_BLOCKNATIVE_API_KEY"},
+		Value:   "",
 	}
 
 	optionLogFmt = &cli.StringFlag{

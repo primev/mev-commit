@@ -365,9 +365,9 @@ BID_LOOP:
 				"bidAmount", result.bidAmount.String(),
 			)
 			blockTimeUsed := time.Since(result.startTime).Milliseconds() + result.msSinceLastBlock
-			if blockTimeUsed < (blockTime*1000 - bidTimeout.Milliseconds()) {
+			if blockTimeUsed < (blockTime*1000 - 1000) {
 				// If not all builders committed, we will retry the bid process
-				// immediately if we have atleast 3 seconds left before the next block
+				// immediately if we have atleast 1 second left before the next block
 				continue
 			}
 		}
