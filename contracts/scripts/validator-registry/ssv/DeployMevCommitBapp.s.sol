@@ -23,7 +23,7 @@ contract RegisterBapp is Script {
     function run() external {
         require(block.chainid == 560048, "must deploy on hoodi");
         vm.startBroadcast();
-        MevCommitBapp mevCommitBapp = MevCommitBapp(payable(0x7B55f595e6Db48d643e2263974776469f3d9aE41));
+        MevCommitBapp mevCommitBapp = MevCommitBapp(payable(0xAebd263517047715f539D1674f86D2ee622753F4));
         address[] memory tokens = new address[](1);
         tokens[0] = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
         mevCommitBapp.registerBApp(
