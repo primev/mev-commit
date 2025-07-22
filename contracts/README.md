@@ -45,6 +45,8 @@ This changelog tracks "core" contract deployments on the mev-commit chain. This 
 | Timestamp (UTC)             | Contract            | New Impl Version      | Upgrade Tag       |
 |-----------------------------|---------------------|-----------------------|-------------------|
 | April 7th 2025 | Oracle | OracleV2 | No tag, see commit `bc4ebddd70f23d58ba6f9b2e8701e7f45d89cf82` in `release/v1.1.x`. |
+| July 22nd 2025 | BidderRegistry | BidderRegistryV2 | `v1.1.5` in `release/v1.1.x`. |
+| July 22nd 2025 | ProviderRegistry | ProviderRegistryV2 | `v1.1.5` in `release/v1.1.x`. |
 
 ## L1 Deployer CLI
 
