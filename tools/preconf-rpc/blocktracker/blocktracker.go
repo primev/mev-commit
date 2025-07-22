@@ -63,7 +63,7 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 					}
 					_ = b.blocks.Add(blockNo, block)
 					b.latestBlockNo.Store(block.NumberU64())
-					b.log.Info("New block detected", "number", block.NumberU64(), "hash", block.Hash().Hex())
+					b.log.Debug("New block detected", "number", block.NumberU64(), "hash", block.Hash().Hex())
 					b.triggerCheck()
 				}
 			}

@@ -176,21 +176,28 @@ func (m *mockBidder) Bid(
 }
 
 type mockPricer struct {
-	in  chan *types.Transaction
-	out chan *pricer.BlockPrice
+	out    chan *pricer.BlockPrices
+	errOut chan error
 }
 
 func (m *mockPricer) EstimatePrice(
 	ctx context.Context,
-	txn *types.Transaction,
-) (*pricer.BlockPrice, error) {
-	m.in <- txn
+) (*pricer.BlockPrices, error) {
 	select {
-	case price := <-m.out:
-		if price == nil {
+	case err := <-m.errOut:
+		if err != nil {
+			return nil, err
+		}
+	default:
+		// No error, continue
+	}
+
+	select {
+	case prices := <-m.out:
+		if prices == nil {
 			return nil, errors.New("nil price returned")
 		}
-		return price, nil
+		return prices, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -230,8 +237,8 @@ func TestSender(t *testing.T) {
 
 	st := newMockStore()
 	testPricer := &mockPricer{
-		in:  make(chan *types.Transaction, 10),
-		out: make(chan *pricer.BlockPrice, 10),
+		out:    make(chan *pricer.BlockPrices, 10),
+		errOut: make(chan error, 1),
 	}
 	bidder := &mockBidder{
 		optinEstimate: make(chan int64, 10),
@@ -243,7 +250,7 @@ func TestSender(t *testing.T) {
 		out: make(chan bool, 10),
 	}
 
-	sndr := sender.NewTxSender(
+	sndr, err := sender.NewTxSender(
 		st,
 		bidder,
 		testPricer,
@@ -252,6 +259,9 @@ func TestSender(t *testing.T) {
 		big.NewInt(1), // Settlement chain ID
 		util.NewTestLogger(os.Stdout),
 	)
+	if err != nil {
+		t.Fatalf("failed to create sender: %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -271,7 +281,7 @@ func TestSender(t *testing.T) {
 		Raw:    "0x1234567890123456789012345678901234567890",
 	}
 
-	if err := st.AddBalance(ctx, tx1.Sender, big.NewInt(1000)); err != nil {
+	if err := st.AddBalance(ctx, tx1.Sender, big.NewInt(5e18)); err != nil {
 		t.Fatalf("failed to add balance: %v", err)
 	}
 
@@ -280,16 +290,36 @@ func TestSender(t *testing.T) {
 	}
 
 	// Simulate opted in block
+	bidder.optinEstimate <- 2
+
+	// simulate error and ensure retry happens
+	testPricer.errOut <- errors.New("simulated error for testing")
+
 	bidder.optinEstimate <- 1
 
 	// Simulate a price estimate
-	op := <-testPricer.in
-	if op.Hash().Hex() != tx1.Hash().Hex() {
-		t.Fatalf("expected transaction hash %s, got %s", tx1.Hash().Hex(), op.Hash().Hex())
-	}
-	testPricer.out <- &pricer.BlockPrice{
-		BlockNumber: 1,
-		BidAmount:   big.NewInt(100),
+	testPricer.out <- &pricer.BlockPrices{
+		CurrentBlockNumber: 0,
+		MsSinceLastBlock:   1000,
+		Prices: []pricer.BlockPrice{
+			{
+				BlockNumber: 1,
+				EstimatedPrices: []pricer.EstimatedPrice{
+					{
+						Confidence:            90,
+						PriorityFeePerGasGwei: 1.0,
+					},
+					{
+						Confidence:            95,
+						PriorityFeePerGasGwei: 1.5,
+					},
+					{
+						Confidence:            99,
+						PriorityFeePerGasGwei: 2.0,
+					},
+				},
+			},
+		},
 	}
 
 	// Simulate a bid response
@@ -346,7 +376,7 @@ func TestSender(t *testing.T) {
 		Transaction: types.NewTransaction(
 			2,
 			common.HexToAddress("0x1234567890123456789012345678901234567890"),
-			big.NewInt(1000),
+			big.NewInt(1e18),
 			21000,
 			big.NewInt(1),
 			nil,
@@ -364,13 +394,74 @@ func TestSender(t *testing.T) {
 	bidder.optinEstimate <- 20
 
 	// Simulate a price estimate
-	op = <-testPricer.in
-	if op.Hash().Hex() != tx2.Hash().Hex() {
-		t.Fatalf("expected transaction hash %s, got %s", tx2.Hash().Hex(), op.Hash().Hex())
+	testPricer.out <- &pricer.BlockPrices{
+		CurrentBlockNumber: 1,
+		MsSinceLastBlock:   1000,
+		Prices: []pricer.BlockPrice{
+			{
+				BlockNumber: 2,
+				EstimatedPrices: []pricer.EstimatedPrice{
+					{
+						Confidence:            90,
+						PriorityFeePerGasGwei: 1.0,
+					},
+					{
+						Confidence:            95,
+						PriorityFeePerGasGwei: 1.5,
+					},
+					{
+						Confidence:            99,
+						PriorityFeePerGasGwei: 2.0,
+					},
+				},
+			},
+		},
 	}
-	testPricer.out <- &pricer.BlockPrice{
-		BlockNumber: 2,
-		BidAmount:   big.NewInt(100),
+
+	// Simulate a bid response
+	bidOp = <-bidder.in
+	if bidOp.rawTx != tx2.Raw[2:] {
+		t.Fatalf("expected raw transaction %s, got %s", tx1.Raw, bidOp.rawTx)
+	}
+	resC = make(chan optinbidder.BidStatus, 3)
+	resC <- optinbidder.BidStatus{
+		Type: optinbidder.BidStatusNoOfProviders,
+		Arg:  1,
+	}
+	resC <- optinbidder.BidStatus{
+		Type: optinbidder.BidStatusAttempted,
+		Arg:  uint64(2),
+	}
+	// Simulate retry due to incomplete commitments
+	close(resC)
+	bidder.out <- resC
+
+	// Simulate non opted in block
+	bidder.optinEstimate <- 18
+
+	// Simulate a price estimate
+	testPricer.out <- &pricer.BlockPrices{
+		CurrentBlockNumber: 1,
+		MsSinceLastBlock:   1000,
+		Prices: []pricer.BlockPrice{
+			{
+				BlockNumber: 2,
+				EstimatedPrices: []pricer.EstimatedPrice{
+					{
+						Confidence:            90,
+						PriorityFeePerGasGwei: 1.0,
+					},
+					{
+						Confidence:            95,
+						PriorityFeePerGasGwei: 1.5,
+					},
+					{
+						Confidence:            99,
+						PriorityFeePerGasGwei: 2.0,
+					},
+				},
+			},
+		},
 	}
 
 	// Simulate a bid response

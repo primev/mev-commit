@@ -176,6 +176,13 @@ var (
 		},
 	}
 
+	optionBlocknativeAPIKey = &cli.StringFlag{
+		Name:    "blocknative-api-key",
+		Usage:   "Blocknative API key for transaction pricing",
+		EnvVars: []string{"PRECONF_RPC_BLOCKNATIVE_API_KEY"},
+		Value:   "",
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -246,6 +253,7 @@ func main() {
 			optionAutoDepositAmount,
 			optionDepositAddress,
 			optionBridgeAddress,
+			optionBlocknativeAPIKey,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -316,6 +324,7 @@ func main() {
 				Signer:                 signer,
 				DepositAddress:         common.HexToAddress(c.String(optionDepositAddress.Name)),
 				BridgeAddress:          common.HexToAddress(c.String(optionBridgeAddress.Name)),
+				PricerAPIKey:           c.String(optionBlocknativeAPIKey.Name),
 			}
 
 			s, err := service.New(&config)

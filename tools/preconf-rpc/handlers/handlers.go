@@ -22,7 +22,7 @@ type Bidder interface {
 }
 
 type Pricer interface {
-	EstimatePrice(ctx context.Context, txn *types.Transaction) (*pricer.BlockPrice, error)
+	EstimatePrice(ctx context.Context) (*pricer.BlockPrices, error)
 }
 
 type Store interface {
@@ -136,10 +136,7 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 		return json.RawMessage(fmt.Sprintf(`{"timeInSecs": "%d"}`, timeToOptIn)), false, nil
 	})
 	server.RegisterHandler("mevcommit_estimateDeposit", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
-		blockPrice, err := h.pricer.EstimatePrice(
-			ctx,
-			types.NewTransaction(0, h.depositAddress, big.NewInt(0), 21000, big.NewInt(0), nil),
-		)
+		blockPrices, err := h.pricer.EstimatePrice(ctx)
 		if err != nil {
 			h.logger.Error("Failed to estimate deposit price", "error", err)
 			return nil, false, rpcserver.NewJSONErr(
@@ -147,15 +144,9 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 				"failed to estimate deposit price",
 			)
 		}
-		if blockPrice == nil {
-			h.logger.Warn("No block price estimated for deposit")
-			return nil, false, rpcserver.NewJSONErr(
-				rpcserver.CodeCustomError,
-				"no block price available for deposit",
-			)
-		}
+		cost := getNextBlockPrice(blockPrices)
 		result := map[string]interface{}{
-			"bidAmount":      blockPrice.BidAmount.String(),
+			"bidAmount":      cost.String(),
 			"depositAddress": h.depositAddress.Hex(),
 		}
 
@@ -167,14 +158,11 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 				"failed to marshal deposit estimate",
 			)
 		}
-		h.logger.Debug("Estimated deposit price", "bidAmount", blockPrice.BidAmount, "depositAddress", h.depositAddress.Hex())
+		h.logger.Debug("Estimated deposit price", "bidAmount", cost, "depositAddress", h.depositAddress.Hex())
 		return resultJSON, false, nil
 	})
 	server.RegisterHandler("mevcommit_estimateBridge", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
-		blockPrice, err := h.pricer.EstimatePrice(
-			ctx,
-			types.NewTransaction(0, h.bridgeAddress, big.NewInt(0), 21000, big.NewInt(0), nil),
-		)
+		blockPrices, err := h.pricer.EstimatePrice(ctx)
 		if err != nil {
 			h.logger.Error("Failed to estimate bridge price", "error", err)
 			return nil, false, rpcserver.NewJSONErr(
@@ -182,11 +170,8 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 				"failed to estimate bridge price",
 			)
 		}
-		if blockPrice == nil {
-			h.logger.Warn("No block price estimated for bridge")
-			return nil, true, nil // No price available, proxy
-		}
-		bridgeCost := new(big.Int).Mul(blockPrice.BidAmount, big.NewInt(2))
+		cost := getNextBlockPrice(blockPrices)
+		bridgeCost := new(big.Int).Mul(cost, big.NewInt(2))
 		result := map[string]interface{}{
 			"bidAmount":     bridgeCost.String(),
 			"bridgeAddress": h.bridgeAddress.Hex(),
@@ -200,9 +185,24 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 				"failed to marshal bridge estimate",
 			)
 		}
-		h.logger.Debug("Estimated bridge price", "bidAmount", blockPrice.BidAmount, "bridgeAddress", h.bridgeAddress.Hex())
+		h.logger.Debug("Estimated bridge price", "bidAmount", bridgeCost, "bridgeAddress", h.bridgeAddress.Hex())
 		return resultJSON, false, nil
 	})
+}
+
+func getNextBlockPrice(blockPrices *pricer.BlockPrices) *big.Int {
+	for _, price := range blockPrices.Prices {
+		if price.BlockNumber == blockPrices.CurrentBlockNumber+1 {
+			for _, estimate := range price.EstimatedPrices {
+				if estimate.Confidence == 99 {
+					priceInWei := estimate.PriorityFeePerGasGwei * 1e9
+					return new(big.Int).Mul(new(big.Int).SetUint64(uint64(priceInWei)), big.NewInt(21000))
+				}
+			}
+		}
+	}
+
+	return big.NewInt(0) // Return zero if no suitable estimate is found
 }
 
 func (h *rpcMethodHandler) handleGetBlockByHash(
