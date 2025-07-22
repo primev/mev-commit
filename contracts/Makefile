@@ -66,3 +66,18 @@ vault-actions:
 		--keystore $$KEYSTORE \
 		--password $$PASSWORD \
 		--broadcast
+
+# Note if running upgrade on old geth chain, you need to set evm_version = "london" in foundry.toml
+# PUSH0 opcode is not supported with older versions of geth
+upgrade-registries:
+	forge clean
+	forge script scripts/core/UpgradeRegistries.s.sol:UpgradeRegistries \
+		--via-ir \
+		--rpc-url https://chainrpc.mev-commit.xyz/ \
+		--keystore $$KEYSTORE \
+		--password $$PASSWORD \
+		--sender $$SENDER \
+		--priority-gas-price 50000000 \
+        --with-gas-price 60000000 \
+		--verbosity 5 \
+		--broadcast
