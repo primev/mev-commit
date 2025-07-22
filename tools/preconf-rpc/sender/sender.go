@@ -51,6 +51,7 @@ var (
 	ErrEmptyTransactionTo       = errors.New("empty transaction 'to' address")
 	ErrNegativeTransactionValue = errors.New("negative transaction value")
 	ErrZeroGasLimit             = errors.New("zero gas limit")
+	ErrTransactionCancelled     = errors.New("transaction cancelled by user")
 )
 
 type Transaction struct {
@@ -71,6 +72,7 @@ type Store interface {
 	AddBalance(ctx context.Context, account common.Address, amount *big.Int) error
 	DeductBalance(ctx context.Context, account common.Address, amount *big.Int) error
 	StoreTransaction(ctx context.Context, txn *Transaction, commitments []*bidderapiv1.Commitment) error
+	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*Transaction, error)
 }
 
 type Bidder interface {
@@ -119,9 +121,9 @@ type TxSender struct {
 	egCtx             context.Context
 	trigger           chan struct{}
 	workerPool        chan struct{}
-	inflightTxns      map[common.Hash]struct{}
+	inflightTxns      map[common.Hash]chan struct{}
 	inflightAccount   map[common.Address]struct{}
-	inflightMu        sync.Mutex
+	inflightMu        sync.RWMutex
 	txnAttemptHistory *lru.Cache[common.Hash, *txnAttempt]
 }
 
@@ -150,7 +152,7 @@ func NewTxSender(
 		logger:            logger.With("component", "TxSender"),
 		workerPool:        make(chan struct{}, 512),
 		trigger:           make(chan struct{}, 1),
-		inflightTxns:      make(map[common.Hash]struct{}),
+		inflightTxns:      make(map[common.Hash]chan struct{}),
 		inflightAccount:   make(map[common.Address]struct{}),
 		txnAttemptHistory: txnAttemptHistory,
 	}, nil
@@ -210,6 +212,57 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
+func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (bool, error) {
+	t.inflightMu.RLock()
+	cancel, found := t.inflightTxns[txnHash]
+	t.inflightMu.RUnlock()
+	if !found {
+		t.logger.Warn("Transaction not found in flight", "hash", txnHash.Hex())
+		return false, nil
+	}
+
+	t.logger.Info("Cancelling transaction", "hash", txnHash.Hex())
+	close(cancel) // Signal the transaction processing to stop
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			t.logger.Info("Context cancelled while waiting for transaction cancellation")
+			return false, ctx.Err()
+		case <-ticker.C:
+			t.inflightMu.RLock()
+			_, stillInFlight := t.inflightTxns[txnHash]
+			t.inflightMu.RUnlock()
+			if !stillInFlight {
+				txn, err := t.store.GetTransactionByHash(ctx, txnHash)
+				switch {
+				case err != nil:
+					t.logger.Error("Failed to get transaction by hash", "hash", txnHash.Hex(), "error", err)
+					return false, fmt.Errorf("failed to get transaction by hash: %w", err)
+				case txn.Status == TxStatusFailed:
+					if txn.Details == ErrTransactionCancelled.Error() {
+						t.logger.Info("Transaction successfully cancelled", "hash", txnHash.Hex())
+						return true, nil
+					}
+					t.logger.Warn(
+						"Transaction failed with other error",
+						"hash", txnHash.Hex(),
+						"status", txn.Status,
+						"details", txn.Details,
+					)
+					return false, fmt.Errorf("transaction failed: %s", txn.Details)
+				case txn.Status == TxStatusPreConfirmed || txn.Status == TxStatusConfirmed:
+					t.logger.Info("Transaction already confirmed or pre-confirmed", "hash", txnHash.Hex(), "status", txn.Status)
+					return false, errors.New("transaction already confirmed or pre-confirmed")
+				}
+			}
+		}
+	}
+}
+
 func (t *TxSender) Start(ctx context.Context) chan struct{} {
 	t.eg, t.egCtx = errgroup.WithContext(ctx)
 	done := make(chan struct{})
@@ -237,23 +290,24 @@ func (t *TxSender) Start(ctx context.Context) chan struct{} {
 	return done
 }
 
-func (t *TxSender) markInflight(txn *Transaction) bool {
+func (t *TxSender) markInflight(txn *Transaction) (bool, <-chan struct{}) {
 	t.inflightMu.Lock()
 	defer t.inflightMu.Unlock()
 
 	if _, ok := t.inflightTxns[txn.Hash()]; ok {
 		t.logger.Debug("Transaction already in flight, skipping", "hash", txn.Hash().Hex())
-		return false
+		return false, nil
 	}
 	if _, ok := t.inflightAccount[txn.Sender]; ok {
 		t.logger.Debug("Transaction sender already has an inflight transaction, skipping", "sender", txn.Sender.Hex())
 		t.triggerSender() // Trigger to reprocess later
-		return false
+		return false, nil
 	}
 
-	t.inflightTxns[txn.Hash()] = struct{}{}
+	cancel := make(chan struct{})
+	t.inflightTxns[txn.Hash()] = cancel
 	t.inflightAccount[txn.Sender] = struct{}{}
-	return true
+	return true, cancel
 }
 
 func (t *TxSender) markCompleted(txn *Transaction) {
@@ -284,14 +338,15 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 		case t.workerPool <- struct{}{}:
 			t.eg.Go(func() error {
 				defer func() { <-t.workerPool }()
-				if !t.markInflight(txn) {
+				canExecute, cancel := t.markInflight(txn)
+				if !canExecute {
 					// Transaction is already being processed or sender has an inflight transaction
 					return nil
 				}
 				defer t.markCompleted(txn)
 
 				t.logger.Info("Processing transaction", "sender", txn.Sender.Hex(), "type", txn.Type)
-				if err := t.processTransaction(ctx, txn); err != nil {
+				if err := t.processTransaction(ctx, txn, cancel); err != nil {
 					t.logger.Error("Failed to process transaction", "sender", txn.Sender.Hex(), "error", err)
 					txn.Status = TxStatusFailed
 					txn.Details = err.Error()
@@ -303,7 +358,7 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 	}
 }
 
-func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction) error {
+func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction, cancel <-chan struct{}) error {
 	var (
 		result bidResult
 		err    error
@@ -313,6 +368,8 @@ BID_LOOP:
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-cancel:
+			return ErrTransactionCancelled
 		default:
 		}
 
@@ -330,6 +387,8 @@ BID_LOOP:
 					return ctx.Err()
 				case <-time.After(retryErr.retryAfter):
 					// Wait for the specified retry duration before retrying
+				case <-cancel:
+					return ErrTransactionCancelled
 				}
 				continue
 			}
