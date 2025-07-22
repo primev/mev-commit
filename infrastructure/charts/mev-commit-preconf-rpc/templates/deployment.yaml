@@ -67,6 +67,11 @@ spec:
               value: {{ .Values.postgresql.password | quote }}
             - name: PRECONF_RPC_PG_DBNAME
               value: {{ .Values.postgresql.database | quote }}
+            - name: PRECONF_RPC_BLOCKNATIVE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "preconf-rpc.fullname" . }}-blocknative-api-key
+                  key: api-key
           securityContext:
             runAsUser: 0
             runAsGroup: 0
