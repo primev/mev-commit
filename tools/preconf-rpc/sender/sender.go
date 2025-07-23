@@ -516,7 +516,10 @@ func (t *TxSender) sendBid(
 
 	start := time.Now()
 
-	prices, err := t.pricer.EstimatePrice(ctx)
+	cctx, cancel := context.WithTimeout(ctx, bidTimeout)
+	defer cancel()
+
+	prices, err := t.pricer.EstimatePrice(cctx)
 	if err != nil {
 		t.logger.Error("Failed to estimate transaction price", "error", err)
 		return bidResult{}, &errRetry{
@@ -574,9 +577,6 @@ func (t *TxSender) sendBid(
 		}
 		slashAmount = new(big.Int).Set(txn.Value())
 	}
-
-	cctx, cancel := context.WithTimeout(ctx, bidTimeout)
-	defer cancel()
 
 	bidC, err := t.bidder.Bid(
 		cctx,

@@ -38,6 +38,7 @@ func newMockStore() *mockStore {
 		nonce:            make(map[common.Address]uint64),
 		balances:         make(map[common.Address]*big.Int),
 		preconfirmedTxns: make(chan result, 10),
+		byHash:           make(map[common.Hash]*sender.Transaction),
 	}
 }
 
