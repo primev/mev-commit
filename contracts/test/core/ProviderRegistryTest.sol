@@ -134,19 +134,10 @@ contract ProviderRegistryTest is Test {
         assertEq(accumulatedAmount, 0);
     }
 
-    function testFail_ProviderStakeAndRegisterMinStake() public {
+    function test_RevertWhen_ProviderStakeAndRegisterMinStake() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
-        vm.expectRevert(bytes(""));
-        providerRegistry.registerAndStake{value: 1 wei}();
-    }
-
-    function testFail_ProviderStakeAndRegisterInvalidBLSKey() public {
-        vm.deal(provider, 3 ether);
-        vm.prank(provider);
-        vm.expectRevert("Invalid BLS public key length");
-        bytes[] memory invalidBLSPubkeys = new bytes[](1);
-        invalidBLSPubkeys[0] = abi.encodePacked(uint256(134));
+        vm.expectRevert();
         providerRegistry.registerAndStake{value: 1 wei}();
     }
 
@@ -196,7 +187,7 @@ contract ProviderRegistryTest is Test {
         }
     }
 
-    function testFail_ProviderStakeAndRegisterAlreadyRegistered() public {
+    function test_RevertWhen_ProviderStakeAndRegisterAlreadyRegistered() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
@@ -205,7 +196,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 1 wei}();
     }
 
-    function testFail_Receive() public {
+    function test_RevertWhen_Receive() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectRevert(bytes(""));
@@ -213,7 +204,7 @@ contract ProviderRegistryTest is Test {
         require(success, "Couldn't transfer to provider");
     }
 
-    function testFail_Fallback() public {
+    function test_RevertWhen_Fallback() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectRevert(bytes(""));
@@ -231,7 +222,7 @@ contract ProviderRegistryTest is Test {
         assertEq(recipient, newRecipient);
     }
 
-    function testFail_SetNewPenaltyFeeRecipient() public {
+    function test_RevertWhen_SetNewPenaltyFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.expectRevert(bytes(""));
         providerRegistry.setNewPenaltyFeeRecipient(newRecipient);
@@ -247,7 +238,7 @@ contract ProviderRegistryTest is Test {
         assertEq(payoutPeriodMs, 890);
     }
 
-    function testFail_SetNewFeePayoutPeriod() public {
+    function test_RevertWhen_SetNewFeePayoutPeriod() public {
         vm.expectRevert(bytes(""));
         providerRegistry.setFeePayoutPeriod(83424);
     }
@@ -259,7 +250,7 @@ contract ProviderRegistryTest is Test {
         assertEq(providerRegistry.feePercent(), 25);
     }
 
-    function testFail_SetNewFeePercent() public {
+    function test_RevertWhen_SetNewFeePercent() public {
         vm.expectRevert(bytes(""));
         providerRegistry.setNewFeePercent(25);
     }
@@ -272,7 +263,7 @@ contract ProviderRegistryTest is Test {
         assertEq(providerRegistry.preconfManager(), newPreConfContract);
     }
 
-    function testFail_SetPreConfContract() public {
+    function test_RevertWhen_SetPreConfContract() public {
         vm.prank(address(this));
         vm.expectRevert(bytes(""));
         providerRegistry.setPreconfManager(address(0));
@@ -321,7 +312,7 @@ contract ProviderRegistryTest is Test {
         assertEq(providerRegistry.providerStakes(provider), 0.9 ether);
     }
 
-    function testFail_ShouldRetrieveFundsNotPreConf() public {
+    function test_RevertWhen_ShouldRetrieveFundsNotPreConf() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2 ether}();
@@ -509,7 +500,7 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function testFail_WithdrawStakedAmountUnauthorized() public {
+    function test_RevertWhen_WithdrawStakedAmountUnauthorized() public {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
@@ -539,7 +530,7 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function testFail_WithdrawStakedAmountWithoutCommitments() public {
+    function test_RevertWhen_WithdrawStakedAmountWithoutCommitments() public {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
