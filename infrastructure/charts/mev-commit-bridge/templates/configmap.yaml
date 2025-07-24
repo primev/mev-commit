@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bridge-relayer.fullname" . }}-init
+  labels:
+    app.kubernetes.io/name: {{ include "bridge-relayer.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: init
+    {{- include "bridge-relayer.labels" . | nindent 4 }}
+data:
+  keystore-init.sh: |-
+    {{- .Files.Get "scripts/keystore-init.sh" | nindent 4 }}
