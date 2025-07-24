@@ -27,6 +27,7 @@ contract ProviderRegistryTest is Test {
         hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
     uint256 public penaltyFeePayoutPeriodMs;
+    mapping(address => uint256) public commitmentsCount; // For use in test_RevertWhen_WithdrawStakedAmountWithoutCommitments
     event ProviderRegistered(address indexed provider, uint256 stakedAmount);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
@@ -192,24 +193,22 @@ contract ProviderRegistryTest is Test {
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
 
-        vm.expectRevert(bytes(""));
+        vm.expectRevert();
+        vm.prank(provider);
         providerRegistry.registerAndStake{value: 1 wei}();
     }
 
     function test_RevertWhen_Receive() public {
-        vm.deal(provider, 3 ether);
         vm.prank(provider);
-        vm.expectRevert(bytes(""));
-        (bool success, ) = address(providerRegistry).call{value: 1 wei}("");
-        require(success, "Couldn't transfer to provider");
+        vm.expectRevert();
+        payable(address(providerRegistry)).transfer(1 wei);
     }
 
     function test_RevertWhen_Fallback() public {
-        vm.deal(provider, 3 ether);
         vm.prank(provider);
-        vm.expectRevert(bytes(""));
-        (bool success, ) = address(providerRegistry).call{value: 1 wei}("");
-        require(success, "Couldn't transfer to provider");
+        bytes memory data = abi.encode(1, 2);
+        (bool success, ) = address(providerRegistry).call{value: 1 wei}(data);
+        require(!success, "should revert");
     }
 
     function test_SetNewPenaltyFeeRecipient() public {
@@ -224,7 +223,8 @@ contract ProviderRegistryTest is Test {
 
     function test_RevertWhen_SetNewPenaltyFeeRecipient() public {
         address newRecipient = vm.addr(2);
-        vm.expectRevert(bytes(""));
+        vm.expectRevert();
+        vm.prank(vm.addr(1));
         providerRegistry.setNewPenaltyFeeRecipient(newRecipient);
     }
 
@@ -239,7 +239,8 @@ contract ProviderRegistryTest is Test {
     }
 
     function test_RevertWhen_SetNewFeePayoutPeriod() public {
-        vm.expectRevert(bytes(""));
+        vm.expectRevert();
+        vm.prank(vm.addr(1));
         providerRegistry.setFeePayoutPeriod(83424);
     }
 
@@ -251,7 +252,8 @@ contract ProviderRegistryTest is Test {
     }
 
     function test_RevertWhen_SetNewFeePercent() public {
-        vm.expectRevert(bytes(""));
+        vm.expectRevert();
+        vm.prank(vm.addr(1));
         providerRegistry.setNewFeePercent(25);
     }
 
@@ -264,8 +266,8 @@ contract ProviderRegistryTest is Test {
     }
 
     function test_RevertWhen_SetPreConfContract() public {
-        vm.prank(address(this));
-        vm.expectRevert(bytes(""));
+        vm.prank(vm.addr(1));
+        vm.expectRevert();
         providerRegistry.setPreconfManager(address(0));
     }
 
@@ -318,13 +320,14 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}();
 
         address bidder = vm.addr(4);
-        vm.expectRevert(bytes(""));
+        uint256 residualBidPercentAfterDecay = providerRegistry.ONE_HUNDRED_PERCENT();
+        vm.expectRevert();
         providerRegistry.slash(
             1 ether,
             0,
             provider,
             payable(bidder),
-            providerRegistry.ONE_HUNDRED_PERCENT()
+            residualBidPercentAfterDecay
         );
     }
 
@@ -506,9 +509,13 @@ contract ProviderRegistryTest is Test {
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
 
-        vm.expectRevert(bytes(""));
         address wrongNewProvider = vm.addr(12);
         vm.prank(wrongNewProvider);
+        vm.expectRevert();
+        providerRegistry.unstake();
+
+        vm.prank(wrongNewProvider);
+        vm.expectRevert();
         providerRegistry.withdraw();
     }
 
@@ -531,14 +538,19 @@ contract ProviderRegistryTest is Test {
     }
 
     function test_RevertWhen_WithdrawStakedAmountWithoutCommitments() public {
+        providerRegistry.setPreconfManager(address(this));
+        commitmentsCount[vm.addr(8)] = 2;
+
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
 
+        vm.prank(newProvider);
         providerRegistry.unstake();
         vm.warp(block.timestamp + 24 hours); // Move forward in time
-        vm.expectRevert("Provider Commitments still pending");
+        vm.expectRevert(abi.encodeWithSelector(IProviderRegistry.ProviderCommitmentsPending.selector, newProvider, 2));
+        vm.prank(newProvider);
         providerRegistry.withdraw();
     }
 
