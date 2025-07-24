@@ -209,7 +209,8 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Return funds to a bidder's deposit (only callable by the pre-confirmations contract).
+     * @dev Returns escrowed funds to the bidder, since the provider is being slashed and didn't earn it.
+     * @dev This function is only callable from the pre-confirmations contract during slashing.
      * @dev reenterancy not necessary but still putting here for precaution
      * @param window The window for which the funds are being retrieved.
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
