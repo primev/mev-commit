@@ -152,13 +152,15 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert();
         vm.prank(bridgeUser);
-        settlementGateway.initiateTransfer{value: 0.9 ether}(bridgeUser, 0.9 ether);
-
-        assertEq(address(bridgeUser).balance, 0.01 ether);
-        assertEq(settlementGateway.transferInitiatedIdx(), 0);
-        assertEq(settlementGateway.transferFinalizedIdx(), 1);
+        // Foundry 1.2.x onward doesn't support vm.expectRevert() for catching EvmError: OutOfFunds. We'll use try/catch instead.
+        try settlementGateway.initiateTransfer{value: 0.9 ether}(bridgeUser, 0.9 ether) {
+            fail(); // Call should not succeed
+        } catch {
+            assertEq(address(bridgeUser).balance, 0.01 ether);
+            assertEq(settlementGateway.transferInitiatedIdx(), 0);
+            assertEq(settlementGateway.transferFinalizedIdx(), 1);
+        }
     }
 
     function test_InitiateTransferValueMismatch() public {
