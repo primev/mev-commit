@@ -1,0 +1,113 @@
+# templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bridge-relayer.fullname" . }}
+  labels:
+    {{- include "bridge-relayer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bridge-relayer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "bridge-relayer.selectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+      - name: keystore-init
+        image: alpine:latest
+        env:
+        - name: KEYSTORE_PATH
+          value: {{ .Values.keystore.dir | quote }}
+        - name: KEYSTORE_RETRIES
+          value: {{ .Values.keystore.retries | quote }}
+        volumeMounts:
+        - name: keystore-volume
+          mountPath: {{ .Values.keystore.dir }}
+        - name: keystore-secrets
+          mountPath: /secrets
+          readOnly: true
+        - name: keystore-init-script
+          mountPath: /scripts
+          readOnly: true
+        command: ["/bin/sh"]
+        args: ["/scripts/keystore-init.sh"]
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.config.httpPort }}
+          protocol: TCP
+        env:
+        - name: STANDARD_BRIDGE_RELAYER_HTTP_PORT
+          value: {{ .Values.config.httpPort | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_LOG_LEVEL
+          value: {{ .Values.config.logLevel | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_LOG_FMT
+          value: {{ .Values.config.logFormat | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_LOG_TAGS
+          value: {{ .Values.config.logTags | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR
+          value: {{ .Values.keystore.dir | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_KEYSTORE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "bridge-relayer.fullname" . }}-keystore
+              key: password.txt
+        - name: STANDARD_BRIDGE_RELAYER_L1_RPC_URLS
+          value: {{ join "," .Values.config.l1RpcUrls | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL
+          value: {{ .Values.config.settlementRpcUrl | quote }}
+        {{- if .Values.config.l1ContractAddr }}
+        - name: STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR
+          value: {{ .Values.config.l1ContractAddr | quote }}
+        {{- end }}
+        {{- if .Values.config.settlementContractAddr }}
+        - name: STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR
+          value: {{ .Values.config.settlementContractAddr | quote }}
+        {{- end }}
+        - name: STANDARD_BRIDGE_RELAYER_PG_HOST
+          value: {{ .Values.config.postgresql.host | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_PG_PORT
+          value: {{ .Values.config.postgresql.port | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_PG_USER
+          value: {{ .Values.config.postgresql.user | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_PG_PASSWORD
+          value: {{ .Values.config.postgresql.password | quote }}
+        - name: STANDARD_BRIDGE_RELAYER_PG_DBNAME
+          value: {{ .Values.config.postgresql.database | quote }}
+        volumeMounts:
+        - name: keystore-volume
+          mountPath: {{ .Values.keystore.dir }}
+          readOnly: true
+        {{- if .Values.probes.enabled }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.probes.liveness.path | default "/" }}
+            port: http
+          initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds | default 30 }}
+          periodSeconds: {{ .Values.probes.liveness.periodSeconds | default 10 }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.probes.readiness.path | default "/" }}
+            port: http
+          initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds | default 5 }}
+          periodSeconds: {{ .Values.probes.readiness.periodSeconds | default 5 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        command: ["mev-commit-bridge", "start"]
+      volumes:
+      - name: keystore-volume
+        emptyDir: {}
+      - name: keystore-secrets
+        secret:
+          secretName: {{ include "bridge-relayer.fullname" . }}-keystore
+      - name: keystore-init-script
+        configMap:
+          name: {{ include "bridge-relayer.fullname" . }}-init
+          defaultMode: 0755
