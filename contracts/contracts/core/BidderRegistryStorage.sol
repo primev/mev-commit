@@ -33,7 +33,7 @@ abstract contract BidderRegistryStorage {
     /// Mapping from bidder addresses and window numbers to their funds per window
     mapping(address => mapping(uint256 => uint256)) public maxBidPerBlock;
 
-    /// @dev Mapping from bidder addresses to their locked amount based on commitmentDigest
+    /// @dev Mapping from commitment digest for a bid, to its BidState
     mapping(bytes32 => IBidderRegistry.BidState) public bidPayment;
 
     /// @dev Funds rewarded to providers for fulfilling commitments
