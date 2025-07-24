@@ -56,11 +56,11 @@ keystore:
   refreshInterval: "12h"
   dir: "/app/keystore"
   retries: 3
-  awsSecretKey: "testenv/testnet/mev-commit"
+  awsSecretKey: ""
   properties:
-    keystore: "bridge_relayer_keystore"
-    keystoreFilename: "bridge_relayer_keystore_filename"
-    keystorePassword: "bridge_relayer_keystore_password"
+    keystore: ""
+    keystoreFilename: ""
+    keystorePassword: ""
 
 probes:
   enabled: true
