@@ -39,6 +39,7 @@ type BlockTracker interface {
 
 type Sender interface {
 	Enqueue(ctx context.Context, txn *sender.Transaction) error
+	CancelTransaction(ctx context.Context, txHash common.Hash) (bool, error)
 }
 
 type rpcMethodHandler struct {
@@ -122,8 +123,6 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	server.RegisterHandler("eth_getTransactionCount", h.handleGetTxCount)
 	server.RegisterHandler("eth_getBlockByHash", h.handleGetBlockByHash)
 	// Custom methods for MEV Commit
-	server.RegisterHandler("mevcommit_getTransactionCommitments", h.handleGetTxCommitments)
-	server.RegisterHandler("mevcommit_getBalance", h.handleMevCommitGetBalance)
 	server.RegisterHandler("mevcommit_optInBlock", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
 		timeToOptIn, err := h.bidder.Estimate()
 		if err != nil {
@@ -188,6 +187,9 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 		h.logger.Debug("Estimated bridge price", "bidAmount", bridgeCost, "bridgeAddress", h.bridgeAddress.Hex())
 		return resultJSON, false, nil
 	})
+	server.RegisterHandler("mevcommit_cancelTransaction", h.handleCancelTransaction)
+	server.RegisterHandler("mevcommit_getTransactionCommitments", h.handleGetTxCommitments)
+	server.RegisterHandler("mevcommit_getBalance", h.handleMevCommitGetBalance)
 }
 
 func getNextBlockPrice(blockPrices *pricer.BlockPrices) *big.Int {
@@ -585,4 +587,47 @@ func (h *rpcMethodHandler) handleMevCommitGetBalance(ctx context.Context, params
 	}
 
 	return json.RawMessage(fmt.Sprintf(`{"balance": "%s"}`, balance)), false, nil
+}
+
+func (r *rpcMethodHandler) handleCancelTransaction(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+	if len(params) != 1 {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeInvalidRequest,
+			"cancelTransaction requires exactly one parameter",
+		)
+	}
+
+	if params[0] == nil {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"cancelTransaction parameter cannot be null",
+		)
+	}
+
+	txHashStr := params[0].(string)
+	if len(txHashStr) < 2 || txHashStr[:2] != "0x" {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"cancelTransaction parameter must be a hex string starting with '0x'",
+		)
+	}
+
+	txHash := common.HexToHash(txHashStr)
+
+	cancelled, err := r.sndr.CancelTransaction(ctx, txHash)
+	if err != nil {
+		r.logger.Error("Failed to cancel transaction", "error", err, "txHash", txHash)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to cancel transaction",
+		)
+	}
+
+	if !cancelled {
+		r.logger.Info("Transaction not found or already processed", "txHash", txHash)
+		return json.RawMessage(fmt.Sprintf(`{"cancelled": false, "txHash": "%s"}`, txHash.Hex())), false, nil
+	}
+
+	r.logger.Info("Transaction cancelled successfully", "txHash", txHash)
+	return json.RawMessage(fmt.Sprintf(`{"cancelled": true, "txHash": "%s"}`, txHash.Hex())), false, nil
 }
