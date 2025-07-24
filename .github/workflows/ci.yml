@@ -131,7 +131,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: 1.2.3-stable
+          version: 1.2.3
 
       - name: Print Versions
         run: |
