@@ -28,6 +28,7 @@ type mockStore struct {
 	queued           map[common.Address][]*sender.Transaction
 	nonce            map[common.Address]uint64
 	balances         map[common.Address]*big.Int
+	byHash           map[common.Hash]*sender.Transaction
 	preconfirmedTxns chan result
 }
 
@@ -37,6 +38,7 @@ func newMockStore() *mockStore {
 		nonce:            make(map[common.Address]uint64),
 		balances:         make(map[common.Address]*big.Int),
 		preconfirmedTxns: make(chan result, 10),
+		byHash:           make(map[common.Hash]*sender.Transaction),
 	}
 }
 
@@ -136,7 +138,23 @@ func (m *mockStore) StoreTransaction(
 			break
 		}
 	}
+	m.byHash[txn.Hash()] = txn
 	return nil
+}
+
+func (m *mockStore) GetTransactionByHash(
+	ctx context.Context,
+	hash common.Hash,
+) (*sender.Transaction, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	txn, exists := m.byHash[hash]
+	if !exists {
+		return nil, errors.New("transaction not found")
+	}
+
+	return txn, nil
 }
 
 type bidOp struct {
@@ -522,6 +540,77 @@ func TestSender(t *testing.T) {
 	// Check that the commitments are as expected
 	if len(res.commitments) != 1 {
 		t.Fatalf("expected 1 commitment, got %d", len(res.commitments))
+	}
+
+	cancel()
+	<-done
+}
+
+func TestCancelTransaction(t *testing.T) {
+	t.Parallel()
+
+	st := newMockStore()
+	testPricer := &mockPricer{
+		out:    make(chan *pricer.BlockPrices, 10),
+		errOut: make(chan error, 1),
+	}
+	bidder := &mockBidder{
+		optinEstimate: make(chan int64),
+		in:            make(chan bidOp, 10),
+		out:           make(chan chan optinbidder.BidStatus, 10),
+	}
+	blockTracker := &mockBlockTracker{
+		in:  make(chan op, 10),
+		out: make(chan bool, 10),
+	}
+
+	sndr, err := sender.NewTxSender(
+		st,
+		bidder,
+		testPricer,
+		blockTracker,
+		&mockTransferer{},
+		big.NewInt(1), // Settlement chain ID
+		util.NewTestLogger(os.Stdout),
+	)
+	if err != nil {
+		t.Fatalf("failed to create sender: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := sndr.Start(ctx)
+
+	tx1 := &sender.Transaction{
+		Transaction: types.NewTransaction(
+			1,
+			common.HexToAddress("0x1234567890123456789012345678901234567890"),
+			big.NewInt(100),
+			21000,
+			big.NewInt(1),
+			nil,
+		),
+		Sender: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		Type:   sender.TxTypeRegular,
+		Raw:    "0x1234567890123456789012345678901234567890",
+	}
+
+	if err := st.AddBalance(ctx, tx1.Sender, big.NewInt(5e18)); err != nil {
+		t.Fatalf("failed to add balance: %v", err)
+	}
+
+	if err := sndr.Enqueue(ctx, tx1); err != nil {
+		t.Fatalf("failed to enqueue transaction: %v", err)
+	}
+
+	bidder.optinEstimate <- 18
+
+	cancelled, err := sndr.CancelTransaction(ctx, tx1.Hash())
+	if err != nil {
+		t.Fatalf("failed to cancel transaction: %v", err)
+	}
+	if !cancelled {
+		t.Fatal("expected transaction to be cancelled, but it was not")
 	}
 
 	cancel()
