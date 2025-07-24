@@ -155,7 +155,8 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Retrieve funds from a bidder's deposit (only callable by the pre-confirmations contract).
+     * @dev Converts bidder's deposited funds into withdrawable eth (reward) for the provider.
+     * @dev This function is only callable from the pre-confirmations contract during reward settlement.
      * @dev reenterancy not necessary but still putting here for precaution
      * @param windowToSettle The window for which the funds are being retrieved.
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
@@ -185,7 +186,7 @@ contract BidderRegistry is
 
         providerAmount[provider] += amtMinusFeeAndDecay;
 
-        // Transfer funds back to the bidder wallet
+        // Transfer non-rewarded funds back to the bidder wallet
         uint256 fundsToReturn = bidState.bidAmt - decayedAmt;
         if (fundsToReturn > 0) {
             if (!payable(bidState.bidder).send(fundsToReturn)) {
@@ -208,7 +209,8 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Return funds to a bidder's deposit (only callable by the pre-confirmations contract).
+     * @dev Returns escrowed funds to the bidder, since the provider is being slashed and didn't earn it.
+     * @dev This function is only callable from the pre-confirmations contract during slashing.
      * @dev reenterancy not necessary but still putting here for precaution
      * @param window The window for which the funds are being retrieved.
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
@@ -263,6 +265,8 @@ contract BidderRegistry is
 
         // Check if bid exceeds the available amount for the block
         if (availableAmount < bidAmt) {
+            // This operation shouldn't happen in normal flow. See provider node's CheckAndDeductDeposit function
+            // which checks if a bidder's deposit for the block covers the bid amount.
             bidAmt = availableAmount;
         }
 
@@ -326,7 +330,7 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Withdraw funds to the provider.
+     * @dev Withdraw funds rewarded to the provider for fulfilling commitments.
      * @param provider The address of the provider.
      */
     function withdrawProviderAmount(
@@ -390,7 +394,7 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Get the amount assigned to a provider.
+     * @dev Get the amount of funds rewarded to a provider for fulfilling commitments
      * @param provider The address of the provider.
      */
     function getProviderAmount(
