@@ -34,7 +34,8 @@ abstract contract ProviderRegistryStorage {
     /// @dev Mapping of provider to withdrawal request timestamp
     mapping(address => uint256) public withdrawalRequests;
 
-    /// @dev Mapping from bidder to provider slashed amount
+    /// @dev Mapping from bidder address to withdrawable amount of eth for that bidder (slashed from provider)
+    /// @dev This mapping will only ever be populated when an automatic eth transfer to the bidder is not successful
     mapping(address => uint256) public bidderSlashedAmount;
 
    /// @dev Maps BLS public key to their corresponding block builder address

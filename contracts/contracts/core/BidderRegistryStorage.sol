@@ -36,7 +36,7 @@ abstract contract BidderRegistryStorage {
     /// @dev Mapping from bidder addresses to their locked amount based on commitmentDigest
     mapping(bytes32 => IBidderRegistry.BidState) public bidPayment;
 
-    /// @dev Amount assigned to bidders
+    /// @dev Funds rewarded to providers for fulfilling commitments
     mapping(address => uint256) public providerAmount;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
