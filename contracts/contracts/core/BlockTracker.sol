@@ -115,6 +115,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
      * @dev Retrieves the current window number.
      * @return currentWindow The current window number.
      */
+     // TODO: Remove this and related.
     function getCurrentWindow() external view returns (uint256) {
         return currentWindow;
     }
