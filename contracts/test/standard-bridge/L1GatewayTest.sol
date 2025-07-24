@@ -127,13 +127,15 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert();
         vm.prank(bridgeUser);
-        l1Gateway.initiateTransfer{value: 0.9 ether}(bridgeUser, 0.9 ether);
-
-        assertEq(address(bridgeUser).balance, 0.01 ether);
-        assertEq(l1Gateway.transferInitiatedIdx(), 0);
-        assertEq(l1Gateway.transferFinalizedIdx(), 1);
+        // Foundry 1.2.x onward doesn't support vm.expectRevert() for catching EvmError: OutOfFunds. We'll use try/catch instead.
+        try l1Gateway.initiateTransfer{value: 0.9 ether}(bridgeUser, 0.9 ether) {
+            fail(); // Call should not succeed
+        } catch {
+            assertEq(address(bridgeUser).balance, 0.01 ether);
+            assertEq(l1Gateway.transferInitiatedIdx(), 0);
+            assertEq(l1Gateway.transferFinalizedIdx(), 1);
+        }
     }
 
     function test_InitiateTransferValueMismatch() public {

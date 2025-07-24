@@ -889,6 +889,8 @@ contract VanillaRegistryTest is Test {
         stakers[0] = user1;
         validatorRegistry.whitelistStakers(stakers);
 
+        vm.deal(user1, MIN_STAKE);
+
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.startPrank(user1);
@@ -906,7 +908,6 @@ contract VanillaRegistryTest is Test {
         vm.stopPrank();
 
         vm.startPrank(user1);
-        vm.deal(user1, MIN_STAKE);
         validatorRegistry.stake{value: MIN_STAKE}(validators);
         vm.stopPrank();
 
