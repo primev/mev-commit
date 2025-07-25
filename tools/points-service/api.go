@@ -38,6 +38,7 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 
 	r.HandleFunc("/admin/add_manual_entry", p.AddManualPointsEntry).Methods("POST")
 	r.HandleFunc("/admin/add_manual_opt_out", p.AddManualOptOut).Methods("POST")
+	r.HandleFunc("/admin/update_addr", p.UpdateAddrForManualValRecord).Methods("PUT")
 
 	srv := &http.Server{
 		Addr:    addr,
@@ -137,6 +138,37 @@ func (p *PointsAPI) AddManualOptOut(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		p.logger.Error("failed to insert manual opt out", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	resp := map[string]string{"status": "success"}
+	writeJSON(w, resp, http.StatusOK)
+}
+
+func (p *PointsAPI) UpdateAddrForManualValRecord(w http.ResponseWriter, r *http.Request) {
+	if err := p.checkAuth(r.Header.Get("Authorization")); err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Pubkey  string `json:"pubkey"`
+		OldAddr string `json:"old_addr"`
+		NewAddr string `json:"new_addr"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Pubkey == "" || req.OldAddr == "" || req.NewAddr == "" {
+		http.Error(w, "Missing or invalid required fields", http.StatusBadRequest)
+		return
+	}
+
+	if err := updateAddrForManualValRecord(p.db, p.logger, req.Pubkey, req.OldAddr, req.NewAddr); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

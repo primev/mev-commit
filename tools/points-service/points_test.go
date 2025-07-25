@@ -119,9 +119,13 @@ func TestManualPointsEntry(t *testing.T) {
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	insertOptIn(db, logger, "0x123", "0x456", "vanilla", "staked", 100)
+	vanillaStakedPubkey := "0x123"
+	vanillaStakedAddr := "0x456"
+	insertOptIn(db, logger, vanillaStakedPubkey, vanillaStakedAddr, "vanilla", "staked", 100)
 
-	if err := insertManualValRecord(db, "0x12345", "0x45678", 90); err != nil {
+	manuallyInsertedPubkey := "0x12345"
+	manuallyInsertedAddr := "0x45678"
+	if err := insertManualValRecord(db, manuallyInsertedPubkey, manuallyInsertedAddr, 90); err != nil {
 		t.Fatalf("failed to insert manual val record: %v", err)
 	}
 
@@ -180,5 +184,69 @@ func TestManualPointsEntry(t *testing.T) {
 	}
 	if optedOutBlockAfter2.String != "4001" {
 		t.Errorf("expected opted_out_block to be 4001, got %s", optedOutBlockAfter2.String)
+	}
+
+	newAddr := "0x2222222277777777"
+
+	err = updateAddrForManualValRecord(db, logger, vanillaStakedPubkey, vanillaStakedAddr, newAddr)
+	if err == nil {
+		t.Fatalf("expected error for updating addr of non-manually inserted record")
+	}
+
+	wrongOldAddr := "0x3333333377777777"
+	err = updateAddrForManualValRecord(db, logger, manuallyInsertedPubkey, wrongOldAddr, newAddr)
+	if err == nil {
+		t.Fatalf("expected error for updating addr of manually inserted record with wrong old addr")
+	}
+
+	wrongPubkey := "0xpkpkpk"
+	err = updateAddrForManualValRecord(db, logger, wrongPubkey, manuallyInsertedAddr, newAddr)
+	if err == nil {
+		t.Fatalf("expected error for updating addr of manually inserted record with wrong pubkey")
+	}
+
+	err = updateAddrForManualValRecord(db, logger, manuallyInsertedPubkey, manuallyInsertedAddr, newAddr)
+	if err != nil {
+		t.Fatalf("expected no error for updating addr of manually inserted record, got %v", err)
+	}
+
+	var countAfterUpdate int
+	err = db.QueryRow("SELECT COUNT(*) FROM validator_records").Scan(&countAfterUpdate)
+	if err != nil {
+		t.Fatalf("failed to query count: %v", err)
+	}
+	if countAfterUpdate != 2 {
+		t.Errorf("expected 2 records, got %d", countAfterUpdate)
+	}
+
+	var addrAfterUpdate sql.NullString
+	err = db.QueryRow("SELECT adder FROM validator_records WHERE pubkey = '0x12345'").Scan(&addrAfterUpdate)
+	if err != nil {
+		t.Fatalf("failed to query adder: %v", err)
+	}
+	if addrAfterUpdate.String != newAddr {
+		t.Errorf("expected adder to be %s, got %s", newAddr, addrAfterUpdate.String)
+	}
+
+	// Confirm we can change it a second time
+	newAddrAgain := "0xagain"
+
+	err = updateAddrForManualValRecord(db, logger, manuallyInsertedPubkey, manuallyInsertedAddr, newAddrAgain)
+	if err == nil {
+		t.Fatalf("expected error for updating addr of manually inserted record with same old addr as last time")
+	}
+
+	err = updateAddrForManualValRecord(db, logger, manuallyInsertedPubkey, newAddr, newAddrAgain)
+	if err != nil {
+		t.Fatalf("expected no error for updating addr of manually inserted record, got %v", err)
+	}
+
+	var addrAfterSecondUpdate sql.NullString
+	err = db.QueryRow("SELECT adder FROM validator_records WHERE pubkey = '0x12345'").Scan(&addrAfterSecondUpdate)
+	if err != nil {
+		t.Fatalf("failed to query adder: %v", err)
+	}
+	if addrAfterSecondUpdate.String != newAddrAgain {
+		t.Errorf("expected adder to be %s, got %s", newAddrAgain, addrAfterSecondUpdate.String)
 	}
 }
