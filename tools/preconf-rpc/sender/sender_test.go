@@ -313,7 +313,7 @@ func TestSender(t *testing.T) {
 	// simulate error and ensure retry happens
 	testPricer.errOut <- errors.New("simulated error for testing")
 
-	bidder.optinEstimate <- 1
+	bidder.optinEstimate <- 7
 
 	// Simulate a price estimate
 	testPricer.out <- &pricer.BlockPrices{
