@@ -512,14 +512,7 @@ func (t *TxSender) sendBid(
 		timeToOptIn = blockTime * 32
 	}
 
-	optedInSlot := timeToOptIn <= blockTime
-
-	start := time.Now()
-
-	cctx, cancel := context.WithTimeout(ctx, bidTimeout)
-	defer cancel()
-
-	prices, err := t.pricer.EstimatePrice(cctx)
+	prices, err := t.pricer.EstimatePrice(ctx)
 	if err != nil {
 		t.logger.Error("Failed to estimate transaction price", "error", err)
 		return bidResult{}, &errRetry{
@@ -528,7 +521,13 @@ func (t *TxSender) sendBid(
 		}
 	}
 
-	cost, blockNo, err := t.calculatePriceForNextBlock(txn, prices)
+	start := time.Now()
+	optedInSlot := timeToOptIn <= blockTime-(prices.MsSinceLastBlock/1000)
+
+	cctx, cancel := context.WithTimeout(ctx, bidTimeout)
+	defer cancel()
+
+	cost, blockNo, err := t.calculatePriceForNextBlock(txn, prices, optedInSlot)
 	if err != nil {
 		t.logger.Error("Failed to calculate price for next block", "error", err)
 		return bidResult{}, &errRetry{
@@ -587,7 +586,7 @@ func (t *TxSender) sendBid(
 			WaitForOptIn:      false,
 			BlockNumber:       uint64(blockNo),
 			RevertingTxHashes: []string{txn.Hash().Hex()},
-			DecayDuration:     bidTimeout,
+			DecayDuration:     bidTimeout * 2,
 		},
 	)
 	if err != nil {
@@ -640,7 +639,11 @@ BID_LOOP:
 	return result, nil
 }
 
-func (t *TxSender) calculatePriceForNextBlock(txn *Transaction, prices *pricer.BlockPrices) (*big.Int, int64, error) {
+func (t *TxSender) calculatePriceForNextBlock(
+	txn *Transaction,
+	prices *pricer.BlockPrices,
+	optedInSlot bool,
+) (*big.Int, int64, error) {
 	attempts, found := t.txnAttemptHistory.Get(txn.Hash())
 	if !found {
 		attempts = &txnAttempt{
@@ -651,9 +654,11 @@ func (t *TxSender) calculatePriceForNextBlock(txn *Transaction, prices *pricer.B
 
 	// default confidence level for the next block
 	confidence := defaultConfidence
+	isRetry := false
 
 	for _, attempt := range attempts.attempts {
 		if attempt.blockNumber == prices.CurrentBlockNumber+1 {
+			isRetry = true
 			attempt.attempts++
 			switch {
 			case attempt.attempts == 2:
@@ -663,8 +668,13 @@ func (t *TxSender) calculatePriceForNextBlock(txn *Transaction, prices *pricer.B
 			}
 		}
 	}
-	// If this is the first attempt for the next block, we add it with confidence 90
-	if confidence == defaultConfidence {
+
+	if optedInSlot {
+		confidence = confidenceSubsequentAttempts
+	}
+
+	// If this is the first attempt for the next block, we add it to the history
+	if !isRetry {
 		attempts.attempts = append(attempts.attempts, &blockAttempt{
 			blockNumber: prices.CurrentBlockNumber + 1,
 			attempts:    1,
