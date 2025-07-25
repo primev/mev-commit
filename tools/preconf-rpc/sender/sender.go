@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/big"
 	"strings"
 	"sync"
@@ -522,7 +523,7 @@ func (t *TxSender) sendBid(
 	}
 
 	start := time.Now()
-	optedInSlot := timeToOptIn <= blockTime-(prices.MsSinceLastBlock/1000)
+	optedInSlot := math.Abs(float64(timeToOptIn)-float64(blockTime-(prices.MsSinceLastBlock/1000))) < float64(blockTime/2)
 
 	cctx, cancel := context.WithTimeout(ctx, bidTimeout)
 	defer cancel()
