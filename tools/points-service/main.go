@@ -504,7 +504,12 @@ func insertManualValRecord(db *sql.DB,
 	return nil
 }
 
-func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType string, outBlock uint64) {
+func insertOptOut(
+	db *sql.DB,
+	logger *slog.Logger,
+	pubkey, adder, eventType string,
+	outBlock uint64,
+) {
 
 	_, err := db.Exec(`
         UPDATE validator_records
@@ -540,6 +545,45 @@ func insertManualOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder string, o
 	if err != nil {
 		return fmt.Errorf("failed to update val record for manual opt out: %w", err)
 	}
+	return nil
+}
+
+func updateAddrForManualValRecord(
+	db *sql.DB,
+	logger *slog.Logger,
+	pubkey string,
+	oldAddr string,
+	newAddr string,
+) error {
+	var count int
+	err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM validator_records
+		WHERE pubkey = ? AND adder = ? AND registry_type IS NULL AND event_type IS NULL
+	`, pubkey, oldAddr).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to query validator_records: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("no manual validator record found for pubkey %s with addr %s", pubkey, oldAddr)
+	}
+
+	res, err := db.Exec(`
+		UPDATE validator_records
+		SET adder = ?
+		WHERE pubkey = ? AND adder = ? AND registry_type IS NULL AND event_type IS NULL
+	`, newAddr, pubkey, oldAddr)
+	if err != nil {
+		return fmt.Errorf("failed to update adder for manual val record: %w", err)
+	}
+
+	rows, _ := res.RowsAffected()
+	logger.Info("updated adder for manual validator record",
+		"pubkey", pubkey,
+		"old_addr", oldAddr,
+		"new_adder", newAddr,
+		"rows_affected", rows)
+
 	return nil
 }
 
