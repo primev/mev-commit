@@ -74,3 +74,26 @@ contract DeployHolesky is BaseDeploy {
         vm.stopBroadcast();
     }
 }
+
+// contract DeployHoodi is BaseDeploy {
+    // Will fill these in after registry deployments
+    // address constant public VANILLA_REGISTRY = ;
+    // address constant public MEV_COMMIT_AVS = ;
+    // address constant public MEV_COMMIT_MIDDLEWARE = ;
+
+    // This is the most important field. On mainnet it'll be the primev multisig.
+    // address constant public OWNER = 0x1623fE21185c92BB43bD83741E226288B516134a;
+
+    // function run() external {
+    //     require(block.chainid == 23118, "must deploy on Holesky");
+
+    //     vm.startBroadcast();
+    //     deployValidatorOptInRouter(
+    //         VANILLA_REGISTRY,
+    //         MEV_COMMIT_AVS,
+    //         MEV_COMMIT_MIDDLEWARE,
+    //         OWNER
+    //     );
+    //     vm.stopBroadcast();
+    // }
+// }
