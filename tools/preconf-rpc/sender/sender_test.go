@@ -552,7 +552,7 @@ func TestCancelTransaction(t *testing.T) {
 	st := newMockStore()
 	testPricer := &mockPricer{
 		out:    make(chan *pricer.BlockPrices, 10),
-		errOut: make(chan error, 1),
+		errOut: make(chan error, 3),
 	}
 	bidder := &mockBidder{
 		optinEstimate: make(chan int64),
@@ -603,7 +603,9 @@ func TestCancelTransaction(t *testing.T) {
 		t.Fatalf("failed to enqueue transaction: %v", err)
 	}
 
-	bidder.optinEstimate <- 18
+	testPricer.errOut <- errors.New("simulated error for testing")
+	testPricer.errOut <- errors.New("simulated error for testing")
+	bidder.optinEstimate <- 2
 
 	cancelled, err := sndr.CancelTransaction(ctx, tx1.Hash())
 	if err != nil {
