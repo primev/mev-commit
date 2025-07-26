@@ -274,7 +274,7 @@ func (b *BidderClient) Bid(
 			Amount:              bidAmount.String(),
 			BlockNumber:         int64(blkNumber),
 			RawTransactions:     []string{rawTx},
-			DecayStartTimestamp: nowFunc().Add(100 * time.Millisecond).UnixMilli(),
+			DecayStartTimestamp: nowFunc().Add(200 * time.Millisecond).UnixMilli(),
 			SlashAmount:         slashAmount.String(),
 			RevertingTxHashes:   opts.RevertingTxHashes,
 		}
