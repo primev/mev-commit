@@ -82,3 +82,21 @@ contract DeployAnvil is BaseDeploy {
         vm.stopBroadcast();
     }
 }
+
+contract DeployHoodi is BaseDeploy {
+    uint256 constant public MIN_STAKE = 0.0001 ether; // 10k vals = 1 ETH cost
+    address constant public SLASH_ORACLE = 0x1623fE21185c92BB43bD83741E226288B516134a;
+    address constant public SLASH_RECEIVER = 0x1623fE21185c92BB43bD83741E226288B516134a;
+    uint256 constant public UNSTAKE_PERIOD_BLOCKS = 32 * 3; // 2 epoch finalization time + settlement buffer
+    uint256 constant public PAYOUT_PERIOD = 10000; // 10k * 12s = 1.39 days
+
+    // This is the most important field. On mainnet it'll be the primev multisig.
+    address constant public OWNER = 0x1623fE21185c92BB43bD83741E226288B516134a;
+
+    function run() external {
+        require(block.chainid == 560048, "must deploy on Hoodi");
+        vm.startBroadcast();
+        deployVanillaRegistry(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, PAYOUT_PERIOD, OWNER);
+        vm.stopBroadcast();
+    }
+}

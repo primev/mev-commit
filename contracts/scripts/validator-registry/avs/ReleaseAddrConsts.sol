@@ -54,3 +54,29 @@ library EigenHoleskyReleaseConsts {
     address internal constant STRATEGY_BASE_ANKRETH = 0x7673a47463F80c6a3553Db9E54c8cDcd5313d0ac;
     address internal constant BEACON_CHAIN_ETH = 0xbeaC0eeEeeeeEEeEeEEEEeeEEeEeeeEeeEEBEaC0;
 }
+
+/// @notice Constants from https://github.com/Layr-Labs/eigenlayer-contracts?tab=readme-ov-file#current-testnet-deployment
+/// @notice Last updated 07-25-2025 — for HOODI testnet
+library EigenHoodiReleaseConsts {
+    // Core
+    address internal constant DELEGATION_MANAGER     = 0x867837a9722C512e0862d8c2E15b8bE220E8b87d;
+    address internal constant STRATEGY_MANAGER       = 0xeE45e76ddbEDdA2918b8C7E3035cd37Eab3b5D41;
+    address internal constant EIGENPOD_MANAGER       = 0xcd1442415Fc5C29Aa848A49d2e232720BE07976c;
+    address internal constant AVS_DIRECTORY          = 0xD58f6844f79eB1fbd9f7091d05f7cb30d3363926;
+    address internal constant REWARDS_COORDINATOR    = 0x29e8572678e0c272350aa0b4B8f304E47EBcd5e7;
+    address internal constant ALLOCATION_MANAGER     = 0x95a7431400F362F3647a69535C5666cA0133CAA0;
+    address internal constant PERMISSION_CONTROLLER  = 0xdcCF401fD121d8C542E96BC1d0078884422aFAD2;
+
+    // Strategies - Deployed via StrategyFactory
+    address internal constant STRATEGY_FACTORY       = 0xfB7d94501E4d4ACC264833Ef4ede70a11517422B;
+    address internal constant STRATEGY_BASE          = 0x6d28cEC1659BC3a9BC814c3EFc1412878B406579;
+    address internal constant STRATEGY_BASE_STETH    = 0xF8a1a66130D614c7360e868576D5E59203475FE0;
+    address internal constant STRATEGY_BASE_WETH     = 0x24579aD4fe83aC53546E5c2D3dF5F85D6383420d;
+    // Special strategies
+    address internal constant STRATEGY_BASE_EIGEN    = 0xB27b10291DBFE6576d17afF3e251c954Ae14f1D3;
+    // Beacon Chain ETH placeholder (not a real contract)
+    address internal constant BEACON_CHAIN_ETH       = 0xbeaC0eeEeeeeEEeEeEEEEeeEEeEeeeEeeEEBEaC0;
+    // Tokens
+    address internal constant EIGEN_TOKEN            = 0x8ae2520954db7D80D66835cB71E692835bbA45bf;
+    address internal constant BACKING_EIGEN          = 0x6e60888132Cc7e637488379B4B40c42b3751f63a;
+}

@@ -26,7 +26,7 @@ help() {
     echo "  deploy-router       Deploy and verify the ValidatorOptInRouter contract to L1."
     echo
     echo "Required Options:"
-    echo "  --chain, -c <chain>                Specify the chain to deploy to ('mainnet' or 'holesky')."
+    echo "  --chain, -c <chain>                Specify the chain to deploy to ('mainnet', 'holesky', or 'hoodi')."
     echo
     echo "Wallet Options (exactly one required):"
     echo "  --keystore                         Use a keystore for deployment."
@@ -128,8 +128,8 @@ parse_args() {
                     exit 1
                 fi
                 chain="$2"
-                if [[ "$chain" != "mainnet" && "$chain" != "holesky" ]]; then
-                    echo "Error: Unknown chain '$chain'. Valid options are 'mainnet' or 'holesky'."
+                if [[ "$chain" != "mainnet" && "$chain" != "holesky" && "$chain" != "hoodi" ]]; then
+                    echo "Error: Unknown chain '$chain'. Valid options are 'mainnet', 'holesky', or hoodi."
                     exit 1
                 fi
                 shift 2
@@ -248,6 +248,9 @@ get_chain_params() {
     elif [[ "$chain" == "holesky" ]]; then
         chain_id=17000
         deploy_contract="DeployHolesky"
+    elif [[ "$chain" == "hoodi" ]]; then
+        chain_id=560048
+        deploy_contract="DeployHoodi"
     fi
 }
 
