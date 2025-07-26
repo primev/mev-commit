@@ -183,7 +183,7 @@ contract DeployHoodi is BaseDeploy {
     uint256 constant public LST_RESTARKER_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
 
     function run() external {
-        require(block.chainid == 23118, "must deploy on Hoodi");
+        require(block.chainid == 560048, "must deploy on Hoodi");
 
         address[] memory restakeableStrategies = new address[](11);
         restakeableStrategies[0] = EigenHoodiReleaseConsts.STRATEGY_BASE_STETH;

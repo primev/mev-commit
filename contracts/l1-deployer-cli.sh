@@ -249,7 +249,7 @@ get_chain_params() {
         chain_id=17000
         deploy_contract="DeployHolesky"
     elif [[ "$chain" == "hoodi" ]]; then
-        chain_id=23118
+        chain_id=560048
         deploy_contract="DeployHoodi"
     fi
 }

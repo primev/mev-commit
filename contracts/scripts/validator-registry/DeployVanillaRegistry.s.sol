@@ -94,7 +94,7 @@ contract DeployHoodi is BaseDeploy {
     address constant public OWNER = 0x1623fE21185c92BB43bD83741E226288B516134a;
 
     function run() external {
-        require(block.chainid == 23118, "must deploy on Hoodi");
+        require(block.chainid == 560048, "must deploy on Hoodi");
         vm.startBroadcast();
         deployVanillaRegistry(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, PAYOUT_PERIOD, OWNER);
         vm.stopBroadcast();

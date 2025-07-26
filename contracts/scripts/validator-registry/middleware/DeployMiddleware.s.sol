@@ -187,7 +187,7 @@ contract DeployHoodi is BaseDeploy {
     uint256 constant public SLASH_PERIOD_SECONDS = 1 days; // compiles to seconds
 
     function run() external {
-        require(block.chainid == 23118, "must deploy on Hoodi");
+        require(block.chainid == 560048, "must deploy on Hoodi");
         require(msg.sender == EXPECTED_MSG_SENDER, "incorrect msg.sender");
 
         vm.startBroadcast();
@@ -218,20 +218,8 @@ contract DeployHoodi is BaseDeploy {
         }
         networkMiddlewareService.setMiddleware(mevCommitMiddlewareProxy);
 
-        // No Hoodi Vaults in Symbiotic docs so let's hold off on this
+        // No Hoodi Vaults in Symbiotic docs so hold off on Vault registration
         // One created here but not verified or used: https://hoodi.etherscan.io/tx/0x3f9e9651b912bf9ac85bfe8e852183f062049b4410a7a94f7dffececb92140bb
-        
-        // IBaseDelegator vault1Delegator = IBaseDelegator(address(SymbioticHoodiDevnetConsts.VAULT_1_DELEGATOR));
-        // vault1Delegator.setMaxNetworkLimit(SUBNETWORK_ID, VAULT1_MAX_NETWORK_LIMIT);
-        // console.log("Vault1 delegator max network limit set to:", VAULT1_MAX_NETWORK_LIMIT);
-        // MevCommitMiddleware mevCommitMiddleware = MevCommitMiddleware(payable(mevCommitMiddlewareProxy));
-        // address[] memory vaults = new address[](1);
-        // vaults[0] = SymbioticHoodiDevnetConsts.VAULT_1;
-        // uint160[] memory slashAmounts = new uint160[](1);
-        // slashAmounts[0] = 0.0001 ether; 
-        // mevCommitMiddleware.registerVaults(vaults, slashAmounts);
-        // console.log("Vault1 (representing wstETH) registered with MevCommitMiddleware with vault addr:",
-        //     address(SymbioticHoodiDevnetConsts.VAULT_1), "and collateral slash amount:", slashAmounts[0]);
         
         vm.stopBroadcast();
     }
