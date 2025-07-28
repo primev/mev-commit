@@ -118,7 +118,6 @@ spec:
             runAsGroup: 0
           args:
             - --datadir={{ .Values.erigon.datadir }}
-            - --private.api.addr=
             - --authrpc.jwtsecret=/shared/jwt
             - --authrpc.addr=0.0.0.0
             - --authrpc.port={{ .Values.erigon.ports.authrpc }}
