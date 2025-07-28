@@ -777,15 +777,15 @@ func main() {
 					},
 				),
 				events.NewEventHandler(
-					"ValRecordDeleted",
-					func(ev *middleware.MevcommitmiddlewareValRecordDeleted) {
+					"ValidatorDeregistrationRequested",
+					func(ev *middleware.MevcommitmiddlewareValidatorDeregistrationRequested) {
 						pubkey := common.Bytes2Hex(ev.BlsPubkey)
 						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
 						if err != nil {
 							logger.Error("failed to get msg sender", "error", err)
 							return
 						}
-						insertOptOut(db, logger, pubkey, adder.Hex(), "ValRecordDeleted", ev.Raw.BlockNumber)
+						insertOptOut(db, logger, pubkey, adder.Hex(), "ValidatorDeregistrationRequested", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
