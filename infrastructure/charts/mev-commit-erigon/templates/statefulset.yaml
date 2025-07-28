@@ -1,0 +1,216 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+    {{- with .Values.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  serviceName: {{ include "erigon-snode.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "erigon-snode.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "erigon-snode.selectorLabels" . | nindent 8 }}
+        {{- with .Values.additionalLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      volumes:
+        - name: scripts-volume
+          configMap:
+            name: {{ include "erigon-snode.fullname" . }}-scripts
+            defaultMode: 0755
+        - name: jwt-secret
+          secret:
+            secretName: {{ include "erigon-snode.fullname" . }}-jwt
+      initContainers:
+        - name: create-jwt
+          image: busybox:latest
+          command: ["/bin/sh", "-c"]
+          args: ["/scripts/create-jwt.sh"]
+          {{- with .Values.initContainerResources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: scripts-volume
+              mountPath: /scripts
+            - name: erigon-volume
+              mountPath: /shared
+              subPath: shared
+            - name: jwt-secret
+              mountPath: /secrets
+        - name: download-genesis
+          image: alpine:latest
+          command: ["/bin/sh", "-c"]
+          args: ["/scripts/download-genesis.sh"]
+          {{- with .Values.initContainerResources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: scripts-volume
+              mountPath: /scripts
+            - name: erigon-volume
+              mountPath: /shared
+              subPath: shared
+        - name: init-erigon
+          image: "{{ .Values.image.erigon.repository }}:{{ .Values.image.erigon.tag }}"
+          imagePullPolicy: {{ .Values.image.erigon.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args: ["/scripts/init-erigon.sh"]
+          {{- with .Values.initContainerResources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: scripts-volume
+              mountPath: /scripts
+            - name: erigon-volume
+              mountPath: /shared
+              subPath: shared
+            - name: erigon-volume
+              mountPath: {{ .Values.erigon.datadir }}
+              subPath: erigon-data
+      containers:
+        - name: erigon
+          image: "{{ .Values.image.erigon.repository }}:{{ .Values.image.erigon.tag }}"
+          imagePullPolicy: {{ .Values.image.erigon.pullPolicy }}
+          command: ["erigon"]
+          {{- with .Values.resources.erigon }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          args:
+            - --datadir={{ .Values.erigon.datadir }}
+            - --private.api.addr=
+            - --authrpc.jwtsecret=/shared/jwt
+            - --authrpc.addr=0.0.0.0
+            - --authrpc.port={{ .Values.erigon.ports.authrpc }}
+            - --authrpc.vhosts=*
+            {{- if .Values.erigon.zeroFeeTxList }}
+            - --zerofee.tx.list={{ join "," .Values.erigon.zeroFeeTxList }}
+            {{- end }}
+            {{- if .Values.erigon.api.http.enabled }}
+            - --http
+            - --http.addr={{ .Values.erigon.api.http.addr }}
+            - --http.port={{ .Values.erigon.ports.http }}
+            - --http.vhosts={{ .Values.erigon.api.http.vhosts }}
+            - --http.corsdomain={{ .Values.erigon.api.http.corsdomain }}
+            - --http.api={{ .Values.erigon.api.http.api }}
+            {{- end }}
+            {{- if .Values.erigon.api.ws.enabled }}
+            - --ws
+            - --ws.port={{ .Values.erigon.ports.ws }}
+            {{- end }}
+            - --networkid={{ .Values.erigon.networkId }}
+            {{- if .Values.erigon.api.metrics.enabled }}
+            - --metrics
+            - --metrics.addr={{ .Values.erigon.api.metrics.addr }}
+            - --metrics.port={{ .Values.erigon.ports.metrics }}
+            {{- end }}
+            - --private.api.addr=0.0.0.0:{{ .Values.erigon.ports.privateApi }}
+            {{- if .Values.erigon.nodiscover }}
+            - --nodiscover
+            {{- end }}
+            - --prune.mode={{ .Values.erigon.pruneMode }}
+            {{- range .Values.erigon.extraArgs }}
+            - {{ . }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.erigon.ports.http }}
+            - name: ws
+              containerPort: {{ .Values.erigon.ports.ws }}
+            - name: authrpc
+              containerPort: {{ .Values.erigon.ports.authrpc }}
+            - name: metrics
+              containerPort: {{ .Values.erigon.ports.metrics }}
+          volumeMounts:
+            - name: erigon-volume
+              mountPath: {{ .Values.erigon.datadir }}
+              subPath: erigon-data
+            - name: erigon-volume
+              mountPath: /shared
+              subPath: shared
+        - name: snode
+          image: "{{ .Values.image.snode.repository }}:{{ .Values.image.snode.tag }}"
+          imagePullPolicy: {{ .Values.image.snode.pullPolicy }}
+          command: ["./snode"]
+          {{- with .Values.resources.snode }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          args:
+            - "leader"
+            - --instance-id={{ .Values.snode.instanceId }}
+            - --eth-client-url=http://localhost:{{ .Values.erigon.ports.authrpc }}
+            - --jwt-secret={{ .Values.jwt.token }}
+            - --priority-fee-recipient={{ .Values.snode.priorityFeeRecipient }}
+            - --api-addr=:{{ .Values.snode.ports.api }}
+            - --health-addr=:{{ .Values.snode.ports.health }}
+            - --log-level={{ .Values.snode.logLevel }}
+            {{- range .Values.snode.extraArgs }}
+            - {{ . }}
+            {{- end }}
+          ports:
+            - name: api
+              containerPort: {{ .Values.snode.ports.api }}
+            - name: health
+              containerPort: {{ .Values.snode.ports.health }}
+          volumeMounts:
+            - name: erigon-volume
+              mountPath: /data/snode
+              subPath: snode-data
+            - name: erigon-volume
+              mountPath: /shared
+              subPath: shared
+  volumeClaimTemplates:
+    - metadata:
+        name: erigon-volume
+      spec:
+        accessModes: ["{{ .Values.storage.accessMode }}"]
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}
+        {{- if .Values.storage.storageClassName }}
+        storageClassName: {{ .Values.storage.storageClassName }}
+        {{- end }}

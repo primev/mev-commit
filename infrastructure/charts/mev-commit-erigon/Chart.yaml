@@ -1,0 +1,6 @@
+apiVersion: v2
+name: erigon-snode
+description: A Helm chart for deploying MEV Commit chain with Erigon blockchain client
+type: application
+version: 0.1.0
+appVersion: "v3.0.7"
