@@ -185,7 +185,7 @@ contract DeployHoodi is BaseDeploy {
     function run() external {
         require(block.chainid == 560048, "must deploy on Hoodi");
 
-        address[] memory restakeableStrategies = new address[](11);
+        address[] memory restakeableStrategies = new address[](5);
         restakeableStrategies[0] = EigenHoodiReleaseConsts.STRATEGY_BASE_STETH;
         restakeableStrategies[1] = EigenHoodiReleaseConsts.STRATEGY_BASE_WETH;
         restakeableStrategies[3] = EigenHoodiReleaseConsts.STRATEGY_BASE_EIGEN;

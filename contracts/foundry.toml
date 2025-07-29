@@ -10,3 +10,16 @@ ffi = true
 ast = true
 build_info = true
 extra_output = ["storageLayout"]
+evm_version = 'shanghai' # Change as needed
+bytecode_size_limit = 0
+
+
+# RPC endpoints for different networks
+[rpc_endpoints]
+# Hoodi testnet RPC endpoint
+hoodi = "${RPC_URL}"
+
+# Etherscan API configuration for contract verification
+[etherscan]
+# Hoodi testnet (chain ID: 560048)
+560048 = { key = "${ETHERSCAN_API_KEY}", url = "https://api-hoodi.etherscan.io/api" }

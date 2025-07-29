@@ -75,25 +75,24 @@ contract DeployHolesky is BaseDeploy {
     }
 }
 
-// contract DeployHoodi is BaseDeploy {
-    // Will fill these in after registry deployments
-    // address constant public VANILLA_REGISTRY = ;
-    // address constant public MEV_COMMIT_AVS = ;
-    // address constant public MEV_COMMIT_MIDDLEWARE = ;
+contract DeployHoodi is BaseDeploy {
+    address constant public VANILLA_REGISTRY = 0x536F0792c5D5Ed592e67a9260606c85F59C312F0;
+    address constant public MEV_COMMIT_AVS = 0xdF8649d298ad05f019eE4AdBD6210867B8AB225F;
+    address constant public MEV_COMMIT_MIDDLEWARE = 0x8E847EC4a36c8332652aB3b2B7D5c54dE29c7fde;
 
-    // This is the most important field. On mainnet it'll be the primev multisig.
-    // address constant public OWNER = 0x1623fE21185c92BB43bD83741E226288B516134a;
+    //This is the most important field. On mainnet it'll be the primev multisig.
+    address constant public OWNER = 0x1623fE21185c92BB43bD83741E226288B516134a;
 
-    // function run() external {
-    //     require(block.chainid == 560048, "must deploy on Hoodi");
+    function run() external {
+        require(block.chainid == 560048, "must deploy on Hoodi");
 
-    //     vm.startBroadcast();
-    //     deployValidatorOptInRouter(
-    //         VANILLA_REGISTRY,
-    //         MEV_COMMIT_AVS,
-    //         MEV_COMMIT_MIDDLEWARE,
-    //         OWNER
-    //     );
-    //     vm.stopBroadcast();
-    // }
-// }
+        vm.startBroadcast();
+        deployValidatorOptInRouter(
+            VANILLA_REGISTRY,
+            MEV_COMMIT_AVS,
+            MEV_COMMIT_MIDDLEWARE,
+            OWNER
+        );
+        vm.stopBroadcast();
+    }
+}
