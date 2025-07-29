@@ -1,0 +1,238 @@
+
+erigon:
+  networkId: 141414
+  datadir: "/data/erigon"
+  ports:
+    http: 8545
+    ws: 8546
+    authrpc: 8551
+    metrics: 6061
+    privateApi: 9095
+  api:
+    http:
+      enabled: true
+      addr: "0.0.0.0"
+      vhosts: "*"
+      corsdomain: "*"
+      api: "eth,erigon,engine,net,web3,txpool"
+    ws:
+      enabled: true
+      addr: "0.0.0.0"
+      vhosts: "*"
+    metrics:
+      enabled: true
+      addr: "0.0.0.0"
+  zeroFeeTxList:
+    - "0x00"  # Orcale Keystore
+    - "0x00"  # Contracts Deployer Keystore
+    - "0x00"  # Bridge Relayer Keystore
+  pruneMode: "archive"
+  nodiscover: true
+  # Additional flags to pass to erigon
+  extraArgs: []
+  # Example:
+  # extraArgs:
+  #   - "--trace.config=/path/to/trace.json"
+  #   - "--state.scheme=path"
+
+snode:
+  instanceId: "snode1"
+  priorityFeeRecipient: "0x00"
+  ports:
+    api: 9090
+    health: 8080
+  logLevel: "info"
+  # Additional arguments to pass to snode
+  extraArgs: []
+  # Example:
+  # extraArgs:
+  #   - "--metrics-enabled"
+
+
+jwt:
+  token: ""
+
+genesis:
+  url: ""
+
+
+image:
+  erigon:
+    repository: 
+    tag:
+    pullPolicy: IfNotPresent
+  snode:
+    repository: 
+    tag:
+    pullPolicy: IfNotPresent
+
+storage:
+  size: 500Gi
+  storageClassName:
+  accessMode: ReadWriteOnce
+
+security:
+  runAsUser: 0
+  runAsGroup: 0
+  runAsNonRoot: false
+  fsGroup: 0
+
+replicaCount: 1
+terminationGracePeriodSeconds: 60
+
+# Resource requests and limits
+resources:
+  erigon:
+    requests:
+      cpu: "48"
+      memory: "128Gi"
+    limits:
+      cpu: "52"
+      memory: "152Gi"
+  snode:
+    requests:
+      cpu: "8"
+      memory: "48Gi"
+    limits:
+      cpu: "12"
+      memory: "64Gi"
+
+# Init container resources
+initContainerResources:
+  requests:
+    cpu: "500m"
+    memory: "500Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+service:
+  erigon:
+    type: ClusterIP
+    ports:
+      http: 8545
+      ws: 8546
+      authrpc: 8551
+      metrics: 6061
+    # Custom selector for erigon service - if provided, overrides default selector
+    customSelector: {}
+    # Example:
+    # customSelector:
+    #   app: erigon
+    #   version: v1.0.0
+  snode:
+    type: ClusterIP
+    ports:
+      api: 9090
+      health: 8080
+    # Custom selector for snode service - if provided, overrides default selector  
+    customSelector: {}
+    # Example:
+    # customSelector:
+    #   app: snode
+    #   component: consensus-layer
+
+nodeSelector:
+   workload-type: erigon
+
+
+tolerations: []
+# Example:
+# tolerations:
+#   - key: "erigon-dedicated"
+#     operator: "Equal"
+#     value: "true"
+#     effect: "NoSchedule"
+#   - key: "node.kubernetes.io/disk-pressure"
+#     operator: "Exists"
+#     effect: "NoSchedule"
+
+affinity: {}
+# Example:
+# affinity:
+#   nodeAffinity:
+#     requiredDuringSchedulingIgnoredDuringExecution:
+#       nodeSelectorTerms:
+#       - matchExpressions:
+#         - key: node-type
+#           operator: In
+#           values:
+#           - high-memory
+#     preferredDuringSchedulingIgnoredDuringExecution:
+#     - weight: 100
+#       preference:
+#         matchExpressions:
+#         - key: zone
+#           operator: In
+#           values:
+#           - zone-1
+#   podAntiAffinity:
+#     preferredDuringSchedulingIgnoredDuringExecution:
+#     - weight: 100
+#       podAffinityTerm:
+#         labelSelector:
+#           matchExpressions:
+#           - key: app.kubernetes.io/name
+#             operator: In
+#             values:
+#             - erigon-snode
+#         topologyKey: kubernetes.io/hostname
+
+topologySpreadConstraints: []
+# Example:
+# topologySpreadConstraints:
+#   - maxSkew: 1
+#     topologyKey: topology.kubernetes.io/zone
+#     whenUnsatisfiable: DoNotSchedule
+#     labelSelector:
+#       matchLabels:
+#         app.kubernetes.io/name: erigon-snode
+
+
+# Additional labels for StatefulSet
+additionalLabels: {}
+# Example:
+# additionalLabels:
+#   environment: production
+#   team: blockchain
+#   version: v1.0.0
+
+ingress:
+  enabled: true
+  className: ""
+  
+  # RPC Configuration
+  rpc:
+    host:
+    path: /
+    pathType: Prefix
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "1200"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "1200"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  
+  # WebSocket Configuration  
+  websocket:
+    host:
+    path: /
+    pathType: Prefix
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      # WebSocket specific annotations
+      nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+      nginx.ingress.kubernetes.io/proxy-set-headers: |
+        Connection "upgrade"
+        Upgrade $http_upgrade
+  
+  
+  tls:
+    secretName:
+
