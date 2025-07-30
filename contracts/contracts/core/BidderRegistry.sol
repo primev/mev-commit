@@ -147,6 +147,7 @@ contract BidderRegistry is
             uint256 availableAmount = deposit.availableAmount;
             deposit.availableAmount = 0;
             totalAmount += availableAmount;
+            TimestampOccurrence.del(deposit.withdrawalRequestOccurrence);
             emit BidderWithdrawal(msg.sender, provider, availableAmount, deposit.escrowedAmount);
         }
 
