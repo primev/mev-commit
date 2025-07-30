@@ -82,7 +82,7 @@ contract BidderRegistry is
      * @dev Enables a bidder to deposit for a specific provider.
      * @param provider The provider for which the deposit is being made.
      */
-    function depositForProvider(address provider) external payable whenNotPaused {
+    function depositAsBidder(address provider) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
         _depositForProvider(provider, msg.value);
     }
@@ -91,7 +91,7 @@ contract BidderRegistry is
      * @dev Enables a bidder to deposit eth evenly to multiple providers.
      * @param providers The providers for which the deposits are being made.
      */
-    function depositEvenlyToProviders(address[] calldata providers) external payable whenNotPaused {
+    function depositEvenlyAsBidder(address[] calldata providers) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
 
         uint256 amountToDeposit = msg.value / providers.length;
@@ -112,7 +112,7 @@ contract BidderRegistry is
      * @dev Enables a bidder to request a withdrawal from specific providers.
      * @param providers Providers to request a withdrawal from.
      */
-    function requestWithdrawals(address[] calldata providers) external nonReentrant whenNotPaused {
+    function requestWithdrawalsAsBidder(address[] calldata providers) external nonReentrant whenNotPaused {
         address bidder = msg.sender;
         uint256 len = providers.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -128,7 +128,7 @@ contract BidderRegistry is
      * @dev Enables a bidder to withdraw from specific providers.
      * @param providers Providers to withdraw from.
      */
-    function withdrawFromProviders(address[] calldata providers) external nonReentrant whenNotPaused {
+    function withdrawAsBidder(address[] calldata providers) external nonReentrant whenNotPaused {
         address bidder = msg.sender;
         uint256 totalAmount;
 
@@ -402,6 +402,13 @@ contract BidderRegistry is
         address provider
     ) external view returns (uint256) {
         return deposits[bidder][provider].availableAmount;
+    }
+
+    function getEscrowedAmount(
+        address bidder,
+        address provider
+    ) external view returns (uint256) {
+        return deposits[bidder][provider].escrowedAmount;
     }
 
     /// @return protocolFee amount not yet transferred to recipient

@@ -27,6 +27,7 @@ contract ProviderRegistryTest is Test {
         hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
     uint256 public penaltyFeePayoutPeriodMs;
+    uint256 public bidderWithdrawalPeriodMs;
     mapping(address => uint256) public commitmentsCount; // For use in test_RevertWhen_WithdrawStakedAmountWithoutCommitments
     event ProviderRegistered(address indexed provider, uint256 stakedAmount);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
@@ -55,6 +56,7 @@ contract ProviderRegistryTest is Test {
         feeRecipient = vm.addr(9);
         withdrawalDelay = 24 hours; // 24 hours
         penaltyFeePayoutPeriodMs = 10000;
+        bidderWithdrawalPeriodMs = 10000;
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(
@@ -89,7 +91,8 @@ contract ProviderRegistryTest is Test {
                     feePercent,
                     address(this),
                     address(blockTracker),
-                    penaltyFeePayoutPeriodMs
+                    penaltyFeePayoutPeriodMs,
+                    bidderWithdrawalPeriodMs
                 )
             )
         );
@@ -131,6 +134,7 @@ contract ProviderRegistryTest is Test {
         ) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
         assertEq(payoutPeriodMs, penaltyFeePayoutPeriodMs);
+        assertEq(bidderRegistry.bidderWithdrawalPeriodMs(), bidderWithdrawalPeriodMs);
         assertEq(lastPayoutTimestamp, block.timestamp);
         assertEq(accumulatedAmount, 0);
     }
