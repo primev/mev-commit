@@ -33,7 +33,8 @@ contract DeployCore is Script {
         uint256 providerPenaltyPercent = 5 * PERCENT_MULTIPLIER; // 5%
         uint64 commitmentDispatchWindow = 500;
         uint256 withdrawalDelay = 24 hours  * 1000; // 24 hours in milliseconds
-        uint256 protocolFeePayoutPeriod = 1 hours * 1000; // 1 hour with ms timestamps
+        uint256 protocolFeePayoutPeriod = 1 hours * 1000; // 1 hour in ms timestamps
+        uint256 bidderWithdrawalPeriodMs = 10 minutes * 1000; // 10 minutes in ms timestamps
         address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
         require(oracleKeystoreAddress != address(0), "missing Oracle keystore address");
 
@@ -53,7 +54,8 @@ contract DeployCore is Script {
             feePercent, // _feePercent param
             msg.sender, // _owner param
             address(blockTracker), // _blockTracker param
-            protocolFeePayoutPeriod)) // _protocolFeePayoutPeriod param
+            protocolFeePayoutPeriod, // _protocolFeePayoutPeriod param
+            bidderWithdrawalPeriodMs)) // _bidderWithdrawalPeriodMs param
         );
         BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         console.log("BidderRegistry:", address(bidderRegistry));
