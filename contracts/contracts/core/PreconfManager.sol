@@ -10,7 +10,6 @@ import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
 import {PreconfManagerStorage} from "./PreconfManagerStorage.sol";
-import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 import {Errors} from "../utils/Errors.sol";
 import {BN128} from "../utils/BN128.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
