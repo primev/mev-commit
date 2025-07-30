@@ -84,7 +84,7 @@ contract BidderRegistry is
      */
     function depositAsBidder(address provider) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
-        _depositForProvider(provider, msg.value);
+        _depositAsBidder(provider, msg.value);
     }
 
     /**
@@ -104,7 +104,7 @@ contract BidderRegistry is
             if (i == len - 1) {
                 amount += remainingAmount; // Add the remainder to the last provider
             }
-            _depositForProvider(provider, amount);
+            _depositAsBidder(provider, amount);
         }
     }
 
@@ -256,18 +256,12 @@ contract BidderRegistry is
         }
 
         Deposit storage deposit = deposits[bidder][provider];
-        deposit.escrowedAmount += bidAmt;
 
-        // Calculate the available amount for this block
-        uint256 availableAmount = deposit.availableAmount > bidAmt
-            ? deposit.availableAmount - bidAmt
-            : 0;
-
-        // Check if bid exceeds the available amount for the block
-        if (availableAmount < bidAmt) {
+        // Check if bid exceeds the available amount w.r.t bidder->provider deposit
+        if (deposit.availableAmount < bidAmt) {
             // This operation shouldn't happen in normal flow. See provider node's CheckAndDeductDeposit function
             // which checks if a bidder's deposit for the block covers the bid amount.
-            bidAmt = availableAmount;
+            bidAmt = deposit.availableAmount;
         }
 
         if (bidAmt > 0) {
@@ -362,7 +356,7 @@ contract BidderRegistry is
         _unpause();
     }
 
-    function _depositForProvider(address provider, uint256 amount) internal {
+    function _depositAsBidder(address provider, uint256 amount) internal {
         address bidder = msg.sender;
         Deposit storage deposit = deposits[bidder][provider];
         if (deposit.exists) {

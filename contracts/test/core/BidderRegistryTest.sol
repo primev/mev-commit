@@ -240,9 +240,15 @@ contract BidderRegistryTest is Test {
 
         uint256 bidderBalance = bidder.balance;
 
+        assertEq(bidderRegistry.getDeposit(bidder, provider), 64 ether);
+        assertEq(bidderRegistry.getEscrowedAmount(bidder, provider), 0);
+
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, provider);
 
-        bidderRegistry.unlockFunds(bidder, commitmentDigest);
+        assertEq(bidderRegistry.getDeposit(bidder, provider), 63 ether);
+        assertEq(bidderRegistry.getEscrowedAmount(bidder, provider), 1 ether);
+
+        bidderRegistry.unlockFunds(provider, commitmentDigest);
         uint256 providerAmount = bidderRegistry.providerAmount(provider);
         uint256 feeRecipientAmount = bidderRegistry.getAccumulatedProtocolFee();
 
@@ -301,20 +307,16 @@ contract BidderRegistryTest is Test {
         address provider3 = vm.addr(4);
         uint256 depositAmount = 3 ether;
 
-        vm.startPrank(bidder);
-        vm.expectEmit(true, false, false, true);
-        emit BidderDeposited(bidder, provider1, depositAmount / 3);
-        vm.expectEmit(true, false, false, true);
-        emit BidderDeposited(bidder, provider2, depositAmount / 3);
-        vm.expectEmit(true, false, false, true);
-        emit BidderDeposited(bidder, provider3, depositAmount / 3);
-
         address[] memory providers = new address[](3);
         providers[0] = provider1;
         providers[1] = provider2;
         providers[2] = provider3;
 
+        vm.startPrank(bidder);
         for (uint256 i = 0; i < 3; ++i) {
+
+            vm.expectEmit(true, false, false, true);
+            emit BidderDeposited(bidder, providers[i], depositAmount / 3);
             bidderRegistry.depositAsBidder{value: depositAmount / 3}(providers[i]);
 
             uint256 lockedFunds = bidderRegistry.getDeposit(bidder, providers[i]);
@@ -337,14 +339,9 @@ contract BidderRegistryTest is Test {
         providers[2] = provider3;
 
         vm.startPrank(bidder);
-        vm.expectEmit(true, false, false, true);
-        emit BidderDeposited(bidder, provider1, depositAmount / 3);
-        vm.expectEmit(true, false, false, true);
-        emit BidderDeposited(bidder, provider2, depositAmount / 3);
-        vm.expectEmit(true, false, false, true);
-        emit BidderDeposited(bidder, provider3, depositAmount / 3);
-
         for (uint16 i = 0; i < 3; ++i) {
+            vm.expectEmit(true, false, false, true);
+            emit BidderDeposited(bidder, providers[i], depositAmount / 3);
             bidderRegistry.depositAsBidder{value: depositAmount / 3}(providers[i]);
 
             uint256 lockedFunds = bidderRegistry.getDeposit(bidder, providers[i]);
@@ -366,6 +363,8 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         bidderRegistry.requestWithdrawalsAsBidder(providers);
 
+        vm.warp(block.timestamp + bidderRegistry.bidderWithdrawalPeriodMs() + 1);
+
         vm.expectEmit(true, false, false, true);
         emit BidderWithdrawal(bidder, provider1, 1 ether, 0);
         vm.expectEmit(true, false, false, true);
@@ -384,38 +383,33 @@ contract BidderRegistryTest is Test {
         }
     }
 
-    // TODO: Need to re-review this one.. 
     function test_OpenBid_TransferExcessBid() public {
         bytes32 commitmentDigest = keccak256("commitment");
         uint256 bidAmt = 5 ether;
         address testBidder = vm.addr(2);
         
-        // Deal some ETH to the test bidder
         vm.deal(testBidder, 10 ether);
 
-        // Simulate the pre-confirmations contract
         bidderRegistry.setPreconfManager(address(this));
         
         address provider = vm.addr(4);
         vm.prank(testBidder);
         bidderRegistry.depositAsBidder{value: 4 ether}(provider);
         
-        // Ensure the used amount is less than the max 
         uint256 maxBidAmt = bidderRegistry.getDeposit(testBidder, provider);
         uint256 usedAmount = bidderRegistry.getEscrowedAmount(testBidder, provider);
         uint256 availableAmount = maxBidAmt > usedAmount ? maxBidAmt - usedAmount : 0;
-        
-        // Open a bid that exceeds the available amount
+
+        assertEq(availableAmount, 4 ether);
+
+        // open a bid that exceeds the available amount
+        assertEq(bidAmt, 5 ether);
         vm.prank(address(this));
         bidderRegistry.openBid(commitmentDigest, bidAmt, testBidder, provider);
         
-        // Verify that the excess bid was transferred back to the test bidder
-        uint256 expectedBidAmt = availableAmount;
-        
-        // Verify the bid state
         (address storedBidder, uint256 storedBidAmt, IBidderRegistry.State storedState) = bidderRegistry.bidPayment(commitmentDigest);
         assertEq(storedBidder, testBidder);
-        assertEq(storedBidAmt, expectedBidAmt);
+        assertEq(storedBidAmt, 4 ether);
         assertEq(uint(storedState), uint(IBidderRegistry.State.PreConfirmed));
     }
 
@@ -444,7 +438,6 @@ contract BidderRegistryTest is Test {
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
     }
 
-    // TODO: Need to re-review this one.. 
     function test_ProtocolFeeAccumulation() public {
         bidderRegistry.setPreconfManager(address(this));
         address provider = vm.addr(4);
@@ -462,83 +455,86 @@ contract BidderRegistryTest is Test {
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 100000000000000000);
     }
 
-    // TODO: Need to re-review this one.. 
+    // Regression test for https://cantina.xyz/code/4ee8716d-3e0e-4f59-b90d-aa56bf3b484c/findings/8
     function test_OpenBidWithExcessExploit() public {
         address aliceBidder = vm.addr(7);
-        address bodBidder = vm.addr(8);
+        address bobBidder = vm.addr(8);
         uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1);
 
-        //1)  Deal some ETH to the Alice and Bob
         vm.deal(aliceBidder, 10 ether);
-        vm.deal(bodBidder, 10 ether);
+        vm.deal(bobBidder, 10 ether);
 
-        //2) Simulate the pre-confirmations contract
         bidderRegistry.setPreconfManager(address(this));
 
-        //3) Deposit some funds
         address provider = vm.addr(4);
         vm.prank(aliceBidder);
         bidderRegistry.depositAsBidder{value: 2 ether}(provider);
-        vm.prank(bodBidder);
+        vm.prank(bobBidder);
         bidderRegistry.depositAsBidder{value: 2 ether}(provider);
 
-        // Capture balances before the exploit
         uint256 aliceBalanceBefore = aliceBidder.balance;
-        uint256 bobBalanceBefore = bodBidder.balance;
+        uint256 bobBalanceBefore = bobBidder.balance;
         uint256 registryBalanceBefore = address(bidderRegistry).balance;
 
-        // Expected balances before the exploit
         assertEq(aliceBalanceBefore, 8 ether, "Alice balance BEFORE");
         assertEq(bobBalanceBefore, 8 ether, "Bob balance BEFORE");
         assertEq(registryBalanceBefore, 4 ether, "BidderRegistry balance BEFORE");
 
+        assertEq(bidderRegistry.getDeposit(aliceBidder, provider), 2 ether);
+        assertEq(bidderRegistry.getDeposit(bobBidder, provider), 2 ether);
+        assertEq(bidderRegistry.getEscrowedAmount(aliceBidder, provider), 0);
+        assertEq(bidderRegistry.getEscrowedAmount(bobBidder, provider), 0);
+
         uint256 maxBid = bidderRegistry.getDeposit(aliceBidder, provider);
-        //4) Alice open bids at maxBid multiple times
         vm.startPrank(address(this));
-        // First bid works fine. maxBid is depleted from lockedFunds
         bidderRegistry.openBid(
             keccak256("commitment1"),
             maxBid,
             aliceBidder,
             provider
         );
-        // Second bid start the stealing show. maxBid is being refunded (by the excess logic) and lockedFunds is NOT depleted.
-        // This is effectively stealing from poor Bob.
+
+        assertEq(bidderRegistry.getDeposit(aliceBidder, provider), 0);
+        assertEq(bidderRegistry.getEscrowedAmount(aliceBidder, provider), 2 ether);
+        assertEq(bidderRegistry.getDeposit(bobBidder, provider), 2 ether);
+        assertEq(bidderRegistry.getEscrowedAmount(bobBidder, provider), 0);
+
         bidderRegistry.openBid(
             keccak256("commitment2"),
             maxBid,
             aliceBidder,
             provider
         );
-        // Thrid bid continue the stealing show, exactly behaving as the second bid.
         bidderRegistry.openBid(
             keccak256("commitment3"),
             maxBid,
             aliceBidder,
             provider
         );
-
-        // And Alice could do this until she fully drain the bidderRegistry contract, effectively stealing from all the bidders.
         vm.stopPrank();
 
-        //5) Alice withdraw her locked funds (which will be intact minus maxBid as being spent in the first bid)
         blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW * 2 + 1);
         blockTracker.recordL1Block(blockNumber, "test");
-
         address[] memory providers = new address[](1);
         providers[0] = provider;
         vm.prank(aliceBidder);
+        bidderRegistry.requestWithdrawalsAsBidder(providers);
+        vm.warp(block.timestamp + bidderRegistry.bidderWithdrawalPeriodMs()+1);
+        vm.prank(aliceBidder);
         bidderRegistry.withdrawAsBidder(providers);
 
-        // Capture balances after the exploit
         uint256 aliceBalanceAfter = aliceBidder.balance;
-        uint256 bobBalanceAfter = bodBidder.balance;
+        uint256 bobBalanceAfter = bobBidder.balance;
         uint256 registryBalanceAfter = address(bidderRegistry).balance;
 
-        // Expected balances after the exploit
-        assertEq(aliceBalanceAfter, 9.8 ether, "Alice balance AFTER");
+        assertEq(aliceBalanceAfter, 8 ether, "Alice balance AFTER");
         assertEq(bobBalanceAfter, 8 ether, "Bob balance AFTER");
-        assertEq(registryBalanceAfter, 2.2 ether, "BidderRegistry balance AFTER");
+        assertEq(registryBalanceAfter, 4 ether, "BidderRegistry balance AFTER");
+
+        assertEq(bidderRegistry.getDeposit(aliceBidder, provider), 0);
+        assertEq(bidderRegistry.getEscrowedAmount(aliceBidder, provider), 2 ether);
+        assertEq(bidderRegistry.getDeposit(bobBidder, provider), 2 ether);
+        assertEq(bidderRegistry.getEscrowedAmount(bobBidder, provider), 0 ether);
     }
 
     function test_RevertWhen_DepositAsBidder_ZeroAmount() public {
