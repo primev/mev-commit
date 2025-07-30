@@ -8,7 +8,6 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/Pau
 import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";
 import {BidderRegistryStorage} from "./BidderRegistryStorage.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
-import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 import {FeePayout} from "../utils/FeePayout.sol";
 import {TimestampOccurrence} from "../utils/Occurrence.sol";
 
@@ -357,25 +356,6 @@ contract BidderRegistry is
         _unpause();
     }
 
-    function _depositAsBidder(address provider, uint256 amount) internal {
-        address bidder = msg.sender;
-        Deposit storage deposit = deposits[bidder][provider];
-        if (deposit.exists) {
-            require(!deposit.withdrawalRequestOccurrence.exists, WithdrawalOccurrenceExists(bidder, provider));
-            deposit.availableAmount += amount;
-        } else {
-            deposits[bidder][provider] = Deposit({
-                exists: true,
-                availableAmount: amount,
-                escrowedAmount: 0,
-                withdrawalRequestOccurrence: TimestampOccurrence.Occurrence({
-                    exists: false,
-                    timestamp: 0})
-            });
-        }
-        emit BidderDeposited(bidder, provider, amount);
-    }
-
     /**
      * @dev Get the amount of funds rewarded to a provider for fulfilling commitments
      * @param provider The address of the provider.
@@ -410,6 +390,27 @@ contract BidderRegistry is
     function getAccumulatedProtocolFee() external view returns (uint256) {
         return protocolFeeTracker.accumulatedAmount;
     }
+
+    function _depositAsBidder(address provider, uint256 amount) internal {
+        address bidder = msg.sender;
+        Deposit storage deposit = deposits[bidder][provider];
+        if (deposit.exists) {
+            require(!deposit.withdrawalRequestOccurrence.exists, WithdrawalOccurrenceExists(bidder, provider));
+            deposit.availableAmount += amount;
+        } else {
+            deposits[bidder][provider] = Deposit({
+                exists: true,
+                availableAmount: amount,
+                escrowedAmount: 0,
+                withdrawalRequestOccurrence: TimestampOccurrence.Occurrence({
+                    exists: false,
+                    timestamp: 0})
+            });
+        }
+        emit BidderDeposited(bidder, provider, amount);
+    }
+
+
 
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
