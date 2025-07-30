@@ -135,7 +135,7 @@ interface IBidderRegistry {
         address provider
     ) external returns (uint256);
 
-    function depositForProvider(address provider) external payable;
+    function depositAsBidder(address provider) external payable;
 
     function convertFundsToProviderReward(
         bytes32 commitmentDigest,
