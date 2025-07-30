@@ -24,20 +24,18 @@ abstract contract BidderRegistryStorage {
     /// Struct enabling automatic protocol fee payouts
     FeePayout.TimestampTracker public protocolFeeTracker;
 
-    // Mapping from bidder addresses and window numbers to their locked funds
-    mapping(address => mapping(uint256 => uint256)) public lockedFunds;
-
-    // Mapping from bidder addresses and blocks to their used funds
-    mapping(address => mapping(uint64 => uint256)) public usedFunds;
-
-    /// Mapping from bidder addresses and window numbers to their funds per window
-    mapping(address => mapping(uint256 => uint256)) public maxBidPerBlock;
-
     /// @dev Mapping from commitment digest for a bid, to its BidState
     mapping(bytes32 => IBidderRegistry.BidState) public bidPayment;
 
     /// @dev Funds rewarded to providers for fulfilling commitments
     mapping(address => uint256) public providerAmount;
+
+    /// @dev Bidder withdrawal period in milliseconds (mev-commit chain uses ms timestamps)
+    /// @dev This period should be greater than the worst case scenario amount of time it'd take for a newly opened bid to be settled.
+    uint256 public bidderWithdrawalPeriodMs;
+
+    /// @dev Mapping from bidder address to deposits for specific providers
+    mapping(address bidder => mapping(address provider => IBidderRegistry.Deposit deposit)) public deposits;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;

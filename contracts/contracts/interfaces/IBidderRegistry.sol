@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
+import { TimestampOccurrence } from "../utils/Occurrence.sol";
+
 interface IBidderRegistry {
     enum State {
         Undefined,
@@ -18,6 +20,19 @@ interface IBidderRegistry {
         string commitmentSignature;
     }
 
+    // Represents a bidder's deposit for a specific provider
+    struct Deposit {
+        // Whether a deposit exists
+        bool exists;
+        // Amount deposited for this provider, not yet associated with an opened bid
+        uint256 availableAmount;
+        // Cumulative amount escrowed toward bid(s) for this provider
+        /// @dev This corresponds to funds from bids that have been opened, but not yet settled
+        uint256 escrowedAmount;
+        // Occurrence struct facilitating withdrawal request
+        TimestampOccurrence.Occurrence withdrawalRequestOccurrence;
+    }
+
     struct BidState {
         address bidder;
         uint256 bidAmt;
@@ -25,17 +40,24 @@ interface IBidderRegistry {
     }
 
     /// @dev Event emitted when a bidder is registered with their deposited amount
-    event BidderRegistered(
+    event BidderDeposited(
         address indexed bidder,
-        uint256 indexed depositedAmount,
-        uint256 indexed windowNumber
+        address indexed provider,
+        uint256 indexed depositedAmount
     );
 
-    /// @dev Event emitted when funds are retrieved from a bidder's deposit
-    event FundsRetrieved(
+    /// @dev Event emitted when a bidder requests a withdrawal from a specific provider
+    event WithdrawalRequested(
+        address indexed bidder,
+        address indexed provider,
+        uint256 indexed timestamp
+    );
+
+    /// @dev Event emitted when funds are unlocked from a bidder's escrowed deposit
+    event FundsUnlocked(
         bytes32 indexed commitmentDigest,
         address indexed bidder,
-        uint256 indexed window,
+        address indexed provider,
         uint256 amount
     );
 
@@ -44,15 +66,15 @@ interface IBidderRegistry {
         bytes32 indexed commitmentDigest,
         address indexed bidder,
         address indexed provider,
-        uint256 window,
         uint256 amount
     );
 
     /// @dev Event emitted when a bidder withdraws their deposit
     event BidderWithdrawal(
         address indexed bidder,
-        uint256 indexed window,
-        uint256 indexed amount
+        address indexed provider,
+        uint256 indexed amountWithdrawn,
+        uint256 amountEscrowed
     );
 
     /// @dev Event emitted when the preconfManager is updated
@@ -79,9 +101,6 @@ interface IBidderRegistry {
     /// @dev Error emitted when the bid is not preconfirmed
     error BidNotPreConfirmed(bytes32 commitmentDigest, State actualState, State expectedState);
 
-    /// @dev Error emitted when the withdraw after window settled
-    error WithdrawAfterWindowSettled(uint256 window, uint256 currentWindow);
-
     /// @dev Error emitted when the transfer to the provider fails
     error TransferToProviderFailed(address provider, uint256 amount);
 
@@ -94,32 +113,40 @@ interface IBidderRegistry {
     /// @dev Error emitted when the bidder tries to deposit 0 amount
     error DepositAmountIsZero();
 
-    /// @dev Error emitted when the window is not settled
-    error WindowNotSettled();
-
     /// @dev Error emitted when withdrawal transfer failed
     error BidderWithdrawalTransferFailed(address bidder, uint256 amount);
+
+    /// @dev Error emitted when the bidder withdrawal period has not elapsed
+    error WithdrawalPeriodNotElapsed(uint256 currentTimestampMs, uint256 withdrawalTimestampMs, uint256 withdrawalPeriodMs);
+
+    /// @dev Error emitted when a deposit does not exist
+    error DepositDoesNotExist(address bidder, address provider);
+
+    /// @dev Error emitted when a withdrawal occurrence exists
+    error WithdrawalOccurrenceExists(address bidder, address provider);
+
+    /// @dev Error emitted when a withdrawal occurrence does not exist
+    error WithdrawalOccurrenceDoesNotExist(address bidder, address provider);
 
     function openBid(
         bytes32 commitmentDigest,
         uint256 bidAmt,
         address bidder,
-        uint64 blockNumber
+        address provider
     ) external returns (uint256);
 
-    function depositForWindow(uint256 window) external payable;
+    function depositForProvider(address provider) external payable;
 
-    function retrieveFunds(
-        uint256 windowToSettle,
+    function convertFundsToProviderReward(
         bytes32 commitmentDigest,
         address payable provider,
         uint256 residualBidPercentAfterDecay
     ) external;
 
-    function unlockFunds(uint256 windowToSettle, bytes32 bidID) external;
+    function unlockFunds(address provider, bytes32 commitmentDigest) external;
 
     function getDeposit(
         address bidder,
-        uint256 window
+        address provider
     ) external view returns (uint256);
 }
