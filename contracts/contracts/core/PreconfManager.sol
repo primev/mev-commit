@@ -15,9 +15,11 @@ import {Errors} from "../utils/Errors.sol";
 import {BN128} from "../utils/BN128.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+
 /**
  * @title PreconfManager - A contract for managing preconfirmation commitments and bids.
  * @notice This contract allows bidders to make precommitments and bids and provides a mechanism for the oracle to verify and process them.
+ * @notice IBidderRegistry interface has changed, so this contract will need upgrade or redeployment on mainnet.
  */
 contract PreconfManager is
     IPreconfManager,
@@ -294,7 +296,7 @@ contract PreconfManager is
             commitmentDigest,
             params.bidAmt,
             bidderAddress,
-            params.blockNumber
+            committerAddress
         );
         newCommitment.bidAmt = updatedBidAmt;
 
@@ -388,10 +390,6 @@ contract PreconfManager is
         commitment.isSettled = true;
         --commitmentsCount[commitment.committer];
 
-        uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
-            commitment.blockNumber
-        );
-
         providerRegistry.slash(
             commitment.bidAmt,
             commitment.slashAmt,
@@ -400,7 +398,7 @@ contract PreconfManager is
             residualBidPercentAfterDecay
         );
 
-        bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentDigest);
+        bidderRegistry.unlockFunds(commitment.committer, commitment.commitmentDigest);
     }
 
     /**
@@ -420,15 +418,10 @@ contract PreconfManager is
             CommitmentAlreadySettled(commitmentIndex)
         );
 
-        uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
-            commitment.blockNumber
-        );
-
         commitment.isSettled = true;
         --commitmentsCount[commitment.committer];
 
-        bidderRegistry.retrieveFunds(
-            windowToSettle,
+        bidderRegistry.convertFundsToProviderReward(
             commitment.commitmentDigest,
             payable(commitment.committer),
             residualBidPercentAfterDecay
