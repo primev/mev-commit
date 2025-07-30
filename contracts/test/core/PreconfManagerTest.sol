@@ -417,13 +417,13 @@ contract PreconfManagerTest is Test {
     }
 
     function test_StoreCommitment() public {
+        (address committer, ) = makeAddrAndKey("bob");
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
         vm.prank(bidder);
-        bidderRegistry.depositAsBidder{value: 2 ether}(provider);
+        bidderRegistry.depositAsBidder{value: 2 ether}(committer);
 
         verifyCommitmentNotUsed(_testCommitmentAliceBob);
-        (address committer, ) = makeAddrAndKey("bob");
 
         // Step 2: Store the commitment
         bytes32 unopenedIndex = storeCommitment(
@@ -654,9 +654,6 @@ contract PreconfManagerTest is Test {
     function test_GetCommitment() public {
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
-        uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(
-            _testCommitmentAliceBob.blockNumber
-        );
         vm.prank(bidder);
         bidderRegistry.depositAsBidder{value: 2 ether}(provider);
         // Step 1: Verify that the commitment has not been used before
@@ -695,10 +692,11 @@ contract PreconfManagerTest is Test {
     function test_InitiateSlash() public {
         // Assuming you have a stored commitment
         {
+            (address committer, ) = makeAddrAndKey("bob");
             (address bidder, ) = makeAddrAndKey("alice");
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            bidderRegistry.depositAsBidder{value: 2 ether}(provider);
+            bidderRegistry.depositAsBidder{value: 2 ether}(committer);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(_testCommitmentAliceBob);
@@ -713,7 +711,6 @@ contract PreconfManagerTest is Test {
             (, bool isSettled, , , , , , , , , , , ) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
-            (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 unopenedIndex = storeCommitment(
                 committer,
@@ -757,7 +754,7 @@ contract PreconfManagerTest is Test {
             assert(isSettled == true);
 
             assertEq(
-                bidderRegistry.getDeposit(bidder, provider),
+                bidderRegistry.getDeposit(bidder, committer),
                 2 ether - _testCommitmentAliceBob.bidAmt
             );
             assertEq(bidderRegistry.providerAmount(committer), 0 ether);
@@ -772,10 +769,11 @@ contract PreconfManagerTest is Test {
     function test_InitiateReward() public {
         // Assuming you have a stored commitment
         {
+            (address committer, ) = makeAddrAndKey("bob");
             (address bidder, ) = makeAddrAndKey("alice");
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            bidderRegistry.depositAsBidder{value: 2 ether}(provider);
+            bidderRegistry.depositAsBidder{value: 2 ether}(committer);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(_testCommitmentAliceBob);
@@ -789,7 +787,6 @@ contract PreconfManagerTest is Test {
             (, bool isSettled, , , , , , , , , , , ) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
-            (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 unopenedIndex = storeCommitment(
                 committer,
@@ -832,7 +829,7 @@ contract PreconfManagerTest is Test {
             assert(isSettled == true);
             // commitmentDigest value is internal to contract and not asserted
             assertEq(
-                bidderRegistry.getDeposit(bidder, provider),
+                bidderRegistry.getDeposit(bidder, committer),
                 2 ether - _testCommitmentAliceBob.bidAmt
             );
         }
@@ -841,10 +838,11 @@ contract PreconfManagerTest is Test {
     function test_InitiateRewardFullyDecayed() public {
         // Assuming you have a stored commitment
         {
+            (address committer, ) = makeAddrAndKey("bob");
             (address bidder, ) = makeAddrAndKey("alice");
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            bidderRegistry.depositAsBidder{value: 2 ether}(provider);
+            bidderRegistry.depositAsBidder{value: 2 ether}(committer);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(_testCommitmentAliceBob);
@@ -858,7 +856,6 @@ contract PreconfManagerTest is Test {
             (, bool isSettled, , , , , , , , , , , ) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
-            (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 unopenedIndex = storeCommitment(
                 committer,
@@ -892,7 +889,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.slashAmt,
                 _testCommitmentAliceBob.zkProof
             );
-            uint256 window = blockTracker.getCurrentWindow();
             vm.prank(oracleContract);
             preconfManager.initiateReward(index, 0);
 
@@ -903,7 +899,7 @@ contract PreconfManagerTest is Test {
             // commitmentDigest value is internal to contract and not asserted
 
             assertEq(
-                bidderRegistry.getDeposit(bidder, provider),
+                bidderRegistry.getDeposit(bidder, committer),
                 2 ether - _testCommitmentAliceBob.bidAmt
             );
             assertEq(bidderRegistry.providerAmount(committer), 0 ether);

@@ -195,7 +195,7 @@ contract BidderRegistry is
         }
 
         Deposit storage deposit = deposits[bidState.bidder][provider];
-        deposit.escrowedAmount -= decayedAmt;
+        deposit.escrowedAmount -= bidState.bidAmt;
 
         bidState.state = State.Withdrawn;
         bidState.bidAmt = 0;
