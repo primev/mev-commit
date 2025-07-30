@@ -10,6 +10,8 @@ import {BidderRegistryStorage} from "./BidderRegistryStorage.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 import {FeePayout} from "../utils/FeePayout.sol";
+import {TimestampOccurrence} from "../utils/Occurrence.sol";
+
 
 /// @title Bidder Registry
 /// @notice This contract is for bidder registry and staking.
@@ -57,97 +59,95 @@ contract BidderRegistry is
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _blockTracker The address of the block tracker contract.
      * @param _feePayoutPeriod The number of seconds or ms on the mev-commit chain for the fee payout period
+     * @param _bidderWithdrawalPeriodMs bidder withdrawal period in milliseconds (mev-commit chain uses ms timestamps)
      */
     function initialize(
         address _protocolFeeRecipient,
         uint256 _feePercent,
         address _owner,
         address _blockTracker,
-        uint256 _feePayoutPeriod
+        uint256 _feePayoutPeriod,
+        uint256 _bidderWithdrawalPeriodMs
     ) external initializer {
         FeePayout.initTimestampTracker(protocolFeeTracker, _protocolFeeRecipient, _feePayoutPeriod);
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
+        bidderWithdrawalPeriodMs = _bidderWithdrawalPeriodMs;
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
     }
 
     /**
-     * @dev Deposit for a specific window.
-     * @param window The window for which the deposit is being made.
+     * @dev Enables a bidder to deposit for a specific provider.
+     * @param provider The provider for which the deposit is being made.
      */
-    function depositForWindow(uint256 window) external payable whenNotPaused {
+    function depositForProvider(address provider) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
-
-        uint256 newLockedFunds = lockedFunds[msg.sender][window] + msg.value;
-        lockedFunds[msg.sender][window] = newLockedFunds;
-
-        // Calculate the maximum bid per block for the given window
-        maxBidPerBlock[msg.sender][window] = newLockedFunds / WindowFromBlockNumber.BLOCKS_PER_WINDOW;
-
-        emit BidderRegistered(msg.sender, newLockedFunds, window);
+        _depositForProvider(provider, msg.value);
     }
 
     /**
-     * @dev Deposit for multiple windows.
-     * @param windows The windows for which the deposits are being made.
+     * @dev Enables a bidder to deposit eth evenly to multiple providers.
+     * @param providers The providers for which the deposits are being made.
      */
-    function depositForWindows(uint256[] calldata windows) external payable whenNotPaused {
+    function depositEvenlyToProviders(address[] calldata providers) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
 
-        uint256 amountToDeposit = msg.value / windows.length;
-        uint256 remainingAmount = msg.value % windows.length; // to handle rounding issues
+        uint256 amountToDeposit = msg.value / providers.length;
+        uint256 remainingAmount = msg.value % providers.length; // to handle rounding issues
 
-        uint256 len = windows.length;
+        uint256 len = providers.length;
         for (uint16 i = 0; i < len; ++i) {
-            uint256 window = windows[i];
-
-            uint256 currentLockedFunds = lockedFunds[msg.sender][window];
-
-            uint256 newLockedFunds = currentLockedFunds + amountToDeposit;
+            address provider = providers[i];
+            uint256 amount = amountToDeposit;
             if (i == len - 1) {
-                newLockedFunds += remainingAmount; // Add the remainder to the last window
+                amount += remainingAmount; // Add the remainder to the last provider
             }
-
-            lockedFunds[msg.sender][window] = newLockedFunds;
-            maxBidPerBlock[msg.sender][window] =
-                newLockedFunds /
-                WindowFromBlockNumber.BLOCKS_PER_WINDOW;
-
-            emit BidderRegistered(msg.sender, newLockedFunds, window);
+            _depositForProvider(provider, amount);
         }
     }
 
     /**
-     * @dev Withdraw from specific windows.
-     * @param windows The windows from which the deposit is being withdrawn.
+     * @dev Enables a bidder to request a withdrawal from specific providers.
+     * @param providers Providers to request a withdrawal from.
      */
-    function withdrawFromWindows(
-        uint256[] calldata windows
-    ) external nonReentrant whenNotPaused {
-        uint256 currentWindow = blockTrackerContract.getCurrentWindow();
+    function requestWithdrawals(address[] calldata providers) external nonReentrant whenNotPaused {
+        address bidder = msg.sender;
+        uint256 len = providers.length;
+        for (uint256 i = 0; i < len; ++i) {
+            address provider = providers[i];
+            Deposit storage deposit = deposits[bidder][provider];
+            require(deposit.exists, DepositDoesNotExist(bidder, provider));
+            TimestampOccurrence.captureOccurrence(deposit.withdrawalRequestOccurrence);
+            emit WithdrawalRequested(bidder, provider, deposit.withdrawalRequestOccurrence.timestamp);
+        }
+    }
+
+    /**
+     * @dev Enables a bidder to withdraw from specific providers.
+     * @param providers Providers to withdraw from.
+     */
+    function withdrawFromProviders(address[] calldata providers) external nonReentrant whenNotPaused {
+        address bidder = msg.sender;
         uint256 totalAmount;
 
-        uint256 len = windows.length;
+        uint256 len = providers.length;
         for (uint256 i = 0; i < len; ++i) {
-            uint256 window = windows[i];
-            require(window < currentWindow, WithdrawAfterWindowSettled(window, currentWindow));
+            address provider = providers[i];
+            Deposit storage deposit = deposits[bidder][provider];
+            require(deposit.exists, DepositDoesNotExist(bidder, provider));
+            require(deposit.withdrawalRequestOccurrence.exists, WithdrawalOccurrenceDoesNotExist(bidder, provider));
+            require(deposit.withdrawalRequestOccurrence.timestamp + bidderWithdrawalPeriodMs < block.timestamp,
+                WithdrawalPeriodNotElapsed(block.timestamp, deposit.withdrawalRequestOccurrence.timestamp, bidderWithdrawalPeriodMs));
 
-            uint256 amount = lockedFunds[msg.sender][window];
+            // Note deposit.escrowedAmount isn't withdrawn here as it still needs to be settled.
+            // In the normal flow of the protocol it'd be zero anyways.
 
-            lockedFunds[msg.sender][window] = 0;
-            maxBidPerBlock[msg.sender][window] = 0;
-
-            (uint256 startBlock, uint256 endBlock) = WindowFromBlockNumber.getBlockNumbersFromWindow(window);
-
-            for (uint256 blockNumber = startBlock; blockNumber <= endBlock; ++blockNumber) {
-                usedFunds[msg.sender][uint64(blockNumber)] = 0;
-            }
-
-            emit BidderWithdrawal(msg.sender, window, amount);
-
-            totalAmount += amount;
+            uint256 availableAmount = deposit.availableAmount;
+            deposit.availableAmount = 0;
+            totalAmount += availableAmount;
+            emit BidderWithdrawal(msg.sender, provider, availableAmount, deposit.escrowedAmount);
         }
 
         (bool success, ) = msg.sender.call{value: totalAmount}("");
@@ -155,16 +155,14 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Converts bidder's deposited funds into withdrawable eth (reward) for the provider.
+     * @dev Converts bidder's escrowed funds into withdrawable eth (reward) for the provider.
      * @dev This function is only callable from the pre-confirmations contract during reward settlement.
      * @dev reenterancy not necessary but still putting here for precaution
-     * @param windowToSettle The window for which the funds are being retrieved.
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
      * @param provider The address to transfer the retrieved funds to.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
-    function retrieveFunds(
-        uint256 windowToSettle,
+    function convertFundsToProviderReward(
         bytes32 commitmentDigest,
         address payable provider,
         uint256 residualBidPercentAfterDecay
@@ -192,9 +190,12 @@ contract BidderRegistry is
             if (!payable(bidState.bidder).send(fundsToReturn)) {
                 // edge case, when bidder is rejecting transfer
                 emit TransferToBidderFailed(bidState.bidder, fundsToReturn);
-                lockedFunds[bidState.bidder][windowToSettle] += fundsToReturn;
+                deposits[bidState.bidder][provider].availableAmount += fundsToReturn;
             }
         }
+
+        Deposit storage deposit = deposits[bidState.bidder][provider];
+        deposit.escrowedAmount -= decayedAmt;
 
         bidState.state = State.Withdrawn;
         bidState.bidAmt = 0;
@@ -203,7 +204,6 @@ contract BidderRegistry is
             commitmentDigest,
             bidState.bidder,
             provider,
-            windowToSettle,
             decayedAmt
         );
     }
@@ -212,11 +212,11 @@ contract BidderRegistry is
      * @dev Returns escrowed funds to the bidder, since the provider is being slashed and didn't earn it.
      * @dev This function is only callable from the pre-confirmations contract during slashing.
      * @dev reenterancy not necessary but still putting here for precaution
-     * @param window The window for which the funds are being retrieved.
+     * @param provider that committed
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
      */
     function unlockFunds(
-        uint256 window,
+        address provider,
         bytes32 commitmentDigest
     ) external nonReentrant onlyPreconfManager whenNotPaused {
         BidState storage bidState = bidPayment[commitmentDigest];
@@ -226,41 +226,41 @@ contract BidderRegistry is
         bidState.state = State.Withdrawn;
         bidState.bidAmt = 0;
 
+        Deposit storage deposit = deposits[bidState.bidder][provider];
+        deposit.escrowedAmount -= amt;
+
         if (!payable(bidState.bidder).send(amt)) {
             emit TransferToBidderFailed(bidState.bidder, amt);
-            lockedFunds[bidState.bidder][window] += amt;
+            deposit.availableAmount += amt;
         }
 
-        emit FundsRetrieved(commitmentDigest, bidState.bidder, window, amt);
+        emit FundsUnlocked(commitmentDigest, bidState.bidder, provider, amt);
     }
 
     /**
-     * @dev Open a bid and update the used funds for the block (only callable by the pre-confirmations contract).
+     * @dev Opens a bid and escrows funds equivalent to the bid amount.
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
      * @param bidAmt The bid amount.
      * @param bidder The address of the bidder.
-     * @param blockNumber The block number.
+     * @param provider The address of the provider.
      */
     function openBid(
         bytes32 commitmentDigest,
         uint256 bidAmt,
         address bidder,
-        uint64 blockNumber
+        address provider
     ) external onlyPreconfManager whenNotPaused returns (uint256) {
         BidState storage bidState = bidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
             return bidAmt;
         }
-        uint256 currentWindow = WindowFromBlockNumber.getWindowFromBlockNumber(
-            blockNumber
-        );
 
-        uint256 windowAmount = maxBidPerBlock[bidder][currentWindow];
-        uint256 usedAmount = usedFunds[bidder][blockNumber];
+        Deposit storage deposit = deposits[bidder][provider];
+        deposit.escrowedAmount += bidAmt;
 
         // Calculate the available amount for this block
-        uint256 availableAmount = windowAmount > usedAmount
-            ? windowAmount - usedAmount
+        uint256 availableAmount = deposit.availableAmount > bidAmt
+            ? deposit.availableAmount - bidAmt
             : 0;
 
         // Check if bid exceeds the available amount for the block
@@ -270,10 +270,9 @@ contract BidderRegistry is
             bidAmt = availableAmount;
         }
 
-        // Update the used funds for the block and locked funds if bid is greater than 0
         if (bidAmt > 0) {
-            usedFunds[bidder][blockNumber] += bidAmt;
-            lockedFunds[bidder][currentWindow] -= bidAmt;
+            deposit.escrowedAmount += bidAmt;
+            deposit.availableAmount -= bidAmt;
         }
 
         bidState.state = State.PreConfirmed;
@@ -346,36 +345,6 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Withdraw funds to the bidder.
-     * @param bidder The address of the bidder.
-     * @param window The window for which the funds are being withdrawn.
-     */
-    function withdrawBidderAmountFromWindow(
-        address payable bidder,
-        uint256 window
-    ) external nonReentrant whenNotPaused {
-        require(msg.sender == bidder, OnlyBidderCanWithdraw(msg.sender, bidder));
-        uint256 currentWindow = blockTrackerContract.getCurrentWindow();
-        // withdraw is enabled only when closed and settled
-        require(window < currentWindow, WindowNotSettled());
-        uint256 amount = lockedFunds[bidder][window];
-
-        lockedFunds[bidder][window] = 0;
-        maxBidPerBlock[bidder][window] = 0;
-
-        (uint256 startBlock, uint256 endBlock) = WindowFromBlockNumber.getBlockNumbersFromWindow(window);
-
-        for (uint256 blockNumber = startBlock; blockNumber <= endBlock; ++blockNumber) {
-            usedFunds[bidder][uint64(blockNumber)] = 0;
-        }
-
-        (bool success, ) = bidder.call{value: amount}("");
-        require(success, BidderWithdrawalTransferFailed(bidder, amount));
-
-        emit BidderWithdrawal(bidder, window, amount);
-    }
-
-    /**
      * @dev Manually withdraws accumulated protocol fees to the recipient
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
@@ -393,6 +362,25 @@ contract BidderRegistry is
         _unpause();
     }
 
+    function _depositForProvider(address provider, uint256 amount) internal {
+        address bidder = msg.sender;
+        Deposit storage deposit = deposits[bidder][provider];
+        if (deposit.exists) {
+            require(!deposit.withdrawalRequestOccurrence.exists, WithdrawalOccurrenceExists(bidder, provider));
+            deposit.availableAmount += amount;
+        } else {
+            deposits[bidder][provider] = Deposit({
+                exists: true,
+                availableAmount: amount,
+                escrowedAmount: 0,
+                withdrawalRequestOccurrence: TimestampOccurrence.Occurrence({
+                    exists: false,
+                    timestamp: 0})
+            });
+        }
+        emit BidderDeposited(bidder, provider, amount);
+    }
+
     /**
      * @dev Get the amount of funds rewarded to a provider for fulfilling commitments
      * @param provider The address of the provider.
@@ -406,14 +394,14 @@ contract BidderRegistry is
     /**
      * @dev Check the deposit of a bidder.
      * @param bidder The address of the bidder.
-     * @param window The window for which the deposit is being checked.
-     * @return The deposited amount for the bidder.
+     * @param provider The address of the provider.
+     * @return The available deposited amount for the bidder.
      */
     function getDeposit(
         address bidder,
-        uint256 window
+        address provider
     ) external view returns (uint256) {
-        return lockedFunds[bidder][window];
+        return deposits[bidder][provider].availableAmount;
     }
 
     /// @return protocolFee amount not yet transferred to recipient
