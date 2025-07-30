@@ -5,6 +5,7 @@ deploy_vanilla_flag=false
 deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
+deploy_rewards_flag=false
 skip_release_verification_flag=false
 resume_flag=false
 wallet_type=""
@@ -24,6 +25,7 @@ help() {
     echo "  deploy-avs          Deploy and verify the MevCommitAVS contract to L1."
     echo "  deploy-middleware   Deploy and verify the MevCommitMiddleware contract to L1."
     echo "  deploy-router       Deploy and verify the ValidatorOptInRouter contract to L1."
+    echo "  deploy-rewards      Deploy and verify the RewardManager contract to L1."
     echo
     echo "Required Options:"
     echo "  --chain, -c <chain>                Specify the chain to deploy to ('mainnet' or 'holesky')."
@@ -120,6 +122,10 @@ parse_args() {
                 ;;
             deploy-router)
                 deploy_router_flag=true
+                shift
+                ;;
+            deploy-rewards)
+                deploy_rewards_flag=true
                 shift
                 ;;
             --chain|-c)
@@ -383,6 +389,10 @@ deploy_router() {
     deploy_contract_generic "scripts/validator-registry/DeployValidatorOptInRouter.s.sol"
 }
 
+deploy_rewards() {
+    deploy_contract_generic "scripts/validator-registry/rewards/DeployRewardManager.s.sol"
+}
+
 main() {
     check_dependencies
     parse_args "$@"
@@ -406,6 +416,8 @@ main() {
         deploy_middleware
     elif [[ "${deploy_router_flag}" == true ]]; then
         deploy_router
+    elif [[ "${deploy_rewards_flag}" == true ]]; then
+        deploy_rewards
     else
         usage
     fi
