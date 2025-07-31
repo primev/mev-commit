@@ -10,6 +10,7 @@ import {BidderRegistryStorage} from "./BidderRegistryStorage.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {FeePayout} from "../utils/FeePayout.sol";
 import {TimestampOccurrence} from "../utils/Occurrence.sol";
+import {DepositManager} from "./DepositManager.sol";
 
 
 /// @title Bidder Registry
@@ -72,6 +73,10 @@ contract BidderRegistry is
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
         bidderWithdrawalPeriodMs = _bidderWithdrawalPeriodMs;
+        depositManagerImpl = address(new DepositManager(address(this), 0.01 ether)); // TODO: prob want to deploy the contract separately
+        depositManagerHash = keccak256(
+            abi.encodePacked(hex"ef0100", depositManagerImpl)
+        );
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
@@ -267,6 +272,9 @@ contract BidderRegistry is
         if (bidAmt > 0) {
             deposit.escrowedAmount += bidAmt;
             deposit.availableAmount -= bidAmt;
+            if (bidder.code.length == 23 && bidder.codehash == depositManagerHash) {
+                DepositManager(payable(bidder)).topUpDeposit(provider);
+            }
         }
 
         bidState.state = State.PreConfirmed;

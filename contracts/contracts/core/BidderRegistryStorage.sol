@@ -37,6 +37,12 @@ abstract contract BidderRegistryStorage {
     /// @dev Mapping from bidder address to deposits for specific providers
     mapping(address bidder => mapping(address provider => IBidderRegistry.Deposit deposit)) public deposits;
 
+    /// @dev Address of the deposit manager implementation contract
+    address public depositManagerImpl;
+
+    /// Hash of EIP-7702 stub (0xef0100‖impl) for the deposit manager implementation contract
+    bytes32 public depositManagerHash;
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;
 }
