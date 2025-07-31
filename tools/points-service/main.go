@@ -902,7 +902,7 @@ func main() {
 							if c.Bool(optionMainnet.Name) {
 								routerAddr = common.HexToAddress(config.EthereumContracts.ValidatorOptInRouter)
 							} else {
-								routerAddr = common.HexToAddress(config.HoleskyContracts.ValidatorOptInRouter)
+								routerAddr = common.HexToAddress(config.HoodiContracts.ValidatorOptInRouter)
 							}
 							routerCaller, err := validatoroptinrouter.NewValidatoroptinrouterCaller(routerAddr, ethClient)
 							if err != nil {
