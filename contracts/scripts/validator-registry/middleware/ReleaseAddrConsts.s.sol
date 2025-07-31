@@ -36,3 +36,23 @@ library SymbioticHoleskyDevnetConsts {
 
     address internal constant BURNER_ROUTER_FACTORY = 0x32e2AfbdAffB1e675898ABA75868d92eE1E68f3b;
 }
+
+/// @notice Constants from https://docs.symbiotic.fi/deployments/testnet#hoodi
+/// @notice Last updated 07-25-2025
+library SymbioticHoodiDevnetConsts {
+    address internal constant VAULT_FACTORY = 0x407A039D94948484D356eFB765b3c74382A050B4;
+    address internal constant DELEGATOR_FACTORY = 0x890CA3f95E0f40a79885B7400926544B2214B03f;
+    address internal constant SLASHER_FACTORY = 0xbf34bf75bb779c383267736c53a4ae86ac7bB299;
+    address internal constant NETWORK_REGISTRY = 0x7d03b7343BF8d5cEC7C0C27ecE084a20113D15C9;
+
+    address internal constant NETWORK_MIDDLEWARE_SERVICE = 0x62a1ddfD86b4c1636759d9286D3A0EC722D086e3;
+    address internal constant OPERATOR_REGISTRY = 0x6F75a4ffF97326A00e52662d82EA4FdE86a2C548;
+
+    address internal constant VAULT_OPT_IN_SERVICE = 0x95CC0a052ae33941877c9619835A233D21D57351;
+    address internal constant NETWORK_OPT_IN_SERVICE = 0x58973d16FFA900D11fC22e5e2B6840d9f7e13401;
+    address internal constant VAULT_CONFIGURATOR = 0x94c344E816A53D07fC4c7F4a18f82b6Da87CFc8f;
+    address internal constant DEFAULT_STAKER_REWARDS_FACTORY = 0x1eA0b919721C20dae19aBc4391850D94eDbe9b1c;
+    address internal constant DEFAULT_OPERATOR_REWARDS_FACTORY = 0xE7e597655C3F76117302ea6103f5F2B3F3D75c5d;
+
+    address internal constant BURNER_ROUTER_FACTORY = 0xF619c99D166224B4AC008b14Cc67ac72C2E91D8a;
+}
