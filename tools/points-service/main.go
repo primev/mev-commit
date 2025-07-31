@@ -676,7 +676,7 @@ func main() {
 			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
 			done := pub.Start(ctx)
 
-			// Choose contracts from mainnet vs Holesky
+			// Choose contracts from mainnet vs Hoodi
 			var contractAddresses []common.Address
 			if c.Bool(optionMainnet.Name) {
 				contractAddresses = []common.Address{
@@ -686,9 +686,9 @@ func main() {
 				}
 			} else {
 				contractAddresses = []common.Address{
-					common.HexToAddress(config.HoleskyContracts.VanillaRegistry),
-					common.HexToAddress(config.HoleskyContracts.MevCommitAVS),
-					common.HexToAddress(config.HoleskyContracts.MevCommitMiddleware),
+					common.HexToAddress(config.HoodiContracts.VanillaRegistry),
+					common.HexToAddress(config.HoodiContracts.MevCommitAVS),
+					common.HexToAddress(config.HoodiContracts.MevCommitMiddleware),
 				}
 			}
 			pub.AddContracts(contractAddresses...)
