@@ -13,7 +13,7 @@ var TestnetContracts = Contracts{
 	SettlementGateway: "0xFaF6F0d4bbc7bC33a4b403b274aBb82d0E794202",
 }
 
-var HoodieContracts = L1Contracts{
+var HoodiContracts = L1Contracts{
 	ValidatorOptInRouter: "0xa380ba6d6083a4Cb2a3B62b0a81Ea8727861c13e",
 	VanillaRegistry:      "0x536f0792c5d5ed592e67a9260606c85f59c312f0",
 	MevCommitAVS:         "0xdF8649d298ad05f019eE4AdBD6210867B8AB225F",
