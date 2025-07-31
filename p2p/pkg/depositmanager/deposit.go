@@ -150,6 +150,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 	return doneChan
 }
 
+// TODO: Add check in provider node to see if bidder has requested a withdrawal.
 func (dm *DepositManager) CheckAndDeductDeposit(
 	ctx context.Context,
 	address common.Address,
