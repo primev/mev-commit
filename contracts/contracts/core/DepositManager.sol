@@ -2,13 +2,14 @@
 pragma solidity 0.8.26;
 
 import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";
+import {Errors} from "../utils/Errors.sol";
 
 contract DepositManager {
 
     mapping(address => uint256) public targetDeposits;
     address public immutable bidderRegistry;
     uint256 public immutable minBalance;
-    error NotThisEOA();
+    error NotThisEOA(address msgSender, address thisAddress);
 
     event TargetDepositSet(address indexed provider, uint256 amount);
     event TargetDepositDoesNotExist(address indexed provider);
@@ -23,7 +24,7 @@ contract DepositManager {
     }
 
     modifier onlyThisEOA() {
-        require(msg.sender == address(this), NotThisEOA());
+        require(msg.sender == address(this), NotThisEOA(msg.sender, address(this)));
         _;
     }
 
@@ -62,6 +63,10 @@ contract DepositManager {
         }
         IBidderRegistry(bidderRegistry).depositAsBidder{value: needed}(provider);
         emit DepositToppedUp(provider, needed);
+    }
+
+    fallback() external payable {
+        revert Errors.InvalidFallback();
     }
 
     receive() external payable { 
