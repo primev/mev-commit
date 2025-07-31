@@ -7,6 +7,8 @@ pragma solidity 0.8.26;
  */
 library WindowFromBlockNumber {
 
+    // TODO: prob delete all this 
+
     /// @dev The number of blocks per window.
     uint256 public constant BLOCKS_PER_WINDOW = 10;
 
