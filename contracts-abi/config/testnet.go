@@ -18,5 +18,5 @@ var HoleskyContracts = L1Contracts{
 	VanillaRegistry:      "0x536f0792c5d5ed592e67a9260606c85f59c312f0",
 	MevCommitAVS:         "0xdF8649d298ad05f019eE4AdBD6210867B8AB225F",
 	MevCommitMiddleware:  "0x8E847EC4a36c8332652aB3b2B7D5c54dE29c7fde",
-	L1Gateway:            "0x567f0f6d4f7A306c9824d5Ffd0E26f39682cDd7c",
+	L1Gateway:            "0x0b3b6cf113959214e313d6ad37ad56831acb1776",
 }
