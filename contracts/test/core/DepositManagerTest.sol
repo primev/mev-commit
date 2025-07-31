@@ -23,10 +23,17 @@ contract DepositManagerTest is Test {
         vm.signAndAttachDelegation(address(depositManagerImpl), BOB_PK);
     }
 
-    function testCodeAtAddress() public view {
+    function testCodeAtAddress() public {
         bytes32 expectedCodehash = keccak256(abi.encodePacked(hex"ef0100", address(depositManagerImpl)));
         assertEq(alice.codehash, expectedCodehash);
         assertEq(alice.code.length, 23);
+        uint256 otherUserPk = uint256(0x1237777777);
+        address otherUser = payable(vm.addr(otherUserPk));
+        assertEq(otherUser.codehash, 0x0000000000000000000000000000000000000000000000000000000000000000);
+        assertEq(otherUser.code.length, 0);
+        vm.signAndAttachDelegation(address(depositManagerImpl), otherUserPk);
+        assertEq(otherUser.codehash, expectedCodehash);
+        assertEq(otherUser.code.length, 23);
     }
 
     function testFallbackRevert() public {
