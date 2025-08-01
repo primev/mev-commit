@@ -652,3 +652,22 @@ func matchPayloadAttributes(expectedHash common.Hash, executionHeadTime uint64) 
 		return true
 	}
 }
+
+func TestIsTimestampInUnixMilli(t *testing.T) {
+	var nineYears = time.Duration(9 * 365 * 24 * time.Hour)
+	assert.True(t, IsTimestampInUnixMilli(uint64(time.Now().UnixMilli())))
+	assert.True(t, IsTimestampInUnixMilli(uint64(time.Now().Add(-nineYears).UnixMilli())))
+	assert.True(t, IsTimestampInUnixMilli(uint64(time.Now().Add(nineYears).UnixMilli())))
+
+	assert.False(t, IsTimestampInUnixMilli(uint64(time.Now().Unix())))
+	assert.False(t, IsTimestampInUnixMilli(uint64(time.Now().Add(-nineYears).Unix())))
+	assert.False(t, IsTimestampInUnixMilli(uint64(time.Now().Add(nineYears).Unix())))
+
+	assert.False(t, IsTimestampInUnixMilli(uint64(time.Now().UnixMicro())))
+	assert.False(t, IsTimestampInUnixMilli(uint64(time.Now().Add(nineYears).UnixMicro())))
+	assert.False(t, IsTimestampInUnixMilli(uint64(time.Now().Add(-nineYears).UnixMicro())))
+
+	assert.False(t, IsTimestampInUnixMilli(uint64(time.Now().UnixNano())))
+	assert.False(t, IsTimestampInUnixMilli(uint64(time.Now().Add(nineYears).UnixNano())))
+	assert.False(t, IsTimestampInUnixMilli(uint64(time.Now().Add(-nineYears).UnixNano())))
+}

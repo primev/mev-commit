@@ -544,6 +544,13 @@ func (bb *BlockBuilder) loadExecutionHead(ctx context.Context) (*types.Execution
 		return nil, fmt.Errorf("failed to get the latest block header: %w", err)
 	}
 
+	if !IsTimestampInUnixMilli(header.Time) {
+		return nil, fmt.Errorf(
+			"invalid header.Time from EL: %d, must be in unix milliseconds",
+			header.Time,
+		)
+	}
+
 	bb.executionHead = &types.ExecutionHead{
 		BlockHeight: header.Number.Uint64(),
 		BlockHash:   header.Hash().Bytes(),
@@ -569,4 +576,11 @@ func (bb *BlockBuilder) GetMempoolStatus(ctx context.Context) (*MempoolStatus, e
 		return nil, err
 	}
 	return &result, nil
+}
+
+func IsTimestampInUnixMilli(timestamp uint64) bool {
+	const oneYear = time.Duration(365 * 24 * time.Hour)
+	lowerBound := uint64(time.Now().Add(-10 * oneYear).UnixMilli())
+	upperBound := uint64(time.Now().Add(10 * oneYear).UnixMilli())
+	return timestamp > lowerBound && timestamp < upperBound
 }
