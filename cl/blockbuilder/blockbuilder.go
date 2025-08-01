@@ -103,6 +103,7 @@ func (bb *BlockBuilder) startBuild(ctx context.Context, head *types.ExecutionHea
 	}
 
 	bb.logger.Info("Leader: Submit new EVM payload", "timestamp", ts)
+	bb.logger.Debug("Timestamp", "stage", "startBuild_ts", "value", ts)
 
 	attrs := &engine.PayloadAttributes{
 		Timestamp:             ts,
@@ -170,9 +171,11 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	}
 
 	prevTimestamp := head.BlockTime
+	bb.logger.Debug("Timestamp", "stage", "getPayload_prevTimestamp", "value", prevTimestamp)
 
 	var ts uint64
 
+	bb.logger.Debug("Timestamp", "stage", "getPayload_lastBlockTime", "value_unix_ms", bb.lastBlockTime.UnixMilli())
 	if bb.lastBlockTime.IsZero() {
 		// First block, initialize LastCallTime and set default timestamp
 		ts = uint64(time.Now().UnixMilli()) + bb.buildDelayMs
@@ -180,6 +183,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		// Compute diff in milliseconds
 		diff := currentCallTime.Sub(bb.lastBlockTime)
 		diffMillis := diff.Milliseconds()
+		bb.logger.Debug("Timestamp", "stage", "getPayload_timeDiff", "value_ms", diffMillis)
 
 		if uint64(diffMillis) <= bb.buildDelayMs {
 			ts = prevTimestamp + bb.buildDelayMs
@@ -191,8 +195,10 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	}
 
 	// Very low chance to happen, only after restart and time.Now is broken
+	bb.logger.Debug("Timestamp", "stage", "getPayload_computedTs", "value", ts)
 	if ts <= head.BlockTime {
 		ts = head.BlockTime + 1 // Subsequent blocks must have a higher timestamp.
+		bb.logger.Debug("Timestamp", "stage", "getPayload_ts <= head.BlockTime", "value", ts)
 	}
 
 	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
@@ -277,6 +283,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	)
 
 	bb.lastBlockTime = time.Now()
+	bb.logger.Debug("Timestamp", "stage", "getPayload_lastBlockTimeSet", "value_unix_ms", bb.lastBlockTime.UnixMilli())
 	return nil
 }
 
@@ -472,6 +479,13 @@ func (bb *BlockBuilder) validateExecutionPayload(executionPayload engine.Executa
 		return fmt.Errorf("invalid parent hash: %s, head: %s", executionPayload.ParentHash, head.BlockHash)
 	}
 	minTimestamp := head.BlockTime + 1
+	bb.logger.Debug(
+		"Timestamp",
+		"stage", "validateExecutionPayload",
+		"executionPayload_timestamp", executionPayload.Timestamp,
+		"head_blockTime", head.BlockTime,
+		"minTimestamp", minTimestamp,
+	)
 	if executionPayload.Timestamp < minTimestamp && executionPayload.Number != 1 {
 		return fmt.Errorf("invalid timestamp: %d, min: %d", executionPayload.Timestamp, minTimestamp)
 	}
@@ -543,6 +557,8 @@ func (bb *BlockBuilder) loadExecutionHead(ctx context.Context) (*types.Execution
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the latest block header: %w", err)
 	}
+
+	bb.logger.Debug("Timestamp", "stage", "loadExecutionHead_headerTime", "value", header.Time)
 
 	bb.executionHead = &types.ExecutionHead{
 		BlockHeight: header.Number.Uint64(),
