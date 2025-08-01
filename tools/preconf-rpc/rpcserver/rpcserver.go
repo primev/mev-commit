@@ -159,6 +159,7 @@ func (s *JSONRPCServer) writeResponse(w http.ResponseWriter, id any, result *jso
 		Result:  result,
 		Error:   nil,
 	}
+	setCorsHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Failed to write response", http.StatusInternalServerError)
@@ -178,6 +179,7 @@ func (s *JSONRPCServer) writeError(w http.ResponseWriter, id any, code int, mess
 			Data:    nil,
 		},
 	}
+	setCorsHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Failed to write error response", http.StatusInternalServerError)
@@ -206,6 +208,7 @@ func (s *JSONRPCServer) proxyRequest(w http.ResponseWriter, body []byte) {
 		_ = resp.Body.Close()
 	}()
 
+	setCorsHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	rdr := io.LimitReader(resp.Body, defaultMaxBodySize)
@@ -218,4 +221,10 @@ func (s *JSONRPCServer) proxyRequest(w http.ResponseWriter, body []byte) {
 		http.Error(w, "Empty response from proxy", http.StatusInternalServerError)
 		return
 	}
+}
+
+func setCorsHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
