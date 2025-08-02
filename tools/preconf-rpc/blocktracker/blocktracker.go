@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"math/big"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -22,7 +23,7 @@ type blockTracker struct {
 	blocks        *lru.Cache[uint64, *types.Block]
 	client        EthClient
 	log           *slog.Logger
-	checkTrigger  chan struct{}
+	checkCond     *sync.Cond
 }
 
 func NewBlockTracker(client EthClient, log *slog.Logger) (*blockTracker, error) {
@@ -36,7 +37,7 @@ func NewBlockTracker(client EthClient, log *slog.Logger) (*blockTracker, error) 
 		blocks:        cache,
 		client:        client,
 		log:           log,
-		checkTrigger:  make(chan struct{}, 1),
+		checkCond:     sync.NewCond(&sync.Mutex{}),
 	}, nil
 }
 
@@ -73,11 +74,9 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (b *blockTracker) triggerCheck() {
-	select {
-	case b.checkTrigger <- struct{}{}:
-	default:
-		// Non-blocking send, if channel is full, we skip
-	}
+	b.checkCond.L.Lock()
+	b.checkCond.Broadcast()
+	b.checkCond.L.Unlock()
 }
 
 func (b *blockTracker) LatestBlockNumber() uint64 {
@@ -89,21 +88,33 @@ func (b *blockTracker) CheckTxnInclusion(
 	txHash common.Hash,
 	blockNumber uint64,
 ) (bool, error) {
-WaitForBlock:
-	for {
-		select {
-		case <-ctx.Done():
-			return false, ctx.Err()
-		case <-b.checkTrigger:
-			if blockNumber <= b.latestBlockNo.Load() {
-				break WaitForBlock
-			}
-		}
+	if blockNumber <= b.latestBlockNo.Load() {
+		return b.checkTxnInclusion(ctx, txHash, blockNumber)
 	}
 
+	waitCh := make(chan struct{})
+	go func() {
+		b.checkCond.L.Lock()
+		defer b.checkCond.L.Unlock()
+		for blockNumber > b.latestBlockNo.Load() {
+			b.checkCond.Wait()
+		}
+		close(waitCh)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case <-waitCh:
+		return b.checkTxnInclusion(ctx, txHash, blockNumber)
+	}
+}
+
+func (b *blockTracker) checkTxnInclusion(ctx context.Context, txHash common.Hash, blockNumber uint64) (bool, error) {
+	var err error
 	block, ok := b.blocks.Get(blockNumber)
 	if !ok {
-		block, err := b.client.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
+		block, err = b.client.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
 		if err != nil {
 			b.log.Error("Failed to get block by number", "error", err, "blockNumber", blockNumber)
 			return false, err
@@ -111,10 +122,9 @@ WaitForBlock:
 		_ = b.blocks.Add(blockNumber, block)
 	}
 
-	for _, tx := range block.Transactions() {
-		if tx.Hash().Cmp(txHash) == 0 {
-			return true, nil
-		}
+	if txn := block.Transaction(txHash); txn != nil {
+		return true, nil
 	}
+
 	return false, nil
 }

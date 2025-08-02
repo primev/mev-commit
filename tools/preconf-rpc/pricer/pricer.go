@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -21,23 +23,58 @@ type BlockPrice struct {
 	EstimatedPrices []EstimatedPrice `json:"estimatedPrices"`
 }
 
-type BlockPrices struct {
-	MsSinceLastBlock   int64        `json:"msSinceLastBlock"`
+type blockPrices struct {
 	CurrentBlockNumber int64        `json:"currentBlockNumber"`
 	Prices             []BlockPrice `json:"blockPrices"`
 }
 
 type BidPricer struct {
-	apiKey string
+	apiKey           string
+	log              *slog.Logger
+	mu               sync.RWMutex // Protects currentEstimates
+	currentEstimates map[int64]float64
 }
 
-func NewPricer(apiKey string) *BidPricer {
+func NewPricer(apiKey string, logger *slog.Logger) *BidPricer {
 	return &BidPricer{
 		apiKey: apiKey,
+		log:    logger,
 	}
 }
 
-func (b *BidPricer) EstimatePrice(ctx context.Context) (*BlockPrices, error) {
+func (b *BidPricer) Start(ctx context.Context) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(2 * time.Second) // Adjust the ticker interval as needed
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if _, err := b.syncEstimate(ctx); err != nil {
+					b.log.Error("Failed to estimate price", "error", err)
+				}
+			}
+		}
+	}()
+	return done
+}
+
+func (b *BidPricer) EstimatePrice(ctx context.Context) map[int64]float64 {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	estimates := make(map[int64]float64)
+	for blockNumber, price := range b.currentEstimates {
+		estimates[blockNumber] = price
+	}
+	return estimates
+}
+
+func (b *BidPricer) SyncEstimate(ctx context.Context) error {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -69,7 +106,7 @@ func (b *BidPricer) EstimatePrice(ctx context.Context) (*BlockPrices, error) {
 		return nil, err
 	}
 
-	bp := new(BlockPrices)
+	bp := new(blockPrices)
 	if err := json.Unmarshal(respBuf, bp); err != nil {
 		return nil, err
 	}
