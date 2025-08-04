@@ -138,12 +138,10 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		bb.logger.Debug("executionHead is not nil, using cached value")
 	}
 
-	beforeMempoolStatus := time.Now()
 	mempoolStatus, err := bb.GetMempoolStatus(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get pending transaction count: %w", err)
 	}
-	bb.logger.Debug("GetMempoolStatus rpc duration", "duration", time.Since(beforeMempoolStatus))
 
 	lastBlockTime := time.UnixMilli(int64(bb.executionHead.BlockTime))
 	bb.logger.Debug("lastBlockTime from execution head", "lastBlockTime", lastBlockTime)
