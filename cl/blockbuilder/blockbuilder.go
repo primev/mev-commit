@@ -122,7 +122,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	)
 
 	if bb.executionHead == nil {
-		bb.logger.Debug("executionHead is nil, it'll be set by RPC. CL is likely being restarted")
+		bb.logger.Info("executionHead is nil, it'll be set by RPC. CL is likely being restarted")
 		err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
 			innerErr := bb.setExecutionHeadFromRPC(ctx)
 			if innerErr != nil {
@@ -172,7 +172,8 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 
 	ts := uint64(time.Now().UnixMilli())
 	if ts <= bb.executionHead.BlockTime {
-		bb.logger.Warn("Leader: Current timestamp is less than or equal to the previous block timestamp",
+		bb.logger.Warn(`Leader: Current timestamp is less than or equal to
+			previous block timestamp. Genesis timestamp could have been set incorrectly`,
 			"current_ts", ts,
 			"prev_head_block_time", bb.executionHead.BlockTime,
 		)
