@@ -39,9 +39,6 @@ type blockBuilder interface {
 
 	// Processes any unfinished payload from a previous session
 	ProcessLastPayload(ctx context.Context) error
-
-	// Sets the last call time to zero
-	SetLastCallTimeToZero()
 }
 
 // todo: work with block state through block builder, not directly
