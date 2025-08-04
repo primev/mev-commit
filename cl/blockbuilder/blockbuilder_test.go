@@ -116,6 +116,8 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(forkChoiceResponse, nil)
 
+	blockBuilder.executionHead = executionHead
+
 	resp, err := blockBuilder.startBuild(ctx, uint64(timestamp.UnixMilli()))
 
 	require.NoError(t, err)
@@ -323,6 +325,8 @@ func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(engine.ForkChoiceResponse{}, errors.New("engine error"))
 
+	blockBuilder.executionHead = executionHead
+
 	resp, err := blockBuilder.startBuild(ctx, uint64(timestamp.UnixMilli()))
 
 	require.Error(t, err)
@@ -372,6 +376,8 @@ func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 		PayloadID: nil,
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(forkChoiceResponse, nil)
+
+	blockBuilder.executionHead = executionHead
 
 	resp, err := blockBuilder.startBuild(ctx, uint64(timestamp.UnixMilli()))
 
