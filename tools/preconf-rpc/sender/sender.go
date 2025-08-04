@@ -606,10 +606,10 @@ func (t *TxSender) sendBid(
 	}
 
 	result := bidResult{
-		commitments: make([]*bidderapiv1.Commitment, 0),
-		bidAmount:   cost,
-		startTime:   start,
-		// msSinceLastBlock: prices.MsSinceLastBlock,
+		commitments:         make([]*bidderapiv1.Commitment, 0),
+		bidAmount:           cost,
+		startTime:           start,
+		timeUntillNextBlock: timeUntilNextBlock,
 	}
 BID_LOOP:
 	for {

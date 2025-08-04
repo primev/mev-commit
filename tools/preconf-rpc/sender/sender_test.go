@@ -7,11 +7,11 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
 	"github.com/primev/mev-commit/x/util"
@@ -194,30 +194,18 @@ func (m *mockBidder) Bid(
 }
 
 type mockPricer struct {
-	out    chan *pricer.BlockPrices
-	errOut chan error
+	out chan map[int64]float64
 }
 
-func (m *mockPricer) EstimatePrice(
-	ctx context.Context,
-) (*pricer.BlockPrices, error) {
-	select {
-	case err := <-m.errOut:
-		if err != nil {
-			return nil, err
-		}
-	default:
-		// No error, continue
-	}
-
+func (m *mockPricer) EstimatePrice(ctx context.Context) map[int64]float64 {
 	select {
 	case prices := <-m.out:
 		if prices == nil {
-			return nil, errors.New("nil price returned")
+			return nil
 		}
-		return prices, nil
+		return prices
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil
 	}
 }
 
@@ -226,9 +214,17 @@ type op struct {
 	block uint64
 }
 
+type blockNoOp struct {
+	block             uint64
+	timeTillNextBlock time.Duration
+}
+
 type mockBlockTracker struct {
-	in  chan op
-	out chan bool
+	in    chan op
+	out   chan bool
+	bnIn  chan struct{}
+	bnOut chan blockNoOp
+	bnErr chan error
 }
 
 func (m *mockBlockTracker) CheckTxnInclusion(ctx context.Context, txnHash common.Hash, blockNumber uint64) (bool, error) {
@@ -244,6 +240,17 @@ func (m *mockBlockTracker) CheckTxnInclusion(ctx context.Context, txnHash common
 	}
 }
 
+func (m *mockBlockTracker) NextBlockNumber() (uint64, time.Duration, error) {
+	m.bnIn <- struct{}{}
+
+	select {
+	case <-m.bnErr:
+		return 0, 0, errors.New("error getting next block number")
+	case op := <-m.bnOut:
+		return op.block, op.timeTillNextBlock, nil
+	}
+}
+
 type mockTransferer struct{}
 
 func (m *mockTransferer) Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error {
@@ -255,8 +262,7 @@ func TestSender(t *testing.T) {
 
 	st := newMockStore()
 	testPricer := &mockPricer{
-		out:    make(chan *pricer.BlockPrices, 10),
-		errOut: make(chan error, 1),
+		out: make(chan map[int64]float64, 10),
 	}
 	bidder := &mockBidder{
 		optinEstimate: make(chan int64, 10),
@@ -264,8 +270,11 @@ func TestSender(t *testing.T) {
 		out:           make(chan chan optinbidder.BidStatus, 10),
 	}
 	blockTracker := &mockBlockTracker{
-		in:  make(chan op, 10),
-		out: make(chan bool, 10),
+		in:    make(chan op, 10),
+		out:   make(chan bool, 10),
+		bnIn:  make(chan struct{}, 10),
+		bnOut: make(chan blockNoOp, 10),
+		bnErr: make(chan error, 1),
 	}
 
 	sndr, err := sender.NewTxSender(
@@ -310,34 +319,23 @@ func TestSender(t *testing.T) {
 	// Simulate opted in block
 	bidder.optinEstimate <- 2
 
-	// simulate error and ensure retry happens
-	testPricer.errOut <- errors.New("simulated error for testing")
+	<-blockTracker.bnIn
+	blockTracker.bnErr <- errors.New("simulated error for testing")
 
 	bidder.optinEstimate <- 7
 
+	<-blockTracker.bnIn
+
+	blockTracker.bnOut <- blockNoOp{
+		block:             1,
+		timeTillNextBlock: 5 * time.Second,
+	}
+
 	// Simulate a price estimate
-	testPricer.out <- &pricer.BlockPrices{
-		CurrentBlockNumber: 0,
-		MsSinceLastBlock:   1000,
-		Prices: []pricer.BlockPrice{
-			{
-				BlockNumber: 1,
-				EstimatedPrices: []pricer.EstimatedPrice{
-					{
-						Confidence:            90,
-						PriorityFeePerGasGwei: 1.0,
-					},
-					{
-						Confidence:            95,
-						PriorityFeePerGasGwei: 1.5,
-					},
-					{
-						Confidence:            99,
-						PriorityFeePerGasGwei: 2.0,
-					},
-				},
-			},
-		},
+	testPricer.out <- map[int64]float64{
+		90: 1.0,
+		95: 1.5,
+		99: 2.0,
 	}
 
 	// Simulate a bid response
@@ -411,29 +409,17 @@ func TestSender(t *testing.T) {
 	// Simulate non opted in block
 	bidder.optinEstimate <- 20
 
+	<-blockTracker.bnIn
+	blockTracker.bnOut <- blockNoOp{
+		block:             2,
+		timeTillNextBlock: 5 * time.Second,
+	}
+
 	// Simulate a price estimate
-	testPricer.out <- &pricer.BlockPrices{
-		CurrentBlockNumber: 1,
-		MsSinceLastBlock:   1000,
-		Prices: []pricer.BlockPrice{
-			{
-				BlockNumber: 2,
-				EstimatedPrices: []pricer.EstimatedPrice{
-					{
-						Confidence:            90,
-						PriorityFeePerGasGwei: 1.0,
-					},
-					{
-						Confidence:            95,
-						PriorityFeePerGasGwei: 1.5,
-					},
-					{
-						Confidence:            99,
-						PriorityFeePerGasGwei: 2.0,
-					},
-				},
-			},
-		},
+	testPricer.out <- map[int64]float64{
+		90: 1.0,
+		95: 1.5,
+		99: 2.0,
 	}
 
 	// Simulate a bid response
@@ -457,29 +443,17 @@ func TestSender(t *testing.T) {
 	// Simulate non opted in block
 	bidder.optinEstimate <- 18
 
+	<-blockTracker.bnIn
+	blockTracker.bnOut <- blockNoOp{
+		block:             2,
+		timeTillNextBlock: 5 * time.Second,
+	}
+
 	// Simulate a price estimate
-	testPricer.out <- &pricer.BlockPrices{
-		CurrentBlockNumber: 1,
-		MsSinceLastBlock:   1000,
-		Prices: []pricer.BlockPrice{
-			{
-				BlockNumber: 2,
-				EstimatedPrices: []pricer.EstimatedPrice{
-					{
-						Confidence:            90,
-						PriorityFeePerGasGwei: 1.0,
-					},
-					{
-						Confidence:            95,
-						PriorityFeePerGasGwei: 1.5,
-					},
-					{
-						Confidence:            99,
-						PriorityFeePerGasGwei: 2.0,
-					},
-				},
-			},
-		},
+	testPricer.out <- map[int64]float64{
+		90: 1.0,
+		95: 1.5,
+		99: 2.0,
 	}
 
 	// Simulate a bid response
@@ -551,8 +525,7 @@ func TestCancelTransaction(t *testing.T) {
 
 	st := newMockStore()
 	testPricer := &mockPricer{
-		out:    make(chan *pricer.BlockPrices, 10),
-		errOut: make(chan error, 3),
+		out: make(chan map[int64]float64, 10),
 	}
 	bidder := &mockBidder{
 		optinEstimate: make(chan int64),
@@ -560,8 +533,11 @@ func TestCancelTransaction(t *testing.T) {
 		out:           make(chan chan optinbidder.BidStatus, 10),
 	}
 	blockTracker := &mockBlockTracker{
-		in:  make(chan op, 10),
-		out: make(chan bool, 10),
+		in:    make(chan op, 10),
+		out:   make(chan bool, 10),
+		bnIn:  make(chan struct{}, 10),
+		bnOut: make(chan blockNoOp, 10),
+		bnErr: make(chan error, 3),
 	}
 
 	sndr, err := sender.NewTxSender(
@@ -603,8 +579,18 @@ func TestCancelTransaction(t *testing.T) {
 		t.Fatalf("failed to enqueue transaction: %v", err)
 	}
 
-	testPricer.errOut <- errors.New("simulated error for testing")
-	testPricer.errOut <- errors.New("simulated error for testing")
+	go func() {
+		for {
+			select {
+			case <-blockTracker.bnIn:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	blockTracker.bnErr <- errors.New("simulated error for testing")
+	blockTracker.bnErr <- errors.New("simulated error for testing")
 	bidder.optinEstimate <- 2
 
 	cancelled, err := sndr.CancelTransaction(ctx, tx1.Hash())
