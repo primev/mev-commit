@@ -3,13 +3,15 @@ package blocktracker_test
 import (
 	"context"
 	"hash"
-	"log/slog"
 	"math/big"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
+	"github.com/primev/mev-commit/x/util"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -74,7 +76,7 @@ func TestBlockTracker(t *testing.T) {
 	blk1 := types.NewBlock(
 		&types.Header{
 			Number: big.NewInt(100),
-			Time:   1622547800,
+			Time:   uint64(time.Now().Unix()),
 		},
 		&types.Body{Transactions: []*types.Transaction{tx1, tx2}},
 		nil, // No receipts
@@ -84,7 +86,7 @@ func TestBlockTracker(t *testing.T) {
 	blk2 := types.NewBlock(
 		&types.Header{
 			Number: big.NewInt(101),
-			Time:   1622547900,
+			Time:   uint64(time.Now().Add(12 * time.Second).Unix()),
 		},
 		&types.Body{Transactions: []*types.Transaction{tx3}},
 		nil, // No receipts
@@ -99,7 +101,7 @@ func TestBlockTracker(t *testing.T) {
 		},
 	}
 
-	tracker, err := blocktracker.NewBlockTracker(client, slog.Default())
+	tracker, err := blocktracker.NewBlockTracker(client, util.NewTestLogger(os.Stdout))
 	if err != nil {
 		t.Fatalf("Failed to create block tracker: %v", err)
 	}
@@ -111,6 +113,26 @@ func TestBlockTracker(t *testing.T) {
 	}
 
 	client.blockNumber <- 100
+
+	start := time.Now()
+	for {
+		bidBlockNo, duration, err := tracker.NextBlockNumber()
+		if err == nil {
+			if bidBlockNo != 101 {
+				t.Fatalf("Expected next block number to be 101, got %d", bidBlockNo)
+			}
+			if duration <= 0 {
+				t.Fatalf("Expected positive duration, got %v", duration)
+			}
+			break
+		} else {
+			t.Logf("Waiting for next block number: %v", err)
+		}
+		if time.Since(start) > 5*time.Second {
+			t.Fatalf("Timeout waiting for next block number")
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	included, err := tracker.CheckTxnInclusion(ctx, tx1.Hash(), 100)
 	if err != nil {
@@ -127,6 +149,22 @@ func TestBlockTracker(t *testing.T) {
 	}
 
 	client.blockNumber <- 101
+
+	start = time.Now()
+	for {
+		bidBlockNo, duration, err := tracker.NextBlockNumber()
+		if err == nil {
+			if bidBlockNo == 102 && duration > 0 {
+				break
+			}
+		} else {
+			t.Logf("Waiting for next block number: %v", err)
+		}
+		if time.Since(start) > 5*time.Second {
+			t.Fatalf("Timeout waiting for next block number")
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	included, err = tracker.CheckTxnInclusion(ctx, tx4.Hash(), 101)
 	if err != nil {

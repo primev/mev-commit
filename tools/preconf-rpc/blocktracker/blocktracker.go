@@ -2,6 +2,7 @@ package blocktracker
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"math/big"
 	"sync"
@@ -64,8 +65,8 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 					}
 					_ = b.blocks.Add(blockNo, block)
 					b.latestBlockNo.Store(block.NumberU64())
-					b.log.Debug("New block detected", "number", block.NumberU64(), "hash", block.Hash().Hex())
 					b.triggerCheck()
+					b.log.Debug("New block detected", "number", block.NumberU64(), "hash", block.Hash().Hex())
 				}
 			}
 		}
@@ -81,6 +82,15 @@ func (b *blockTracker) triggerCheck() {
 
 func (b *blockTracker) LatestBlockNumber() uint64 {
 	return b.latestBlockNo.Load()
+}
+
+func (b *blockTracker) NextBlockNumber() (uint64, time.Duration, error) {
+	block, found := b.blocks.Get(b.latestBlockNo.Load())
+	if !found {
+		return 0, 0, errors.New("latest block not found in cache")
+	}
+	blockTime := time.Unix(int64(block.Time()), 0)
+	return b.latestBlockNo.Load() + 1, time.Until(blockTime.Add(12 * time.Second)), nil
 }
 
 func (b *blockTracker) CheckTxnInclusion(
