@@ -54,7 +54,6 @@ type BlockBuilder struct {
 	logger                *slog.Logger
 	buildDelay            time.Duration
 	buildEmptyBlocksDelay time.Duration
-	buildDelayMs          uint64
 	feeRecipient          common.Address
 	// Execution head of the previous block.
 	// This field should only be set upon restart in setExecutionHeadFromRPC,
@@ -76,7 +75,6 @@ func NewBlockBuilder(
 		engineCl:              engineCl,
 		logger:                logger,
 		buildDelay:            buildDelay,
-		buildDelayMs:          uint64(buildDelay.Milliseconds()),
 		buildEmptyBlocksDelay: buildDelayEmptyBlocks,
 		feeRecipient:          common.HexToAddress(feeReceipt),
 		rpcClient:             rpcClient,

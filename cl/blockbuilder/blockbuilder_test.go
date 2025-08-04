@@ -97,7 +97,6 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 	timestamp := time.Now()
@@ -162,7 +161,6 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -229,7 +227,6 @@ func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -312,7 +309,6 @@ func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -357,7 +353,6 @@ func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -459,7 +454,6 @@ func TestBlockBuilder_FinalizeBlock_InvalidBlockHeight(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -515,7 +509,6 @@ func TestBlockBuilder_FinalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -576,7 +569,6 @@ func TestBlockBuilder_FinalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
