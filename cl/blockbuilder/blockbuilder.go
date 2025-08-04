@@ -55,10 +55,7 @@ type BlockBuilder struct {
 	buildDelay            time.Duration
 	buildEmptyBlocksDelay time.Duration
 	feeRecipient          common.Address
-	// Execution head of the previous block.
-	// This field should only be set upon restart in setExecutionHeadFromRPC,
-	// OR at the end of FinalizeBlock.
-	executionHead *types.ExecutionHead
+	executionHead         *types.ExecutionHead
 }
 
 func NewBlockBuilder(
