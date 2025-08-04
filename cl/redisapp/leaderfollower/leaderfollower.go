@@ -263,7 +263,6 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 					lfm.logger.Error("Leader: failed to reach geth node after max attempts, exiting")
 					stopElecErr := lfm.leaderProc.Stop()
 					// todo: refactor to generate timestamp outside blockbuilder
-					lfm.blockBuilder.SetLastCallTimeToZero()
 					if stopElecErr != nil {
 						lfm.logger.Error(
 							"Leader: Failed to stop leader election",
