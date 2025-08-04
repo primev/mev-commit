@@ -173,7 +173,12 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 			"prev_head_block_time", bb.executionHead.BlockTime,
 		)
 		ts = bb.executionHead.BlockTime + 1
-		time.Sleep(time.Until(time.UnixMilli(int64(ts))))
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled")
+		case <-time.After(time.Until(time.UnixMilli(int64(ts)))):
+			bb.logger.Info("Leader: Waited until proper block timestamp", "ts", ts)
+		}
 	}
 
 	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
