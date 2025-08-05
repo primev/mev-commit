@@ -265,7 +265,7 @@ contract BidderRegistry is
         // Check if bid exceeds the available amount w.r.t bidder->provider deposit
         if (deposit.availableAmount < bidAmt) {
             // This operation shouldn't happen in normal flow. See provider node's CheckAndDeductDeposit function
-            // which checks if a bidder's deposit for the block covers the bid amount.
+            // which checks if a bidder's deposit covers the bid amount.
             bidAmt = deposit.availableAmount;
         }
 
