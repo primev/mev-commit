@@ -368,7 +368,8 @@ func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) 
 					m.notify(nonce, txHashes[start+i], Result{nil, ErrTxnCancelled})
 					continue
 				}
-				m.logger.Error("failed to get receipt", "error", r.Err, "txHash", txHashes[start+i])
+				// This message is causing a lot of noise in the logs, so we only log it at debug level.
+				m.logger.Debug("failed to get receipt", "error", r.Err, "txHash", txHashes[start+i])
 				continue
 			}
 			if r.Receipt.Status != types.ReceiptStatusSuccessful {
