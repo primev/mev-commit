@@ -8,6 +8,7 @@ import {IBidderRegistry} from "../../contracts/interfaces/IBidderRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
+import {DepositManager} from "../../contracts/core/DepositManager.sol";
 
 contract BidderRegistryTest is Test {
     uint256 public testNumber;
@@ -190,7 +191,12 @@ contract BidderRegistryTest is Test {
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
+        uint256 depositBefore = bidderRegistry.getDeposit(bidder, provider);
+
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, provider);
+
+        uint256 depositAfter = bidderRegistry.getDeposit(bidder, provider);
+        assertEq(depositAfter, depositBefore-1 ether, "deposit should be reduced by bid amount since no top-up happened");
 
         bidderRegistry.convertFundsToProviderReward(commitmentDigest, payable(provider), bidderRegistry.ONE_HUNDRED_PERCENT());
         uint256 providerAmount = bidderRegistry.providerAmount(provider);
@@ -406,6 +412,9 @@ contract BidderRegistryTest is Test {
         assertEq(bidAmt, 5 ether);
         vm.prank(address(this));
         bidderRegistry.openBid(commitmentDigest, bidAmt, testBidder, provider);
+
+        uint256 depositAfter = bidderRegistry.getDeposit(testBidder, provider);
+        assertEq(depositAfter, 0, "remaining deposit should be 0, since no top-up happened");
         
         (address storedBidder, uint256 storedBidAmt, IBidderRegistry.State storedState) = bidderRegistry.bidPayment(commitmentDigest);
         assertEq(storedBidder, testBidder);
@@ -494,7 +503,7 @@ contract BidderRegistryTest is Test {
             provider
         );
 
-        assertEq(bidderRegistry.getDeposit(aliceBidder, provider), 0);
+        assertEq(bidderRegistry.getDeposit(aliceBidder, provider), 0); // no top-up happened
         assertEq(bidderRegistry.getEscrowedAmount(aliceBidder, provider), 2 ether);
         assertEq(bidderRegistry.getDeposit(bobBidder, provider), 2 ether);
         assertEq(bidderRegistry.getEscrowedAmount(bobBidder, provider), 0);
@@ -542,5 +551,89 @@ contract BidderRegistryTest is Test {
         vm.startPrank(bidder);
         vm.expectRevert(IBidderRegistry.DepositAmountIsZero.selector);
         bidderRegistry.depositAsBidder{value: 0 ether}(provider);   
+    }
+
+    function test_OpenBid_NoTopUp_WrongCodeHash() public {
+        uint256 alicePK = uint256(0xA11CE);
+        address alice = payable(vm.addr(alicePK));
+        vm.deal(alice, 10 ether);
+
+        IncorrectBidderContract incorrectContract = new IncorrectBidderContract();
+        vm.signAndAttachDelegation(address(incorrectContract), alicePK);
+
+        address bob = vm.addr(8);
+        vm.prank(alice);
+        bidderRegistry.depositAsBidder{value: 2 ether}(bob);
+        uint256 depositBefore = bidderRegistry.getDeposit(alice, bob);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment"), 1 ether, alice, bob);
+
+        uint256 depositAfter = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfter, depositBefore-1 ether, "deposit should be reduced by 1 ether, since no top-up happened");
+
+        assertEq(alice.codehash, keccak256(abi.encodePacked(hex"ef0100", address(incorrectContract))));
+        assertEq(alice.code.length, 23);
+    }
+
+    function test_OpenBid_NoTopUp_TargetDepositDoesNotExist() public {
+        uint256 alicePK = uint256(0xA11CE);
+        address alice = payable(vm.addr(alicePK));
+        vm.deal(alice, 10 ether);
+        vm.signAndAttachDelegation(address(bidderRegistry.depositManagerImpl()), alicePK);
+
+        address bob = vm.addr(8);
+        vm.prank(alice);
+        bidderRegistry.depositAsBidder{value: 2 ether}(bob);
+        uint256 depositBefore = bidderRegistry.getDeposit(alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.TargetDepositDoesNotExist(bob);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment"), 1 ether, alice, bob);
+
+        uint256 depositAfter = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfter, depositBefore-1 ether, "deposit should be reduced by 1 ether, since no top-up happened");
+    }
+
+    function test_OpenBid_NoTopUp_CurrentDepositIsSufficient() public {
+        uint256 alicePK = uint256(0xA11CE);
+        address alice = vm.addr(alicePK);
+        vm.deal(alice, 10 ether);
+        vm.signAndAttachDelegation(address(bidderRegistry.depositManagerImpl()), alicePK);
+
+        address bob = vm.addr(8);
+
+        vm.prank(alice);
+        DepositManager(payable(alice)).setTargetDeposit(bob, 0.5 ether);
+
+        vm.prank(alice);
+        bidderRegistry.depositAsBidder{value: 2 ether}(bob);
+        uint256 depositBefore = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositBefore, 2 ether, "deposit should be 2 ether");
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.CurrentDepositIsSufficient(bob);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment"), 1 ether, alice, bob);
+
+        uint256 depositAfter = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfter, 1 ether, "deposit should be reduced by 1 ether, since no top-up happened");
+        assertEq(DepositManager(payable(alice)).targetDeposits(bob), 0.5 ether);
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.CurrentDepositIsSufficient(bob);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment2"), 0.5 ether, alice, bob);
+
+        uint256 depositAfter2 = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfter2, 0.5 ether, "deposit should be 0.5 ether");
+        assertEq(DepositManager(payable(alice)).targetDeposits(bob), 0.5 ether);
+    }
+}
+
+contract IncorrectBidderContract {
+    event somethingBadHappened(address provider);
+    function topUpDeposit(address provider) public {
+        emit somethingBadHappened(provider);
+        revert("control flow should not reach here");
     }
 }
