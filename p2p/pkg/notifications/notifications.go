@@ -11,15 +11,30 @@ const (
 	TopicPeerDisconnected       Topic = "peer_disconnected"
 	TopicValidatorOptedIn       Topic = "validator_opted_in"
 	TopicEpochValidatorsOptedIn Topic = "epoch_validators_opted_in"
+	TopicProviderRegistered     Topic = "provider_registered"
+	TopicProviderDeposit        Topic = "provider_deposit"
+	TopicProviderSlashed        Topic = "provider_slashed"
+	TopicProviderDeregistered   Topic = "provider_deregistered"
+	TopicCommitmentStoreFailed  Topic = "commitment_store_failed"
+	TopicCommitmentOpenFailed   Topic = "commitment_open_failed"
 )
 
+var validTopic = map[Topic]struct{}{
+	TopicPeerConnected:          {},
+	TopicPeerDisconnected:       {},
+	TopicValidatorOptedIn:       {},
+	TopicEpochValidatorsOptedIn: {},
+	TopicProviderRegistered:     {},
+	TopicProviderDeposit:        {},
+	TopicProviderSlashed:        {},
+	TopicProviderDeregistered:   {},
+	TopicCommitmentStoreFailed:  {},
+	TopicCommitmentOpenFailed:   {},
+}
+
 func IsTopicValid(topic Topic) bool {
-	switch topic {
-	case TopicPeerConnected, TopicPeerDisconnected, TopicValidatorOptedIn, TopicEpochValidatorsOptedIn:
-		return true
-	default:
-		return false
-	}
+	_, ok := validTopic[topic]
+	return ok
 }
 
 // Notification is a struct that represents a notification. It has a Topic field

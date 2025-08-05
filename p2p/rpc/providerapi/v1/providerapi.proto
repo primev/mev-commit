@@ -67,6 +67,26 @@ service Provider {
   rpc Unstake(EmptyMessage) returns (EmptyMessage) {
     option (google.api.http) = {post: "/v1/provider/unstake"};
   }
+  // GetProviderReward
+  //
+  // GetProviderReward is called by the provider to retrieve their current reward balance
+  // without withdrawing it from the bidder registry.
+  rpc GetProviderReward(EmptyMessage) returns (RewardResponse) {
+    option (google.api.http) = {get: "/v1/provider/get_provider_reward"};
+  }
+  // WithdrawProviderReward
+  //
+  // WithdrawProviderReward is called by the provider to withdraw their accumulated rewards
+  // from the bidder registry contract.
+  rpc WithdrawProviderReward(EmptyMessage) returns (WithdrawalResponse) {
+    option (google.api.http) = {post: "/v1/provider/withdraw_provider_reward"};
+  }
+  // GetCommitmentInfo
+  //
+  // GetCommitmentInfo is called by the provider to retrieve the commitment information.
+  rpc GetCommitmentInfo(GetCommitmentInfoRequest) returns (CommitmentInfoResponse) {
+    option (google.api.http) = {get: "/v1/provider/get_commitment_info"};
+  }
 }
 
 message StakeRequest {
@@ -123,6 +143,17 @@ message WithdrawalResponse {
       description: "Withdrawal amount for provider in the provider registry."
     }
     example: "{\"amount\": \"1000000000000000000\"}"
+  };
+  string amount = 1;
+};
+
+message RewardResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Reward response"
+      description: "Current reward amount for provider in the bidder registry."
+    }
+    example: "{\"amount\": \"500000000000000000\"}"
   };
   string amount = 1;
 };
@@ -229,5 +260,88 @@ message BidResponse {
   }];
   int64 dispatch_timestamp = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Timestamp at which the commitment is accepted by provider and is used to compute the expected revenue from the preconfirmation"
+  }];
+};
+
+message GetCommitmentInfoRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Get commitment info request"
+      description: "Request to get the commitment information."
+    }
+  };
+  int64 block_number = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional block number for which to get the commitment information. If not specified all block numbers are returned in ascending order"
+  }];
+  int32 page = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional page number for pagination. Defaults to 0."
+  }];
+  int32 limit = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional limit for the number of commitments to return per page. Defaults to 100."
+  }];
+};
+
+message CommitmentInfoResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Commitment info response"
+      description: "Response containing the commitment information."
+      required: ["commitments"]
+    }
+  };
+  message Commitment {
+    repeated string txn_hashes = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "List of transaction hashes that are part of the commitment."
+      pattern: "[a-fA-F0-9]{64}"
+    }];
+    repeated string revertable_txn_hashes = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "List of transaction hashes that are allowed to revert."
+      pattern: "[a-fA-F0-9]{64}"
+    }];
+    string amount = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Amount of ETH in wei committed by the bidder."
+      pattern: "[0-9]+"
+    }];
+    int64 block_number = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Block number at which the commitment is made."
+    }];
+    string provider_address = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Hex string encoding of the address of the provider that signed the commitment signature."
+    }];
+    int64 decay_start_timestamp = 6 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Timestamp at which the bid starts decaying."
+    }];
+    int64 decay_end_timestamp = 7 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Timestamp at which the bid ends decaying."
+    }];
+    int64 dispatch_timestamp = 8 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Timestamp at which the commitment is published."
+    }];
+    string slash_amount = 9 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Amount of ETH that will be slashed from the provider if they fail to include the transaction."
+    }];
+    string status = 10 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Status of the commitment. Possible values: 'pending', 'stored', 'opened', 'settled', 'slashed', 'failed'."
+    }];
+    string details = 11 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Additional details about the commitment status."
+    }];
+    string payment = 12 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Payment amount in wei for the commitment."
+    }];
+    string refund = 13 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Refund amount in wei for the commitment, if applicable."
+    }];
+  };
+  message BlockCommitments {
+    int64 block_number = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Block number for which the commitments are made."
+    }];
+    repeated Commitment commitments = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "List of commitments made in the block."
+    }];
+  };
+  repeated BlockCommitments commitments = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "List of commitments made in the block."
   }];
 };

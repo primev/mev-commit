@@ -18,6 +18,7 @@ import (
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -29,17 +30,24 @@ type ProcessedBidResponse struct {
 
 type Service struct {
 	providerapiv1.UnimplementedProviderServer
-	receiver         chan *providerapiv1.Bid
-	bidsInProcess    map[string]func(ProcessedBidResponse)
-	bidsMu           sync.Mutex
-	logger           *slog.Logger
-	owner            common.Address
-	registryContract ProviderRegistryContract
-	watcher          Watcher
-	optsGetter       OptsGetter
-	metrics          *metrics
-	validator        *protovalidate.Validator
-	activeReceivers  atomic.Int32
+	receiver               chan *providerapiv1.Bid
+	bidsInProcess          map[string]func(ProcessedBidResponse)
+	bidsMu                 sync.Mutex
+	logger                 *slog.Logger
+	owner                  common.Address
+	registryContract       ProviderRegistryContract
+	bidderRegistryContract BidderRegistryContract
+	watcher                Watcher
+	cs                     CommitmentStore
+	optsGetter             OptsGetter
+	metrics                *metrics
+	validator              *protovalidate.Validator
+	activeReceivers        atomic.Int32
+}
+
+type BidderRegistryContract interface {
+	GetProviderAmount(*bind.CallOpts, common.Address) (*big.Int, error)
+	WithdrawProviderAmount(*bind.TransactOpts, common.Address) (*types.Transaction, error)
 }
 
 type ProviderRegistryContract interface {
@@ -63,26 +71,35 @@ type Watcher interface {
 	WaitForReceipt(ctx context.Context, tx *types.Transaction) (*types.Receipt, error)
 }
 
+type CommitmentStore interface {
+	GetCommitments(blockNumber int64) ([]*preconfstore.Commitment, error)
+	ListCommitments(opts *preconfstore.ListOpts) ([]*preconfstore.Commitment, error)
+}
+
 type OptsGetter func(ctx context.Context) (*bind.TransactOpts, error)
 
 func NewService(
 	logger *slog.Logger,
 	registryContract ProviderRegistryContract,
+	bidderRegistryContract BidderRegistryContract,
 	owner common.Address,
 	watcher Watcher,
+	cs CommitmentStore,
 	optsGetter OptsGetter,
 	validator *protovalidate.Validator,
 ) *Service {
 	return &Service{
-		receiver:         make(chan *providerapiv1.Bid),
-		bidsInProcess:    make(map[string]func(ProcessedBidResponse)),
-		registryContract: registryContract,
-		owner:            owner,
-		logger:           logger,
-		watcher:          watcher,
-		optsGetter:       optsGetter,
-		metrics:          newMetrics(),
-		validator:        validator,
+		receiver:               make(chan *providerapiv1.Bid),
+		bidsInProcess:          make(map[string]func(ProcessedBidResponse)),
+		registryContract:       registryContract,
+		bidderRegistryContract: bidderRegistryContract,
+		owner:                  owner,
+		logger:                 logger,
+		watcher:                watcher,
+		cs:                     cs,
+		optsGetter:             optsGetter,
+		metrics:                newMetrics(),
+		validator:              validator,
 	}
 }
 
@@ -426,4 +443,127 @@ func (s *Service) Unstake(
 
 	s.logger.Error("no withdrawal request event found")
 	return nil, status.Error(codes.Internal, "no withdrawal request event found")
+}
+
+func (s *Service) WithdrawProviderReward(
+	ctx context.Context,
+	_ *providerapiv1.EmptyMessage,
+) (*providerapiv1.WithdrawalResponse, error) {
+	// Get the amount before withdrawal to report in response
+	amount, err := s.bidderRegistryContract.GetProviderAmount(&bind.CallOpts{
+		Context: ctx,
+		From:    s.owner,
+	}, s.owner)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "checking provider rewards: %v", err)
+	}
+
+	if amount.Cmp(big.NewInt(0)) == 0 {
+		return &providerapiv1.WithdrawalResponse{Amount: "0"}, nil
+	}
+
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	tx, err := s.bidderRegistryContract.WithdrawProviderAmount(opts, s.owner)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "withdrawing provider rewards: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "transaction failed with status: %v", receipt.Status)
+	}
+
+	s.logger.Info("provider rewards withdrawn", "amount", amount.String())
+	return &providerapiv1.WithdrawalResponse{Amount: amount.String()}, nil
+}
+
+func (s *Service) GetProviderReward(
+	ctx context.Context,
+	_ *providerapiv1.EmptyMessage,
+) (*providerapiv1.RewardResponse, error) {
+	// Get the provider's accumulated reward amount
+	amount, err := s.bidderRegistryContract.GetProviderAmount(&bind.CallOpts{
+		Context: ctx,
+		From:    s.owner,
+	}, s.owner)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "checking provider rewards: %v", err)
+	}
+
+	s.logger.Info("retrieved provider reward amount", "amount", amount.String())
+	return &providerapiv1.RewardResponse{Amount: amount.String()}, nil
+}
+
+const (
+	defaultPage  = 0
+	defaultLimit = 100
+)
+
+func (s *Service) GetCommitmentInfo(
+	ctx context.Context,
+	req *providerapiv1.GetCommitmentInfoRequest,
+) (*providerapiv1.CommitmentInfoResponse, error) {
+	var (
+		cmts        []*preconfstore.Commitment
+		err         error
+		page, limit = int(req.Page), int(req.Limit)
+	)
+
+	if limit == 0 {
+		limit = defaultLimit
+	}
+
+	if req.BlockNumber != 0 {
+		cmts, err = s.cs.GetCommitments(req.BlockNumber)
+	} else {
+		cmts, err = s.cs.ListCommitments(&preconfstore.ListOpts{
+			Page:  page,
+			Limit: limit,
+		})
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting commitments: %v", err)
+	}
+	if len(cmts) == 0 {
+		return &providerapiv1.CommitmentInfoResponse{
+			Commitments: []*providerapiv1.CommitmentInfoResponse_BlockCommitments{},
+		}, nil
+	}
+
+	blockCommitments := make([]*providerapiv1.CommitmentInfoResponse_BlockCommitments, 0)
+	for _, c := range cmts {
+		if len(blockCommitments) == 0 || blockCommitments[len(blockCommitments)-1].BlockNumber != c.Bid.BlockNumber {
+			blockCommitments = append(blockCommitments, &providerapiv1.CommitmentInfoResponse_BlockCommitments{
+				BlockNumber: c.Bid.BlockNumber,
+				Commitments: make([]*providerapiv1.CommitmentInfoResponse_Commitment, 0),
+			})
+		}
+		blockCommitments[len(blockCommitments)-1].Commitments = append(blockCommitments[len(blockCommitments)-1].Commitments, &providerapiv1.CommitmentInfoResponse_Commitment{
+			TxnHashes:           strings.Split(c.Bid.TxHash, ","),
+			RevertableTxnHashes: strings.Split(c.Bid.RevertingTxHashes, ","),
+			Amount:              c.Bid.BidAmount,
+			BlockNumber:         c.Bid.BlockNumber,
+			ProviderAddress:     common.Bytes2Hex(c.ProviderAddress),
+			DecayStartTimestamp: c.Bid.DecayStartTimestamp,
+			DecayEndTimestamp:   c.Bid.DecayEndTimestamp,
+			DispatchTimestamp:   c.EncryptedPreConfirmation.DispatchTimestamp,
+			SlashAmount:         c.Bid.SlashAmount,
+			Status:              string(c.Status),
+			Details:             c.Details,
+			Payment:             c.Payment,
+			Refund:              c.Refund,
+		})
+	}
+
+	return &providerapiv1.CommitmentInfoResponse{
+		Commitments: blockCommitments,
+	}, nil
 }
