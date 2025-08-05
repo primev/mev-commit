@@ -558,6 +558,7 @@ func NewNode(opts *Options) (*Node, error) {
 			providerAPI := providerapi.NewService(
 				opts.Logger.With("component", "providerapi"),
 				providerRegistry,
+				bidderRegistry,
 				opts.KeySigner.GetAddress(),
 				monitor,
 				preconfStore,
