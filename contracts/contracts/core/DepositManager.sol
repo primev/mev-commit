@@ -13,9 +13,10 @@ contract DepositManager {
 
     event TargetDepositSet(address indexed provider, uint256 amount);
     event TargetDepositDoesNotExist(address indexed provider);
-    event NotEnoughEOABalance(uint256 balance, uint256 minBalance);
-    event TopUpReduced(address indexed provider, uint256 needed, uint256 available);
-    event CurrentDepositIsSufficient(address indexed provider);
+    event CurrentDepositIsSufficient(address indexed provider, uint256 currentDeposit, uint256 targetDeposit);
+    event CurrentBalanceAtOrBelowMin(address indexed provider, uint256 currentBalance, uint256 minBalance);
+    event NotEnoughEOABalance(address indexed provider, uint256 available, uint256 needed);
+    event TopUpReduced(address indexed provider, uint256 available, uint256 needed);
     event DepositToppedUp(address indexed provider, uint256 amount);
 
     constructor(address _registry, uint256 _minBalance) {
@@ -45,20 +46,20 @@ contract DepositManager {
 
         uint256 currentDeposit = IBidderRegistry(bidderRegistry).getDeposit(address(this), provider);
         if (currentDeposit >= target) {
-            emit CurrentDepositIsSufficient(provider);
+            emit CurrentDepositIsSufficient(provider, currentDeposit, target);
             return;
         }
-        uint256 needed = target - currentDeposit;
+        uint256 needed = target - currentDeposit; // No underflow/overflow, target must be greater than current deposit
 
-        uint256 balance = address(this).balance;
-        if (balance <= minBalance) {
-            emit NotEnoughEOABalance(balance, minBalance);
+        uint256 currentBalance = address(this).balance;
+        if (currentBalance <= minBalance) {
+            emit CurrentBalanceAtOrBelowMin(provider, currentBalance, minBalance);
             return;
         }
-        uint256 available = balance - minBalance;
 
-        if (needed > available) {
-            emit TopUpReduced(provider, needed, available);
+        uint256 available = currentBalance - minBalance; // No underflow/overflow, currentBalance must be greater than minBalance
+        if (available < needed) {
+            emit TopUpReduced(provider, available, needed);
             needed = available;
         }
         IBidderRegistry(bidderRegistry).depositAsBidder{value: needed}(provider);
