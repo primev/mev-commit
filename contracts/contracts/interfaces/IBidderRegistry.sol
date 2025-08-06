@@ -101,6 +101,9 @@ interface IBidderRegistry {
     /// @dev Event emitted when a bidder's top-up instance fails during openBid
     event TopUpFailed(address indexed bidder, address indexed provider);
 
+    /// @dev Event emitted when an opened bid amount is reduced due to the bidder not having enough funds deposited    
+    event BidAmountReduced(address indexed bidder, address indexed provider, uint256 indexed newBidAmt);
+
     /// @dev Error emitted when the sender is not the preconfManager
     error SenderIsNotPreconfManager(address sender, address preconfManager);
 
