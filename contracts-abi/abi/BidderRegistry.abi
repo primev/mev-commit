@@ -736,6 +736,31 @@
   },
   {
     "type": "event",
+    "name": "BidAmountReduced",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newBidAmt",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "BidderDeposited",
     "inputs": [
       {
@@ -782,7 +807,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "amountEscrowed",
+        "name": "amountStillEscrowed",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1094,6 +1119,18 @@
         "internalType": "address"
       },
       {
+        "name": "availableAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "escrowedAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
         "name": "timestamp",
         "type": "uint256",
         "indexed": true,
@@ -1219,6 +1256,11 @@
   },
   {
     "type": "error",
+    "name": "NoProviders",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotInitializing",
     "inputs": []
   },
@@ -1336,22 +1378,6 @@
   },
   {
     "type": "error",
-    "name": "WithdrawalOccurrenceDoesNotExist",
-    "inputs": [
-      {
-        "name": "bidder",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "provider",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "WithdrawalOccurrenceExists",
     "inputs": [
       {
@@ -1363,6 +1389,11 @@
         "name": "provider",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "requestTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -1384,6 +1415,22 @@
         "name": "withdrawalPeriodMs",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalRequestDoesNotExist",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   }
