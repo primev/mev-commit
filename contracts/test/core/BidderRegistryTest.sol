@@ -257,9 +257,6 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         vm.prank(bidder);
         bidderRegistry.depositAsBidder{value: 64 ether}(provider);
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
-        blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
 
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, provider);
 
@@ -283,9 +280,6 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         vm.prank(bidder);
         bidderRegistry.depositAsBidder{value: 64 ether}(provider);
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
-        blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
 
         assertEq(bidder.balance, 1000 ether - 64 ether);
         assertEq(bidderRegistry.getDeposit(bidder, provider), 64 ether);
@@ -330,9 +324,6 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositAsBidder{value: 128 ether}(provider);
         uint256 balanceBefore = address(provider).balance;
         bytes32 commitmentDigest = keccak256("1234");
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
-        blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
 
         bidderRegistry.openBid(commitmentDigest, 2 ether, bidder, provider);
         
@@ -402,8 +393,6 @@ contract BidderRegistryTest is Test {
             assertEq(escrowedFunds, 0);
         }
         vm.stopPrank();
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW*3 + 2);
-        blockTracker.recordL1Block(blockNumber, "test");
 
         vm.expectEmit(true, false, false, true);
         emit IBidderRegistry.WithdrawalRequested(bidder, provider1, 1 ether, 0, block.timestamp);
@@ -480,9 +469,6 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositAsBidder{value: 64 ether}(provider);
         uint256 balanceBefore = feeRecipient.balance;
         bytes32 commitmentDigest = keccak256("1234");
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
-        blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, provider);
         vm.expectEmit(true, true, true, true);
         emit FeeTransfer(100000000000000000, feeRecipient);
@@ -499,9 +485,6 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositAsBidder{value: 64 ether}(provider);
         uint256 balanceBefore = feeRecipient.balance;
         bytes32 commitmentDigest = keccak256("1234");
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
-        blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, provider);
         bidderRegistry.convertFundsToProviderReward(commitmentDigest, payable(provider), bidderRegistry.ONE_HUNDRED_PERCENT());
         uint256 balanceAfter = feeRecipient.balance;
@@ -513,7 +496,6 @@ contract BidderRegistryTest is Test {
     function test_OpenBidWithExcessExploit() public {
         address aliceBidder = vm.addr(7);
         address bobBidder = vm.addr(8);
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1);
 
         vm.deal(aliceBidder, 10 ether);
         vm.deal(bobBidder, 10 ether);
@@ -567,8 +549,6 @@ contract BidderRegistryTest is Test {
         );
         vm.stopPrank();
 
-        blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW * 2 + 1);
-        blockTracker.recordL1Block(blockNumber, "test");
         address[] memory providers = new address[](1);
         providers[0] = provider;
         vm.prank(aliceBidder);
