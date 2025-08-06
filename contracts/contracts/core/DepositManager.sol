@@ -12,10 +12,10 @@ contract DepositManager {
     error NotThisEOA(address msgSender, address thisAddress);
 
     event TargetDepositSet(address indexed provider, uint256 amount);
+    event WithdrawalRequestExists(address indexed provider);
     event TargetDepositDoesNotExist(address indexed provider);
     event CurrentDepositIsSufficient(address indexed provider, uint256 currentDeposit, uint256 targetDeposit);
     event CurrentBalanceAtOrBelowMin(address indexed provider, uint256 currentBalance, uint256 minBalance);
-    event NotEnoughEOABalance(address indexed provider, uint256 available, uint256 needed);
     event TopUpReduced(address indexed provider, uint256 available, uint256 needed);
     event DepositToppedUp(address indexed provider, uint256 amount);
 
@@ -38,6 +38,11 @@ contract DepositManager {
     /// @param provider to top-up the deposit for.
     /// @dev This function will be called automatically by external addresses.
     function topUpDeposit(address provider) external {
+        if (IBidderRegistry(bidderRegistry).withdrawalRequestExists(address(this), provider)) {
+            emit WithdrawalRequestExists(provider);
+            return;
+        }
+
         uint256 target = targetDeposits[provider];
         if (target == 0) {
             emit TargetDepositDoesNotExist(provider);
