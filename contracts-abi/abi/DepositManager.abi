@@ -16,6 +16,10 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "fallback",
+    "stateMutability": "payable"
+  },
+  {
     "type": "receive",
     "stateMutability": "payable"
   },
@@ -97,6 +101,31 @@
   },
   {
     "type": "event",
+    "name": "CurrentBalanceAtOrBelowMin",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "currentBalance",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "minBalance",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "CurrentDepositIsSufficient",
     "inputs": [
       {
@@ -104,6 +133,18 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "currentDeposit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "targetDeposit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -120,25 +161,6 @@
       },
       {
         "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "NotEnoughEOABalance",
-    "inputs": [
-      {
-        "name": "balance",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "minBalance",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -189,13 +211,13 @@
         "internalType": "address"
       },
       {
-        "name": "needed",
+        "name": "available",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "available",
+        "name": "needed",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -204,8 +226,37 @@
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "WithdrawalRequestExists",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidFallback",
+    "inputs": []
+  },
+  {
     "type": "error",
     "name": "NotThisEOA",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "thisAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   }
 ]
