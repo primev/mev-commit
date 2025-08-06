@@ -13,6 +13,7 @@ import {Oracle} from "../../contracts/core/Oracle.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {console} from "forge-std/console.sol";
+import {DepositManager} from "../../contracts/core/DepositManager.sol";
 
 contract DeployCore is Script {
 
@@ -59,6 +60,11 @@ contract DeployCore is Script {
         );
         BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         console.log("BidderRegistry:", address(bidderRegistry));
+
+        uint256 depositManagerMinBalance = 0.01 ether;
+        DepositManager depositManager = new DepositManager(bidderRegistryProxy, depositManagerMinBalance);
+        bidderRegistry.setDepositManagerImpl(address(depositManager));
+        console.log("Set bidderRegistry.depositManagerImpl to:", address(depositManager));
 
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
