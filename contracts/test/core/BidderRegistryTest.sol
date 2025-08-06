@@ -791,6 +791,27 @@ contract BidderRegistryTest is Test {
         assertEq(depositAfter, 1.5 ether, "deposit should be 1.5 ether");
         assertEq(alice.balance, 0.25 ether, "alice should have 0.25 ether");
     }
+
+    function test_OpenBid_GracefulTopUpFailure() public {
+        AlwaysRevertsDepositManager alwaysRevertsDepositManager = new AlwaysRevertsDepositManager();
+        vm.prank(bidderRegistry.owner());
+        bidderRegistry.setDepositManagerImpl(address(alwaysRevertsDepositManager));
+
+        uint256 alicePK = uint256(0xA11CE);
+        address alice = vm.addr(alicePK);
+        vm.deal(alice, 10 ether);
+        vm.signAndAttachDelegation(address(alwaysRevertsDepositManager), alicePK);
+
+        address provider = vm.addr(4);
+
+        vm.prank(alice);
+        bidderRegistry.depositAsBidder{value: 1 ether}(provider);
+
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.TopUpFailed(alice, provider);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment"), 1 ether, alice, provider);
+    }
 }
 
 contract IncorrectBidderContract {
@@ -798,5 +819,12 @@ contract IncorrectBidderContract {
     function topUpDeposit(address provider) public {
         emit somethingBadHappened(provider);
         revert("control flow should not reach here");
+    }
+}
+
+contract AlwaysRevertsDepositManager {
+    error RevertErr(address provider);
+    function topUpDeposit(address provider) public pure {
+        revert RevertErr(provider);
     }
 }
