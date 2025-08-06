@@ -255,7 +255,7 @@ contract BidderRegistry is
         uint256 bidAmt,
         address bidder,
         address provider
-    ) external onlyPreconfManager whenNotPaused depositManagerIsSet returns (uint256) {
+    ) external onlyPreconfManager whenNotPaused nonReentrant depositManagerIsSet returns (uint256) {
         BidState storage bidState = bidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
             return bidAmt;
