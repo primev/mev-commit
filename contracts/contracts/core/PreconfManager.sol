@@ -18,7 +18,6 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 /**
  * @title PreconfManager - A contract for managing preconfirmation commitments and bids.
  * @notice This contract allows bidders to make precommitments and bids and provides a mechanism for the oracle to verify and process them.
- * @notice IBidderRegistry interface has changed, so this contract will need upgrade or redeployment on mainnet.
  */
 contract PreconfManager is
     IPreconfManager,
