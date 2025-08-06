@@ -1109,12 +1109,46 @@ contract BidderRegistryTest is Test {
         assertEq(balanceAfter, 9 ether + 3 wei, "bidder should have received all available amount");
     }
 
+    function test_bidderStakingAndWithdrawCycle() public {
+        test_withdrawAsBidder_AssertDepositStateWithEscrowedAmount();
+
+        address provider1 = vm.addr(8);
+        address provider2 = vm.addr(9);
+        address[] memory providers = new address[](2);
+        providers[0] = provider1;
+        providers[1] = provider2;
+
+        IBidderRegistry.Deposit memory deposit1Before = getDepositStruct(bidder, provider1);
+        IBidderRegistry.Deposit memory deposit2Before = getDepositStruct(bidder, provider2);
+
+        vm.deal(bidder, 25 ether + 1 wei);
+
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderDeposited(bidder, provider1, 12.5 ether);
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderDeposited(bidder, provider2, 12.5 ether + 1 wei);
+        vm.prank(bidder);
+        bidderRegistry.depositEvenlyAsBidder{value: 25 ether + 1 wei}(providers);
+
+        IBidderRegistry.Deposit memory deposit1After = getDepositStruct(bidder, provider1);
+        IBidderRegistry.Deposit memory deposit2After = getDepositStruct(bidder, provider2);
+        assertTrue(deposit1After.exists, "deposit1 should exist");
+        assertTrue(deposit2After.exists, "deposit2 should exist");
+        assertEq(deposit1After.availableAmount, deposit1Before.availableAmount + 12.5 ether, "deposit1 should have 12.5 ether more than before");
+        assertEq(deposit2After.availableAmount, deposit2Before.availableAmount + 12.5 ether + 1 wei, "deposit2 should have 12.5 ether + 1 wei more than before");
+        assertEq(deposit1After.escrowedAmount, deposit1Before.escrowedAmount, "deposit1 should have same escrowed amount as before");
+        assertEq(deposit2After.escrowedAmount, deposit2Before.escrowedAmount, "deposit2 should have same escrowed amount as before");
+        assertFalse(deposit1After.withdrawalRequestOccurrence.exists, "deposit1 should have no withdrawal request");
+        assertFalse(deposit2After.withdrawalRequestOccurrence.exists, "deposit2 should have no withdrawal request");
+
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment"), 1 ether, bidder, provider1);
+    }
+
     function getDepositStruct(address bidderArg, address providerArg) public view returns (IBidderRegistry.Deposit memory deposit) {
         (deposit.exists, deposit.availableAmount, deposit.escrowedAmount, deposit.withdrawalRequestOccurrence) = bidderRegistry.deposits(bidderArg, providerArg);
         return deposit;
     }
-
-    // TODO: Test staking/withdraw cycle for bidder to same provider
 }
 
 contract IncorrectBidderContract {
