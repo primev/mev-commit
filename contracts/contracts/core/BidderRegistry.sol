@@ -98,11 +98,12 @@ contract BidderRegistry is
      */
     function depositEvenlyAsBidder(address[] calldata providers) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
-
-        uint256 amountToDeposit = msg.value / providers.length;
-        uint256 remainingAmount = msg.value % providers.length; // to handle rounding issues
-
         uint256 len = providers.length;
+        require(len > 0, NoProviders());
+
+        uint256 amountToDeposit = msg.value / len;
+        uint256 remainingAmount = msg.value % len; // to handle rounding issues
+
         for (uint16 i = 0; i < len; ++i) {
             address provider = providers[i];
             uint256 amount = amountToDeposit;

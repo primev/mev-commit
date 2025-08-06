@@ -125,6 +125,9 @@ interface IBidderRegistry {
     /// @dev Error emitted when the bidder tries to deposit 0 amount
     error DepositAmountIsZero();
 
+    /// @dev Error emitted when no providers are given as an argument to depositEvenlyAsBidder
+    error NoProviders();
+
     /// @dev Error emitted when withdrawal transfer failed
     error BidderWithdrawalTransferFailed(address bidder, uint256 amount);
 
