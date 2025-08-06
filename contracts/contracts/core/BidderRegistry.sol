@@ -442,8 +442,6 @@ contract BidderRegistry is
         emit BidderDeposited(bidder, provider, amount);
     }
 
-
-
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
 }
