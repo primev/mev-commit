@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
 	"golang.org/x/sync/errgroup"
 )
@@ -88,11 +87,12 @@ type Bidder interface {
 }
 
 type Pricer interface {
-	EstimatePrice(ctx context.Context) (*pricer.BlockPrices, error)
+	EstimatePrice(ctx context.Context) map[int64]float64
 }
 
 type BlockTracker interface {
 	CheckTxnInclusion(ctx context.Context, txnHash common.Hash, blockNumber uint64) (bool, error)
+	NextBlockNumber() (uint64, time.Duration, error)
 }
 
 type Transferer interface {
@@ -100,7 +100,7 @@ type Transferer interface {
 }
 
 type blockAttempt struct {
-	blockNumber int64
+	blockNumber uint64
 	attempts    int
 }
 
@@ -424,8 +424,7 @@ BID_LOOP:
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
-			blockTimeUsed := time.Since(result.startTime).Milliseconds() + result.msSinceLastBlock
-			if blockTimeUsed < (blockTime*1000 - 1000) {
+			if (result.timeUntillNextBlock - time.Second) > time.Since(result.startTime) {
 				// If not all builders committed, we will retry the bid process
 				// immediately if we have atleast 1 second left before the next block
 				continue
@@ -491,13 +490,13 @@ func (e *errRetry) Error() string {
 }
 
 type bidResult struct {
-	startTime        time.Time
-	msSinceLastBlock int64
-	noOfProviders    int
-	blockNumber      uint64
-	optedInSlot      bool
-	bidAmount        *big.Int
-	commitments      []*bidderapiv1.Commitment
+	startTime           time.Time
+	timeUntillNextBlock time.Duration
+	noOfProviders       int
+	blockNumber         uint64
+	optedInSlot         bool
+	bidAmount           *big.Int
+	commitments         []*bidderapiv1.Commitment
 }
 
 func (t *TxSender) sendBid(
@@ -513,22 +512,33 @@ func (t *TxSender) sendBid(
 		timeToOptIn = blockTime * 32
 	}
 
-	prices, err := t.pricer.EstimatePrice(ctx)
+	start := time.Now()
+	bidBlockNo, timeUntilNextBlock, err := t.blockTracker.NextBlockNumber()
 	if err != nil {
-		t.logger.Error("Failed to estimate transaction price", "error", err)
+		t.logger.Error("Failed to get next block number", "error", err)
 		return bidResult{}, &errRetry{
-			err:        fmt.Errorf("failed to estimate transaction price: %w", err),
+			err:        fmt.Errorf("failed to get next block number: %w", err),
 			retryAfter: time.Second,
 		}
 	}
 
-	start := time.Now()
-	optedInSlot := math.Abs(float64(timeToOptIn)-float64(blockTime-(prices.MsSinceLastBlock/1000))) < float64(blockTime/2)
+	if timeUntilNextBlock <= time.Second {
+		t.logger.Warn("Next block time is too short, skipping bid", "timeUntilNextBlock", timeUntilNextBlock)
+		return bidResult{}, &errRetry{
+			err:        fmt.Errorf("next block time is too short: %s", timeUntilNextBlock),
+			retryAfter: time.Second,
+		}
+	}
+
+	prices := t.pricer.EstimatePrice(ctx)
+
+	// Allow for certain level of tolerance w.r.t timestamps
+	optedInSlot := math.Abs(float64(timeToOptIn)-float64(timeUntilNextBlock.Seconds())) < float64(blockTime/3)
 
 	cctx, cancel := context.WithTimeout(ctx, bidTimeout)
 	defer cancel()
 
-	cost, blockNo, err := t.calculatePriceForNextBlock(txn, prices, optedInSlot)
+	cost, err := t.calculatePriceForNextBlock(txn, bidBlockNo, prices, optedInSlot)
 	if err != nil {
 		t.logger.Error("Failed to calculate price for next block", "error", err)
 		return bidResult{}, &errRetry{
@@ -585,7 +595,7 @@ func (t *TxSender) sendBid(
 		strings.TrimPrefix(txn.Raw, "0x"),
 		&optinbidder.BidOpts{
 			WaitForOptIn:      false,
-			BlockNumber:       uint64(blockNo),
+			BlockNumber:       uint64(bidBlockNo),
 			RevertingTxHashes: []string{txn.Hash().Hex()},
 			DecayDuration:     bidTimeout * 2,
 		},
@@ -596,10 +606,10 @@ func (t *TxSender) sendBid(
 	}
 
 	result := bidResult{
-		commitments:      make([]*bidderapiv1.Commitment, 0),
-		bidAmount:        cost,
-		startTime:        start,
-		msSinceLastBlock: prices.MsSinceLastBlock,
+		commitments:         make([]*bidderapiv1.Commitment, 0),
+		bidAmount:           cost,
+		startTime:           start,
+		timeUntillNextBlock: timeUntilNextBlock,
 	}
 BID_LOOP:
 	for {
@@ -642,9 +652,10 @@ BID_LOOP:
 
 func (t *TxSender) calculatePriceForNextBlock(
 	txn *Transaction,
-	prices *pricer.BlockPrices,
+	bidBlockNo uint64,
+	prices map[int64]float64,
 	optedInSlot bool,
-) (*big.Int, int64, error) {
+) (*big.Int, error) {
 	attempts, found := t.txnAttemptHistory.Get(txn.Hash())
 	if !found {
 		attempts = &txnAttempt{
@@ -657,16 +668,20 @@ func (t *TxSender) calculatePriceForNextBlock(
 	confidence := defaultConfidence
 	isRetry := false
 
-	for _, attempt := range attempts.attempts {
-		if attempt.blockNumber == prices.CurrentBlockNumber+1 {
+	for i := len(attempts.attempts) - 1; i >= 0; i-- {
+		if attempts.attempts[i].blockNumber < bidBlockNo {
+			break // We only care about attempts for the current block
+		}
+		if attempts.attempts[i].blockNumber == bidBlockNo {
 			isRetry = true
-			attempt.attempts++
+			attempts.attempts[i].attempts++
 			switch {
-			case attempt.attempts == 2:
+			case attempts.attempts[i].attempts == 2:
 				confidence = confidenceSecondAttempt
-			case attempt.attempts > 2:
+			case attempts.attempts[i].attempts > 2:
 				confidence = confidenceSubsequentAttempts
 			}
+			break // No need to check further attempts for the same block
 		}
 	}
 
@@ -677,27 +692,23 @@ func (t *TxSender) calculatePriceForNextBlock(
 	// If this is the first attempt for the next block, we add it to the history
 	if !isRetry {
 		attempts.attempts = append(attempts.attempts, &blockAttempt{
-			blockNumber: prices.CurrentBlockNumber + 1,
+			blockNumber: bidBlockNo,
 			attempts:    1,
 		})
 	}
 
 	_ = t.txnAttemptHistory.Add(txn.Hash(), attempts)
 
-	for _, price := range prices.Prices {
-		if price.BlockNumber == prices.CurrentBlockNumber+1 {
-			for _, estimatedPrice := range price.EstimatedPrices {
-				if estimatedPrice.Confidence == confidence {
-					// the gwei value is in float, so we need to convert it to wei before multiplying with gas limit
-					priceInWei := estimatedPrice.PriorityFeePerGasGwei * 1e9 // Convert Gwei to Wei
-					return new(big.Int).Mul(big.NewInt(int64(priceInWei)), big.NewInt(int64(txn.Gas()))), price.BlockNumber, nil
-				}
-			}
+	for conf, price := range prices {
+		if conf == int64(confidence) {
+			// the gwei value is in float, so we need to convert it to wei before multiplying with gas limit
+			priceInWei := price * 1e9 // Convert Gwei to Wei
+			return new(big.Int).Mul(big.NewInt(int64(priceInWei)), big.NewInt(int64(txn.Gas()))), nil
 		}
 	}
 
-	return nil, 0, fmt.Errorf(
-		"no estimated price found for block %d with confidence %d", prices.CurrentBlockNumber+1, confidence,
+	return nil, fmt.Errorf(
+		"no estimated price found for block %d with confidence %d", bidBlockNo, confidence,
 	)
 }
 

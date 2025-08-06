@@ -2,44 +2,36 @@ package pricer_test
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
+	"github.com/primev/mev-commit/x/util"
 )
 
 func TestEstimatePrice(t *testing.T) {
 	t.Parallel()
 
-	bp := pricer.NewPricer("")
+	logger := util.NewTestLogger(io.Discard)
+	bp, err := pricer.NewPricer("", logger)
+	if err != nil {
+		t.Fatalf("failed to create pricer: %v", err)
+	}
 
 	ctx := context.Background()
 
-	prices, err := bp.EstimatePrice(ctx)
-	if err != nil {
-		t.Fatalf("failed to estimate price: %v", err)
+	prices := bp.EstimatePrice(ctx)
+
+	if len(prices) != 3 {
+		t.Fatalf("expected 3 confidence levels, got %d", len(prices))
 	}
 
-	if prices.CurrentBlockNumber == 0 {
-		t.Error("expected non-zero current block number")
-	}
-
-	if len(prices.Prices) == 0 {
-		t.Error("expected at least one block price")
-	}
-
-	price := prices.Prices[0]
-
-	if price.BlockNumber == 0 {
-		t.Error("expected non-zero block number in price")
-	}
-
-	if len(price.EstimatedPrices) == 0 {
-		t.Error("expected at least one estimated price")
-	}
-
-	for _, estPrice := range price.EstimatedPrices {
-		if estPrice.PriorityFeePerGasGwei <= 0 {
-			t.Errorf("expected positive priority fee per gas, got %f", estPrice.PriorityFeePerGasGwei)
+	for confidence, price := range prices {
+		if confidence <= 0 {
+			t.Errorf("expected positive confidence level, got %d", confidence)
+		}
+		if price <= 0 {
+			t.Errorf("expected positive price, got %f", price)
 		}
 	}
 

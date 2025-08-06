@@ -174,7 +174,10 @@ func New(config *Config) (*Service, error) {
 		config.Logger.With("module", "rpcserver"),
 	)
 
-	bidpricer := pricer.NewPricer(config.PricerAPIKey)
+	bidpricer, err := pricer.NewPricer(config.PricerAPIKey, config.Logger.With("module", "bidpricer"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bid pricer: %w", err)
+	}
 
 	db, err := initDB(config)
 	if err != nil {

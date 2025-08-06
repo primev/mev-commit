@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 )
@@ -22,7 +21,7 @@ type Bidder interface {
 }
 
 type Pricer interface {
-	EstimatePrice(ctx context.Context) (*pricer.BlockPrices, error)
+	EstimatePrice(ctx context.Context) map[int64]float64
 }
 
 type Store interface {
@@ -135,14 +134,7 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 		return json.RawMessage(fmt.Sprintf(`{"timeInSecs": "%d"}`, timeToOptIn)), false, nil
 	})
 	server.RegisterHandler("mevcommit_estimateDeposit", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
-		blockPrices, err := h.pricer.EstimatePrice(ctx)
-		if err != nil {
-			h.logger.Error("Failed to estimate deposit price", "error", err)
-			return nil, false, rpcserver.NewJSONErr(
-				rpcserver.CodeCustomError,
-				"failed to estimate deposit price",
-			)
-		}
+		blockPrices := h.pricer.EstimatePrice(ctx)
 		cost := getNextBlockPrice(blockPrices)
 		result := map[string]interface{}{
 			"bidAmount":      cost.String(),
@@ -161,14 +153,7 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 		return resultJSON, false, nil
 	})
 	server.RegisterHandler("mevcommit_estimateBridge", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
-		blockPrices, err := h.pricer.EstimatePrice(ctx)
-		if err != nil {
-			h.logger.Error("Failed to estimate bridge price", "error", err)
-			return nil, false, rpcserver.NewJSONErr(
-				rpcserver.CodeCustomError,
-				"failed to estimate bridge price",
-			)
-		}
+		blockPrices := h.pricer.EstimatePrice(ctx)
 		cost := getNextBlockPrice(blockPrices)
 		bridgeCost := new(big.Int).Mul(cost, big.NewInt(2))
 		result := map[string]interface{}{
@@ -192,15 +177,11 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	server.RegisterHandler("mevcommit_getBalance", h.handleMevCommitGetBalance)
 }
 
-func getNextBlockPrice(blockPrices *pricer.BlockPrices) *big.Int {
-	for _, price := range blockPrices.Prices {
-		if price.BlockNumber == blockPrices.CurrentBlockNumber+1 {
-			for _, estimate := range price.EstimatedPrices {
-				if estimate.Confidence == 99 {
-					priceInWei := estimate.PriorityFeePerGasGwei * 1e9
-					return new(big.Int).Mul(new(big.Int).SetUint64(uint64(priceInWei)), big.NewInt(21000))
-				}
-			}
+func getNextBlockPrice(blockPrices map[int64]float64) *big.Int {
+	for confidence, price := range blockPrices {
+		if confidence == 99 {
+			priceInWei := price * 1e9 // Convert Gwei to Wei
+			return new(big.Int).Mul(new(big.Int).SetUint64(uint64(priceInWei)), big.NewInt(21000))
 		}
 	}
 
