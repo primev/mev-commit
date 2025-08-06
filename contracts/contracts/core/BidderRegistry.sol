@@ -148,7 +148,7 @@ contract BidderRegistry is
             address provider = providers[i];
             Deposit storage deposit = deposits[bidder][provider];
             require(deposit.exists, DepositDoesNotExist(bidder, provider));
-            require(deposit.withdrawalRequestOccurrence.exists, WithdrawalOccurrenceDoesNotExist(bidder, provider));
+            require(deposit.withdrawalRequestOccurrence.exists, WithdrawalRequestDoesNotExist(bidder, provider));
             require(deposit.withdrawalRequestOccurrence.timestamp + bidderWithdrawalPeriodMs < block.timestamp,
                 WithdrawalPeriodNotElapsed(block.timestamp, deposit.withdrawalRequestOccurrence.timestamp, bidderWithdrawalPeriodMs));
 

@@ -977,14 +977,143 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositEvenlyAsBidder{value: 10 ether}(providers);
     }
 
-    // TODO: function where user does full withdrawal but there's still some escrowed amount left
+    function test_withdrawAsBidder_NoProviders() public {
+        address[] memory providers = new address[](0);
+        vm.expectRevert(IBidderRegistry.NoProviders.selector);
+        vm.prank(bidder);
+        bidderRegistry.withdrawAsBidder(providers);
+    }
+
+    function test_withdrawAsBidder_DepositDoesNotExist() public {
+        address provider = vm.addr(8);
+        address[] memory providers = new address[](1);
+        providers[0] = provider;
+        vm.expectRevert(abi.encodeWithSelector(IBidderRegistry.DepositDoesNotExist.selector, bidder, provider));
+        vm.prank(bidder);
+        bidderRegistry.withdrawAsBidder(providers);
+    }
+
+    function test_withdrawAsBidder_WithdrawalRequestDoesNotExist() public {
+        test_depositEvenlyAsBidder_TwoProviders_NonDivisibleAmount();
+
+        address provider1 = vm.addr(8);
+        address provider2 = vm.addr(9);
+        address[] memory providers = new address[](2);
+        providers[0] = provider1;
+        providers[1] = provider2;
+
+        vm.expectRevert(abi.encodeWithSelector(IBidderRegistry.WithdrawalRequestDoesNotExist.selector, bidder, provider1));
+        vm.prank(bidder);
+        bidderRegistry.withdrawAsBidder(providers);
+    }
+
+    function test_withdrawAsBidder_WithdrawalPeriodNotElapsed() public {
+        test_requestWithdrawalsAsBidder_Success();
+
+        address provider1 = vm.addr(8);
+        address provider2 = vm.addr(9);
+        address[] memory providers = new address[](2);
+        providers[0] = provider1;
+        providers[1] = provider2;
+
+        uint256 currentTs = block.timestamp;
+        assertEq(currentTs, 100069, "currentTs should be 100069");
+
+        uint256 requestTs = 100069;
+        uint256 withdrawalPeriodMs = bidderRegistry.bidderWithdrawalPeriodMs();
+        vm.expectRevert(abi.encodeWithSelector(IBidderRegistry.WithdrawalPeriodNotElapsed.selector,
+            currentTs, requestTs, withdrawalPeriodMs));
+        vm.prank(bidder);
+        bidderRegistry.withdrawAsBidder(providers);
+
+        vm.warp(currentTs + 800);
+
+        vm.expectRevert(abi.encodeWithSelector(IBidderRegistry.WithdrawalPeriodNotElapsed.selector,
+            100069 + 800, requestTs, withdrawalPeriodMs));
+        vm.prank(bidder);
+        bidderRegistry.withdrawAsBidder(providers);
+
+        vm.warp(100069 + withdrawalPeriodMs + 1);
+
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderWithdrawal(bidder, provider1, 5 ether + 1 wei, 0 wei);
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderWithdrawal(bidder, provider2, 5 ether + 2 wei, 0 wei);
+        vm.prank(bidder);
+        bidderRegistry.withdrawAsBidder(providers);
+    }
+
+    function test_withdrawAsBidder_AssertDepositStateWithEscrowedAmount() public {
+        test_depositEvenlyAsBidder_TwoProviders_NonDivisibleAmount();
+
+        address provider1 = vm.addr(8);
+        address provider2 = vm.addr(9);
+        address[] memory providers = new address[](2);
+        providers[0] = provider1;
+        providers[1] = provider2;
+
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment"), 1 ether, bidder, provider1);
+
+        vm.warp(1777);
+
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.WithdrawalRequested(bidder, provider1, 5 ether + 1 wei - 1 ether, 1 ether, 1777);
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.WithdrawalRequested(bidder, provider2, 5 ether + 2 wei, 0, 1777);
+        vm.prank(bidder);
+        bidderRegistry.requestWithdrawalsAsBidder(providers);
+
+        vm.warp(1777 + bidderRegistry.bidderWithdrawalPeriodMs() + 1);
+
+        IBidderRegistry.Deposit memory deposit1Before = getDepositStruct(bidder, provider1);
+        IBidderRegistry.Deposit memory deposit2Before = getDepositStruct(bidder, provider2);
+        assertTrue(deposit1Before.exists, "deposit1 should exist");
+        assertTrue(deposit2Before.exists, "deposit2 should exist");
+        assertEq(deposit1Before.availableAmount, 5 ether + 1 wei - 1 ether, "deposit1 should be 5 ether + 1 wei - 1 ether");
+        assertEq(deposit2Before.availableAmount, 5 ether + 2 wei, "deposit2 should be 5 ether + 2 wei");
+        assertEq(deposit1Before.escrowedAmount, 1 ether, "deposit1 should have 1 ether escrowed amount");
+        assertEq(deposit2Before.escrowedAmount, 0 wei, "deposit2 should have 0 ether escrowed amount");
+        assertTrue(deposit1Before.withdrawalRequestOccurrence.exists, "deposit1 should have a withdrawal request");
+        assertTrue(deposit2Before.withdrawalRequestOccurrence.exists, "deposit2 should have a withdrawal request");
+        assertEq(deposit1Before.withdrawalRequestOccurrence.timestamp, 1777, "deposit1 should have a withdrawal request at 1777");
+        assertEq(deposit2Before.withdrawalRequestOccurrence.timestamp, 1777, "deposit2 should have a withdrawal request at 1777");
+
+        uint256 balanceBefore = bidder.balance;
+
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderWithdrawal(bidder, provider1, 5 ether + 1 wei - 1 ether, 1 ether);
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderWithdrawal(bidder, provider2, 5 ether + 2 wei, 0);
+        vm.prank(bidder);
+        bidderRegistry.withdrawAsBidder(providers);
+
+        IBidderRegistry.Deposit memory deposit1After = getDepositStruct(bidder, provider1);
+        IBidderRegistry.Deposit memory deposit2After = getDepositStruct(bidder, provider2);
+        assertTrue(deposit1After.exists, "deposit1 should still exist");
+        assertTrue(deposit2After.exists, "deposit2 should still exist");
+        assertEq(deposit1After.availableAmount, 0, "deposit1 should have 0 available amount");
+        assertEq(deposit2After.availableAmount, 0, "deposit2 should have 0 available amount");
+        assertEq(deposit1After.escrowedAmount, deposit1Before.escrowedAmount, "escrowed amount should be the same as before");
+        assertEq(deposit1After.escrowedAmount, 1 ether, "still have 1 ether escrowed");
+        assertEq(deposit2After.escrowedAmount, deposit2Before.escrowedAmount, "escrowed amount should be the same as before");
+        assertEq(deposit2After.escrowedAmount, 0, "deposit2 should have 0 escrowed amount");
+        assertFalse(deposit1After.withdrawalRequestOccurrence.exists, "deposit1 should have no withdrawal request");
+        assertFalse(deposit2After.withdrawalRequestOccurrence.exists, "deposit2 should have no withdrawal request");
+        assertEq(deposit1After.withdrawalRequestOccurrence.timestamp, 0, "request timestamp should be 0");
+        assertEq(deposit2After.withdrawalRequestOccurrence.timestamp, 0, "request timestamp should be 0");
+
+        uint256 balanceAfter = bidder.balance;
+        assertEq(balanceAfter, balanceBefore + deposit1Before.availableAmount + deposit2Before.availableAmount,
+            "bidder should have received all available amount");
+        assertEq(balanceAfter, 9 ether + 3 wei, "bidder should have received all available amount");
+    }
 
     function getDepositStruct(address bidderArg, address providerArg) public view returns (IBidderRegistry.Deposit memory deposit) {
         (deposit.exists, deposit.availableAmount, deposit.escrowedAmount, deposit.withdrawalRequestOccurrence) = bidderRegistry.deposits(bidderArg, providerArg);
         return deposit;
     }
 
-    // TODO: Various tests for withdrawAsBidder
     // TODO: Test staking/withdraw cycle for bidder to same provider
 }
 
