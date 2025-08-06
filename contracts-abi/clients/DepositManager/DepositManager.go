@@ -31,7 +31,7 @@ var (
 
 // DepositmanagerMetaData contains all meta data concerning the Depositmanager contract.
 var DepositmanagerMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_registry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_minBalance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"bidderRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"minBalance\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setTargetDeposit\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"targetDeposits\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"topUpDeposit\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CurrentDepositIsSufficient\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DepositToppedUp\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NotEnoughEOABalance\",\"inputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"minBalance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TargetDepositDoesNotExist\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TargetDepositSet\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TopUpReduced\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"needed\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"available\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"NotThisEOA\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_registry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_minBalance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"bidderRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"minBalance\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setTargetDeposit\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"targetDeposits\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"topUpDeposit\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CurrentBalanceAtOrBelowMin\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"currentBalance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"minBalance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CurrentDepositIsSufficient\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"currentDeposit\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"targetDeposit\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DepositToppedUp\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TargetDepositDoesNotExist\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TargetDepositSet\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TopUpReduced\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"available\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalRequestExists\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotThisEOA\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"thisAddress\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
 }
 
 // DepositmanagerABI is the input ABI used to generate the binding from.
@@ -315,6 +315,27 @@ func (_Depositmanager *DepositmanagerTransactorSession) TopUpDeposit(provider co
 	return _Depositmanager.Contract.TopUpDeposit(&_Depositmanager.TransactOpts, provider)
 }
 
+// Fallback is a paid mutator transaction binding the contract fallback function.
+//
+// Solidity: fallback() payable returns()
+func (_Depositmanager *DepositmanagerTransactor) Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error) {
+	return _Depositmanager.contract.RawTransact(opts, calldata)
+}
+
+// Fallback is a paid mutator transaction binding the contract fallback function.
+//
+// Solidity: fallback() payable returns()
+func (_Depositmanager *DepositmanagerSession) Fallback(calldata []byte) (*types.Transaction, error) {
+	return _Depositmanager.Contract.Fallback(&_Depositmanager.TransactOpts, calldata)
+}
+
+// Fallback is a paid mutator transaction binding the contract fallback function.
+//
+// Solidity: fallback() payable returns()
+func (_Depositmanager *DepositmanagerTransactorSession) Fallback(calldata []byte) (*types.Transaction, error) {
+	return _Depositmanager.Contract.Fallback(&_Depositmanager.TransactOpts, calldata)
+}
+
 // Receive is a paid mutator transaction binding the contract receive function.
 //
 // Solidity: receive() payable returns()
@@ -334,6 +355,152 @@ func (_Depositmanager *DepositmanagerSession) Receive() (*types.Transaction, err
 // Solidity: receive() payable returns()
 func (_Depositmanager *DepositmanagerTransactorSession) Receive() (*types.Transaction, error) {
 	return _Depositmanager.Contract.Receive(&_Depositmanager.TransactOpts)
+}
+
+// DepositmanagerCurrentBalanceAtOrBelowMinIterator is returned from FilterCurrentBalanceAtOrBelowMin and is used to iterate over the raw logs and unpacked data for CurrentBalanceAtOrBelowMin events raised by the Depositmanager contract.
+type DepositmanagerCurrentBalanceAtOrBelowMinIterator struct {
+	Event *DepositmanagerCurrentBalanceAtOrBelowMin // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *DepositmanagerCurrentBalanceAtOrBelowMinIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(DepositmanagerCurrentBalanceAtOrBelowMin)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(DepositmanagerCurrentBalanceAtOrBelowMin)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *DepositmanagerCurrentBalanceAtOrBelowMinIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *DepositmanagerCurrentBalanceAtOrBelowMinIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// DepositmanagerCurrentBalanceAtOrBelowMin represents a CurrentBalanceAtOrBelowMin event raised by the Depositmanager contract.
+type DepositmanagerCurrentBalanceAtOrBelowMin struct {
+	Provider       common.Address
+	CurrentBalance *big.Int
+	MinBalance     *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
+}
+
+// FilterCurrentBalanceAtOrBelowMin is a free log retrieval operation binding the contract event 0x2816f654a045f3dc4fc70d7d509c97bd73066bbf09187a84950040cd3ba28079.
+//
+// Solidity: event CurrentBalanceAtOrBelowMin(address indexed provider, uint256 currentBalance, uint256 minBalance)
+func (_Depositmanager *DepositmanagerFilterer) FilterCurrentBalanceAtOrBelowMin(opts *bind.FilterOpts, provider []common.Address) (*DepositmanagerCurrentBalanceAtOrBelowMinIterator, error) {
+
+	var providerRule []interface{}
+	for _, providerItem := range provider {
+		providerRule = append(providerRule, providerItem)
+	}
+
+	logs, sub, err := _Depositmanager.contract.FilterLogs(opts, "CurrentBalanceAtOrBelowMin", providerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &DepositmanagerCurrentBalanceAtOrBelowMinIterator{contract: _Depositmanager.contract, event: "CurrentBalanceAtOrBelowMin", logs: logs, sub: sub}, nil
+}
+
+// WatchCurrentBalanceAtOrBelowMin is a free log subscription operation binding the contract event 0x2816f654a045f3dc4fc70d7d509c97bd73066bbf09187a84950040cd3ba28079.
+//
+// Solidity: event CurrentBalanceAtOrBelowMin(address indexed provider, uint256 currentBalance, uint256 minBalance)
+func (_Depositmanager *DepositmanagerFilterer) WatchCurrentBalanceAtOrBelowMin(opts *bind.WatchOpts, sink chan<- *DepositmanagerCurrentBalanceAtOrBelowMin, provider []common.Address) (event.Subscription, error) {
+
+	var providerRule []interface{}
+	for _, providerItem := range provider {
+		providerRule = append(providerRule, providerItem)
+	}
+
+	logs, sub, err := _Depositmanager.contract.WatchLogs(opts, "CurrentBalanceAtOrBelowMin", providerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(DepositmanagerCurrentBalanceAtOrBelowMin)
+				if err := _Depositmanager.contract.UnpackLog(event, "CurrentBalanceAtOrBelowMin", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseCurrentBalanceAtOrBelowMin is a log parse operation binding the contract event 0x2816f654a045f3dc4fc70d7d509c97bd73066bbf09187a84950040cd3ba28079.
+//
+// Solidity: event CurrentBalanceAtOrBelowMin(address indexed provider, uint256 currentBalance, uint256 minBalance)
+func (_Depositmanager *DepositmanagerFilterer) ParseCurrentBalanceAtOrBelowMin(log types.Log) (*DepositmanagerCurrentBalanceAtOrBelowMin, error) {
+	event := new(DepositmanagerCurrentBalanceAtOrBelowMin)
+	if err := _Depositmanager.contract.UnpackLog(event, "CurrentBalanceAtOrBelowMin", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }
 
 // DepositmanagerCurrentDepositIsSufficientIterator is returned from FilterCurrentDepositIsSufficient and is used to iterate over the raw logs and unpacked data for CurrentDepositIsSufficient events raised by the Depositmanager contract.
@@ -405,13 +572,15 @@ func (it *DepositmanagerCurrentDepositIsSufficientIterator) Close() error {
 
 // DepositmanagerCurrentDepositIsSufficient represents a CurrentDepositIsSufficient event raised by the Depositmanager contract.
 type DepositmanagerCurrentDepositIsSufficient struct {
-	Provider common.Address
-	Raw      types.Log // Blockchain specific contextual infos
+	Provider       common.Address
+	CurrentDeposit *big.Int
+	TargetDeposit  *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
 }
 
-// FilterCurrentDepositIsSufficient is a free log retrieval operation binding the contract event 0x0e0f63f6b1bf98e6ec4b29579e24f4cca3d903b37990dcf32aa794ea2ce41832.
+// FilterCurrentDepositIsSufficient is a free log retrieval operation binding the contract event 0xf53ce58639471dc76b2e6d62f3421857c3e3223a97849b7a22a6221f6423600b.
 //
-// Solidity: event CurrentDepositIsSufficient(address indexed provider)
+// Solidity: event CurrentDepositIsSufficient(address indexed provider, uint256 currentDeposit, uint256 targetDeposit)
 func (_Depositmanager *DepositmanagerFilterer) FilterCurrentDepositIsSufficient(opts *bind.FilterOpts, provider []common.Address) (*DepositmanagerCurrentDepositIsSufficientIterator, error) {
 
 	var providerRule []interface{}
@@ -426,9 +595,9 @@ func (_Depositmanager *DepositmanagerFilterer) FilterCurrentDepositIsSufficient(
 	return &DepositmanagerCurrentDepositIsSufficientIterator{contract: _Depositmanager.contract, event: "CurrentDepositIsSufficient", logs: logs, sub: sub}, nil
 }
 
-// WatchCurrentDepositIsSufficient is a free log subscription operation binding the contract event 0x0e0f63f6b1bf98e6ec4b29579e24f4cca3d903b37990dcf32aa794ea2ce41832.
+// WatchCurrentDepositIsSufficient is a free log subscription operation binding the contract event 0xf53ce58639471dc76b2e6d62f3421857c3e3223a97849b7a22a6221f6423600b.
 //
-// Solidity: event CurrentDepositIsSufficient(address indexed provider)
+// Solidity: event CurrentDepositIsSufficient(address indexed provider, uint256 currentDeposit, uint256 targetDeposit)
 func (_Depositmanager *DepositmanagerFilterer) WatchCurrentDepositIsSufficient(opts *bind.WatchOpts, sink chan<- *DepositmanagerCurrentDepositIsSufficient, provider []common.Address) (event.Subscription, error) {
 
 	var providerRule []interface{}
@@ -468,9 +637,9 @@ func (_Depositmanager *DepositmanagerFilterer) WatchCurrentDepositIsSufficient(o
 	}), nil
 }
 
-// ParseCurrentDepositIsSufficient is a log parse operation binding the contract event 0x0e0f63f6b1bf98e6ec4b29579e24f4cca3d903b37990dcf32aa794ea2ce41832.
+// ParseCurrentDepositIsSufficient is a log parse operation binding the contract event 0xf53ce58639471dc76b2e6d62f3421857c3e3223a97849b7a22a6221f6423600b.
 //
-// Solidity: event CurrentDepositIsSufficient(address indexed provider)
+// Solidity: event CurrentDepositIsSufficient(address indexed provider, uint256 currentDeposit, uint256 targetDeposit)
 func (_Depositmanager *DepositmanagerFilterer) ParseCurrentDepositIsSufficient(log types.Log) (*DepositmanagerCurrentDepositIsSufficient, error) {
 	event := new(DepositmanagerCurrentDepositIsSufficient)
 	if err := _Depositmanager.contract.UnpackLog(event, "CurrentDepositIsSufficient", log); err != nil {
@@ -619,141 +788,6 @@ func (_Depositmanager *DepositmanagerFilterer) WatchDepositToppedUp(opts *bind.W
 func (_Depositmanager *DepositmanagerFilterer) ParseDepositToppedUp(log types.Log) (*DepositmanagerDepositToppedUp, error) {
 	event := new(DepositmanagerDepositToppedUp)
 	if err := _Depositmanager.contract.UnpackLog(event, "DepositToppedUp", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// DepositmanagerNotEnoughEOABalanceIterator is returned from FilterNotEnoughEOABalance and is used to iterate over the raw logs and unpacked data for NotEnoughEOABalance events raised by the Depositmanager contract.
-type DepositmanagerNotEnoughEOABalanceIterator struct {
-	Event *DepositmanagerNotEnoughEOABalance // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *DepositmanagerNotEnoughEOABalanceIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(DepositmanagerNotEnoughEOABalance)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(DepositmanagerNotEnoughEOABalance)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *DepositmanagerNotEnoughEOABalanceIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *DepositmanagerNotEnoughEOABalanceIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// DepositmanagerNotEnoughEOABalance represents a NotEnoughEOABalance event raised by the Depositmanager contract.
-type DepositmanagerNotEnoughEOABalance struct {
-	Balance    *big.Int
-	MinBalance *big.Int
-	Raw        types.Log // Blockchain specific contextual infos
-}
-
-// FilterNotEnoughEOABalance is a free log retrieval operation binding the contract event 0x41147fb3ac13167049741c456ee1778e9815cc1113d125adccd9a8bfe546ef61.
-//
-// Solidity: event NotEnoughEOABalance(uint256 balance, uint256 minBalance)
-func (_Depositmanager *DepositmanagerFilterer) FilterNotEnoughEOABalance(opts *bind.FilterOpts) (*DepositmanagerNotEnoughEOABalanceIterator, error) {
-
-	logs, sub, err := _Depositmanager.contract.FilterLogs(opts, "NotEnoughEOABalance")
-	if err != nil {
-		return nil, err
-	}
-	return &DepositmanagerNotEnoughEOABalanceIterator{contract: _Depositmanager.contract, event: "NotEnoughEOABalance", logs: logs, sub: sub}, nil
-}
-
-// WatchNotEnoughEOABalance is a free log subscription operation binding the contract event 0x41147fb3ac13167049741c456ee1778e9815cc1113d125adccd9a8bfe546ef61.
-//
-// Solidity: event NotEnoughEOABalance(uint256 balance, uint256 minBalance)
-func (_Depositmanager *DepositmanagerFilterer) WatchNotEnoughEOABalance(opts *bind.WatchOpts, sink chan<- *DepositmanagerNotEnoughEOABalance) (event.Subscription, error) {
-
-	logs, sub, err := _Depositmanager.contract.WatchLogs(opts, "NotEnoughEOABalance")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(DepositmanagerNotEnoughEOABalance)
-				if err := _Depositmanager.contract.UnpackLog(event, "NotEnoughEOABalance", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseNotEnoughEOABalance is a log parse operation binding the contract event 0x41147fb3ac13167049741c456ee1778e9815cc1113d125adccd9a8bfe546ef61.
-//
-// Solidity: event NotEnoughEOABalance(uint256 balance, uint256 minBalance)
-func (_Depositmanager *DepositmanagerFilterer) ParseNotEnoughEOABalance(log types.Log) (*DepositmanagerNotEnoughEOABalance, error) {
-	event := new(DepositmanagerNotEnoughEOABalance)
-	if err := _Depositmanager.contract.UnpackLog(event, "NotEnoughEOABalance", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1119,14 +1153,14 @@ func (it *DepositmanagerTopUpReducedIterator) Close() error {
 // DepositmanagerTopUpReduced represents a TopUpReduced event raised by the Depositmanager contract.
 type DepositmanagerTopUpReduced struct {
 	Provider  common.Address
-	Needed    *big.Int
 	Available *big.Int
+	Needed    *big.Int
 	Raw       types.Log // Blockchain specific contextual infos
 }
 
 // FilterTopUpReduced is a free log retrieval operation binding the contract event 0x3d3e22cac7f9bc8da17ff9b43a14bbb7b8dd50ec92f62faebf162eb8d832bcc2.
 //
-// Solidity: event TopUpReduced(address indexed provider, uint256 needed, uint256 available)
+// Solidity: event TopUpReduced(address indexed provider, uint256 available, uint256 needed)
 func (_Depositmanager *DepositmanagerFilterer) FilterTopUpReduced(opts *bind.FilterOpts, provider []common.Address) (*DepositmanagerTopUpReducedIterator, error) {
 
 	var providerRule []interface{}
@@ -1143,7 +1177,7 @@ func (_Depositmanager *DepositmanagerFilterer) FilterTopUpReduced(opts *bind.Fil
 
 // WatchTopUpReduced is a free log subscription operation binding the contract event 0x3d3e22cac7f9bc8da17ff9b43a14bbb7b8dd50ec92f62faebf162eb8d832bcc2.
 //
-// Solidity: event TopUpReduced(address indexed provider, uint256 needed, uint256 available)
+// Solidity: event TopUpReduced(address indexed provider, uint256 available, uint256 needed)
 func (_Depositmanager *DepositmanagerFilterer) WatchTopUpReduced(opts *bind.WatchOpts, sink chan<- *DepositmanagerTopUpReduced, provider []common.Address) (event.Subscription, error) {
 
 	var providerRule []interface{}
@@ -1185,10 +1219,154 @@ func (_Depositmanager *DepositmanagerFilterer) WatchTopUpReduced(opts *bind.Watc
 
 // ParseTopUpReduced is a log parse operation binding the contract event 0x3d3e22cac7f9bc8da17ff9b43a14bbb7b8dd50ec92f62faebf162eb8d832bcc2.
 //
-// Solidity: event TopUpReduced(address indexed provider, uint256 needed, uint256 available)
+// Solidity: event TopUpReduced(address indexed provider, uint256 available, uint256 needed)
 func (_Depositmanager *DepositmanagerFilterer) ParseTopUpReduced(log types.Log) (*DepositmanagerTopUpReduced, error) {
 	event := new(DepositmanagerTopUpReduced)
 	if err := _Depositmanager.contract.UnpackLog(event, "TopUpReduced", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// DepositmanagerWithdrawalRequestExistsIterator is returned from FilterWithdrawalRequestExists and is used to iterate over the raw logs and unpacked data for WithdrawalRequestExists events raised by the Depositmanager contract.
+type DepositmanagerWithdrawalRequestExistsIterator struct {
+	Event *DepositmanagerWithdrawalRequestExists // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *DepositmanagerWithdrawalRequestExistsIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(DepositmanagerWithdrawalRequestExists)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(DepositmanagerWithdrawalRequestExists)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *DepositmanagerWithdrawalRequestExistsIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *DepositmanagerWithdrawalRequestExistsIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// DepositmanagerWithdrawalRequestExists represents a WithdrawalRequestExists event raised by the Depositmanager contract.
+type DepositmanagerWithdrawalRequestExists struct {
+	Provider common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterWithdrawalRequestExists is a free log retrieval operation binding the contract event 0xd172492ccc8c62ae9847c209253d7ecc901a1e00e4752533ae796fe3a606b4c8.
+//
+// Solidity: event WithdrawalRequestExists(address indexed provider)
+func (_Depositmanager *DepositmanagerFilterer) FilterWithdrawalRequestExists(opts *bind.FilterOpts, provider []common.Address) (*DepositmanagerWithdrawalRequestExistsIterator, error) {
+
+	var providerRule []interface{}
+	for _, providerItem := range provider {
+		providerRule = append(providerRule, providerItem)
+	}
+
+	logs, sub, err := _Depositmanager.contract.FilterLogs(opts, "WithdrawalRequestExists", providerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &DepositmanagerWithdrawalRequestExistsIterator{contract: _Depositmanager.contract, event: "WithdrawalRequestExists", logs: logs, sub: sub}, nil
+}
+
+// WatchWithdrawalRequestExists is a free log subscription operation binding the contract event 0xd172492ccc8c62ae9847c209253d7ecc901a1e00e4752533ae796fe3a606b4c8.
+//
+// Solidity: event WithdrawalRequestExists(address indexed provider)
+func (_Depositmanager *DepositmanagerFilterer) WatchWithdrawalRequestExists(opts *bind.WatchOpts, sink chan<- *DepositmanagerWithdrawalRequestExists, provider []common.Address) (event.Subscription, error) {
+
+	var providerRule []interface{}
+	for _, providerItem := range provider {
+		providerRule = append(providerRule, providerItem)
+	}
+
+	logs, sub, err := _Depositmanager.contract.WatchLogs(opts, "WithdrawalRequestExists", providerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(DepositmanagerWithdrawalRequestExists)
+				if err := _Depositmanager.contract.UnpackLog(event, "WithdrawalRequestExists", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseWithdrawalRequestExists is a log parse operation binding the contract event 0xd172492ccc8c62ae9847c209253d7ecc901a1e00e4752533ae796fe3a606b4c8.
+//
+// Solidity: event WithdrawalRequestExists(address indexed provider)
+func (_Depositmanager *DepositmanagerFilterer) ParseWithdrawalRequestExists(log types.Log) (*DepositmanagerWithdrawalRequestExists, error) {
+	event := new(DepositmanagerWithdrawalRequestExists)
+	if err := _Depositmanager.contract.UnpackLog(event, "WithdrawalRequestExists", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
