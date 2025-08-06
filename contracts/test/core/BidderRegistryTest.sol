@@ -10,6 +10,7 @@ import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {DepositManager} from "../../contracts/core/DepositManager.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {TimestampOccurrence} from "../../contracts/utils/Occurrence.sol";
 
 contract BidderRegistryTest is Test {
     uint256 public testNumber;
@@ -812,6 +813,102 @@ contract BidderRegistryTest is Test {
         vm.prank(bidderRegistry.preconfManager());
         bidderRegistry.openBid(keccak256("commitment"), 1 ether, alice, provider);
     }
+
+    function test_depositEvenlyAsBidder_DepositAmountIsZero() public {
+        address provider = vm.addr(8);
+
+        vm.expectRevert(IBidderRegistry.DepositAmountIsZero.selector);
+        address[] memory providers = new address[](1);
+        providers[0] = provider;
+        vm.prank(bidder);
+        bidderRegistry.depositEvenlyAsBidder{value: 0 ether}(providers);
+    }
+
+    function test_depositEvenlyAsBidder_NoProviders() public {
+        address[] memory providers = new address[](0);
+        vm.expectRevert(IBidderRegistry.NoProviders.selector);
+        vm.prank(bidder);
+        bidderRegistry.depositEvenlyAsBidder{value: 1 ether}(providers);
+    }
+
+    function test_depositEvenlyAsBidder_TwoProviders_EvenDistribution() public {
+        address provider1 = vm.addr(8);
+        address provider2 = vm.addr(9);
+
+        address[] memory providers = new address[](2);
+        providers[0] = provider1;
+        providers[1] = provider2;
+
+        IBidderRegistry.Deposit memory deposit1 = getDepositStruct(bidder, provider1);
+        IBidderRegistry.Deposit memory deposit2 = getDepositStruct(bidder, provider2);
+        assertFalse(deposit1.exists, "deposit1 should not exist");
+        assertFalse(deposit2.exists, "deposit2 should not exist");
+
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderDeposited(bidder, provider1, 5 ether);
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderDeposited(bidder, provider2, 5 ether);
+
+        vm.deal(bidder, 10 ether);
+        vm.prank(bidder);
+        bidderRegistry.depositEvenlyAsBidder{value: 10 ether}(providers);
+
+        deposit1 = getDepositStruct(bidder, provider1);
+        deposit2 = getDepositStruct(bidder, provider2);
+        assertTrue(deposit1.exists, "deposit1 should exist");
+        assertTrue(deposit2.exists, "deposit2 should exist");
+        assertEq(deposit1.availableAmount, 5 ether, "deposit1 should be 5 ether");
+        assertEq(deposit2.availableAmount, 5 ether, "deposit2 should be 5 ether");
+        assertEq(deposit1.escrowedAmount, 0 ether, "deposit1 should have 0 escrowed amount");
+        assertEq(deposit2.escrowedAmount, 0 ether, "deposit2 should have 0 escrowed amount");
+        assertFalse(deposit1.withdrawalRequestOccurrence.exists, "deposit1 should have no withdrawal request");
+        assertFalse(deposit2.withdrawalRequestOccurrence.exists, "deposit2 should have no withdrawal request");
+
+        assertEq(bidder.balance, 0 ether, "bidder should have 0 ether left");
+    }
+
+    function test_depositEvenlyAsBidder_TwoProviders_NonDivisibleAmount() public {
+        test_depositEvenlyAsBidder_TwoProviders_EvenDistribution();
+
+        address provider1 = vm.addr(8);
+        address provider2 = vm.addr(9);
+        address[] memory providers = new address[](2);
+        providers[0] = provider1;
+        providers[1] = provider2;
+
+        IBidderRegistry.Deposit memory deposit1Before = getDepositStruct(bidder, provider1);
+        IBidderRegistry.Deposit memory deposit2Before = getDepositStruct(bidder, provider2);
+
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderDeposited(bidder, provider1, 1 wei);
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.BidderDeposited(bidder, provider2, 2 wei);
+
+        vm.deal(bidder, 3 wei);
+        vm.prank(bidder);
+        bidderRegistry.depositEvenlyAsBidder{value: 3 wei}(providers);
+
+        IBidderRegistry.Deposit memory deposit1After = getDepositStruct(bidder, provider1);
+        IBidderRegistry.Deposit memory deposit2After = getDepositStruct(bidder, provider2);
+
+        assertTrue(deposit1After.exists, "deposit1 should still exist");
+        assertTrue(deposit2After.exists, "deposit2 should still exist");
+        assertEq(deposit1After.availableAmount, deposit1Before.availableAmount + 1 wei, "deposit1 should be 1 wei more than before");
+        assertEq(deposit2After.availableAmount, deposit2Before.availableAmount + 2 wei, "deposit2 should be 2 wei more than before");
+        assertEq(deposit1After.escrowedAmount, deposit1Before.escrowedAmount, "escrowed amount should be the same as before");
+        assertEq(deposit2After.escrowedAmount, deposit2Before.escrowedAmount, "escrowed amount should be the same as before");
+        assertFalse(deposit1After.withdrawalRequestOccurrence.exists, "deposit1 should still have no withdrawal request");
+        assertFalse(deposit2After.withdrawalRequestOccurrence.exists, "deposit2 should still have no withdrawal request");
+    }
+
+    function getDepositStruct(address bidderArg, address providerArg) public view returns (IBidderRegistry.Deposit memory deposit) {
+        (deposit.exists, deposit.availableAmount, deposit.escrowedAmount, deposit.withdrawalRequestOccurrence) = bidderRegistry.deposits(bidderArg, providerArg);
+        return deposit;
+    }
+
+    // TODO: Various tests for requestWithdrawalsAsBidder
+    // TODO: Various tests for withdrawAsBidder
+    // TODO: Test staking/withdraw cycle for bidder to same provider
 }
 
 contract IncorrectBidderContract {
