@@ -77,6 +77,9 @@ interface IBidderRegistry {
         uint256 amountEscrowed
     );
 
+    /// @dev Event emitted when the deposit manager implementation is updated
+    event DepositManagerImplUpdated(address indexed newDepositManagerImpl);
+
     /// @dev Event emitted when the preconfManager is updated
     event PreconfManagerUpdated(address indexed newPreconfManager);
 
@@ -100,6 +103,9 @@ interface IBidderRegistry {
 
     /// @dev Error emitted when the sender is not the preconfManager
     error SenderIsNotPreconfManager(address sender, address preconfManager);
+
+    /// @dev Error emitted when the deposit manager implementation is not set
+    error DepositManagerNotSet();
 
     /// @dev Error emitted when the bid is not preconfirmed
     error BidNotPreConfirmed(bytes32 commitmentDigest, State actualState, State expectedState);

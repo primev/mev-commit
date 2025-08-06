@@ -12,6 +12,7 @@ import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
 import {IPreconfManager} from "../../contracts/interfaces/IPreconfManager.sol";
+import {DepositManager} from "../../contracts/core/DepositManager.sol";
 
 contract OracleTest is Test {
     using ECDSA for bytes32;
@@ -152,6 +153,10 @@ contract OracleTest is Test {
             )
         );
         bidderRegistry = BidderRegistry(payable(proxy3));
+
+        uint256 depositManagerMinBalance = 0.01 ether;
+        DepositManager depositManager = new DepositManager(address(bidderRegistry), depositManagerMinBalance);
+        bidderRegistry.setDepositManagerImpl(address(depositManager));
 
         address proxy4 = Upgrades.deployUUPSProxy(
             "PreconfManager.sol",

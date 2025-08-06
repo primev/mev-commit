@@ -9,6 +9,7 @@ import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {IProviderRegistry} from "../../contracts/interfaces/IProviderRegistry.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
+import {DepositManager} from "../../contracts/core/DepositManager.sol";
 
 contract ProviderRegistryTest is Test {
     uint256 public testNumber;
@@ -97,6 +98,10 @@ contract ProviderRegistryTest is Test {
             )
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
+
+        uint256 depositManagerMinBalance = 0.01 ether;
+        DepositManager depositManager = new DepositManager(address(bidderRegistry), depositManagerMinBalance);
+        bidderRegistry.setDepositManagerImpl(address(depositManager));
 
         address preconfStoreProxy = Upgrades.deployUUPSProxy(
             "PreconfManager.sol",

@@ -31,6 +31,11 @@ contract BidderRegistry is
         _;
     }
 
+    modifier depositManagerIsSet() {
+        require(depositManagerImpl != address(0), DepositManagerNotSet());
+        _;
+    }
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -73,10 +78,6 @@ contract BidderRegistry is
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
         bidderWithdrawalPeriodMs = _bidderWithdrawalPeriodMs;
-        depositManagerImpl = address(new DepositManager(address(this), 0.01 ether)); // TODO: prob want to deploy the contract separately
-        depositManagerHash = keccak256(
-            abi.encodePacked(hex"ef0100", depositManagerImpl)
-        );
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
@@ -254,7 +255,7 @@ contract BidderRegistry is
         uint256 bidAmt,
         address bidder,
         address provider
-    ) external onlyPreconfManager whenNotPaused returns (uint256) {
+    ) external onlyPreconfManager whenNotPaused depositManagerIsSet returns (uint256) {
         BidState storage bidState = bidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
             return bidAmt;
@@ -286,6 +287,16 @@ contract BidderRegistry is
         bidState.bidAmt = bidAmt;
 
         return bidAmt;
+    }
+
+    /**
+     * @dev Sets the deposit manager implementation address. Can only be called by the owner.
+     * @param _depositManagerImpl The address of the deposit manager implementation.
+     */
+    function setDepositManagerImpl(address _depositManagerImpl) external onlyOwner {
+        depositManagerImpl = _depositManagerImpl;
+        depositManagerHash = keccak256(abi.encodePacked(hex"ef0100", depositManagerImpl));
+        emit DepositManagerImplUpdated(depositManagerImpl);
     }
 
     /**
