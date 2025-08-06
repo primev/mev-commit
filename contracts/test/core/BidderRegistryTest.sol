@@ -9,6 +9,7 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {DepositManager} from "../../contracts/core/DepositManager.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract BidderRegistryTest is Test {
     uint256 public testNumber;
@@ -54,6 +55,10 @@ contract BidderRegistryTest is Test {
             bidderWithdrawalPeriodMs))
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
+
+        uint256 depositManagerMinBalance = 0.01 ether;
+        DepositManager depositManager = new DepositManager(bidderRegistryProxy, depositManagerMinBalance);
+        bidderRegistry.setDepositManagerImpl(address(depositManager));
 
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
@@ -164,6 +169,32 @@ contract BidderRegistryTest is Test {
         vm.prank(vm.addr(1));
         vm.expectRevert();
         bidderRegistry.setNewFeePercent(uint16(25));
+    }
+
+    function test_SetDepositManagerImpl() public {
+        address depositManager = vm.addr(3);
+        vm.expectEmit(true, true, true, true);
+        emit IBidderRegistry.DepositManagerImplUpdated(depositManager);
+        vm.prank(address(this));
+        bidderRegistry.setDepositManagerImpl(depositManager);
+        assertEq(bidderRegistry.depositManagerImpl(), depositManager);
+        assertEq(bidderRegistry.depositManagerHash(), keccak256(abi.encodePacked(hex"ef0100", depositManager)));
+    }
+
+    function test_RevertWhen_SetDepositManagerImpl() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(888)));
+        vm.prank(vm.addr(888));
+        bidderRegistry.setDepositManagerImpl(vm.addr(3));
+    }
+
+    function test_OpenBid_RevertWhen_DepositManagerNotSet() public {
+        vm.prank(address(this));
+        bidderRegistry.setDepositManagerImpl(address(0));
+        assertEq(bidderRegistry.depositManagerImpl(), address(0));
+        address preconfManager = bidderRegistry.preconfManager();
+        vm.expectRevert(abi.encodeWithSelector(IBidderRegistry.DepositManagerNotSet.selector));
+        vm.prank(preconfManager);
+        bidderRegistry.openBid(keccak256("1234"), 1 ether, bidder, vm.addr(4));
     }
 
     function test_SetPreconfManager() public {
