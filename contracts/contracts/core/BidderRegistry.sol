@@ -268,6 +268,7 @@ contract BidderRegistry is
             // This operation shouldn't happen in normal flow. See provider node's CheckAndDeductDeposit function
             // which checks if a bidder's deposit covers the bid amount.
             bidAmt = deposit.availableAmount;
+            emit BidAmountReduced(bidder, provider, bidAmt);
         }
 
         if (bidAmt > 0) {
