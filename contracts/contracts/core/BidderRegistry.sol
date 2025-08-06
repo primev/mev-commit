@@ -273,7 +273,11 @@ contract BidderRegistry is
             deposit.escrowedAmount += bidAmt;
             deposit.availableAmount -= bidAmt;
             if (bidder.code.length == 23 && bidder.codehash == depositManagerHash) {
-                DepositManager(payable(bidder)).topUpDeposit(provider);
+                try DepositManager(payable(bidder)).topUpDeposit(provider) {
+                } catch {
+                    // Revert shouldn't happen, but is gracefully caught for safety
+                    emit TopUpFailed(bidder, provider); 
+                }
             }
         }
 
@@ -392,6 +396,13 @@ contract BidderRegistry is
         address provider
     ) external view returns (uint256) {
         return deposits[bidder][provider].escrowedAmount;
+    }
+
+    function withdrawalRequestExists(
+        address bidder,
+        address provider
+    ) external view returns (bool) {
+        return deposits[bidder][provider].withdrawalRequestOccurrence.exists;
     }
 
     /// @return protocolFee amount not yet transferred to recipient

@@ -95,6 +95,9 @@ interface IBidderRegistry {
     /// @dev Event emitted when transfer to bidder fails
     event TransferToBidderFailed(address bidder, uint256 amount);
 
+    /// @dev Event emitted when a bidder's top-up instance fails during openBid
+    event TopUpFailed(address indexed bidder, address indexed provider);
+
     /// @dev Error emitted when the sender is not the preconfManager
     error SenderIsNotPreconfManager(address sender, address preconfManager);
 
@@ -149,4 +152,9 @@ interface IBidderRegistry {
         address bidder,
         address provider
     ) external view returns (uint256);
+
+    function withdrawalRequestExists(
+        address bidder,
+        address provider
+    ) external view returns (bool);
 }
