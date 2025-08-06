@@ -142,8 +142,8 @@ interface IBidderRegistry {
     /// @dev Error emitted when a withdrawal occurrence exists
     error WithdrawalOccurrenceExists(address bidder, address provider, uint256 requestTimestamp);
 
-    /// @dev Error emitted when a withdrawal occurrence does not exist
-    error WithdrawalOccurrenceDoesNotExist(address bidder, address provider);
+    /// @dev Error emitted when a withdrawal request hasn't been made yet
+    error WithdrawalRequestDoesNotExist(address bidder, address provider);
 
     function openBid(
         bytes32 commitmentDigest,
