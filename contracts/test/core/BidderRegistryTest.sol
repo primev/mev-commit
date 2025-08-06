@@ -275,25 +275,27 @@ contract BidderRegistryTest is Test {
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
-        uint256 bidderBalance = bidder.balance;
-
+        assertEq(bidder.balance, 1000 ether - 64 ether);
         assertEq(bidderRegistry.getDeposit(bidder, provider), 64 ether);
         assertEq(bidderRegistry.getEscrowedAmount(bidder, provider), 0);
+        assertEq(bidderRegistry.providerAmount(provider), 0);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
 
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, provider);
 
+        assertEq(bidder.balance, 1000 ether - 64 ether);
         assertEq(bidderRegistry.getDeposit(bidder, provider), 63 ether);
         assertEq(bidderRegistry.getEscrowedAmount(bidder, provider), 1 ether);
+        assertEq(bidderRegistry.providerAmount(provider), 0);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
 
         bidderRegistry.unlockFunds(provider, commitmentDigest);
-        uint256 providerAmount = bidderRegistry.providerAmount(provider);
-        uint256 feeRecipientAmount = bidderRegistry.getAccumulatedProtocolFee();
 
-        assertEq(providerAmount, 0);
-        assertEq(feeRecipientAmount, 0);
-        
-        assertEq(bidder.balance, bidderBalance + 1 ether);
+        assertEq(bidder.balance, 1000 ether - 64 ether + 1 ether);
         assertEq(bidderRegistry.getDeposit(bidder, provider), 63 ether);
+        assertEq(bidderRegistry.getEscrowedAmount(bidder, provider), 0);
+        assertEq(bidderRegistry.providerAmount(provider), 0);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
     }
 
     function test_RevertWhen_ConvertFundsToProviderRewardNotPreConf() public {
