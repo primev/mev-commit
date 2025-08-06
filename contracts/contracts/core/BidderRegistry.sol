@@ -121,12 +121,15 @@ contract BidderRegistry is
     function requestWithdrawalsAsBidder(address[] calldata providers) external nonReentrant whenNotPaused {
         address bidder = msg.sender;
         uint256 len = providers.length;
+        require(len > 0, NoProviders());
+
         for (uint256 i = 0; i < len; ++i) {
             address provider = providers[i];
             Deposit storage deposit = deposits[bidder][provider];
             require(deposit.exists, DepositDoesNotExist(bidder, provider));
             TimestampOccurrence.captureOccurrence(deposit.withdrawalRequestOccurrence);
-            emit WithdrawalRequested(bidder, provider, deposit.withdrawalRequestOccurrence.timestamp);
+            emit WithdrawalRequested(bidder, provider, deposit.availableAmount, deposit.escrowedAmount,
+                deposit.withdrawalRequestOccurrence.timestamp);
         }
     }
 
@@ -139,6 +142,8 @@ contract BidderRegistry is
         uint256 totalAmount;
 
         uint256 len = providers.length;
+        require(len > 0, NoProviders());
+
         for (uint256 i = 0; i < len; ++i) {
             address provider = providers[i];
             Deposit storage deposit = deposits[bidder][provider];
@@ -427,7 +432,8 @@ contract BidderRegistry is
         address bidder = msg.sender;
         Deposit storage deposit = deposits[bidder][provider];
         if (deposit.exists) {
-            require(!deposit.withdrawalRequestOccurrence.exists, WithdrawalOccurrenceExists(bidder, provider));
+            require(!deposit.withdrawalRequestOccurrence.exists, 
+                WithdrawalOccurrenceExists(bidder, provider, deposit.withdrawalRequestOccurrence.timestamp));
             deposit.availableAmount += amount;
         } else {
             deposits[bidder][provider] = Deposit({

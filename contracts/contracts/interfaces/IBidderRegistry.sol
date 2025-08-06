@@ -50,6 +50,8 @@ interface IBidderRegistry {
     event WithdrawalRequested(
         address indexed bidder,
         address indexed provider,
+        uint256 availableAmount,
+        uint256 escrowedAmount,
         uint256 indexed timestamp
     );
 
@@ -74,7 +76,7 @@ interface IBidderRegistry {
         address indexed bidder,
         address indexed provider,
         uint256 indexed amountWithdrawn,
-        uint256 amountEscrowed
+        uint256 amountStillEscrowed
     );
 
     /// @dev Event emitted when the deposit manager implementation is updated
@@ -125,7 +127,7 @@ interface IBidderRegistry {
     /// @dev Error emitted when the bidder tries to deposit 0 amount
     error DepositAmountIsZero();
 
-    /// @dev Error emitted when no providers are given as an argument to depositEvenlyAsBidder
+    /// @dev Error emitted when no providers are given as an argument
     error NoProviders();
 
     /// @dev Error emitted when withdrawal transfer failed
@@ -138,7 +140,7 @@ interface IBidderRegistry {
     error DepositDoesNotExist(address bidder, address provider);
 
     /// @dev Error emitted when a withdrawal occurrence exists
-    error WithdrawalOccurrenceExists(address bidder, address provider);
+    error WithdrawalOccurrenceExists(address bidder, address provider, uint256 requestTimestamp);
 
     /// @dev Error emitted when a withdrawal occurrence does not exist
     error WithdrawalOccurrenceDoesNotExist(address bidder, address provider);
