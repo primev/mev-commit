@@ -217,25 +217,37 @@ contract BidderRegistryTest is Test {
 
         address provider = vm.addr(4);
         vm.prank(bidder);
-        bidderRegistry.depositAsBidder{value: 64 ether}(provider);
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
-        blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
 
-        uint256 depositBefore = bidderRegistry.getDeposit(bidder, provider);
+        assertEq(bidder.balance, 1000 ether);
+        assertEq(bidderRegistry.getDeposit(bidder, provider), 0);
+        assertEq(bidderRegistry.getEscrowedAmount(bidder, provider), 0);
+        assertEq(bidderRegistry.providerAmount(provider), 0);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
+
+        vm.prank(bidder);
+        bidderRegistry.depositAsBidder{value: 64 ether}(provider);
+
+        assertEq(bidder.balance, 1000 ether - 64 ether);
+        assertEq(bidderRegistry.getDeposit(bidder, provider), 64 ether);
+        assertEq(bidderRegistry.getEscrowedAmount(bidder, provider), 0);
+        assertEq(bidderRegistry.providerAmount(provider), 0);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
 
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, provider);
 
-        uint256 depositAfter = bidderRegistry.getDeposit(bidder, provider);
-        assertEq(depositAfter, depositBefore-1 ether, "deposit should be reduced by bid amount since no top-up happened");
+        assertEq(bidder.balance, 1000 ether - 64 ether);
+        assertEq(bidderRegistry.getDeposit(bidder, provider), 63 ether);
+        assertEq(bidderRegistry.getEscrowedAmount(bidder, provider), 1 ether);
+        assertEq(bidderRegistry.providerAmount(provider), 0);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
 
         bidderRegistry.convertFundsToProviderReward(commitmentDigest, payable(provider), bidderRegistry.ONE_HUNDRED_PERCENT());
-        uint256 providerAmount = bidderRegistry.providerAmount(provider);
-        uint256 feeRecipientAmount = bidderRegistry.getAccumulatedProtocolFee();
 
-        assertEq(providerAmount, 900000000000000000);
-        assertEq(feeRecipientAmount, 100000000000000000);
+        assertEq(bidder.balance, 1000 ether - 64 ether);
         assertEq(bidderRegistry.getDeposit(bidder, provider), 63 ether);
+        assertEq(bidderRegistry.getEscrowedAmount(bidder, provider), 0);
+        assertEq(bidderRegistry.providerAmount(provider), 0.9 ether);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0.1 ether);
     }
 
     function test_ConvertFundsToProviderRewardWithDecay() public {
