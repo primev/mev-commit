@@ -143,10 +143,6 @@ contract PreconfManagerTest is Test {
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
 
-        uint256 depositManagerMinBalance = 0.01 ether;
-        DepositManager depositManager = new DepositManager(address(bidderRegistry), depositManagerMinBalance);
-        bidderRegistry.setDepositManagerImpl(address(depositManager));
-
         address preconfStoreProxy = Upgrades.deployUUPSProxy(
             "PreconfManager.sol",
             abi.encodeCall(
@@ -162,6 +158,10 @@ contract PreconfManagerTest is Test {
             ) // Commitment Dispatch Window
         );
         preconfManager = PreconfManager(payable(preconfStoreProxy));
+
+        uint256 depositManagerMinBalance = 0.01 ether;
+        DepositManager depositManager = new DepositManager(address(bidderRegistry), depositManagerMinBalance);
+        bidderRegistry.setDepositManagerImpl(address(depositManager));
 
         // Sets fake block timestamp
         vm.warp(500);
