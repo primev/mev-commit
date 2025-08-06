@@ -575,6 +575,32 @@ contract BidderRegistryTest is Test {
         assertEq(alice.code.length, 23);
     }
 
+    function test_OpenBid_NoTopUp_WithdrawalRequestExists() public {
+        uint256 alicePK = uint256(0xA11CE);
+        address alice = payable(vm.addr(alicePK));
+        vm.deal(alice, 10 ether);
+        vm.signAndAttachDelegation(address(bidderRegistry.depositManagerImpl()), alicePK);
+
+        address bob = vm.addr(8);
+        vm.prank(alice);
+        bidderRegistry.depositAsBidder{value: 2 ether}(bob);
+
+        address[] memory providers = new address[](1);
+        providers[0] = bob;
+        vm.prank(alice);
+        bidderRegistry.requestWithdrawalsAsBidder(providers);
+
+        uint256 depositBefore = bidderRegistry.getDeposit(alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.WithdrawalRequestExists(bob);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment"), 1 ether, alice, bob);
+
+        uint256 depositAfter = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfter, depositBefore-1 ether, "deposit should be reduced by 1 ether, since no top-up happened");
+        assertEq(bidderRegistry.getEscrowedAmount(alice, bob), 1 ether);
+    }
+
     function test_OpenBid_NoTopUp_TargetDepositDoesNotExist() public {
         uint256 alicePK = uint256(0xA11CE);
         address alice = payable(vm.addr(alicePK));
@@ -611,7 +637,7 @@ contract BidderRegistryTest is Test {
         assertEq(depositBefore, 2 ether, "deposit should be 2 ether");
 
         vm.expectEmit(true, true, true, true);
-        emit DepositManager.CurrentDepositIsSufficient(bob);
+        emit DepositManager.CurrentDepositIsSufficient(bob, 1 ether, 0.5 ether);
         vm.prank(bidderRegistry.preconfManager());
         bidderRegistry.openBid(keccak256("commitment"), 1 ether, alice, bob);
 
@@ -620,13 +646,119 @@ contract BidderRegistryTest is Test {
         assertEq(DepositManager(payable(alice)).targetDeposits(bob), 0.5 ether);
 
         vm.expectEmit(true, true, true, true);
-        emit DepositManager.CurrentDepositIsSufficient(bob);
+        emit DepositManager.CurrentDepositIsSufficient(bob, 0.5 ether, 0.5 ether);
         vm.prank(bidderRegistry.preconfManager());
         bidderRegistry.openBid(keccak256("commitment2"), 0.5 ether, alice, bob);
 
         uint256 depositAfter2 = bidderRegistry.getDeposit(alice, bob);
         assertEq(depositAfter2, 0.5 ether, "deposit should be 0.5 ether");
         assertEq(DepositManager(payable(alice)).targetDeposits(bob), 0.5 ether);
+    }
+
+    function test_OpenBid_NoTopUp_CurrentBalanceAtOrBelowMin() public {
+        uint256 alicePK = uint256(0xA11CE);
+        address alice = vm.addr(alicePK);
+        vm.deal(alice, 1.01 ether);
+        vm.signAndAttachDelegation(address(bidderRegistry.depositManagerImpl()), alicePK);
+
+        address bob = vm.addr(8);
+        vm.prank(alice);
+        DepositManager(payable(alice)).setTargetDeposit(bob, 1 ether);
+
+        vm.prank(alice);
+        bidderRegistry.depositAsBidder{value: 1 ether}(bob);
+        uint256 depositBefore = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositBefore, 1 ether, "deposit should be 1 ether");
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.CurrentBalanceAtOrBelowMin(bob, 0.01 ether, 0.01 ether);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment"), 1 ether, alice, bob);
+
+        uint256 depositAfter = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfter, 0 ether, "deposit should be 0 ether, since no top-up happened");
+        assertEq(bidderRegistry.getEscrowedAmount(alice, bob), 1 ether);
+
+        vm.prank(alice);
+        bidderRegistry.depositAsBidder{value: 0.001 ether}(bob);
+
+        assertEq(alice.balance, 0.009 ether);
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.CurrentBalanceAtOrBelowMin(bob, 0.009 ether, 0.01 ether);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment2"), 0.001 ether, alice, bob);
+
+        uint256 depositAfter2 = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfter2, 0 ether, "deposit should be 0 ether, since no top-up happened");
+        assertEq(bidderRegistry.getEscrowedAmount(alice, bob), 1.001 ether);
+    }
+
+    function test_OpenBid_TopUpReduced() public {
+        uint256 alicePK = uint256(0xA11CE);
+        address alice = vm.addr(alicePK);
+        vm.deal(alice, 2 ether);
+        vm.signAndAttachDelegation(address(bidderRegistry.depositManagerImpl()), alicePK);
+
+        address bob = vm.addr(8);
+        vm.prank(alice);
+        DepositManager(payable(alice)).setTargetDeposit(bob, 1.5 ether);
+
+        vm.prank(alice);
+        bidderRegistry.depositAsBidder{value: 1.5 ether}(bob);
+        uint256 depositBefore = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositBefore, 1.5 ether, "deposit should be 1.5 ether");
+        assertEq(alice.balance, 0.5 ether, "alice should have 0.5 ether");
+        assertEq(DepositManager(payable(alice)).minBalance(), 0.01 ether);
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.TopUpReduced(bob, 0.49 ether, 1.5 ether); // available = 0.5 - minBalance
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.DepositToppedUp(bob, 0.49 ether);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment"), 1.5 ether, alice, bob);
+
+        uint256 depositAfter = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfter, 0.49 ether, "deposit should be 0.49 ether");
+        assertEq(bidderRegistry.getEscrowedAmount(alice, bob), 1.5 ether);
+        assertEq(DepositManager(payable(alice)).targetDeposits(bob), 1.5 ether);
+
+        vm.deal(alice, 10 ether);
+        assertEq(alice.balance, 10 ether, "alice should have 10 ether");
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.DepositToppedUp(bob, 1.5 ether); // 0.49 - 0.49 + full top-up amount
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment2"), 0.49 ether, alice, bob);
+        uint256 depositAfterPart2 = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfterPart2, 1.5 ether, "deposit after part 2 should be 1.5 ether since that's the full target deposit");
+
+        assertEq(bidderRegistry.getEscrowedAmount(alice, bob), 1.5 ether + 0.49 ether);
+        assertEq(alice.balance, 8.50 ether);
+    }
+
+    function test_OpenBid_NormalTopUp() public {
+        uint256 alicePK = uint256(0xA11CE);
+        address alice = vm.addr(alicePK);
+        vm.deal(alice, 2 ether);
+        vm.signAndAttachDelegation(address(bidderRegistry.depositManagerImpl()), alicePK);
+
+        address bob = vm.addr(8);
+        vm.prank(alice);
+        DepositManager(payable(alice)).setTargetDeposit(bob, 1.5 ether);
+
+        vm.prank(alice);
+        bidderRegistry.depositAsBidder{value: 1.5 ether}(bob);
+
+        assertEq(alice.balance, 0.5 ether, "alice should have 0.5 ether");
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositManager.DepositToppedUp(bob, 0.25 ether);
+        vm.prank(bidderRegistry.preconfManager());
+        bidderRegistry.openBid(keccak256("commitment3"), 0.25 ether, alice, bob);
+
+        uint256 depositAfter = bidderRegistry.getDeposit(alice, bob);
+        assertEq(depositAfter, 1.5 ether, "deposit should be 1.5 ether");
+        assertEq(alice.balance, 0.25 ether, "alice should have 0.25 ether");
     }
 }
 
