@@ -487,19 +487,16 @@ func (s *statHandler) getProviders() []*ProviderBalances {
 	return s.providerStakes.Values()
 }
 
-func (s *statHandler) getBidders(bidder string, provider string) []*BidderDeposit {
+func (s *statHandler) getBidders() []*BidderDeposit {
 	s.statMu.RLock()
 	defer s.statMu.RUnlock()
 
-	deposits, ok := s.bidderDeposits.Get(depositKey{
-		bidder:   bidder,
-		provider: provider,
-	})
-	if !ok {
-		deposits = make([]*BidderDeposit, 0)
-	}
+	all := make([]*BidderDeposit, 0, s.bidderDeposits.Len())
 
-	return deposits
+	for _, deposits := range s.bidderDeposits.Values() {
+		all = append(all, deposits...)
+	}
+	return all
 }
 
 func (s *statHandler) getBlockStats(block uint64) *BlockStats {
