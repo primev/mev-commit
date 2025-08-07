@@ -17,11 +17,10 @@ import (
 type statHandler struct {
 	statMu                    sync.RWMutex
 	lastBlock                 uint64
-	lastWindow                uint64
 	blocksPerWindow           uint64
 	blockStats                *lru.Cache[uint64, *BlockStats]
 	providerStakes            *lru.Cache[string, *ProviderBalances]
-	bidderAllowances          *lru.Cache[uint64, []*BidderAllowance]
+	bidderDeposits            *lru.Cache[depositKey, []*BidderDeposit]
 	commitments               *lru.Cache[[32]byte, *preconf.PreconfmanagerOpenedCommitmentStored]
 	commitmentsByBlock        *lru.Cache[uint64, []*preconf.PreconfmanagerOpenedCommitmentStored]
 	totalEncryptedCommitments uint64
@@ -53,9 +52,10 @@ type ProviderBalances struct {
 	SlashesCount              uint64 `json:"slashes_count"`
 }
 
-type BidderAllowance struct {
+type BidderDeposit struct {
 	Bidder               string `json:"bidder"`
-	Allowance            string `json:"allowance"`
+	Provider             string `json:"provider"`
+	Amount               string `json:"amount"`
 	Refunds              string `json:"refunds"`
 	Settled              string `json:"settled"`
 	Withdrawn            string `json:"withdrawn"`
@@ -64,10 +64,9 @@ type BidderAllowance struct {
 	SettledCount         uint64 `json:"settled_count"`
 }
 
-type WindowStats struct {
-	Window  uint64             `json:"window"`
-	Bidders []*BidderAllowance `json:"bidders"`
-	Blocks  []*BlockStats      `json:"blocks"`
+type depositKey struct {
+	bidder   string
+	provider string
 }
 
 type AggregateStats struct {
@@ -80,7 +79,6 @@ type AggregateStats struct {
 type DashboardOut struct {
 	Aggregate *AggregateStats     `json:"aggregate"`
 	Providers []*ProviderBalances `json:"providers"`
-	Windows   []*WindowStats      `json:"windows"`
 }
 
 func newStatHandler(evtMgr events.EventManager, blocksPerWindow uint64) (*statHandler, error) {
@@ -94,7 +92,7 @@ func newStatHandler(evtMgr events.EventManager, blocksPerWindow uint64) (*statHa
 		return nil, err
 	}
 
-	bidderAllowances, err := lru.New[uint64, []*BidderAllowance](1000)
+	bidderDeposits, err := lru.New[depositKey, []*BidderDeposit](1000)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +111,7 @@ func newStatHandler(evtMgr events.EventManager, blocksPerWindow uint64) (*statHa
 		blocksPerWindow:    blocksPerWindow,
 		blockStats:         blockStats,
 		providerStakes:     providerStakes,
-		bidderAllowances:   bidderAllowances,
+		bidderDeposits:     bidderDeposits,
 		commitments:        commitments,
 		commitmentsByBlock: commitmentsByBlock,
 		evtMgr:             evtMgr,
@@ -146,9 +144,6 @@ func (s *statHandler) configureDashboard() error {
 				_ = s.blockStats.Add(upd.BlockNumber.Uint64(), existing)
 				if upd.BlockNumber.Uint64() > s.lastBlock {
 					s.lastBlock = upd.BlockNumber.Uint64()
-				}
-				if upd.Window.Uint64() > s.lastWindow {
-					s.lastWindow = upd.Window.Uint64()
 				}
 			},
 		),
@@ -198,7 +193,10 @@ func (s *statHandler) configureDashboard() error {
 				}
 				p.OpenedCommitmentsCount++
 				_ = s.providerStakes.Add(upd.Committer.Hex(), p)
-				b, ok := s.bidderAllowances.Get(uint64(existing.Window))
+				b, ok := s.bidderDeposits.Get(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Committer.Hex(),
+				})
 				if !ok {
 					return
 				}
@@ -208,7 +206,10 @@ func (s *statHandler) configureDashboard() error {
 						break
 					}
 				}
-				_ = s.bidderAllowances.Add(uint64(existing.Window), b)
+				_ = s.bidderDeposits.Add(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Committer.Hex(),
+				}, b)
 			},
 		),
 		events.NewEventHandler(
@@ -321,7 +322,10 @@ func (s *statHandler) configureDashboard() error {
 				existing.RewardsCount++
 				_ = s.providerStakes.Add(upd.Provider.Hex(), existing)
 
-				existingBidders, ok := s.bidderAllowances.Get(upd.Window.Uint64())
+				existingBidders, ok := s.bidderDeposits.Get(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Provider.Hex(),
+				})
 				if !ok {
 					return
 				}
@@ -337,18 +341,24 @@ func (s *statHandler) configureDashboard() error {
 						break
 					}
 				}
-				_ = s.bidderAllowances.Add(upd.Window.Uint64(), existingBidders)
+				_ = s.bidderDeposits.Add(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Provider.Hex(),
+				}, existingBidders)
 			},
 		),
 		events.NewEventHandler(
-			"BidderRegistered",
-			func(upd *bidderregistry.BidderregistryBidderRegistered) {
+			"BidderDeposited",
+			func(upd *bidderregistry.BidderregistryBidderDeposited) {
 				s.statMu.Lock()
 				defer s.statMu.Unlock()
 
-				existing, ok := s.bidderAllowances.Get(upd.WindowNumber.Uint64())
+				existing, ok := s.bidderDeposits.Get(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Provider.Hex(),
+				})
 				if !ok {
-					existing = make([]*BidderAllowance, 0)
+					existing = make([]*BidderDeposit, 0)
 				}
 
 				for _, b := range existing {
@@ -357,20 +367,27 @@ func (s *statHandler) configureDashboard() error {
 					}
 				}
 
-				existing = append(existing, &BidderAllowance{
-					Bidder:    upd.Bidder.Hex(),
-					Allowance: upd.DepositedAmount.String(),
+				existing = append(existing, &BidderDeposit{
+					Bidder:   upd.Bidder.Hex(),
+					Provider: upd.Provider.Hex(),
+					Amount:   upd.DepositedAmount.String(),
 				})
-				_ = s.bidderAllowances.Add(upd.WindowNumber.Uint64(), existing)
+				_ = s.bidderDeposits.Add(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Provider.Hex(),
+				}, existing)
 			},
 		),
 		events.NewEventHandler(
-			"FundsRetrieved",
-			func(upd *bidderregistry.BidderregistryFundsRetrieved) {
+			"FundsUnlocked",
+			func(upd *bidderregistry.BidderregistryFundsUnlocked) {
 				s.statMu.Lock()
 				defer s.statMu.Unlock()
 
-				existing, ok := s.bidderAllowances.Get(upd.Window.Uint64())
+				existing, ok := s.bidderDeposits.Get(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Provider.Hex(),
+				})
 				if !ok {
 					return
 				}
@@ -387,7 +404,10 @@ func (s *statHandler) configureDashboard() error {
 						break
 					}
 				}
-				_ = s.bidderAllowances.Add(upd.Window.Uint64(), existing)
+				_ = s.bidderDeposits.Add(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Provider.Hex(),
+				}, existing)
 			},
 		),
 		events.NewEventHandler(
@@ -396,19 +416,25 @@ func (s *statHandler) configureDashboard() error {
 				s.statMu.Lock()
 				defer s.statMu.Unlock()
 
-				existing, ok := s.bidderAllowances.Get(upd.Window.Uint64())
+				existing, ok := s.bidderDeposits.Get(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Provider.Hex(),
+				})
 				if !ok {
 					return
 				}
 
 				for idx, b := range existing {
 					if b.Bidder == upd.Bidder.Hex() {
-						existing[idx].Withdrawn = upd.Amount.String()
+						existing[idx].Withdrawn = upd.AmountWithdrawn.String()
 						break
 					}
 				}
 
-				_ = s.bidderAllowances.Add(upd.Window.Uint64(), existing)
+				_ = s.bidderDeposits.Add(depositKey{
+					bidder:   upd.Bidder.Hex(),
+					provider: upd.Provider.Hex(),
+				}, existing)
 			},
 		),
 	}
@@ -439,24 +465,6 @@ func (s *statHandler) close() {
 
 func (s *statHandler) getDashboard(page, limit int) *DashboardOut {
 	s.statMu.RLock()
-	start := s.lastWindow
-	s.statMu.RUnlock()
-
-	if start > uint64(limit*page) {
-		start = start - uint64(limit*page)
-	}
-
-	windows := make([]*WindowStats, 0)
-
-	for i := start; i >= 1 && len(windows) <= limit; i-- {
-		window := s.getWindowStat(i)
-		if window == nil {
-			continue
-		}
-		windows = append(windows, window)
-	}
-
-	s.statMu.RLock()
 	providers := s.providerStakes.Values()
 	agg := &AggregateStats{
 		TotalEncryptedCommitments: s.totalEncryptedCommitments,
@@ -468,35 +476,8 @@ func (s *statHandler) getDashboard(page, limit int) *DashboardOut {
 
 	return &DashboardOut{
 		Providers: providers,
-		Windows:   windows,
 		Aggregate: agg,
 	}
-}
-
-func (s *statHandler) getWindowStat(window uint64) *WindowStats {
-	s.statMu.RLock()
-	defer s.statMu.RUnlock()
-
-	windowStats := new(WindowStats)
-	windowStats.Window = window
-
-	blockStart := (window-1)*s.blocksPerWindow + 1
-	blockEnd := window * s.blocksPerWindow
-	for i := blockEnd; i >= blockStart; i-- {
-		stats, ok := s.blockStats.Get(i)
-		if !ok {
-			continue
-		}
-		windowStats.Blocks = append(windowStats.Blocks, stats)
-	}
-
-	bidders, ok := s.bidderAllowances.Get(window)
-	if !ok {
-		bidders = make([]*BidderAllowance, 0)
-	}
-	windowStats.Bidders = bidders
-
-	return windowStats
 }
 
 func (s *statHandler) getProviders() []*ProviderBalances {
@@ -506,45 +487,19 @@ func (s *statHandler) getProviders() []*ProviderBalances {
 	return s.providerStakes.Values()
 }
 
-func (s *statHandler) getWindows(page, limit int) []*WindowStats {
-	s.statMu.RLock()
-	start := s.lastWindow
-	s.statMu.RUnlock()
-
-	if start > uint64(limit*page) {
-		start = start - uint64(limit*page)
-	}
-
-	windows := make([]*WindowStats, 0)
-	for i := start; i >= 1 && len(windows) <= limit; i-- {
-		window := s.getWindowStat(i)
-		if window == nil {
-			continue
-		}
-		windows = append(windows, window)
-	}
-
-	return windows
-}
-
-func (s *statHandler) getCurrentBidders() []*BidderAllowance {
-	s.statMu.RLock()
-	window := s.lastWindow
-	s.statMu.RUnlock()
-
-	return s.getBidders(int(window))
-}
-
-func (s *statHandler) getBidders(window int) []*BidderAllowance {
+func (s *statHandler) getBidders(bidder string, provider string) []*BidderDeposit {
 	s.statMu.RLock()
 	defer s.statMu.RUnlock()
 
-	windowAllowances, ok := s.bidderAllowances.Get(uint64(window))
+	deposits, ok := s.bidderDeposits.Get(depositKey{
+		bidder:   bidder,
+		provider: provider,
+	})
 	if !ok {
-		windowAllowances = make([]*BidderAllowance, 0)
+		deposits = make([]*BidderDeposit, 0)
 	}
 
-	return windowAllowances
+	return deposits
 }
 
 func (s *statHandler) getBlockStats(block uint64) *BlockStats {
