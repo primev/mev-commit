@@ -39,9 +39,6 @@ type blockBuilder interface {
 
 	// Processes any unfinished payload from a previous session
 	ProcessLastPayload(ctx context.Context) error
-
-	// Sets the last call time to zero
-	SetLastCallTimeToZero()
 }
 
 // todo: work with block state through block builder, not directly
@@ -263,7 +260,6 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 					lfm.logger.Error("Leader: failed to reach geth node after max attempts, exiting")
 					stopElecErr := lfm.leaderProc.Stop()
 					// todo: refactor to generate timestamp outside blockbuilder
-					lfm.blockBuilder.SetLastCallTimeToZero()
 					if stopElecErr != nil {
 						lfm.logger.Error(
 							"Leader: Failed to stop leader election",

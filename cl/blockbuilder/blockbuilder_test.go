@@ -97,7 +97,6 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 	timestamp := time.Now()
@@ -117,7 +116,9 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(forkChoiceResponse, nil)
 
-	resp, err := blockBuilder.startBuild(ctx, executionHead, uint64(timestamp.UnixMilli()))
+	blockBuilder.executionHead = executionHead
+
+	resp, err := blockBuilder.startBuild(ctx, uint64(timestamp.UnixMilli()))
 
 	require.NoError(t, err)
 	assert.Equal(t, forkChoiceResponse, resp)
@@ -162,7 +163,6 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -229,7 +229,6 @@ func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -312,7 +311,6 @@ func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -327,7 +325,9 @@ func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(engine.ForkChoiceResponse{}, errors.New("engine error"))
 
-	resp, err := blockBuilder.startBuild(ctx, executionHead, uint64(timestamp.UnixMilli()))
+	blockBuilder.executionHead = executionHead
+
+	resp, err := blockBuilder.startBuild(ctx, uint64(timestamp.UnixMilli()))
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "forkchoice update")
@@ -357,7 +357,6 @@ func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -378,7 +377,9 @@ func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(forkChoiceResponse, nil)
 
-	resp, err := blockBuilder.startBuild(ctx, executionHead, uint64(timestamp.UnixMilli()))
+	blockBuilder.executionHead = executionHead
+
+	resp, err := blockBuilder.startBuild(ctx, uint64(timestamp.UnixMilli()))
 
 	require.NoError(t, err)
 	assert.Equal(t, forkChoiceResponse, resp)
@@ -459,7 +460,6 @@ func TestBlockBuilder_FinalizeBlock_InvalidBlockHeight(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -515,7 +515,6 @@ func TestBlockBuilder_FinalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
@@ -576,7 +575,6 @@ func TestBlockBuilder_FinalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 		engineCl:     mockEngineClient,
 		rpcClient:    createMockRPCClient(),
 		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
 	}
 
