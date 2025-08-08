@@ -54,9 +54,9 @@ type BidProcessor interface {
 type DepositManager interface {
 	CheckAndDeductDeposit(
 		ctx context.Context,
-		ethAddress common.Address,
+		bidderAddr common.Address,
+		providerAddr common.Address,
 		bidAmount string,
-		blockNumber int64,
 	) (func() error, error)
 }
 
@@ -273,12 +273,18 @@ func (p *Preconfirmation) handleBid(
 	if err != nil {
 		return err
 	}
-	ethAddress, err := p.encryptor.VerifyBid(bid)
+	bidderAddr, err := p.encryptor.VerifyBid(bid)
 	if err != nil {
 		return err
 	}
 
-	refund, err := p.depositMgr.CheckAndDeductDeposit(ctx, *ethAddress, bid.BidAmount, bid.BlockNumber)
+	opts, err := p.optsGetter(ctx)
+	if err != nil {
+		return err
+	}
+	providerAddr := opts.From
+
+	tryRefund, err := p.depositMgr.CheckAndDeductDeposit(ctx, *bidderAddr, providerAddr, bid.BidAmount)
 	if err != nil {
 		p.logger.Error("checking deposit", "error", err)
 		return err
@@ -288,8 +294,9 @@ func (p *Preconfirmation) handleBid(
 	successful := false
 	defer func() {
 		if !successful {
-			// Refund the deducted amount if the bid process did not succeed
-			refundErr := refund()
+			// Refund the deducted amount if the bid process did not succeed and deposit still exists in store.
+			// If deposit no longer exists, the bidder is in withdrawal process and refund is thrown away
+			refundErr := tryRefund()
 			if refundErr != nil {
 				p.logger.Error("refunding deposit", "error", refundErr)
 			}

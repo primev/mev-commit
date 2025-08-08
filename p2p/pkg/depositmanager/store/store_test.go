@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,15 +15,15 @@ func TestStore_SetBalance(t *testing.T) {
 	s := store.New(st)
 
 	bidder := common.HexToAddress("0x123")
-	windowNumber := big.NewInt(1)
+	provider := common.HexToAddress("0x456")
 	depositedAmount := big.NewInt(10)
 
-	err := s.SetBalance(bidder, windowNumber, depositedAmount)
+	err := s.SetBalance(bidder, provider, depositedAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	val, err := s.GetBalance(bidder, windowNumber)
+	val, err := s.GetBalance(bidder, provider)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,15 +37,15 @@ func TestStore_GetBalance(t *testing.T) {
 	s := store.New(st)
 
 	bidder := common.HexToAddress("0x123")
-	windowNumber := big.NewInt(1)
+	provider := common.HexToAddress("0x456")
 	depositedAmount := big.NewInt(10)
 
-	err := s.SetBalance(bidder, windowNumber, depositedAmount)
+	err := s.SetBalance(bidder, provider, depositedAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	val, err := s.GetBalance(bidder, windowNumber)
+	val, err := s.GetBalance(bidder, provider)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,121 +54,90 @@ func TestStore_GetBalance(t *testing.T) {
 	}
 }
 
-func TestStore_ClearBalances(t *testing.T) {
-	st := inmem.New()
-	s := store.New(st)
-
-	windowNumber := big.NewInt(1)
-	bidder1 := common.HexToAddress("0x123")
-	bidder2 := common.HexToAddress("0x456")
-	depositedAmount := big.NewInt(10)
-
-	err := s.SetBalance(bidder1, windowNumber, depositedAmount)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = s.SetBalance(bidder2, windowNumber, depositedAmount)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	windows, err := s.ClearBalances(windowNumber)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(windows) != 1 {
-		t.Fatalf("expected 1, got %d", len(windows))
-	}
-
-	val1, err := s.GetBalance(bidder1, windowNumber)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if val1 != nil {
-		t.Fatalf("expected nil, got %s", val1.String())
-	}
-
-	val2, err := s.GetBalance(bidder2, windowNumber)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if val2 != nil {
-		t.Fatalf("expected nil, got %s", val2.String())
-	}
-}
-
-func TestStore_GetBalanceForBlock(t *testing.T) {
+func TestStore_GetBalance_NoBalance(t *testing.T) {
 	st := inmem.New()
 	s := store.New(st)
 
 	bidder := common.HexToAddress("0x123")
-	windowNumber := big.NewInt(1)
-	blockNumber := int64(10)
-	amount := big.NewInt(20)
+	provider := common.HexToAddress("0x456")
 
-	err := s.SetBalanceForBlock(bidder, windowNumber, amount, blockNumber)
+	val, err := s.GetBalance(bidder, provider)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	val, err := s.GetBalanceForBlock(bidder, windowNumber, blockNumber)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if val.Cmp(amount) != 0 {
-		t.Fatalf("expected %s, got %s", amount.String(), val.String())
+	if val != nil {
+		t.Fatalf("expected nil, got %s", val.String())
 	}
 }
 
-func TestStore_SetBalanceForBlock(t *testing.T) {
+func TestStore_RefundBalanceIfExists(t *testing.T) {
 	st := inmem.New()
 	s := store.New(st)
 
 	bidder := common.HexToAddress("0x123")
-	windowNumber := big.NewInt(1)
-	blockNumber := int64(10)
+	provider := common.HexToAddress("0x456")
 	amount := big.NewInt(20)
 
-	err := s.SetBalanceForBlock(bidder, windowNumber, amount, blockNumber)
-	if err != nil {
-		t.Fatal(err)
+	err := s.RefundBalanceIfExists(bidder, provider, amount)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "balance not found, no refund needed") {
+		t.Fatalf("expected error containing 'balance not found, no refund needed', got %v", err)
 	}
 
-	val, err := s.GetBalanceForBlock(bidder, windowNumber, blockNumber)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if val.Cmp(amount) != 0 {
-		t.Fatalf("expected %s, got %s", amount.String(), val.String())
-	}
-}
-
-func TestStore_RefundBalanceForBlock(t *testing.T) {
-	st := inmem.New()
-	s := store.New(st)
-
-	bidder := common.HexToAddress("0x123")
-	windowNumber := big.NewInt(1)
-	blockNumber := int64(10)
-	amount := big.NewInt(20)
-
-	err := s.SetBalanceForBlock(bidder, windowNumber, amount, blockNumber)
+	err = s.SetBalance(bidder, provider, amount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	refundAmount := big.NewInt(5)
-	err = s.RefundBalanceForBlock(bidder, windowNumber, refundAmount, blockNumber)
+	err = s.RefundBalanceIfExists(bidder, provider, refundAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	val, err := s.GetBalanceForBlock(bidder, windowNumber, blockNumber)
+	val, err := s.GetBalance(bidder, provider)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedAmount := new(big.Int).Add(amount, refundAmount)
+	expectedAmount := new(big.Int).SetUint64(25)
 	if val.Cmp(expectedAmount) != 0 {
 		t.Fatalf("expected %s, got %s", expectedAmount.String(), val.String())
+	}
+}
+
+func TestStore_DeleteBalance(t *testing.T) {
+	st := inmem.New()
+	s := store.New(st)
+
+	bidder := common.HexToAddress("0x123")
+	provider := common.HexToAddress("0x456")
+	depositedAmount := big.NewInt(10)
+
+	err := s.SetBalance(bidder, provider, depositedAmount)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	val, err := s.GetBalance(bidder, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val.Cmp(depositedAmount) != 0 {
+		t.Fatalf("expected %s, got %s", depositedAmount.String(), val.String())
+	}
+
+	err = s.DeleteBalance(bidder, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	val, err = s.GetBalance(bidder, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val != nil {
+		t.Fatalf("expected nil, got %s", val.String())
 	}
 }
