@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
-	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -17,40 +16,25 @@ import (
 )
 
 type BidderRegistryContract interface {
-	GetDeposit(opts *bind.CallOpts, bidder common.Address, window *big.Int) (*big.Int, error)
+	GetDeposit(opts *bind.CallOpts, bidder common.Address, provider common.Address) (*big.Int, error)
+	WithdrawalRequestExists(opts *bind.CallOpts, bidder common.Address, provider common.Address) (bool, error)
 }
 
 type Store interface {
-	GetBalance(bidder common.Address, windowNumber *big.Int) (*big.Int, error)
-	SetBalance(bidder common.Address, windowNumber *big.Int, balance *big.Int) error
-	GetBalanceForBlock(
-		bidder common.Address,
-		windowNumber *big.Int,
-		blockNumber int64,
-	) (*big.Int, error)
-	SetBalanceForBlock(
-		bidder common.Address,
-		windowNumber *big.Int,
-		balance *big.Int,
-		blockNumber int64,
-	) error
-	RefundBalanceForBlock(
-		bidder common.Address,
-		windowNumber *big.Int,
-		amount *big.Int,
-		blockNumber int64,
-	) error
-	ClearBalances(windowNumber *big.Int) ([]*big.Int, error)
+	GetBalance(bidder common.Address, provider common.Address) (*big.Int, error)
+	SetBalance(bidder common.Address, provider common.Address, balance *big.Int) error
+	DeleteBalance(bidder common.Address, provider common.Address) error
+	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
 
 type DepositManager struct {
-	store           Store
-	evtMgr          events.EventManager
-	bidderRegistry  BidderRegistryContract
-	blocksPerWindow uint64
-	bidderRegs      chan *bidderregistry.BidderregistryBidderRegistered
-	windowChan      chan *blocktracker.BlocktrackerNewWindow
-	logger          *slog.Logger
+	store            Store
+	evtMgr           events.EventManager
+	bidderRegistry   BidderRegistryContract
+	deposits         chan *bidderregistry.BidderregistryBidderDeposited
+	withdrawRequests chan *bidderregistry.BidderregistryWithdrawalRequested
+	withdrawals      chan *bidderregistry.BidderregistryBidderWithdrawal
+	logger           *slog.Logger
 }
 
 func NewDepositManager(
@@ -61,13 +45,13 @@ func NewDepositManager(
 	logger *slog.Logger,
 ) *DepositManager {
 	return &DepositManager{
-		store:           store,
-		blocksPerWindow: blocksPerWindow,
-		bidderRegistry:  bidderRegistry,
-		bidderRegs:      make(chan *bidderregistry.BidderregistryBidderRegistered),
-		windowChan:      make(chan *blocktracker.BlocktrackerNewWindow),
-		evtMgr:          evtMgr,
-		logger:          logger,
+		store:            store,
+		bidderRegistry:   bidderRegistry,
+		deposits:         make(chan *bidderregistry.BidderregistryBidderDeposited),
+		withdrawRequests: make(chan *bidderregistry.BidderregistryWithdrawalRequested),
+		withdrawals:      make(chan *bidderregistry.BidderregistryBidderWithdrawal),
+		evtMgr:           evtMgr,
+		logger:           logger,
 	}
 }
 
@@ -77,28 +61,39 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	ev1 := events.NewEventHandler(
-		"NewWindow",
-		func(window *blocktracker.BlocktrackerNewWindow) {
+		"BidderDeposited",
+		func(bidderDeposit *bidderregistry.BidderregistryBidderDeposited) {
 			select {
 			case <-egCtx.Done():
-				dm.logger.Info("new window context done")
-			case dm.windowChan <- window:
+				dm.logger.Info("bidder deposited context done")
+			case dm.deposits <- bidderDeposit:
 			}
 		},
 	)
 
 	ev2 := events.NewEventHandler(
-		"BidderRegistered",
-		func(bidderReg *bidderregistry.BidderregistryBidderRegistered) {
+		"WithdrawalRequested",
+		func(withdrawalRequested *bidderregistry.BidderregistryWithdrawalRequested) {
 			select {
 			case <-egCtx.Done():
-				dm.logger.Info("bidder registered context done")
-			case dm.bidderRegs <- bidderReg:
+				dm.logger.Info("withdrawal requested context done")
+			case dm.withdrawRequests <- withdrawalRequested:
 			}
 		},
 	)
 
-	sub, err := dm.evtMgr.Subscribe(ev1, ev2)
+	ev3 := events.NewEventHandler(
+		"BidderWithdrawal",
+		func(bidderWithdrawal *bidderregistry.BidderregistryBidderWithdrawal) {
+			select {
+			case <-egCtx.Done():
+				dm.logger.Info("bidder withdrawal context done")
+			case dm.withdrawals <- bidderWithdrawal:
+			}
+		},
+	)
+
+	sub, err := dm.evtMgr.Subscribe(ev1, ev2, ev3)
 	if err != nil {
 		close(doneChan)
 		return doneChan
@@ -120,23 +115,52 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 		for {
 			select {
 			case <-egCtx.Done():
-				dm.logger.Info("clear balances set balances context done")
+				dm.logger.Info("deposit manager context done")
 				return nil
-			case window := <-dm.windowChan:
-				windowToClear := new(big.Int).Sub(window.Window, big.NewInt(1))
-				windows, err := dm.store.ClearBalances(windowToClear)
+
+			case deposit := <-dm.deposits:
+				currentBalance, err := dm.store.GetBalance(deposit.Bidder, deposit.Provider)
 				if err != nil {
-					dm.logger.Error("failed to clear balances", "error", err, "window", windowToClear)
+					dm.logger.Error("getting balance", "error", err)
 					return err
 				}
-				dm.logger.Info("cleared balances", "windows", windows)
-			case bidderReg := <-dm.bidderRegs:
-				effectiveStake := new(big.Int).Div(bidderReg.DepositedAmount, new(big.Int).SetUint64(dm.blocksPerWindow))
-				if err := dm.store.SetBalance(bidderReg.Bidder, bidderReg.WindowNumber, effectiveStake); err != nil {
+				if currentBalance == nil {
+					dm.logger.Debug("balance not found in store, using 0",
+						"bidder", deposit.Bidder,
+						"provider", deposit.Provider,
+					)
+					currentBalance = big.NewInt(0)
+				}
+				newBalance := new(big.Int).Add(currentBalance, deposit.DepositedAmount)
+				if err := dm.store.SetBalance(deposit.Bidder, deposit.Provider, newBalance); err != nil {
 					dm.logger.Error("setting balance", "error", err)
 					return err
 				}
-				dm.logger.Info("set balance", "bidder", bidderReg.Bidder, "window", bidderReg.WindowNumber, "amount", effectiveStake)
+				dm.logger.Info("set balance from bidder deposit event",
+					"bidder", deposit.Bidder,
+					"provider", deposit.Provider,
+					"new balance", newBalance,
+				)
+
+			case withdrawalRequest := <-dm.withdrawRequests:
+				if err := dm.store.DeleteBalance(withdrawalRequest.Bidder, withdrawalRequest.Provider); err != nil {
+					dm.logger.Error("deleting balance", "error", err)
+					return err
+				}
+				dm.logger.Info("deleted balance from withdrawal request event",
+					"bidder", withdrawalRequest.Bidder,
+					"provider", withdrawalRequest.Provider,
+				)
+
+			case withdrawal := <-dm.withdrawals:
+				if err := dm.store.DeleteBalance(withdrawal.Bidder, withdrawal.Provider); err != nil {
+					dm.logger.Error("deleting balance", "error", err)
+					return err
+				}
+				dm.logger.Info("deleted balance from withdrawal event",
+					"bidder", withdrawal.Bidder,
+					"provider", withdrawal.Provider,
+				)
 			}
 		}
 	})
@@ -150,13 +174,11 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 	return doneChan
 }
 
-// TODO: Add check in provider node to see if bidder has requested a withdrawal.
-// TODO: Also still check the deposit, now it's just w.r.t a provider and not a block.
 func (dm *DepositManager) CheckAndDeductDeposit(
 	ctx context.Context,
-	address common.Address,
+	bidderAddr common.Address,
+	providerAddr common.Address,
 	bidAmountStr string,
-	blockNumber int64,
 ) (func() error, error) {
 	bidAmount, ok := new(big.Int).SetString(bidAmountStr, 10)
 	if !ok {
@@ -164,38 +186,37 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 		return nil, status.Errorf(codes.InvalidArgument, "failed to parse bid amount")
 	}
 
-	windowToCheck := new(big.Int).SetUint64((uint64(blockNumber)-1)/dm.blocksPerWindow + 1)
-
-	balanceForBlock, err := dm.store.GetBalanceForBlock(address, windowToCheck, blockNumber)
+	balance, err := dm.store.GetBalance(bidderAddr, providerAddr)
 	if err != nil {
-		dm.logger.Error("getting balance for block", "error", err)
-		return nil, status.Errorf(codes.Internal, "failed to get balance for block: %v", err)
+		dm.logger.Error("getting balance", "error", err)
+		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
 	}
 
-	if balanceForBlock != nil {
-		newBalance := new(big.Int).Sub(balanceForBlock, bidAmount)
+	if balance != nil {
+		newBalance := new(big.Int).Sub(balance, bidAmount)
 		if newBalance.Cmp(big.NewInt(0)) < 0 {
-			dm.logger.Error("insufficient balance", "balance", balanceForBlock.Uint64(), "bidAmount", bidAmount.Uint64())
+			dm.logger.Error("insufficient balance", "balance", balance.Uint64(), "bidAmount", bidAmount.Uint64())
 			return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
 		}
 
-		if err := dm.store.SetBalanceForBlock(address, windowToCheck, newBalance, blockNumber); err != nil {
-			dm.logger.Error("setting balance for block", "error", err)
-			return nil, status.Errorf(codes.Internal, "failed to set balance for block: %v", err)
+		if err := dm.store.SetBalance(bidderAddr, providerAddr, newBalance); err != nil {
+			dm.logger.Error("setting balance", "error", err)
+			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
 		}
 		return func() error {
-			return dm.store.RefundBalanceForBlock(address, windowToCheck, bidAmount, blockNumber)
+			return dm.store.RefundBalanceIfExists(bidderAddr, providerAddr, bidAmount)
 		}, nil
 	}
 
-	defaultBalance, err := dm.getBalanceForWindow(ctx, address, windowToCheck)
+	defaultBalance, err := dm.getDefaultBalance(ctx, bidderAddr, providerAddr)
 	if err != nil {
 		return nil, err
 	}
 
 	if defaultBalance == nil {
-		dm.logger.Error("bidder balance not found", "address", address.Hex(), "window", windowToCheck)
-		return nil, status.Errorf(codes.FailedPrecondition, "balance not found for window %s", windowToCheck.String())
+		dm.logger.Error("bidder balance not found", "bidder", bidderAddr.Hex(), "provider", providerAddr.Hex())
+		return nil, status.Errorf(codes.FailedPrecondition,
+			"balance not found for bidder %s and provider %s", bidderAddr.Hex(), providerAddr.Hex())
 	}
 
 	if defaultBalance.Cmp(bidAmount) < 0 {
@@ -204,46 +225,51 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 	}
 
 	newBalance := new(big.Int).Sub(defaultBalance, bidAmount)
-	if err := dm.store.SetBalanceForBlock(address, windowToCheck, newBalance, blockNumber); err != nil {
+	if err := dm.store.SetBalance(bidderAddr, providerAddr, newBalance); err != nil {
 		dm.logger.Error("setting balance for block", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to set balance for block: %v", err)
 	}
 
 	return func() error {
-		return dm.store.RefundBalanceForBlock(address, windowToCheck, bidAmount, blockNumber)
+		return dm.store.RefundBalanceIfExists(bidderAddr, providerAddr, bidAmount)
 	}, nil
 }
 
 // fallback to contract if balance not found in store
-func (dm *DepositManager) getBalanceForWindow(
+func (dm *DepositManager) getDefaultBalance(
 	ctx context.Context,
-	address common.Address,
-	windowNumber *big.Int,
+	bidderAddr common.Address,
+	providerAddr common.Address,
 ) (*big.Int, error) {
-	balance, err := dm.store.GetBalance(address, windowNumber)
+	balance, err := dm.store.GetBalance(bidderAddr, providerAddr)
 	if err != nil {
 		dm.logger.Error("getting balance", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
 	}
 
 	if balance == nil {
-		dm.logger.Info("balance not found in store", "address", address.Hex(), "window", windowNumber)
+		dm.logger.Info("balance not found in store", "bidder", bidderAddr.Hex(), "provider", providerAddr.Hex())
 		balance, err = dm.bidderRegistry.GetDeposit(&bind.CallOpts{
 			Context: ctx,
-		}, address, windowNumber)
+		}, bidderAddr, providerAddr)
 		if err != nil {
 			dm.logger.Error("getting deposit from contract", "error", err)
 			return nil, status.Errorf(codes.Internal, "failed to get deposit: %v", err)
 		}
 
-		// The set balance will only set the max amount that can be used in a block for
-		// the given window. The actual balance will be deducted in the CheckAndDeductDeposit.
-		// This prevents the need to synchrnoize the balance update from the events. They
-		// update the same value.
-		effectiveBalance := new(big.Int).Div(balance, new(big.Int).SetUint64(dm.blocksPerWindow))
-		if err := dm.store.SetBalance(address, windowNumber, effectiveBalance); err != nil {
-			dm.logger.Error("setting balance", "error", err)
-			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
+		withdrawalRequest, err := dm.bidderRegistry.WithdrawalRequestExists(&bind.CallOpts{
+			Context: ctx,
+		}, bidderAddr, providerAddr)
+		if err != nil {
+			dm.logger.Error("getting withdrawal request from contract", "error", err)
+			return nil, status.Errorf(codes.Internal, "failed to get withdrawal request: %v", err)
+		}
+
+		if !withdrawalRequest && balance.Cmp(big.NewInt(0)) > 0 {
+			if err := dm.store.SetBalance(bidderAddr, providerAddr, balance); err != nil {
+				dm.logger.Error("setting balance", "error", err)
+				return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
+			}
 		}
 	}
 
