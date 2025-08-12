@@ -125,11 +125,20 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 					return err
 				}
 				if currentBalance == nil {
-					dm.logger.Debug("balance not found in store, using 0",
+					dm.logger.Debug("balance not found in store, using default from contract",
 						"bidder", deposit.Bidder,
 						"provider", deposit.Provider,
 					)
-					currentBalance = big.NewInt(0)
+					blockBeforeDeposit := new(big.Int).SetUint64(deposit.Raw.BlockNumber - 1)
+					currentBalance, err = dm.getDefaultBalance(egCtx, deposit.Bidder, deposit.Provider, blockBeforeDeposit)
+					if err != nil {
+						dm.logger.Error("getting default balance", "error", err)
+						return err
+					}
+					if currentBalance == nil {
+						dm.logger.Error("No balance found in contract. Assuming zero")
+						currentBalance = big.NewInt(0)
+					}
 				}
 				newBalance := new(big.Int).Add(currentBalance, deposit.DepositedAmount)
 				if err := dm.store.SetBalance(deposit.Bidder, deposit.Provider, newBalance); err != nil {
@@ -207,8 +216,12 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 			return dm.store.RefundBalanceIfExists(bidderAddr, providerAddr, bidAmount)
 		}, nil
 	}
+	dm.logger.Info("balance not found in store, defaulting to contract call",
+		"bidder", bidderAddr.Hex(),
+		"provider", providerAddr.Hex(),
+	)
 
-	defaultBalance, err := dm.getDefaultBalance(ctx, bidderAddr, providerAddr)
+	defaultBalance, err := dm.getDefaultBalance(ctx, bidderAddr, providerAddr, nil) // nil for latest block
 	if err != nil {
 		return nil, err
 	}
@@ -240,36 +253,30 @@ func (dm *DepositManager) getDefaultBalance(
 	ctx context.Context,
 	bidderAddr common.Address,
 	providerAddr common.Address,
+	blockNumber *big.Int,
 ) (*big.Int, error) {
-	balance, err := dm.store.GetBalance(bidderAddr, providerAddr)
-	if err != nil {
-		dm.logger.Error("getting balance", "error", err)
-		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
+
+	callOpts := &bind.CallOpts{
+		Context:     ctx,
+		BlockNumber: blockNumber,
 	}
 
-	if balance == nil {
-		dm.logger.Info("balance not found in store", "bidder", bidderAddr.Hex(), "provider", providerAddr.Hex())
-		balance, err = dm.bidderRegistry.GetDeposit(&bind.CallOpts{
-			Context: ctx,
-		}, bidderAddr, providerAddr)
-		if err != nil {
-			dm.logger.Error("getting deposit from contract", "error", err)
-			return nil, status.Errorf(codes.Internal, "failed to get deposit: %v", err)
-		}
+	balance, err := dm.bidderRegistry.GetDeposit(callOpts, bidderAddr, providerAddr)
+	if err != nil {
+		dm.logger.Error("getting deposit from contract", "error", err)
+		return nil, status.Errorf(codes.Internal, "failed to get deposit: %v", err)
+	}
 
-		withdrawalRequest, err := dm.bidderRegistry.WithdrawalRequestExists(&bind.CallOpts{
-			Context: ctx,
-		}, bidderAddr, providerAddr)
-		if err != nil {
-			dm.logger.Error("getting withdrawal request from contract", "error", err)
-			return nil, status.Errorf(codes.Internal, "failed to get withdrawal request: %v", err)
-		}
+	withdrawalRequest, err := dm.bidderRegistry.WithdrawalRequestExists(callOpts, bidderAddr, providerAddr)
+	if err != nil {
+		dm.logger.Error("getting withdrawal request from contract", "error", err)
+		return nil, status.Errorf(codes.Internal, "failed to get withdrawal request: %v", err)
+	}
 
-		if !withdrawalRequest && balance.Cmp(big.NewInt(0)) > 0 {
-			if err := dm.store.SetBalance(bidderAddr, providerAddr, balance); err != nil {
-				dm.logger.Error("setting balance", "error", err)
-				return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
-			}
+	if !withdrawalRequest && balance.Cmp(big.NewInt(0)) > 0 {
+		if err := dm.store.SetBalance(bidderAddr, providerAddr, balance); err != nil {
+			dm.logger.Error("setting balance", "error", err)
+			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
 		}
 	}
 
