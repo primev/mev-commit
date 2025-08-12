@@ -38,7 +38,6 @@ type DepositManager struct {
 }
 
 func NewDepositManager(
-	blocksPerWindow uint64,
 	store Store,
 	evtMgr events.EventManager,
 	bidderRegistry BidderRegistryContract,
