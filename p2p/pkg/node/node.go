@@ -36,8 +36,6 @@ import (
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
-	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
-	autodepositorstore "github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	depositmanagerstore "github.com/primev/mev-commit/p2p/pkg/depositmanager/store"
@@ -425,8 +423,6 @@ func NewNode(opts *Options) (*Node, error) {
 
 	notificationsapiv1.RegisterNotificationsServer(grpcServer, notificationsRPCService)
 
-	var autoDeposit *autodepositor.AutoDepositTracker
-
 	if opts.PeerType != p2p.PeerTypeBootnode.String() {
 		validator, err := protovalidate.New()
 		if err != nil {
@@ -654,19 +650,6 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
-			autodepositorStore := autodepositorstore.New(store)
-
-			nd.closers = append(
-				nd.closers,
-				ioCloserFunc(func() error {
-					_, err := autoDeposit.Stop()
-					if errors.Is(err, autodepositor.ErrNotRunning) {
-						return nil
-					}
-					return err
-				}),
-			)
-
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
 				preconfProto,
@@ -676,8 +659,6 @@ func NewNode(opts *Options) (*Node, error) {
 				validator,
 				monitor,
 				optsGetter,
-				autoDeposit,
-				autodepositorStore,
 				preconfStore,
 				opts.OracleWindowOffset,
 				opts.BidderBidTimeout,
@@ -722,12 +703,9 @@ func NewNode(opts *Options) (*Node, error) {
 		nd.closers = append(nd.closers, channelCloserFunc(closeChan))
 	}
 
-	if opts.AutodepositAmount != nil && autoDeposit != nil {
-		err = autoDeposit.Start(ctx, nil, opts.AutodepositAmount)
-		if err != nil {
-			opts.Logger.Error("failed to start auto deposit tracker", "error", err)
-			return nil, errors.Join(err, nd.Close())
-		}
+	// TODO: wont just be a single amount, amount is for each provider
+	if opts.AutodepositAmount != nil {
+		// "set code" for bidder.
 	}
 
 	started := make(chan struct{})
@@ -940,7 +918,7 @@ func (noOpBidProcessor) ProcessBid(
 
 type noOpDepositManager struct{}
 
-func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ string, _ int64) (func() error, error) {
+func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ common.Address, _ string) (func() error, error) {
 	return func() error { return nil }, nil
 }
 
