@@ -505,12 +505,6 @@ func NewNode(opts *Options) (*Node, error) {
 		)
 		srv.RegisterMetricsCollectors(tracker.Metrics()...)
 
-		bpwBigInt, err := blockTrackerSession.GetBlocksPerWindow()
-		if err != nil {
-			opts.Logger.Error("failed to get blocks per window", "error", err)
-			return nil, err
-		}
-
 		l1ContractRPC, err := ethclient.Dial(opts.L1RPCURL)
 		if err != nil {
 			opts.Logger.Error("failed to connect to rpc", "error", err)
@@ -565,7 +559,6 @@ func NewNode(opts *Options) (*Node, error) {
 				Startable: validatorAPI,
 			},
 		)
-		blocksPerWindow := bpwBigInt.Uint64()
 
 		switch opts.PeerType {
 		case p2p.PeerTypeProvider.String():
@@ -583,7 +576,6 @@ func NewNode(opts *Options) (*Node, error) {
 			bidProcessor = providerAPI
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
 			depositMgr = depositmanager.NewDepositManager(
-				blocksPerWindow,
 				depositmanagerstore.New(store),
 				evtMgr,
 				bidderRegistry,
@@ -664,16 +656,6 @@ func NewNode(opts *Options) (*Node, error) {
 
 			autodepositorStore := autodepositorstore.New(store)
 
-			autoDeposit = autodepositor.New(
-				evtMgr,
-				bidderRegistry,
-				blockTrackerSession,
-				optsGetter,
-				autodepositorStore,
-				opts.OracleWindowOffset,
-				opts.Logger.With("component", "auto_deposit_tracker"),
-			)
-
 			nd.closers = append(
 				nd.closers,
 				ioCloserFunc(func() error {
@@ -687,7 +669,6 @@ func NewNode(opts *Options) (*Node, error) {
 
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
-				blocksPerWindow,
 				preconfProto,
 				bidderRegistry,
 				blockTrackerSession,
