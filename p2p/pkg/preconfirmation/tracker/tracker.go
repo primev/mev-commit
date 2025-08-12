@@ -52,7 +52,7 @@ type Tracker struct {
 	commitments     chan *preconfcommstore.PreconfmanagerOpenedCommitmentStored
 	processed       chan *oracle.OracleCommitmentProcessed
 	rewards         chan *bidderregistry.BidderregistryFundsRewarded
-	returns         chan *bidderregistry.BidderregistryFundsRetrieved
+	returns         chan *bidderregistry.BidderregistryFundsUnlocked
 	statusUpdate    chan statusUpdateTask
 	blockOpened     chan int64
 	triggerOpen     chan struct{}
@@ -127,7 +127,7 @@ func NewTracker(
 		commitments:     make(chan *preconfcommstore.PreconfmanagerOpenedCommitmentStored),
 		processed:       make(chan *oracle.OracleCommitmentProcessed),
 		rewards:         make(chan *bidderregistry.BidderregistryFundsRewarded),
-		returns:         make(chan *bidderregistry.BidderregistryFundsRetrieved),
+		returns:         make(chan *bidderregistry.BidderregistryFundsUnlocked),
 		statusUpdate:    make(chan statusUpdateTask),
 		blockOpened:     make(chan int64),
 		triggerOpen:     make(chan struct{}),

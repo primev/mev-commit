@@ -31,6 +31,7 @@ import (
 	"github.com/primev/mev-commit/x/util"
 )
 
+// TODO: need to fix this test. Probably an issue with exactly how events are packed/published at end of file
 func TestTracker(t *testing.T) {
 	t.Parallel()
 
@@ -360,7 +361,6 @@ func TestTracker(t *testing.T) {
 				evtMgr,
 				&brABI,
 				bidderregistry.BidderregistryFundsRewarded{
-					Window:           big.NewInt(int64(c.Bid.BlockNumber)),
 					Amount:           big.NewInt(900),
 					CommitmentDigest: common.BytesToHash(c.Digest),
 					Bidder:           common.HexToAddress("0x1234"),
@@ -386,11 +386,11 @@ func TestTracker(t *testing.T) {
 			err = publishReturn(
 				evtMgr,
 				&brABI,
-				bidderregistry.BidderregistryFundsRetrieved{
-					Window:           big.NewInt(int64(c.Bid.BlockNumber)),
+				bidderregistry.BidderregistryFundsUnlocked{
 					Amount:           big.NewInt(900),
 					CommitmentDigest: common.BytesToHash(c.Digest),
 					Bidder:           common.HexToAddress("0x1234"),
+					Provider:         common.HexToAddress("0x1234"),
 				},
 			)
 			if err != nil {
@@ -768,7 +768,6 @@ func publishReward(
 ) error {
 	event := brABI.Events["FundsRewarded"]
 	buf, err := event.Inputs.NonIndexed().Pack(
-		r.Window,
 		r.Amount,
 	)
 	if err != nil {
@@ -793,9 +792,9 @@ func publishReward(
 func publishReturn(
 	evtMgr events.EventManager,
 	brABI *abi.ABI,
-	r bidderregistry.BidderregistryFundsRetrieved,
+	r bidderregistry.BidderregistryFundsUnlocked,
 ) error {
-	event := brABI.Events["FundsRetrieved"]
+	event := brABI.Events["FundsUnlocked"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		r.Amount,
 	)
@@ -809,7 +808,7 @@ func publishReturn(
 			event.ID, // The first topic is the hash of the event signature
 			r.CommitmentDigest,
 			common.HexToHash(r.Bidder.Hex()),
-			common.BigToHash(r.Window),
+			common.HexToHash(r.Provider.Hex()),
 		},
 		Data: buf,
 	}
