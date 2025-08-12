@@ -44,7 +44,6 @@ type Service struct {
 
 func NewService(
 	owner common.Address,
-	blocksPerWindow uint64,
 	sender PreconfSender,
 	registryContract BidderRegistryContract,
 	blockTrackerContract BlockTrackerContract,
@@ -61,7 +60,6 @@ func NewService(
 ) *Service {
 	return &Service{
 		owner:                owner,
-		blocksPerWindow:      blocksPerWindow,
 		sender:               sender,
 		registryContract:     registryContract,
 		blockTrackerContract: blockTrackerContract,
