@@ -152,7 +152,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 	if t.peerType == p2p.PeerTypeBidder {
 		evts = append(
 			evts,
-			events.NewChannelEventHandler(egCtx, "FundsRetrieved", t.returns),
+			events.NewChannelEventHandler(egCtx, "FundsUnlocked", t.returns),
 		)
 	}
 
@@ -331,7 +331,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			for {
 				select {
 				case <-egCtx.Done():
-					t.logger.Info("handleFundsRetrieved context done")
+					t.logger.Info("handleFundsUnlocked context done")
 					return nil
 				case err := <-sub.Err():
 					return fmt.Errorf("event subscription error: %w", err)

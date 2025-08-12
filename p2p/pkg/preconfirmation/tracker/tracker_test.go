@@ -31,7 +31,6 @@ import (
 	"github.com/primev/mev-commit/x/util"
 )
 
-// TODO: need to fix this test. Probably an issue with exactly how events are packed/published at end of file
 func TestTracker(t *testing.T) {
 	t.Parallel()
 
