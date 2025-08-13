@@ -6,10 +6,10 @@ import {Errors} from "../utils/Errors.sol";
 
 contract DepositManager {
 
+    address public immutable BIDDER_REGISTRY;
+    uint256 public immutable MIN_BALANCE;
+
     mapping(address => uint256) public targetDeposits;
-    address public immutable bidderRegistry;
-    uint256 public immutable minBalance;
-    error NotThisEOA(address msgSender, address thisAddress);
 
     event TargetDepositSet(address indexed provider, uint256 amount);
     event WithdrawalRequestExists(address indexed provider);
@@ -19,14 +19,24 @@ contract DepositManager {
     event TopUpReduced(address indexed provider, uint256 available, uint256 needed);
     event DepositToppedUp(address indexed provider, uint256 amount);
 
-    constructor(address _registry, uint256 _minBalance) {
-        bidderRegistry = _registry;
-        minBalance = _minBalance;
-    }
+    error NotThisEOA(address msgSender, address thisAddress);
 
     modifier onlyThisEOA() {
         require(msg.sender == address(this), NotThisEOA(msg.sender, address(this)));
         _;
+    }
+
+    constructor(address _registry, uint256 _minBalance) {
+        BIDDER_REGISTRY = _registry;
+        MIN_BALANCE = _minBalance;
+    }
+
+    receive() external payable { 
+        // Eth transfers allowed.
+    }
+
+    fallback() external payable {
+        revert Errors.InvalidFallback();
     }
 
     function setTargetDeposit(address provider, uint256 amount) external onlyThisEOA {
@@ -38,7 +48,7 @@ contract DepositManager {
     /// @param provider to top-up the deposit for.
     /// @dev This function will be called automatically by external addresses.
     function topUpDeposit(address provider) external {
-        if (IBidderRegistry(bidderRegistry).withdrawalRequestExists(address(this), provider)) {
+        if (IBidderRegistry(BIDDER_REGISTRY).withdrawalRequestExists(address(this), provider)) {
             emit WithdrawalRequestExists(provider);
             return;
         }
@@ -49,7 +59,7 @@ contract DepositManager {
             return;
         }
 
-        uint256 currentDeposit = IBidderRegistry(bidderRegistry).getDeposit(address(this), provider);
+        uint256 currentDeposit = IBidderRegistry(BIDDER_REGISTRY).getDeposit(address(this), provider);
         if (currentDeposit >= target) {
             emit CurrentDepositIsSufficient(provider, currentDeposit, target);
             return;
@@ -57,25 +67,17 @@ contract DepositManager {
         uint256 needed = target - currentDeposit; // No underflow/overflow, target must be greater than current deposit
 
         uint256 currentBalance = address(this).balance;
-        if (currentBalance <= minBalance) {
-            emit CurrentBalanceAtOrBelowMin(provider, currentBalance, minBalance);
+        if (currentBalance <= MIN_BALANCE) {
+            emit CurrentBalanceAtOrBelowMin(provider, currentBalance, MIN_BALANCE);
             return;
         }
 
-        uint256 available = currentBalance - minBalance; // No underflow/overflow, currentBalance must be greater than minBalance
+        uint256 available = currentBalance - MIN_BALANCE; // No underflow/overflow, currentBalance must be greater than minBalance
         if (available < needed) {
             emit TopUpReduced(provider, available, needed);
             needed = available;
         }
-        IBidderRegistry(bidderRegistry).depositAsBidder{value: needed}(provider);
+        IBidderRegistry(BIDDER_REGISTRY).depositAsBidder{value: needed}(provider);
         emit DepositToppedUp(provider, needed);
-    }
-
-    fallback() external payable {
-        revert Errors.InvalidFallback();
-    }
-
-    receive() external payable { 
-        // Eth transfers allowed.
     }
 }
