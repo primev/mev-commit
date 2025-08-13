@@ -31,7 +31,7 @@ var (
 
 // DepositmanagerMetaData contains all meta data concerning the Depositmanager contract.
 var DepositmanagerMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_registry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_minBalance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"bidderRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"minBalance\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setTargetDeposit\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"targetDeposits\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"topUpDeposit\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CurrentBalanceAtOrBelowMin\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"currentBalance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"minBalance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CurrentDepositIsSufficient\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"currentDeposit\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"targetDeposit\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DepositToppedUp\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TargetDepositDoesNotExist\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TargetDepositSet\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TopUpReduced\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"available\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalRequestExists\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotThisEOA\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"thisAddress\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_registry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_minBalance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"BIDDER_REGISTRY\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MIN_BALANCE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setTargetDeposit\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"targetDeposits\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"topUpDeposit\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CurrentBalanceAtOrBelowMin\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"currentBalance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"minBalance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CurrentDepositIsSufficient\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"currentDeposit\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"targetDeposit\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DepositToppedUp\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TargetDepositDoesNotExist\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TargetDepositSet\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TopUpReduced\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"available\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalRequestExists\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotThisEOA\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"thisAddress\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
 }
 
 // DepositmanagerABI is the input ABI used to generate the binding from.
@@ -180,12 +180,12 @@ func (_Depositmanager *DepositmanagerTransactorRaw) Transact(opts *bind.Transact
 	return _Depositmanager.Contract.contract.Transact(opts, method, params...)
 }
 
-// BidderRegistry is a free data retrieval call binding the contract method 0x909e54e2.
+// BIDDERREGISTRY is a free data retrieval call binding the contract method 0xbf524608.
 //
-// Solidity: function bidderRegistry() view returns(address)
-func (_Depositmanager *DepositmanagerCaller) BidderRegistry(opts *bind.CallOpts) (common.Address, error) {
+// Solidity: function BIDDER_REGISTRY() view returns(address)
+func (_Depositmanager *DepositmanagerCaller) BIDDERREGISTRY(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _Depositmanager.contract.Call(opts, &out, "bidderRegistry")
+	err := _Depositmanager.contract.Call(opts, &out, "BIDDER_REGISTRY")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -197,26 +197,26 @@ func (_Depositmanager *DepositmanagerCaller) BidderRegistry(opts *bind.CallOpts)
 
 }
 
-// BidderRegistry is a free data retrieval call binding the contract method 0x909e54e2.
+// BIDDERREGISTRY is a free data retrieval call binding the contract method 0xbf524608.
 //
-// Solidity: function bidderRegistry() view returns(address)
-func (_Depositmanager *DepositmanagerSession) BidderRegistry() (common.Address, error) {
-	return _Depositmanager.Contract.BidderRegistry(&_Depositmanager.CallOpts)
+// Solidity: function BIDDER_REGISTRY() view returns(address)
+func (_Depositmanager *DepositmanagerSession) BIDDERREGISTRY() (common.Address, error) {
+	return _Depositmanager.Contract.BIDDERREGISTRY(&_Depositmanager.CallOpts)
 }
 
-// BidderRegistry is a free data retrieval call binding the contract method 0x909e54e2.
+// BIDDERREGISTRY is a free data retrieval call binding the contract method 0xbf524608.
 //
-// Solidity: function bidderRegistry() view returns(address)
-func (_Depositmanager *DepositmanagerCallerSession) BidderRegistry() (common.Address, error) {
-	return _Depositmanager.Contract.BidderRegistry(&_Depositmanager.CallOpts)
+// Solidity: function BIDDER_REGISTRY() view returns(address)
+func (_Depositmanager *DepositmanagerCallerSession) BIDDERREGISTRY() (common.Address, error) {
+	return _Depositmanager.Contract.BIDDERREGISTRY(&_Depositmanager.CallOpts)
 }
 
-// MinBalance is a free data retrieval call binding the contract method 0xc5bb8758.
+// MINBALANCE is a free data retrieval call binding the contract method 0x867378c5.
 //
-// Solidity: function minBalance() view returns(uint256)
-func (_Depositmanager *DepositmanagerCaller) MinBalance(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function MIN_BALANCE() view returns(uint256)
+func (_Depositmanager *DepositmanagerCaller) MINBALANCE(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Depositmanager.contract.Call(opts, &out, "minBalance")
+	err := _Depositmanager.contract.Call(opts, &out, "MIN_BALANCE")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -228,18 +228,18 @@ func (_Depositmanager *DepositmanagerCaller) MinBalance(opts *bind.CallOpts) (*b
 
 }
 
-// MinBalance is a free data retrieval call binding the contract method 0xc5bb8758.
+// MINBALANCE is a free data retrieval call binding the contract method 0x867378c5.
 //
-// Solidity: function minBalance() view returns(uint256)
-func (_Depositmanager *DepositmanagerSession) MinBalance() (*big.Int, error) {
-	return _Depositmanager.Contract.MinBalance(&_Depositmanager.CallOpts)
+// Solidity: function MIN_BALANCE() view returns(uint256)
+func (_Depositmanager *DepositmanagerSession) MINBALANCE() (*big.Int, error) {
+	return _Depositmanager.Contract.MINBALANCE(&_Depositmanager.CallOpts)
 }
 
-// MinBalance is a free data retrieval call binding the contract method 0xc5bb8758.
+// MINBALANCE is a free data retrieval call binding the contract method 0x867378c5.
 //
-// Solidity: function minBalance() view returns(uint256)
-func (_Depositmanager *DepositmanagerCallerSession) MinBalance() (*big.Int, error) {
-	return _Depositmanager.Contract.MinBalance(&_Depositmanager.CallOpts)
+// Solidity: function MIN_BALANCE() view returns(uint256)
+func (_Depositmanager *DepositmanagerCallerSession) MINBALANCE() (*big.Int, error) {
+	return _Depositmanager.Contract.MINBALANCE(&_Depositmanager.CallOpts)
 }
 
 // TargetDeposits is a free data retrieval call binding the contract method 0x77936281.
