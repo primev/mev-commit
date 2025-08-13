@@ -703,9 +703,9 @@ func NewNode(opts *Options) (*Node, error) {
 		nd.closers = append(nd.closers, channelCloserFunc(closeChan))
 	}
 
-	// TODO: wont just be a single amount, amount is for each provider
+	// TODO: Need amount for each provider, configured via json or yml
 	if opts.AutodepositAmount != nil {
-		// "set code" for bidder.
+		// TODO: "set code" for bidder and set target amounts for each provider, also deposit to each provider.
 	}
 
 	started := make(chan struct{})
