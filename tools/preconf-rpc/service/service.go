@@ -106,22 +106,24 @@ func New(config *Config) (*Service, error) {
 	topologyCli := debugapiv1.NewDebugServiceClient(conn)
 	notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
 
-	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
-	if err != nil {
-		return nil, err
-	}
+	// TODO: set code to deposit manager here, set min deposit for every provider
 
-	if !status.IsAutodepositEnabled {
-		_, err := bidderCli.AutoDeposit(
-			context.Background(),
-			&bidderapiv1.DepositRequest{
-				Amount: config.AutoDepositAmount.String(),
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// if !status.IsAutodepositEnabled {
+	// 	_, err := bidderCli.AutoDeposit(
+	// 		context.Background(),
+	// 		&bidderapiv1.DepositRequest{
+	// 			Amount: config.AutoDepositAmount.String(),
+	// 		},
+	// 	)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	bridgeConfig := transfer.BridgeConfig{
 		Signer:                 config.Signer,

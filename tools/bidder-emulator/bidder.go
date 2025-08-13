@@ -47,19 +47,21 @@ func newBidder(rpcURL string, depositAmount string) (*bidder, error) {
 }
 
 func (b *bidder) setup(depositAmount string) error {
-	status, err := b.client.AutoDepositStatus(context.Background(), &pb.EmptyMessage{})
-	if err != nil {
-		return fmt.Errorf("failed to get auto deposit status: %w", err)
-	}
+	// TODO: set code to deposit manager here, set min deposit for every provider
 
-	if !status.IsAutodepositEnabled {
-		_, err := b.client.AutoDeposit(context.Background(), &pb.DepositRequest{
-			Amount: depositAmount,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to auto deposit: %w", err)
-		}
-	}
+	// status, err := b.client.AutoDepositStatus(context.Background(), &pb.EmptyMessage{})
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get auto deposit status: %w", err)
+	// }
+
+	// if !status.IsAutodepositEnabled {
+	// 	_, err := b.client.AutoDeposit(context.Background(), &pb.DepositRequest{
+	// 		Amount: depositAmount,
+	// 	})
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to auto deposit: %w", err)
+	// 	}
+	// }
 	return nil
 }
 
