@@ -122,7 +122,6 @@ type Options struct {
 	DefaultGasLimit          uint64
 	DefaultGasTipCap         *big.Int
 	DefaultGasFeeCap         *big.Int
-	OracleWindowOffset       *big.Int
 	BeaconAPIURL             string
 	L1RPCURL                 string
 	LaggardMode              *big.Int
@@ -660,7 +659,6 @@ func NewNode(opts *Options) (*Node, error) {
 				monitor,
 				optsGetter,
 				preconfStore,
-				opts.OracleWindowOffset,
 				opts.BidderBidTimeout,
 				opts.Logger.With("component", "bidderapi"),
 			)

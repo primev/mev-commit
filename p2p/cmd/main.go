@@ -40,8 +40,6 @@ const (
 	defaultSecret    = "secret"
 	defaultKeystore  = "keystore"
 	defaultDataDir   = "db"
-
-	defaultOracleWindowOffset = 1
 )
 
 const (
@@ -702,7 +700,6 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		DefaultGasLimit:          uint64(c.Int(optionGasLimit.Name)),
 		DefaultGasTipCap:         gasTipCap,
 		DefaultGasFeeCap:         gasFeeCap,
-		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
 		BeaconAPIURL:             c.String(optionBeaconAPIURL.Name),
 		L1RPCURL:                 c.String(optionL1RPCURL.Name),
 		LaggardMode:              big.NewInt(int64(c.Int(optionLaggardMode.Name))),
