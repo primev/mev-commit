@@ -299,6 +299,8 @@ var (
 		Category: categoryContracts,
 	})
 
+	// TODO: These flags will be reused when https://github.com/primev/mev-commit/issues is solved
+
 	optionAutodepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "autodeposit-amount",
 		Usage:    "Amount to auto deposit in each window in wei",
