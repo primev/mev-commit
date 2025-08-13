@@ -25,7 +25,7 @@
   },
   {
     "type": "function",
-    "name": "bidderRegistry",
+    "name": "BIDDER_REGISTRY",
     "inputs": [],
     "outputs": [
       {
@@ -38,7 +38,7 @@
   },
   {
     "type": "function",
-    "name": "minBalance",
+    "name": "MIN_BALANCE",
     "inputs": [],
     "outputs": [
       {
