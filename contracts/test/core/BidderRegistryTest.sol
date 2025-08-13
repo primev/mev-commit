@@ -733,7 +733,7 @@ contract BidderRegistryTest is Test {
         uint256 depositBefore = bidderRegistry.getDeposit(alice, bob);
         assertEq(depositBefore, 1.5 ether, "deposit should be 1.5 ether");
         assertEq(alice.balance, 0.5 ether, "alice should have 0.5 ether");
-        assertEq(DepositManager(payable(alice)).minBalance(), 0.01 ether);
+        assertEq(DepositManager(payable(alice)).MIN_BALANCE(), 0.01 ether);
 
         vm.expectEmit(true, true, true, true);
         emit DepositManager.TopUpReduced(bob, 0.49 ether, 1.5 ether); // available = 0.5 - minBalance
