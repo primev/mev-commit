@@ -177,25 +177,27 @@ func New(config *Config) (*Service, error) {
 		config.Logger.Info("balance checking disabled")
 	}
 
-	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
-	if err != nil {
-		return nil, err
-	}
-	config.Logger.Info("got auto deposit status", "enabled", status.IsAutodepositEnabled)
+	// TODO: set code to deposit manager here, set min deposit for every provider
 
-	if !status.IsAutodepositEnabled {
-		config.Logger.Info("enabling auto deposit")
-		resp, err := bidderCli.AutoDeposit(
-			context.Background(),
-			&bidderapiv1.DepositRequest{
-				Amount: config.AutoDepositAmount.String(),
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
-	}
+	// status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// config.Logger.Info("got auto deposit status", "enabled", status.IsAutodepositEnabled)
+
+	// if !status.IsAutodepositEnabled {
+	// 	config.Logger.Info("enabling auto deposit")
+	// 	resp, err := bidderCli.AutoDeposit(
+	// 		context.Background(),
+	// 		&bidderapiv1.DepositRequest{
+	// 			Amount: config.AutoDepositAmount.String(),
+	// 		},
+	// 	)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
+	// }
 
 	healthChecker := health.New()
 
