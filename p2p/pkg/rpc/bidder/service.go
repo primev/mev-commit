@@ -25,7 +25,6 @@ import (
 type Service struct {
 	bidderapiv1.UnimplementedBidderServer
 	owner                common.Address
-	blocksPerWindow      uint64
 	sender               PreconfSender
 	registryContract     BidderRegistryContract
 	providerRegistry     ProviderRegistryContract
@@ -77,6 +76,7 @@ type PreconfSender interface {
 
 type BidderRegistryContract interface {
 	DepositAsBidder(*bind.TransactOpts, common.Address) (*types.Transaction, error)
+	DepositEvenlyAsBidder(*bind.TransactOpts, []common.Address) (*types.Transaction, error)
 	RequestWithdrawalsAsBidder(*bind.TransactOpts, []common.Address) (*types.Transaction, error)
 	WithdrawAsBidder(*bind.TransactOpts, []common.Address) (*types.Transaction, error)
 	GetDeposit(*bind.CallOpts, common.Address, common.Address) (*big.Int, error)
@@ -216,7 +216,6 @@ func (s *Service) SendBid(
 	return nil
 }
 
-// TODO: update to new semantics, needs provider addr
 func (s *Service) Deposit(
 	ctx context.Context,
 	r *bidderapiv1.DepositRequest,
@@ -227,22 +226,15 @@ func (s *Service) Deposit(
 		return nil, status.Errorf(codes.InvalidArgument, "validating deposit request: %v", err)
 	}
 
-	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
-	if err != nil {
-		s.logger.Error("getting current window", "error", err)
-		return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
-	}
-
-	windowToDeposit, err := s.calculateWindowToDeposit(ctx, r, currentWindow.Uint64())
-	if err != nil {
-		s.logger.Error("calculating window to deposit", "error", err)
-		return nil, status.Errorf(codes.InvalidArgument, "calculating window to deposit: %v", err)
-	}
-
 	amount, success := big.NewInt(0).SetString(r.Amount, 10)
 	if !success {
 		s.logger.Error("parsing amount", "amount", r.Amount)
 		return nil, status.Errorf(codes.InvalidArgument, "parsing amount: %v", r.Amount)
+	}
+
+	if amount.Cmp(big.NewInt(0)) <= 0 {
+		s.logger.Error("amount must be positive", "amount", r.Amount)
+		return nil, status.Errorf(codes.InvalidArgument, "amount must be positive: %v", r.Amount)
 	}
 
 	opts, err := s.optsGetter(ctx)
@@ -252,7 +244,7 @@ func (s *Service) Deposit(
 	}
 	opts.Value = amount
 
-	providerAddr := common.HexToAddress("0x0000000000000000000000000000000000000000") // TODO: get from request
+	providerAddr := common.HexToAddress(r.Provider)
 	tx, err := s.registryContract.DepositAsBidder(opts, providerAddr)
 	if err != nil {
 		s.logger.Error("depositing", "error", err)
@@ -282,47 +274,99 @@ func (s *Service) Deposit(
 	s.logger.Error(
 		"deposit successful but missing log",
 		"txHash", receipt.TxHash.Hex(),
-		"window", windowToDeposit,
 		"logs", receipt.Logs,
 	)
 
 	return nil, status.Errorf(codes.Internal, "missing log for deposit")
 }
 
-func (s *Service) calculateWindowToDeposit(ctx context.Context, r *bidderapiv1.DepositRequest, currentWindow uint64) (*big.Int, error) {
-	if r.WindowNumber != nil {
-		// Directly use the specified window number if available.
-		return new(big.Int).SetUint64(r.WindowNumber.Value), nil
-	} else if r.BlockNumber != nil {
-		return new(big.Int).SetUint64((r.BlockNumber.Value-1)/s.blocksPerWindow + 1), nil
+func (s *Service) DepositEvenly(
+	ctx context.Context,
+	r *bidderapiv1.DepositEvenlyRequest,
+) (*bidderapiv1.DepositEvenlyResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		s.logger.Error("deposit evenly validation", "error", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating deposit evenly request: %v", err)
 	}
-	// Default to N window ahead of the current window if no specific block or window is given.
-	// This is for the case where the oracle works N windows behind the current window.
-	return new(big.Int).SetUint64(currentWindow + s.oracleWindowOffset.Uint64()), nil
+
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		s.logger.Error("getting transact opts", "error", err)
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	totalAmount, success := big.NewInt(0).SetString(r.TotalAmount, 10)
+	if !success {
+		s.logger.Error("parsing total amount", "total amount", r.TotalAmount)
+		return nil, status.Errorf(codes.InvalidArgument, "parsing total amount: %v", r.TotalAmount)
+	}
+
+	if totalAmount.Cmp(big.NewInt(0)) <= 0 {
+		s.logger.Error("total amount must be positive", "total amount", r.TotalAmount)
+		return nil, status.Errorf(codes.InvalidArgument, "total amount must be positive: %v", r.TotalAmount)
+	}
+
+	providers := make([]common.Address, len(r.Providers))
+	for i, provider := range r.Providers {
+		providers[i] = common.HexToAddress(provider)
+	}
+
+	opts.Value = totalAmount
+
+	tx, err := s.registryContract.DepositEvenlyAsBidder(opts, providers)
+	if err != nil {
+		s.logger.Error("depositing", "error", err)
+		return nil, status.Errorf(codes.Internal, "deposit: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	expectedLogs := len(r.Providers)
+	receivedLogs := 0
+
+	response := &bidderapiv1.DepositEvenlyResponse{}
+	for _, log := range receipt.Logs {
+		if deposited, err := s.registryContract.ParseBidderDeposited(*log); err == nil {
+			receivedLogs++
+			response.Providers = append(response.Providers, common.Bytes2Hex(deposited.Provider.Bytes()))
+			response.Amounts = append(response.Amounts, deposited.DepositedAmount.String())
+		}
+		if receivedLogs == expectedLogs {
+			return response, nil
+		}
+	}
+
+	s.logger.Error(
+		"deposit evenly successful but missing log",
+		"txHash", receipt.TxHash.Hex(),
+		"logs", receipt.Logs,
+	)
+
+	return nil, status.Errorf(codes.Internal, "missing log for deposit evenly")
 }
 
-// TODO: update to new semantics, needs provider addr
 func (s *Service) GetDeposit(
 	ctx context.Context,
 	r *bidderapiv1.GetDepositRequest,
 ) (*bidderapiv1.DepositResponse, error) {
-	var (
-		window *big.Int
-		err    error
-	)
-	if r.WindowNumber == nil {
-		window, err = s.blockTrackerContract.GetCurrentWindow()
-		if err != nil {
-			s.logger.Error("getting current window", "error", err)
-			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
-		}
-		// as oracle working N windows behind the current window, we add + N here
-		window = new(big.Int).Add(window, s.oracleWindowOffset)
-	} else {
-		window = new(big.Int).SetUint64(r.WindowNumber.Value)
+	err := s.validator.Validate(r)
+	if err != nil {
+		s.logger.Error("get deposit validation", "error", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating get deposit request: %v", err)
 	}
-	providerAddr := common.HexToAddress("0x0000000000000000000000000000000000000000") // TODO: get from request
-	stakeAmount, err := s.registryContract.GetDeposit(&bind.CallOpts{
+
+	providerAddr := common.HexToAddress(r.Provider)
+	deposit, err := s.registryContract.GetDeposit(&bind.CallOpts{
 		From:    s.owner,
 		Context: ctx,
 	}, s.owner, providerAddr)
@@ -331,15 +375,69 @@ func (s *Service) GetDeposit(
 		return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 	}
 
-	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String(), WindowNumber: wrapperspb.UInt64(window.Uint64())}, nil
+	return &bidderapiv1.DepositResponse{Amount: deposit.String(), Provider: r.Provider}, nil
 }
 
-func (s *Service) RequestWithdrawal(
+func (s *Service) RequestWithdrawals(
 	ctx context.Context,
-	r *bidderapiv1.WithdrawRequest,
-) (*bidderapiv1.WithdrawResponse, error) {
-	// TODO:
-	return nil, status.Errorf(codes.Unimplemented, "method RequestWithdrawal not implemented")
+	r *bidderapiv1.RequestWithdrawalsRequest,
+) (*bidderapiv1.RequestWithdrawalsResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		s.logger.Error("request withdrawals validation", "error", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating request withdrawals request: %v", err)
+	}
+
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		s.logger.Error("getting transact opts", "error", err)
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	providers := make([]common.Address, len(r.Providers))
+	for i, provider := range r.Providers {
+		providers[i] = common.HexToAddress(provider)
+	}
+
+	tx, err := s.registryContract.RequestWithdrawalsAsBidder(opts, providers)
+	if err != nil {
+		s.logger.Error("requesting withdrawals", "error", err)
+		return nil, status.Errorf(codes.Internal, "requesting withdrawals: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	expectedLogs := len(r.Providers)
+	receivedLogs := 0
+
+	response := &bidderapiv1.RequestWithdrawalsResponse{}
+	for _, log := range receipt.Logs {
+		if withdrawal, err := s.registryContract.ParseWithdrawalRequested(*log); err == nil {
+			receivedLogs++
+			response.Providers = append(response.Providers, common.Bytes2Hex(withdrawal.Provider.Bytes()))
+			response.Amounts = append(response.Amounts, withdrawal.AvailableAmount.String())
+		}
+		if receivedLogs == expectedLogs {
+			return response, nil
+		}
+	}
+
+	s.logger.Error(
+		"request withdrawals successful but missing log",
+		"txHash", receipt.TxHash.Hex(),
+		"logs", receipt.Logs,
+	)
+
+	return nil, status.Errorf(codes.Internal, "missing log for request withdrawals")
 }
 
 func (s *Service) Withdraw(
@@ -352,26 +450,17 @@ func (s *Service) Withdraw(
 		return nil, status.Errorf(codes.InvalidArgument, "validating withdraw request: %v", err)
 	}
 
-	var window *big.Int
-	if r.WindowNumber == nil {
-		window, err = s.blockTrackerContract.GetCurrentWindow()
-		if err != nil {
-			s.logger.Error("getting current window", "error", err)
-			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
-		}
-		window = new(big.Int).Sub(window, big.NewInt(1))
-	} else {
-		window = new(big.Int).SetUint64(r.WindowNumber.Value)
-	}
-
 	opts, err := s.optsGetter(ctx)
 	if err != nil {
 		s.logger.Error("getting transact opts", "error", err)
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 
-	providerAddr := common.HexToAddress("0x0000000000000000000000000000000000000000") // TODO: get from request
-	providers := []common.Address{providerAddr}
+	providers := make([]common.Address, len(r.Providers))
+	for i, provider := range r.Providers {
+		providers[i] = common.HexToAddress(provider)
+	}
+
 	tx, err := s.registryContract.WithdrawAsBidder(opts, providers)
 	if err != nil {
 		s.logger.Error("withdrawing deposit", "error", err)
@@ -389,47 +478,28 @@ func (s *Service) Withdraw(
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
+	expectedLogs := len(r.Providers)
+	receivedLogs := 0
+
+	response := &bidderapiv1.WithdrawResponse{}
 	for _, log := range receipt.Logs {
 		if withdrawal, err := s.registryContract.ParseBidderWithdrawal(*log); err == nil {
-			s.logger.Info("withdrawal successful", "amount", withdrawal.AmountWithdrawn.String())
-			return &bidderapiv1.WithdrawResponse{
-				Amount: withdrawal.AmountWithdrawn.String(),
-			}, nil
+			receivedLogs++
+			response.Amounts = append(response.Amounts, withdrawal.AmountWithdrawn.String())
+			response.Providers = append(response.Providers, common.Bytes2Hex(withdrawal.Provider.Bytes()))
+		}
+		if receivedLogs == expectedLogs {
+			return response, nil
 		}
 	}
 
 	s.logger.Error(
 		"withdraw successful but missing log",
 		"txHash", receipt.TxHash.Hex(),
-		"window", window.Uint64(),
 		"logs", receipt.Logs,
 	)
 
-	return nil, status.Errorf(codes.Internal, "missing log for withdrawal")
-}
-
-func (s *Service) AutoDeposit(
-	ctx context.Context,
-	r *bidderapiv1.DepositRequest,
-) (*bidderapiv1.AutoDepositResponse, error) {
-	// TODO: Set EOA code
-	return nil, status.Errorf(codes.Unimplemented, "method AutoDeposit not implemented")
-}
-
-func (s *Service) CancelAutoDeposit(
-	ctx context.Context,
-	r *bidderapiv1.CancelAutoDepositRequest,
-) (*bidderapiv1.CancelAutoDepositResponse, error) {
-	// TODO: Unset EOA code
-	return nil, status.Errorf(codes.Unimplemented, "method CancelAutoDeposit not implemented")
-}
-
-func (s *Service) AutoDepositStatus(
-	ctx context.Context,
-	_ *bidderapiv1.EmptyMessage,
-) (*bidderapiv1.AutoDepositStatusResponse, error) {
-	// TODO: Query EOA code
-	return nil, status.Errorf(codes.Unimplemented, "method AutoDepositStatus not implemented")
+	return nil, status.Errorf(codes.Internal, "missing log for withdraw")
 }
 
 func (s *Service) ClaimSlashedFunds(
