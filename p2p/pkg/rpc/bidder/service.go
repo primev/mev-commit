@@ -32,7 +32,6 @@ type Service struct {
 	watcher              TxWatcher
 	optsGetter           OptsGetter
 	cs                   CommitmentStore
-	oracleWindowOffset   *big.Int
 	logger               *slog.Logger
 	metrics              *metrics
 	validator            *protovalidate.Validator
@@ -49,7 +48,6 @@ func NewService(
 	watcher TxWatcher,
 	optsGetter OptsGetter,
 	cs CommitmentStore,
-	oracleWindowOffset *big.Int,
 	bidderBidTimeout time.Duration,
 	logger *slog.Logger,
 ) *Service {
@@ -64,7 +62,6 @@ func NewService(
 		optsGetter:           optsGetter,
 		logger:               logger,
 		metrics:              newMetrics(),
-		oracleWindowOffset:   oracleWindowOffset,
 		validator:            validator,
 		bidTimeout:           bidderBidTimeout,
 	}

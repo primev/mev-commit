@@ -22,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Bidder_SendBid_FullMethodName            = "/bidderapi.v1.Bidder/SendBid"
 	Bidder_Deposit_FullMethodName            = "/bidderapi.v1.Bidder/Deposit"
+	Bidder_DepositEvenly_FullMethodName      = "/bidderapi.v1.Bidder/DepositEvenly"
 	Bidder_RequestWithdrawals_FullMethodName = "/bidderapi.v1.Bidder/RequestWithdrawals"
 	Bidder_GetDeposit_FullMethodName         = "/bidderapi.v1.Bidder/GetDeposit"
 	Bidder_Withdraw_FullMethodName           = "/bidderapi.v1.Bidder/Withdraw"
@@ -45,6 +46,10 @@ type BidderClient interface {
 	//
 	// Deposit is called by the bidder node to add deposit in the bidder registry, specific to a provider.
 	Deposit(ctx context.Context, in *DepositRequest, opts ...grpc.CallOption) (*DepositResponse, error)
+	// DepositEvenly
+	//
+	// DepositEvenly is called by the bidder node to deposit a total amount evenly across multiple providers.
+	DepositEvenly(ctx context.Context, in *DepositEvenlyRequest, opts ...grpc.CallOption) (*DepositEvenlyResponse, error)
 	// RequestWithdrawals
 	//
 	// RequestWithdrawals is called by the bidder node to request withdrawals from provider(s)
@@ -100,6 +105,16 @@ func (c *bidderClient) Deposit(ctx context.Context, in *DepositRequest, opts ...
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DepositResponse)
 	err := c.cc.Invoke(ctx, Bidder_Deposit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bidderClient) DepositEvenly(ctx context.Context, in *DepositEvenlyRequest, opts ...grpc.CallOption) (*DepositEvenlyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DepositEvenlyResponse)
+	err := c.cc.Invoke(ctx, Bidder_DepositEvenly_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -172,6 +187,10 @@ type BidderServer interface {
 	//
 	// Deposit is called by the bidder node to add deposit in the bidder registry, specific to a provider.
 	Deposit(context.Context, *DepositRequest) (*DepositResponse, error)
+	// DepositEvenly
+	//
+	// DepositEvenly is called by the bidder node to deposit a total amount evenly across multiple providers.
+	DepositEvenly(context.Context, *DepositEvenlyRequest) (*DepositEvenlyResponse, error)
 	// RequestWithdrawals
 	//
 	// RequestWithdrawals is called by the bidder node to request withdrawals from provider(s)
@@ -209,6 +228,9 @@ func (UnimplementedBidderServer) SendBid(*Bid, grpc.ServerStreamingServer[Commit
 }
 func (UnimplementedBidderServer) Deposit(context.Context, *DepositRequest) (*DepositResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Deposit not implemented")
+}
+func (UnimplementedBidderServer) DepositEvenly(context.Context, *DepositEvenlyRequest) (*DepositEvenlyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DepositEvenly not implemented")
 }
 func (UnimplementedBidderServer) RequestWithdrawals(context.Context, *RequestWithdrawalsRequest) (*RequestWithdrawalsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestWithdrawals not implemented")
@@ -271,6 +293,24 @@ func _Bidder_Deposit_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BidderServer).Deposit(ctx, req.(*DepositRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Bidder_DepositEvenly_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DepositEvenlyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).DepositEvenly(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_DepositEvenly_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).DepositEvenly(ctx, req.(*DepositEvenlyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -375,6 +415,10 @@ var Bidder_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Deposit",
 			Handler:    _Bidder_Deposit_Handler,
+		},
+		{
+			MethodName: "DepositEvenly",
+			Handler:    _Bidder_DepositEvenly_Handler,
 		},
 		{
 			MethodName: "RequestWithdrawals",

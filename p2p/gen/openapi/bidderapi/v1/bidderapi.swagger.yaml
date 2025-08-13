@@ -78,6 +78,35 @@ paths:
           in: query
           required: true
           type: string
+  /v1/bidder/deposit_evenly:
+    post:
+      summary: DepositEvenly
+      description: DepositEvenly is called by the bidder node to deposit a total amount evenly across multiple providers.
+      operationId: Bidder_DepositEvenly
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1DepositEvenlyResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: totalAmount
+          description: Total amount of ETH to be deposited in wei.
+          in: query
+          required: false
+          type: string
+          pattern: '[0-9]+'
+        - name: providers
+          description: Provider Ethereum addresses.
+          in: query
+          required: false
+          type: array
+          items:
+            type: string
+          collectionFormat: multi
   /v1/bidder/get_bid_info:
     get:
       summary: GetBidInfo
@@ -387,6 +416,19 @@ definitions:
       '@type':
         type: string
     additionalProperties: {}
+  v1DepositEvenlyResponse:
+    type: object
+    properties:
+      providers:
+        type: array
+        items:
+          type: string
+      amounts:
+        type: array
+        items:
+          type: string
+    description: Deposits some amount of ETH evenly across multiple providers.
+    title: Deposit evenly response
   v1DepositResponse:
     type: object
     example:
