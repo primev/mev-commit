@@ -37,11 +37,12 @@ const (
 )
 
 const (
-	blockTime                    = 12              // seconds, typical Ethereum block time
-	bidTimeout                   = 3 * time.Second // timeout for bid operations
-	defaultConfidence            = 90              // default confidence level for the next block
-	confidenceSecondAttempt      = 95              // confidence level for the second attempt
-	confidenceSubsequentAttempts = 99              // confidence level for subsequent attempts
+	blockTime                    = 12               // seconds, typical Ethereum block time
+	bidTimeout                   = 3 * time.Second  // timeout for bid operations
+	defaultConfidence            = 90               // default confidence level for the next block
+	confidenceSecondAttempt      = 95               // confidence level for the second attempt
+	confidenceSubsequentAttempts = 99               // confidence level for subsequent attempts
+	transactionTimeout           = 10 * time.Minute // timeout for transaction processing
 )
 
 var (
@@ -697,7 +698,7 @@ func (t *TxSender) calculatePriceForNextBlock(
 		}
 	}
 
-	if time.Since(attempts.startTime) > 10*time.Minute {
+	if time.Since(attempts.startTime) > transactionTimeout {
 		return nil, ErrTimeoutExceeded
 	}
 
