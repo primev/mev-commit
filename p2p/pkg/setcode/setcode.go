@@ -67,7 +67,7 @@ func (s *SetCodeHelper) SetCode(
 
 	auth := types.SetCodeAuthorization{
 		Address: to,
-		Nonce:   nonce,
+		Nonce:   nonce + 1, // Auth nonce should be 1 more than nonce for setcode tx
 		ChainID: *uint256.MustFromBig(s.chainID),
 	}
 
