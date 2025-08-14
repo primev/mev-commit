@@ -53,8 +53,8 @@ var (
 		return fmt.Sprintf("settle/%s", cmtIdx)
 	}
 
-	fundsRetrievedKey = func(cmtDigest []byte) string {
-		return fmt.Sprintf("fr/%s", string(cmtDigest))
+	fundsUnlockedKey = func(cmtDigest []byte) string {
+		return fmt.Sprintf("fu/%s", string(cmtDigest))
 	}
 
 	fundsRewardedKey = func(cmtDigest []byte) string {
@@ -124,10 +124,10 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 			},
 		),
 		events.NewEventHandler(
-			"FundsRetrieved",
-			func(c *bidderregistry.BidderregistryFundsRetrieved) {
-				logger.Info("Retrieved funds", "digest", hex.EncodeToString(c.CommitmentDigest[:]))
-				store.Insert(fundsRetrievedKey(c.CommitmentDigest[:]), c)
+			"FundsUnlocked",
+			func(c *bidderregistry.BidderregistryFundsUnlocked) {
+				logger.Info("Unlocked funds", "digest", hex.EncodeToString(c.CommitmentDigest[:]))
+				store.Insert(fundsUnlockedKey(c.CommitmentDigest[:]), c)
 			},
 		),
 		events.NewEventHandler(
@@ -402,10 +402,10 @@ DONE:
 						logger.Error("Provider should be slashed", "entry", entry)
 						return fmt.Errorf("provider should be slashed")
 					}
-					_, ok := store.Get(fundsRetrievedKey(cmtDigest))
+					_, ok := store.Get(fundsUnlockedKey(cmtDigest))
 					if !ok {
-						logger.Error("Funds not retrieved", "entry", entry)
-						return fmt.Errorf("funds not retrieved")
+						logger.Error("Funds not unlocked", "entry", entry)
+						return fmt.Errorf("funds not unlocked")
 					}
 
 					bidderPortion := new(big.Int).Add(residualBidAmt, slashAmount)
