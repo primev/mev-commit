@@ -44,7 +44,7 @@ contract DepositManager {
         uint256[] calldata amounts
     ) external onlyThisEOA {
         uint256 length = providers.length;
-        for (uint256 i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; ++i) {
             targetDeposits[providers[i]] = amounts[i];
             emit TargetDepositSet(providers[i], amounts[i]);
         }
