@@ -165,13 +165,16 @@ func TestDepositManager(t *testing.T) {
 		t.Fatal("expected balance of 90")
 	}
 
-	publishBidderWithdrawalRequested(evtMgr, &brABI, &bidderregistry.BidderregistryWithdrawalRequested{
+	err = publishBidderWithdrawalRequested(evtMgr, &brABI, &bidderregistry.BidderregistryWithdrawalRequested{
 		Bidder:          common.HexToAddress("0x123"),
 		Provider:        common.HexToAddress("0x456"),
 		AvailableAmount: big.NewInt(10),
 		EscrowedAmount:  big.NewInt(10),
 		Timestamp:       big.NewInt(1000),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for {
 		if val, err := st.GetBalance(
@@ -183,12 +186,15 @@ func TestDepositManager(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 
-	publishBidderWithdrawal(evtMgr, &brABI, &bidderregistry.BidderregistryBidderWithdrawal{
+	err = publishBidderWithdrawal(evtMgr, &brABI, &bidderregistry.BidderregistryBidderWithdrawal{
 		Bidder:              common.HexToAddress("0x123"),
 		Provider:            common.HexToAddress("0x456"),
 		AmountWithdrawn:     big.NewInt(10),
 		AmountStillEscrowed: big.NewInt(10),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for {
 		count, err := st.BalanceEntries(common.HexToAddress("0x123"))
@@ -201,11 +207,14 @@ func TestDepositManager(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 
-	publishBidderDeposited(evtMgr, &brABI, &bidderregistry.BidderregistryBidderDeposited{
+	err = publishBidderDeposited(evtMgr, &brABI, &bidderregistry.BidderregistryBidderDeposited{
 		Bidder:          common.HexToAddress("0x123"),
 		Provider:        common.HexToAddress("0x456"),
 		DepositedAmount: big.NewInt(777),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for {
 		if val, err := st.GetBalance(

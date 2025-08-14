@@ -34,7 +34,11 @@ func TestSetCode(t *testing.T) {
 		sender: {Balance: big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(100))}, // 100 ETH
 	}
 	sim := simulated.NewBackend(genesisAlloc)
-	defer sim.Close()
+	defer func() {
+		if err := sim.Close(); err != nil {
+			t.Fatalf("failed to close simulated backend: %v", err)
+		}
+	}()
 
 	tx := types.NewTransaction(0, sender, big.NewInt(1e18), 21000, big.NewInt(1e9), nil)
 	tx, err = ks.SignTx(tx, big.NewInt(1337))
