@@ -107,6 +107,36 @@ paths:
           items:
             type: string
           collectionFormat: multi
+  /v1/bidder/deposit_manager_status:
+    get:
+      summary: DepositManagerStatus
+      description: |-
+        DepositManagerStatus is called by the bidder node to query whether the bidder
+        has enabled the deposit manager via eip 7702.
+      operationId: Bidder_DepositManagerStatus
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1DepositManagerStatusResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/bidder/enable_deposit_manager:
+    post:
+      summary: EnableDepositManager
+      description: EnableDepositManager is called by the bidder node to enable the deposit manager via eip 7702.
+      operationId: Bidder_EnableDepositManager
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1EnableDepositManagerResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/get_bid_info:
     get:
       summary: GetBidInfo
@@ -183,6 +213,22 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/v1RequestWithdrawalsRequest'
+  /v1/bidder/set_target_deposits:
+    post:
+      summary: SetTargetDeposits
+      description: |-
+        SetTargetDeposits is called by the bidder node to set target deposits per provider
+        within the deposit manager.
+      operationId: Bidder_SetTargetDeposits
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1SetTargetDepositsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/withdraw:
     post:
       summary: Withdraw
@@ -429,6 +475,18 @@ definitions:
           type: string
     description: Deposits some amount of ETH evenly across multiple providers.
     title: Deposit evenly response
+  v1DepositManagerStatusResponse:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      targetDeposits:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1TargetDeposit'
+    description: DepositManagerStatus response.
+    title: DepositManagerStatus response
   v1DepositResponse:
     type: object
     example:
@@ -441,6 +499,13 @@ definitions:
         type: string
     description: Deposit for bidder in the bidder registry for a particular provider.
     title: Deposit response
+  v1EnableDepositManagerResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+    description: EnableDepositManager response.
+    title: EnableDepositManager response
   v1GetBidInfoResponse:
     type: object
     properties:
@@ -478,6 +543,24 @@ definitions:
           type: string
     description: Request withdrawals from provider(s).
     title: RequestWithdrawals response
+  v1SetTargetDepositsResponse:
+    type: object
+    properties:
+      successfullySetDeposits:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1TargetDeposit'
+    description: OverrideTargetDepositsResponse response.
+    title: OverrideTargetDepositsResponse response
+  v1TargetDeposit:
+    type: object
+    properties:
+      provider:
+        type: string
+      targetDeposit:
+        type: string
+        format: uint64
   v1WithdrawResponse:
     type: object
     example:

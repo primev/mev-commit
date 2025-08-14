@@ -24,6 +24,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	depositmanagercontract "github.com/primev/mev-commit/contracts-abi/clients/DepositManager"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
@@ -113,7 +114,6 @@ type Options struct {
 	BidderRegistryContract   string
 	OracleContract           string
 	ValidatorRouterContract  string
-	AutodepositAmount        *big.Int
 	RPCEndpoint              string
 	WSRPCEndpoint            string
 	NatAddr                  string
@@ -286,17 +286,17 @@ func NewNode(opts *Options) (*Node, error) {
 	)
 	srv.RegisterMetricsCollectors(monitor.Metrics()...)
 
-	contractsBackend := transactor.NewMetricsWrapper(
+	backend := transactor.NewMetricsWrapper(
 		transactor.NewTransactor(
 			contractRPC,
 			monitor,
 		),
 	)
-	srv.RegisterMetricsCollectors(contractsBackend.Metrics()...)
+	srv.RegisterMetricsCollectors(backend.Metrics()...)
 
 	providerRegistry, err := providerregistry.NewProviderregistry(
 		common.HexToAddress(opts.ProviderRegistryContract),
-		contractsBackend,
+		backend,
 	)
 	if err != nil {
 		opts.Logger.Error("failed to instantiate provider registry contract", "error", err)
@@ -305,10 +305,19 @@ func NewNode(opts *Options) (*Node, error) {
 
 	bidderRegistry, err := bidderregistry.NewBidderregistry(
 		common.HexToAddress(opts.BidderRegistryContract),
-		contractsBackend,
+		backend,
 	)
 	if err != nil {
 		opts.Logger.Error("failed to instantiate bidder registry contract", "error", err)
+		return nil, err
+	}
+
+	depositManagerContract, err := depositmanagercontract.NewDepositmanager(
+		opts.KeySigner.GetAddress(), // Bind contract to this EOA account (EIP-7702 will be used here)
+		backend,
+	)
+	if err != nil {
+		opts.Logger.Error("creating deposit manager", "error", err)
 		return nil, err
 	}
 
@@ -453,7 +462,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 		commitmentDA, err := preconf.NewPreconfmanager(
 			common.HexToAddress(opts.PreconfContract),
-			contractsBackend,
+			backend,
 		)
 		if err != nil {
 			opts.Logger.Error("failed to instantiate preconf commitment store contract", "error", err)
@@ -653,7 +662,7 @@ func NewNode(opts *Options) (*Node, error) {
 			setCodeHelper := setcode.NewSetCodeHelper(
 				opts.Logger.With("component", "setcode_helper"),
 				opts.KeySigner,
-				contractsBackend,
+				backend,
 				chainID,
 			)
 
@@ -670,6 +679,8 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.BidderBidTimeout,
 				opts.Logger.With("component", "bidderapi"),
 				setCodeHelper,
+				depositManagerContract,
+				backend,
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
@@ -708,11 +719,6 @@ func NewNode(opts *Options) (*Node, error) {
 		closeChan := s.Startable.Start(ctx)
 		healthChecker.Register(health.CloseChannelHealthCheck(s.Desc, closeChan))
 		nd.closers = append(nd.closers, channelCloserFunc(closeChan))
-	}
-
-	// TODO: Need amount for each provider, configured via json or yml
-	if opts.AutodepositAmount != nil {
-		// TODO: "set code" for bidder and set target amounts for each provider, also deposit to each provider.
 	}
 
 	started := make(chan struct{})

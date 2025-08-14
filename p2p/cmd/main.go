@@ -297,23 +297,6 @@ var (
 		Category: categoryContracts,
 	})
 
-	// TODO: These flags will be reused when https://github.com/primev/mev-commit/issues is solved
-
-	optionAutodepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:     "autodeposit-amount",
-		Usage:    "Amount to auto deposit in each window in wei",
-		EnvVars:  []string{"MEV_COMMIT_AUTODEPOSIT_AMOUNT"},
-		Category: categoryBidder,
-	})
-
-	optionAutodepositEnabled = altsrc.NewBoolFlag(&cli.BoolFlag{
-		Name:     "autodeposit-enabled",
-		Usage:    "Enable auto deposit",
-		EnvVars:  []string{"MEV_COMMIT_AUTODEPOSIT_ENABLED"},
-		Value:    false,
-		Category: categoryBidder,
-	})
-
 	optionSettlementRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "settlement-rpc-endpoint",
 		Usage:    "RPC endpoint of the settlement layer",
@@ -504,8 +487,6 @@ func main() {
 		optionBlockTrackerAddr,
 		optionValidatorRouterAddr,
 		optionOracleAddr,
-		optionAutodepositAmount,
-		optionAutodepositEnabled,
 		optionSettlementRPCEndpoint,
 		optionSettlementWSRPCEndpoint,
 		optionNATAddr,
@@ -603,15 +584,8 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 	}
 
 	var (
-		autodepositAmount *big.Int
-		ok                bool
+		ok bool
 	)
-	if c.String(optionAutodepositAmount.Name) != "" && c.Bool(optionAutodepositEnabled.Name) {
-		autodepositAmount, ok = new(big.Int).SetString(c.String(optionAutodepositAmount.Name), 10)
-		if !ok {
-			return fmt.Errorf("failed to parse autodeposit amount %q", c.String(optionAutodepositAmount.Name))
-		}
-	}
 	crtFile := c.String(optionServerTLSCert.Name)
 	keyFile := c.String(optionServerTLSPrivateKey.Name)
 	if (crtFile == "") != (keyFile == "") {
@@ -690,7 +664,6 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
 		ValidatorRouterContract:  c.String(optionValidatorRouterAddr.Name),
 		OracleContract:           c.String(optionOracleAddr.Name),
-		AutodepositAmount:        autodepositAmount,
 		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
 		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),
 		NatAddr:                  natAddr,
