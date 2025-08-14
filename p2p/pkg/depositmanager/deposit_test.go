@@ -275,7 +275,7 @@ func TestStartWithBidderAlreadyDeposited(t *testing.T) {
 	dm := depositmanager.NewDepositManager(st, evtMgr, bidderRegistry, logger)
 	done := dm.Start(ctx)
 
-	publishBidderDeposited(evtMgr, &brABI, &bidderregistry.BidderregistryBidderDeposited{
+	err = publishBidderDeposited(evtMgr, &brABI, &bidderregistry.BidderregistryBidderDeposited{
 		Bidder:          common.HexToAddress("0x123"),
 		Provider:        common.HexToAddress("0x456"),
 		DepositedAmount: big.NewInt(100),
@@ -283,6 +283,9 @@ func TestStartWithBidderAlreadyDeposited(t *testing.T) {
 			BlockNumber: 16,
 		},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for {
 		if val, err := st.GetBalance(
