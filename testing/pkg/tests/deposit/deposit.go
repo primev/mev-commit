@@ -1,8 +1,8 @@
 package deposit
 
 const (
-	noOfWindows = 2
-	withdraw    = true
+// noOfWindows = 2
+// withdraw    = true
 )
 
 // TODO: Adjust this file to test new bidder semantics
