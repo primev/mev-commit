@@ -47,6 +47,29 @@ service Bidder {
     option (google.api.http) = {post: "/v1/bidder/deposit_evenly"};
   }
 
+  // EnableDepositManager
+  //
+  // EnableDepositManager is called by the bidder node to enable the deposit manager via eip 7702.
+  rpc EnableDepositManager(EnableDepositManagerRequest) returns (EnableDepositManagerResponse) {
+    option (google.api.http) = {post: "/v1/bidder/enable_deposit_manager"};
+  }
+
+  // SetTargetDeposits
+  //
+  // SetTargetDeposits is called by the bidder node to set target deposits per provider
+  // within the deposit manager.
+  rpc SetTargetDeposits(SetTargetDepositsRequest) returns (SetTargetDepositsResponse) {
+    option (google.api.http) = {post: "/v1/bidder/set_target_deposits"};
+  }
+
+  // DepositManagerStatus
+  //
+  // DepositManagerStatus is called by the bidder node to query whether the bidder
+  // has enabled the deposit manager via eip 7702.
+  rpc DepositManagerStatus(DepositManagerStatusRequest) returns (DepositManagerStatusResponse) {
+    option (google.api.http) = {get: "/v1/bidder/deposit_manager_status"};
+  }
+
   // RequestWithdrawals
   //
   // RequestWithdrawals is called by the bidder node to request withdrawals from provider(s)
@@ -163,6 +186,70 @@ message DepositEvenlyResponse {
   };
   repeated string providers = 1;
   repeated string amounts = 2;
+}
+
+message EnableDepositManagerRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "EnableDepositManager request"
+      description: "EnableDepositManager request."
+    }
+  };
+}
+
+message EnableDepositManagerResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "EnableDepositManager response"
+      description: "EnableDepositManager response."
+    }
+  };
+  bool success = 1;
+}
+
+message TargetDeposit {
+  string provider = 1;
+  uint64 target_deposit = 2;
+}
+
+message SetTargetDepositsRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "OverrideTargetDepositsRequest request"
+      description: "OverrideTargetDepositsRequest request."
+    }
+  };
+  repeated TargetDeposit target_deposits = 1;
+}
+
+message SetTargetDepositsResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "OverrideTargetDepositsResponse response"
+      description: "OverrideTargetDepositsResponse response."
+    }
+  };
+  repeated TargetDeposit successfully_set_deposits = 1;
+}
+
+message DepositManagerStatusRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "DepositManagerStatus request"
+      description: "DepositManagerStatus request."
+    }
+  };
+}
+
+message DepositManagerStatusResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "DepositManagerStatus response"
+      description: "DepositManagerStatus response."
+    }
+  };
+  bool enabled = 1;
+  repeated TargetDeposit target_deposits = 2;
 }
 
 message EmptyMessage {};

@@ -12,7 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	depositmanager "github.com/primev/mev-commit/contracts-abi/clients/DepositManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
@@ -37,6 +39,8 @@ type Service struct {
 	validator            *protovalidate.Validator
 	bidTimeout           time.Duration
 	setCodeHelper        SetCodeHelper
+	depositManager       DepositManagerContract
+	backend              Backend
 }
 
 func NewService(
@@ -52,6 +56,8 @@ func NewService(
 	bidderBidTimeout time.Duration,
 	logger *slog.Logger,
 	setCodeHelper SetCodeHelper,
+	depositManager DepositManagerContract,
+	backend Backend,
 ) *Service {
 	return &Service{
 		owner:                owner,
@@ -67,6 +73,8 @@ func NewService(
 		validator:            validator,
 		bidTimeout:           bidderBidTimeout,
 		setCodeHelper:        setCodeHelper,
+		depositManager:       depositManager,
+		backend:              backend,
 	}
 }
 
@@ -106,6 +114,15 @@ type TxWatcher interface {
 
 type SetCodeHelper interface {
 	SetCode(ctx context.Context, opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
+}
+
+type DepositManagerContract interface {
+	SetTargetDeposits(opts *bind.TransactOpts, providers []common.Address, amounts []*big.Int) (*types.Transaction, error)
+	ParseTargetDepositSet(types.Log) (*depositmanager.DepositmanagerTargetDepositSet, error)
+}
+
+type Backend interface {
+	CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error)
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
@@ -506,34 +523,110 @@ func (s *Service) Withdraw(
 	return nil, status.Errorf(codes.Internal, "missing log for withdraw")
 }
 
-// TODO: bring all the old apis back cause you figured it out here...
-// make sure auto deposit api is EXACT same as before as drop-in
-
-func (s *Service) EnableAutoDeposit(ctx context.Context) error {
+func (s *Service) EnableDepositManager(
+	ctx context.Context,
+	r *bidderapiv1.EnableDepositManagerRequest,
+) (*bidderapiv1.EnableDepositManagerResponse, error) {
 	opts, err := s.optsGetter(ctx)
 	if err != nil {
 		s.logger.Error("getting transact opts", "error", err)
-		return status.Errorf(codes.Internal, "getting transact opts: %v", err)
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 
-	tx, err := s.setCodeHelper.SetCode(ctx, opts, s.owner)
+	// TODO: Config param for deposit manager
+	depositManagerAddr := common.HexToAddress("0x0000000000000000000000000000000000000000")
+
+	tx, err := s.setCodeHelper.SetCode(ctx, opts, depositManagerAddr)
 	if err != nil {
 		s.logger.Error("setting code", "error", err)
-		return status.Errorf(codes.Internal, "setting code: %v", err)
+		return nil, status.Errorf(codes.Internal, "setting code: %v", err)
 	}
 
 	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
 	if err != nil {
 		s.logger.Error("waiting for receipt", "error", err)
-		return status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		s.logger.Error("receipt status", "status", receipt.Status)
-		return status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
-	return nil
+	return &bidderapiv1.EnableDepositManagerResponse{Success: true}, nil
+}
+
+func (s *Service) SetTargetDeposits(
+	ctx context.Context,
+	r *bidderapiv1.SetTargetDepositsRequest,
+) (*bidderapiv1.SetTargetDepositsResponse, error) {
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		s.logger.Error("getting transact opts", "error", err)
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	providers := make([]common.Address, len(r.TargetDeposits))
+	amounts := make([]*big.Int, len(r.TargetDeposits))
+	for i, targetDeposit := range r.TargetDeposits {
+		providers[i] = common.HexToAddress(targetDeposit.Provider)
+		amounts[i] = big.NewInt(int64(targetDeposit.TargetDeposit))
+	}
+	tx, err := s.depositManager.SetTargetDeposits(opts, providers, amounts)
+	if err != nil {
+		s.logger.Error("setting target deposits", "error", err)
+		return nil, status.Errorf(codes.Internal, "setting target deposits: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	response := &bidderapiv1.SetTargetDepositsResponse{}
+	for _, log := range receipt.Logs {
+		if targetDeposit, err := s.depositManager.ParseTargetDepositSet(*log); err == nil {
+			response.SuccessfullySetDeposits = append(response.SuccessfullySetDeposits, &bidderapiv1.TargetDeposit{
+				Provider:      common.Bytes2Hex(targetDeposit.Provider.Bytes()),
+				TargetDeposit: targetDeposit.Amount.Uint64(),
+			})
+		}
+	}
+
+	return response, nil
+}
+
+func (s *Service) DepositManagerStatus(
+	ctx context.Context,
+	_ *bidderapiv1.DepositManagerStatusRequest,
+) (*bidderapiv1.DepositManagerStatusResponse, error) {
+	code, err := s.backend.CodeAt(ctx, s.owner, nil)
+	if err != nil {
+		s.logger.Error("getting code", "error", err)
+		return nil, status.Errorf(codes.Internal, "getting code: %v", err)
+	}
+	if len(code) == 0 {
+		s.logger.Info("deposit manager not enabled")
+		return &bidderapiv1.DepositManagerStatusResponse{Enabled: false}, nil
+	}
+
+	// TODO: Config param for deposit manager
+	depositManagerAddr := common.HexToAddress("0x0000000000000000000000000000000000000000")
+
+	codehash := crypto.Keccak256Hash(code)
+	expectedCodehash := crypto.Keccak256Hash(common.FromHex("0xef0100"), depositManagerAddr.Bytes())
+	if codehash != expectedCodehash {
+		s.logger.Error("codehash is not correct", "actual", codehash, "expected", expectedCodehash)
+		return nil, status.Errorf(codes.Internal, "codehash is not correct")
+	}
+
+	return &bidderapiv1.DepositManagerStatusResponse{Enabled: true}, nil
 }
 
 // TODO: api/handling for a bidder removing set code auth
