@@ -17,7 +17,6 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
-	"github.com/primev/mev-commit/p2p/pkg/setcode"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -37,7 +36,7 @@ type Service struct {
 	metrics              *metrics
 	validator            *protovalidate.Validator
 	bidTimeout           time.Duration
-	setCodeHelper        *setcode.SetCodeHelper
+	setCodeHelper        SetCodeHelper
 }
 
 func NewService(
@@ -52,7 +51,7 @@ func NewService(
 	cs CommitmentStore,
 	bidderBidTimeout time.Duration,
 	logger *slog.Logger,
-	setCodeHelper *setcode.SetCodeHelper,
+	setCodeHelper SetCodeHelper,
 ) *Service {
 	return &Service{
 		owner:                owner,
@@ -103,6 +102,10 @@ type BlockTrackerContract interface {
 
 type TxWatcher interface {
 	WaitForReceipt(context.Context, *types.Transaction) (*types.Receipt, error)
+}
+
+type SetCodeHelper interface {
+	SetCode(ctx context.Context, opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
@@ -503,6 +506,9 @@ func (s *Service) Withdraw(
 	return nil, status.Errorf(codes.Internal, "missing log for withdraw")
 }
 
+// TODO: bring all the old apis back cause you figured it out here...
+// make sure auto deposit api is EXACT same as before as drop-in
+
 func (s *Service) EnableAutoDeposit(ctx context.Context) error {
 	opts, err := s.optsGetter(ctx)
 	if err != nil {
@@ -529,6 +535,8 @@ func (s *Service) EnableAutoDeposit(ctx context.Context) error {
 
 	return nil
 }
+
+// TODO: api/handling for a bidder removing set code auth
 
 func (s *Service) ClaimSlashedFunds(
 	ctx context.Context,
