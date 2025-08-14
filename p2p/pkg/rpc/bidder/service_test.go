@@ -226,6 +226,13 @@ func (t *testStore) GetCommitments(blockNum int64) ([]*preconfstore.Commitment, 
 	return cmts, nil
 }
 
+type testSetCodeHelper struct {
+}
+
+func (t *testSetCodeHelper) SetCode(ctx context.Context, opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
 func startServer(t *testing.T) bidderapiv1.BidderClient {
 	cs := &testStore{}
 	return startServerWithStore(t, cs)
@@ -251,6 +258,7 @@ func startServerWithStore(t *testing.T, cs *testStore) bidderapiv1.BidderClient 
 	}
 	sender := &testSender{noOfPreconfs: 2}
 	blockTrackerContract := &testBlockTrackerContract{lastBlockNumber: blocksPerWindow + 1, blocksPerWindow: blocksPerWindow, blockNumberToWinner: make(map[uint64]common.Address)}
+	setCodeHelper := &testSetCodeHelper{}
 	srvImpl := bidderapi.NewService(
 		owner,
 		sender,
@@ -268,6 +276,7 @@ func startServerWithStore(t *testing.T, cs *testStore) bidderapiv1.BidderClient 
 		cs,
 		15*time.Second,
 		logger,
+		setCodeHelper,
 	)
 
 	baseServer := grpc.NewServer()
