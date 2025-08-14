@@ -39,6 +39,17 @@ contract DepositManager {
         revert Errors.InvalidFallback();
     }
 
+    function setTargetDeposits(
+        address[] calldata providers,
+        uint256[] calldata amounts
+    ) external onlyThisEOA {
+        uint256 length = providers.length;
+        for (uint256 i = 0; i < length; i++) {
+            targetDeposits[providers[i]] = amounts[i];
+            emit TargetDepositSet(providers[i], amounts[i]);
+        }
+    }
+
     function setTargetDeposit(address provider, uint256 amount) external onlyThisEOA {
         targetDeposits[provider] = amount;
         emit TargetDepositSet(provider, amount);
