@@ -187,22 +187,25 @@ func main() {
 		return
 	}
 
-	status, err := bidderClient.AutoDepositStatus(context.Background(), &pb.EmptyMessage{})
-	if err != nil {
-		logger.Error("failed to get auto deposit status", "err", err)
-		return
-	}
+	// TODO: set code to deposit manager here, set min deposit for every provider
+	fmt.Println("min deposit", minDeposit)
 
-	if !status.IsAutodepositEnabled {
-		resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
-			Amount: minDeposit.String(),
-		})
-		if err != nil {
-			logger.Error("failed to auto deposit", "err", err)
-			return
-		}
-		logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
-	}
+	// status, err := bidderClient.AutoDepositStatus(context.Background(), &pb.EmptyMessage{})
+	// if err != nil {
+	// 	logger.Error("failed to get auto deposit status", "err", err)
+	// 	return
+	// }
+
+	// if !status.IsAutodepositEnabled {
+	// 	resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
+	// 		Amount: minDeposit.String(),
+	// 	})
+	// 	if err != nil {
+	// 		logger.Error("failed to auto deposit", "err", err)
+	// 		return
+	// 	}
+	// 	logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
+	// }
 
 	type blockWithTxns struct {
 		blockNum int64
