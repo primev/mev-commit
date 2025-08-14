@@ -17,6 +17,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
+	"github.com/primev/mev-commit/p2p/pkg/setcode"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -36,6 +37,7 @@ type Service struct {
 	metrics              *metrics
 	validator            *protovalidate.Validator
 	bidTimeout           time.Duration
+	setCodeHelper        *setcode.SetCodeHelper
 }
 
 func NewService(
@@ -50,6 +52,7 @@ func NewService(
 	cs CommitmentStore,
 	bidderBidTimeout time.Duration,
 	logger *slog.Logger,
+	setCodeHelper *setcode.SetCodeHelper,
 ) *Service {
 	return &Service{
 		owner:                owner,
@@ -64,6 +67,7 @@ func NewService(
 		metrics:              newMetrics(),
 		validator:            validator,
 		bidTimeout:           bidderBidTimeout,
+		setCodeHelper:        setCodeHelper,
 	}
 }
 
@@ -497,6 +501,33 @@ func (s *Service) Withdraw(
 	)
 
 	return nil, status.Errorf(codes.Internal, "missing log for withdraw")
+}
+
+func (s *Service) EnableAutoDeposit(ctx context.Context) error {
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		s.logger.Error("getting transact opts", "error", err)
+		return status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	tx, err := s.setCodeHelper.SetCode(ctx, opts, s.owner)
+	if err != nil {
+		s.logger.Error("setting code", "error", err)
+		return status.Errorf(codes.Internal, "setting code: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
+		return status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
+		return status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	return nil
 }
 
 func (s *Service) ClaimSlashedFunds(
