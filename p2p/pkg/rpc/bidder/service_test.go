@@ -277,6 +277,8 @@ func startServerWithStore(t *testing.T, cs *testStore) bidderapiv1.BidderClient 
 		15*time.Second,
 		logger,
 		setCodeHelper,
+		nil, // TODO: Make deposit manager non-nil and test relevant functions from service.go
+		nil, // TODO: Make backend non-nil and test relevant functions from service.go
 	)
 
 	baseServer := grpc.NewServer()
