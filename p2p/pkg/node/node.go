@@ -54,6 +54,7 @@ import (
 	notificationsapi "github.com/primev/mev-commit/p2p/pkg/rpc/notifications"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	validatorapi "github.com/primev/mev-commit/p2p/pkg/rpc/validator"
+	"github.com/primev/mev-commit/p2p/pkg/setcode"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/stakemanager"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
@@ -649,6 +650,13 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
+			setCodeHelper := setcode.NewSetCodeHelper(
+				opts.Logger.With("component", "setcode_helper"),
+				opts.KeySigner,
+				contractsBackend,
+				chainID,
+			)
+
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
 				preconfProto,
@@ -661,6 +669,7 @@ func NewNode(opts *Options) (*Node, error) {
 				preconfStore,
 				opts.BidderBidTimeout,
 				opts.Logger.With("component", "bidderapi"),
+				setCodeHelper,
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
