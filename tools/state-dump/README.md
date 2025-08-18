@@ -38,16 +38,26 @@ pip install -r requirements.txt
 python3 world_state.py \
   --rpc http://<ARCHIVE_NODE_IP>:8545 \
   --input-genesis initial_genesis.json \
-  --output out_genesis.json
+  --output out_genesis.json \
+  --include-code \ 
+  --include-storage \
+  --page-size 2048 \
+  --min-page-size 256 \
+  --rpc-timeout 300
 ```
 
 **Example:**
 
 ```bash
-python3 world_state.py \
+python3 world_state3.py \
   --rpc http://34.75.194.46:8545 \
   --input-genesis initial_genesis.json \
-  --output out_genesis.json
+  --output out_genesis.json \
+  --include-code \
+  --include-storage \
+  --page-size 2048 \
+  --min-page-size 256 \
+  --rpc-timeout 300
 ```
 
 - `--rpc`  
