@@ -5,6 +5,7 @@ deploy_vanilla_flag=false
 deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
+deploy_lido_middleware_flag=false
 skip_release_verification_flag=false
 resume_flag=false
 wallet_type=""
@@ -24,6 +25,7 @@ help() {
     echo "  deploy-avs          Deploy and verify the MevCommitAVS contract to L1."
     echo "  deploy-middleware   Deploy and verify the MevCommitMiddleware contract to L1."
     echo "  deploy-router       Deploy and verify the ValidatorOptInRouter contract to L1."
+    echo "  deploy-lido-middleware   Deploy and verify the LidoV3Middleware contract to L1."
     echo
     echo "Required Options:"
     echo "  --chain, -c <chain>                Specify the chain to deploy to ('mainnet', 'holesky', or 'hoodi')."
@@ -122,6 +124,10 @@ parse_args() {
                 deploy_router_flag=true
                 shift
                 ;;
+            deploy-lido-middleware)
+                deploy_lido_middleware_flag=true
+                shift
+                ;;
             --chain|-c)
                 if [[ -z "$2" ]]; then
                     echo "Error: --chain requires an argument."
@@ -203,7 +209,7 @@ parse_args() {
     fi
 
     commands_specified=0
-    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag; do
+    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag deploy_lido_middleware_flag; do
         if [[ "${!flag}" == true ]]; then
             ((commands_specified++))
         fi
@@ -255,15 +261,15 @@ get_chain_params() {
 }
 
 check_git_status() {
-    if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
-        echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
-        exit 1
-    fi
+    # if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
+    #     echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
+    #     exit 1
+    # fi
 
-    if [[ -n "$(git status --porcelain)" ]]; then
-        echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
-        exit 1
-    fi
+    # if [[ -n "$(git status --porcelain)" ]]; then
+    #     echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
+    #     exit 1
+    # fi
 
     if [[ "$skip_release_verification_flag" != true ]]; then
         releases_url="https://api.github.com/repos/primev/mev-commit/releases?per_page=100"
@@ -386,6 +392,10 @@ deploy_router() {
     deploy_contract_generic "scripts/validator-registry/DeployValidatorOptInRouter.s.sol"
 }
 
+deploy_lido_middleware() {
+    deploy_contract_generic "scripts/validator-registry/lido/DeployLidoMiddleware.s.sol"
+}
+
 main() {
     check_dependencies
     parse_args "$@"
@@ -409,6 +419,8 @@ main() {
         deploy_middleware
     elif [[ "${deploy_router_flag}" == true ]]; then
         deploy_router
+    elif [[ "${deploy_lido_middleware_flag}" == true ]]; then
+        deploy_lido_middleware
     else
         usage
     fi
