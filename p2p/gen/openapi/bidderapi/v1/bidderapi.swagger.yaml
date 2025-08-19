@@ -192,6 +192,26 @@ paths:
           in: query
           required: false
           type: string
+  /v1/bidder/get_valid_providers:
+    get:
+      summary: GetValidProviders
+      description: |-
+        GetValidProviders is called by the bidder node to get a list of all valid providers.
+        Each provider returned by this RPC must be connected to the bidder node via p2p and:
+        - Be "registered" in the provider registry
+        - Have deposit >= minStake in provider registry
+        - Have no pending withdrawal request with provider registry
+        - Have at least one BLS key registered with provider registry
+      operationId: Bidder_GetValidProviders
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1GetValidProvidersResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/request_withdrawals:
     post:
       summary: RequestWithdrawals
@@ -515,6 +535,15 @@ definitions:
           type: object
           $ref: '#/definitions/GetBidInfoResponseBlockBidInfo'
         description: List of block bid info containing bids and their commitments.
+  v1GetValidProvidersResponse:
+    type: object
+    properties:
+      validProviders:
+        type: array
+        items:
+          type: string
+    description: GetValidProviders response.
+    title: GetValidProviders response
   v1RequestWithdrawalsRequest:
     type: object
     properties:

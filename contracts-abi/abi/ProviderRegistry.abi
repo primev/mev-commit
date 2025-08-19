@@ -14,6 +14,25 @@
   },
   {
     "type": "function",
+    "name": "AreProvidersValid",
+    "inputs": [
+      {
+        "name": "providers",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool[]",
+        "internalType": "bool[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "ONE_HUNDRED_PERCENT",
     "inputs": [],
     "outputs": [

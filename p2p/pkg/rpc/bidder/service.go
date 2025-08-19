@@ -18,7 +18,9 @@ import (
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
+	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -41,6 +43,7 @@ type Service struct {
 	setCodeHelper        SetCodeHelper
 	depositManager       DepositManagerContract
 	backend              Backend
+	topology             *topology.Topology
 }
 
 func NewService(
@@ -58,6 +61,7 @@ func NewService(
 	setCodeHelper SetCodeHelper,
 	depositManager DepositManagerContract,
 	backend Backend,
+	topology *topology.Topology,
 ) *Service {
 	return &Service{
 		owner:                owner,
@@ -75,6 +79,7 @@ func NewService(
 		setCodeHelper:        setCodeHelper,
 		depositManager:       depositManager,
 		backend:              backend,
+		topology:             topology,
 	}
 }
 
@@ -97,6 +102,7 @@ type ProviderRegistryContract interface {
 	BidderSlashedAmount(*bind.CallOpts, common.Address) (*big.Int, error)
 	WithdrawSlashedAmount(*bind.TransactOpts) (*types.Transaction, error)
 	ParseBidderWithdrawSlashedAmount(log types.Log) (*providerregistry.ProviderregistryBidderWithdrawSlashedAmount, error)
+	AreProvidersValid(*bind.CallOpts, []common.Address) ([]bool, error)
 }
 
 type CommitmentStore interface {
@@ -527,10 +533,27 @@ func (s *Service) EnableDepositManager(
 	ctx context.Context,
 	r *bidderapiv1.EnableDepositManagerRequest,
 ) (*bidderapiv1.EnableDepositManagerResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		s.logger.Error("enable deposit manager validation", "error", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating enable deposit manager request: %v", err)
+	}
+
 	opts, err := s.optsGetter(ctx)
 	if err != nil {
 		s.logger.Error("getting transact opts", "error", err)
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	depositManagerEnabled, err := s.DepositManagerStatus(ctx, &bidderapiv1.DepositManagerStatusRequest{})
+	if err != nil {
+		s.logger.Error("checking deposit manager status", "error", err)
+		return nil, status.Errorf(codes.Internal, "checking deposit manager status: %v", err)
+	}
+
+	if depositManagerEnabled.Enabled {
+		s.logger.Error("EnableDepositManager failed: deposit manager is already enabled")
+		return nil, status.Errorf(codes.FailedPrecondition, "EnableDepositManager failed: deposit manager is already enabled")
 	}
 
 	// TODO: Config param for deposit manager
@@ -560,10 +583,27 @@ func (s *Service) SetTargetDeposits(
 	ctx context.Context,
 	r *bidderapiv1.SetTargetDepositsRequest,
 ) (*bidderapiv1.SetTargetDepositsResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		s.logger.Error("set target deposits validation", "error", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating set target deposits request: %v", err)
+	}
+
 	opts, err := s.optsGetter(ctx)
 	if err != nil {
 		s.logger.Error("getting transact opts", "error", err)
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	depositManagerEnabled, err := s.DepositManagerStatus(ctx, &bidderapiv1.DepositManagerStatusRequest{})
+	if err != nil {
+		s.logger.Error("checking deposit manager status", "error", err)
+		return nil, status.Errorf(codes.Internal, "checking deposit manager status: %v", err)
+	}
+
+	if !depositManagerEnabled.Enabled {
+		s.logger.Error("SetTargetDeposits failed: deposit manager is not enabled")
+		return nil, status.Errorf(codes.FailedPrecondition, "SetTargetDeposits failed: deposit manager is not enabled")
 	}
 
 	providers := make([]common.Address, len(r.TargetDeposits))
@@ -604,8 +644,14 @@ func (s *Service) SetTargetDeposits(
 
 func (s *Service) DepositManagerStatus(
 	ctx context.Context,
-	_ *bidderapiv1.DepositManagerStatusRequest,
+	r *bidderapiv1.DepositManagerStatusRequest,
 ) (*bidderapiv1.DepositManagerStatusResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		s.logger.Error("deposit manager status validation", "error", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating deposit manager status request: %v", err)
+	}
+
 	code, err := s.backend.CodeAt(ctx, s.owner, nil)
 	if err != nil {
 		s.logger.Error("getting code", "error", err)
@@ -630,6 +676,40 @@ func (s *Service) DepositManagerStatus(
 }
 
 // TODO: api/handling for a bidder removing set code auth
+
+func (s *Service) GetValidProviders(
+	ctx context.Context,
+	r *bidderapiv1.GetValidProvidersRequest,
+) (*bidderapiv1.GetValidProvidersResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		s.logger.Error("get valid providers validation", "error", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating get valid providers request: %v", err)
+	}
+
+	connectedProviders := s.topology.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
+	providerAddrs := make([]common.Address, len(connectedProviders))
+	for i, provider := range connectedProviders {
+		providerAddrs[i] = provider.EthAddress
+	}
+
+	validProviders := make([]string, 0)
+	areValid, err := s.providerRegistry.AreProvidersValid(&bind.CallOpts{
+		Context: ctx,
+	}, providerAddrs)
+	if err != nil {
+		s.logger.Error("checking if providers are valid", "error", err)
+		return nil, status.Errorf(codes.Internal, "checking if providers are valid: %v", err)
+	}
+
+	for i, isValid := range areValid {
+		if isValid {
+			validProviders = append(validProviders, connectedProviders[i].EthAddress.Hex())
+		}
+	}
+
+	return &bidderapiv1.GetValidProvidersResponse{ValidProviders: validProviders}, nil
+}
 
 func (s *Service) ClaimSlashedFunds(
 	ctx context.Context,

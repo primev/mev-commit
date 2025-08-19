@@ -80,6 +80,18 @@ service Bidder {
     };
   }
 
+  // GetValidProviders
+  //
+  // GetValidProviders is called by the bidder node to get a list of all valid providers.
+  // Each provider returned by this RPC must be connected to the bidder node via p2p and:
+  // - Be "registered" in the provider registry
+  // - Have deposit >= minStake in provider registry
+  // - Have no pending withdrawal request with provider registry
+  // - Have at least one BLS key registered with provider registry
+  rpc GetValidProviders(GetValidProvidersRequest) returns (GetValidProvidersResponse) {
+    option (google.api.http) = {get: "/v1/bidder/get_valid_providers"};
+  }
+
   // GetDeposit
   //
   // GetDeposit is called by the bidder to get its deposit specific to a provider in the bidder registry.
@@ -321,6 +333,25 @@ message WithdrawResponse {
   repeated string amounts = 1;
   repeated string providers = 2;
 };
+
+message GetValidProvidersRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "GetValidProviders request"
+      description: "GetValidProviders request."
+    }
+  };
+}
+
+message GetValidProvidersResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "GetValidProviders response"
+      description: "GetValidProviders response."
+    }
+  };
+  repeated string valid_providers = 1;
+}
 
 message Bid {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {

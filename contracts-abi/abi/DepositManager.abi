@@ -3,7 +3,7 @@
     "type": "constructor",
     "inputs": [
       {
-        "name": "_registry",
+        "name": "_bidderRegistry",
         "type": "address",
         "internalType": "address"
       },

@@ -408,6 +408,20 @@ contract ProviderRegistry is
         );
     }
 
+    /// @dev View function checking if a provider is valid, returning booleans and never reverting
+    function AreProvidersValid(address[] calldata providers) public view returns (bool[] memory) {
+        bool[] memory validProviders = new bool[](providers.length);
+        for (uint256 i = 0; i < providers.length; i++) {
+            address provider = providers[i];
+            bool isRegistered = providerRegistered[provider];
+            bool hasStake = providerStakes[provider] >= minStake;
+            bool noPendingWithdrawal = withdrawalRequests[provider] == 0;
+            bool hasBLSKey = eoaToBlsPubkeys[provider].length > 0;
+            validProviders[i] = isRegistered && hasStake && noPendingWithdrawal && hasBLSKey;
+        }
+        return validProviders;
+    }
+
     /**
      * @dev Verifies a BLS signature using the precompile
      * @param pubKey The public key (48 bytes G1 point)

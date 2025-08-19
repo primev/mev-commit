@@ -681,6 +681,7 @@ func NewNode(opts *Options) (*Node, error) {
 				setCodeHelper,
 				depositManagerContract,
 				backend,
+				topo,
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 

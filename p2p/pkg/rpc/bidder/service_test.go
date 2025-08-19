@@ -22,6 +22,7 @@ import (
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
+	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -216,6 +217,10 @@ func (t *testProviderRegistry) ParseBidderWithdrawSlashedAmount(_log types.Log) 
 	}, nil
 }
 
+func (t *testProviderRegistry) AreProvidersValid(_ *bind.CallOpts, _ []common.Address) ([]bool, error) {
+	return []bool{true}, nil
+}
+
 func (t *testStore) GetCommitments(blockNum int64) ([]*preconfstore.Commitment, error) {
 	cmts := make([]*preconfstore.Commitment, 0)
 	for _, c := range t.commitments {
@@ -277,8 +282,9 @@ func startServerWithStore(t *testing.T, cs *testStore) bidderapiv1.BidderClient 
 		15*time.Second,
 		logger,
 		setCodeHelper,
-		nil, // TODO: Make deposit manager non-nil and test relevant functions from service.go
-		nil, // TODO: Make backend non-nil and test relevant functions from service.go
+		nil,                  // TODO: Make deposit manager non-nil and test relevant functions from service.go
+		nil,                  // TODO: Make backend non-nil and test relevant functions from service.go
+		&topology.Topology{}, // TODO: Make topology non-nil and test relevant functions from service.go
 	)
 
 	baseServer := grpc.NewServer()

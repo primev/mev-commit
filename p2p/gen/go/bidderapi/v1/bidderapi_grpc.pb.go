@@ -27,6 +27,7 @@ const (
 	Bidder_SetTargetDeposits_FullMethodName    = "/bidderapi.v1.Bidder/SetTargetDeposits"
 	Bidder_DepositManagerStatus_FullMethodName = "/bidderapi.v1.Bidder/DepositManagerStatus"
 	Bidder_RequestWithdrawals_FullMethodName   = "/bidderapi.v1.Bidder/RequestWithdrawals"
+	Bidder_GetValidProviders_FullMethodName    = "/bidderapi.v1.Bidder/GetValidProviders"
 	Bidder_GetDeposit_FullMethodName           = "/bidderapi.v1.Bidder/GetDeposit"
 	Bidder_Withdraw_FullMethodName             = "/bidderapi.v1.Bidder/Withdraw"
 	Bidder_GetBidInfo_FullMethodName           = "/bidderapi.v1.Bidder/GetBidInfo"
@@ -71,6 +72,15 @@ type BidderClient interface {
 	//
 	// RequestWithdrawals is called by the bidder node to request withdrawals from provider(s)
 	RequestWithdrawals(ctx context.Context, in *RequestWithdrawalsRequest, opts ...grpc.CallOption) (*RequestWithdrawalsResponse, error)
+	// GetValidProviders
+	//
+	// GetValidProviders is called by the bidder node to get a list of all valid providers.
+	// Each provider returned by this RPC must be connected to the bidder node via p2p and:
+	// - Be "registered" in the provider registry
+	// - Have deposit >= minStake in provider registry
+	// - Have no pending withdrawal request with provider registry
+	// - Have at least one BLS key registered with provider registry
+	GetValidProviders(ctx context.Context, in *GetValidProvidersRequest, opts ...grpc.CallOption) (*GetValidProvidersResponse, error)
 	// GetDeposit
 	//
 	// GetDeposit is called by the bidder to get its deposit specific to a provider in the bidder registry.
@@ -178,6 +188,16 @@ func (c *bidderClient) RequestWithdrawals(ctx context.Context, in *RequestWithdr
 	return out, nil
 }
 
+func (c *bidderClient) GetValidProviders(ctx context.Context, in *GetValidProvidersRequest, opts ...grpc.CallOption) (*GetValidProvidersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetValidProvidersResponse)
+	err := c.cc.Invoke(ctx, Bidder_GetValidProviders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *bidderClient) GetDeposit(ctx context.Context, in *GetDepositRequest, opts ...grpc.CallOption) (*DepositResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DepositResponse)
@@ -256,6 +276,15 @@ type BidderServer interface {
 	//
 	// RequestWithdrawals is called by the bidder node to request withdrawals from provider(s)
 	RequestWithdrawals(context.Context, *RequestWithdrawalsRequest) (*RequestWithdrawalsResponse, error)
+	// GetValidProviders
+	//
+	// GetValidProviders is called by the bidder node to get a list of all valid providers.
+	// Each provider returned by this RPC must be connected to the bidder node via p2p and:
+	// - Be "registered" in the provider registry
+	// - Have deposit >= minStake in provider registry
+	// - Have no pending withdrawal request with provider registry
+	// - Have at least one BLS key registered with provider registry
+	GetValidProviders(context.Context, *GetValidProvidersRequest) (*GetValidProvidersResponse, error)
 	// GetDeposit
 	//
 	// GetDeposit is called by the bidder to get its deposit specific to a provider in the bidder registry.
@@ -304,6 +333,9 @@ func (UnimplementedBidderServer) DepositManagerStatus(context.Context, *DepositM
 }
 func (UnimplementedBidderServer) RequestWithdrawals(context.Context, *RequestWithdrawalsRequest) (*RequestWithdrawalsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestWithdrawals not implemented")
+}
+func (UnimplementedBidderServer) GetValidProviders(context.Context, *GetValidProvidersRequest) (*GetValidProvidersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetValidProviders not implemented")
 }
 func (UnimplementedBidderServer) GetDeposit(context.Context, *GetDepositRequest) (*DepositResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDeposit not implemented")
@@ -457,6 +489,24 @@ func _Bidder_RequestWithdrawals_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Bidder_GetValidProviders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetValidProvidersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).GetValidProviders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_GetValidProviders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).GetValidProviders(ctx, req.(*GetValidProvidersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Bidder_GetDeposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetDepositRequest)
 	if err := dec(in); err != nil {
@@ -559,6 +609,10 @@ var Bidder_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RequestWithdrawals",
 			Handler:    _Bidder_RequestWithdrawals_Handler,
+		},
+		{
+			MethodName: "GetValidProviders",
+			Handler:    _Bidder_GetValidProviders_Handler,
 		},
 		{
 			MethodName: "GetDeposit",
