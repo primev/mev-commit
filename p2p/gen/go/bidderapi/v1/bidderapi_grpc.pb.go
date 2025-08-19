@@ -61,7 +61,8 @@ type BidderClient interface {
 	// SetTargetDeposits
 	//
 	// SetTargetDeposits is called by the bidder node to set target deposits per provider
-	// within the deposit manager.
+	// within the deposit manager. During this call, the bidder node will also attempt to top-up
+	// deposits for each new target deposit.
 	SetTargetDeposits(ctx context.Context, in *SetTargetDepositsRequest, opts ...grpc.CallOption) (*SetTargetDepositsResponse, error)
 	// DepositManagerStatus
 	//
@@ -265,7 +266,8 @@ type BidderServer interface {
 	// SetTargetDeposits
 	//
 	// SetTargetDeposits is called by the bidder node to set target deposits per provider
-	// within the deposit manager.
+	// within the deposit manager. During this call, the bidder node will also attempt to top-up
+	// deposits for each new target deposit.
 	SetTargetDeposits(context.Context, *SetTargetDepositsRequest) (*SetTargetDepositsResponse, error)
 	// DepositManagerStatus
 	//

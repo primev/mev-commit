@@ -409,9 +409,10 @@ contract ProviderRegistry is
     }
 
     /// @dev View function checking if a provider is valid, returning booleans and never reverting
-    function AreProvidersValid(address[] calldata providers) public view returns (bool[] memory) {
+    function areProvidersValid(address[] calldata providers) public view returns (bool[] memory) {
         bool[] memory validProviders = new bool[](providers.length);
-        for (uint256 i = 0; i < providers.length; i++) {
+        uint256 length = providers.length;
+        for (uint256 i = 0; i < length; ++i) {
             address provider = providers[i];
             bool isRegistered = providerRegistered[provider];
             bool hasStake = providerStakes[provider] >= minStake;

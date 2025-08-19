@@ -124,7 +124,9 @@ type SetCodeHelper interface {
 
 type DepositManagerContract interface {
 	SetTargetDeposits(opts *bind.TransactOpts, providers []common.Address, amounts []*big.Int) (*types.Transaction, error)
+	TopUpDeposits(opts *bind.TransactOpts, providers []common.Address) (*types.Transaction, error)
 	ParseTargetDepositSet(types.Log) (*depositmanager.DepositmanagerTargetDepositSet, error)
+	ParseDepositToppedUp(types.Log) (*depositmanager.DepositmanagerDepositToppedUp, error)
 }
 
 type Backend interface {
@@ -636,6 +638,27 @@ func (s *Service) SetTargetDeposits(
 				Provider:      common.Bytes2Hex(targetDeposit.Provider.Bytes()),
 				TargetDeposit: targetDeposit.Amount.Uint64(),
 			})
+		}
+	}
+
+	tx, err = s.depositManager.TopUpDeposits(opts, providers)
+	if err != nil {
+		s.logger.Error("topping up deposits", "error", err)
+		return nil, status.Errorf(codes.Internal, "topping up deposits: %v", err)
+	}
+
+	receipt, err = s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	for _, log := range receipt.Logs {
+		if depositToppedUp, err := s.depositManager.ParseDepositToppedUp(*log); err == nil {
+			response.SuccessfullyToppedUpProviders = append(
+				response.SuccessfullyToppedUpProviders,
+				depositToppedUp.Provider.Hex(),
+			)
 		}
 	}
 

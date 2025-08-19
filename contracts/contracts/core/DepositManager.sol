@@ -55,10 +55,21 @@ contract DepositManager {
         emit TargetDepositSet(provider, amount);
     }
 
+    function topUpDeposits(address[] calldata providers) external {
+        uint256 length = providers.length;
+        for (uint256 i = 0; i < length; ++i) {
+            _topUpDeposit(providers[i]);
+        }
+    }
+
     /// @notice Top-up deposits if needed, as configured by this EOA.
     /// @param provider to top-up the deposit for.
     /// @dev This function will be called automatically by external addresses.
     function topUpDeposit(address provider) external {
+        _topUpDeposit(provider);
+    }
+
+    function _topUpDeposit(address provider) internal {
         if (IBidderRegistry(BIDDER_REGISTRY).withdrawalRequestExists(address(this), provider)) {
             emit WithdrawalRequestExists(provider);
             return;

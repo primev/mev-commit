@@ -118,6 +118,19 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "function",
+    "name": "topUpDeposits",
+    "inputs": [
+      {
+        "name": "providers",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
     "type": "event",
     "name": "CurrentBalanceAtOrBelowMin",
     "inputs": [

@@ -238,7 +238,8 @@ paths:
       summary: SetTargetDeposits
       description: |-
         SetTargetDeposits is called by the bidder node to set target deposits per provider
-        within the deposit manager.
+        within the deposit manager. During this call, the bidder node will also attempt to top-up
+        deposits for each new target deposit.
       operationId: Bidder_SetTargetDeposits
       responses:
         "200":
@@ -580,6 +581,10 @@ definitions:
         items:
           type: object
           $ref: '#/definitions/v1TargetDeposit'
+      successfullyToppedUpProviders:
+        type: array
+        items:
+          type: string
     description: OverrideTargetDepositsResponse response.
     title: OverrideTargetDepositsResponse response
   v1TargetDeposit:
