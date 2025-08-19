@@ -187,6 +187,9 @@ contract BidderRegistry is
         bidState.state = State.Settled;
         bidState.bidAmt = 0;
 
+        Deposit storage deposit = deposits[bidder][provider];
+        deposit.escrowedAmount -= bidAmt;
+
         uint256 decayedAmt = (bidAmt *
             residualBidPercentAfterDecay) / ONE_HUNDRED_PERCENT;
 
@@ -207,12 +210,9 @@ contract BidderRegistry is
             if (!payable(bidder).send(fundsToReturn)) {
                 // edge case, when bidder is rejecting transfer
                 emit TransferToBidderFailed(bidder, fundsToReturn);
-                deposits[bidder][provider].availableAmount += fundsToReturn;
+                deposit.availableAmount += fundsToReturn;
             }
         }
-
-        Deposit storage deposit = deposits[bidder][provider];
-        deposit.escrowedAmount -= bidAmt;
 
         emit FundsRewarded(
             commitmentDigest,
