@@ -177,27 +177,46 @@ func New(config *Config) (*Service, error) {
 		config.Logger.Info("balance checking disabled")
 	}
 
-	// TODO: set code to deposit manager here, set min deposit for every provider
+	status, err := bidderCli.DepositManagerStatus(context.Background(), &bidderapiv1.DepositManagerStatusRequest{})
+	if err != nil {
+		return nil, err
+	}
+	if !status.Enabled {
+		resp, err := bidderCli.EnableDepositManager(context.Background(), &bidderapiv1.EnableDepositManagerRequest{})
+		if err != nil {
+			return nil, err
+		}
+		if !resp.Success {
+			return nil, errors.New("failed to enable deposit manager")
+		}
+	}
+	config.Logger.Info("deposit manager enabled")
 
-	// status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// config.Logger.Info("got auto deposit status", "enabled", status.IsAutodepositEnabled)
+	validProviders, err := bidderCli.GetValidProviders(context.Background(), &bidderapiv1.GetValidProvidersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	if len(validProviders.ValidProviders) == 0 {
+		return nil, errors.New("no connected and valid providers found")
+	}
 
-	// if !status.IsAutodepositEnabled {
-	// 	config.Logger.Info("enabling auto deposit")
-	// 	resp, err := bidderCli.AutoDeposit(
-	// 		context.Background(),
-	// 		&bidderapiv1.DepositRequest{
-	// 			Amount: config.AutoDepositAmount.String(),
-	// 		},
-	// 	)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
-	// }
+	targetDeposits := make([]*bidderapiv1.TargetDeposit, len(validProviders.ValidProviders))
+	for i, provider := range validProviders.ValidProviders {
+		targetDeposits[i] = &bidderapiv1.TargetDeposit{
+			Provider:      provider,
+			TargetDeposit: config.AutoDepositAmount.Uint64(),
+		}
+	}
+
+	resp, err := bidderCli.SetTargetDeposits(context.Background(), &bidderapiv1.SetTargetDepositsRequest{
+		TargetDeposits: targetDeposits,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.SuccessfullySetDeposits) != len(targetDeposits) {
+		return nil, errors.New("failed to set target deposits")
+	}
 
 	healthChecker := health.New()
 

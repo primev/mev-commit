@@ -106,24 +106,46 @@ func New(config *Config) (*Service, error) {
 	topologyCli := debugapiv1.NewDebugServiceClient(conn)
 	notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
 
-	// TODO: set code to deposit manager here, set min deposit for every provider
+	status, err := bidderCli.DepositManagerStatus(context.Background(), &bidderapiv1.DepositManagerStatusRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deposit manager status: %w", err)
+	}
+	if !status.Enabled {
+		resp, err := bidderCli.EnableDepositManager(context.Background(), &bidderapiv1.EnableDepositManagerRequest{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to enable deposit manager: %w", err)
+		}
+		if !resp.Success {
+			return nil, fmt.Errorf("failed to enable deposit manager")
+		}
+	}
+	config.Logger.Info("deposit manager enabled")
 
-	// status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
-	// if err != nil {
-	// 	return nil, err
-	// }
+	validProviders, err := bidderCli.GetValidProviders(context.Background(), &bidderapiv1.GetValidProvidersRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get valid providers: %w", err)
+	}
+	if len(validProviders.ValidProviders) == 0 {
+		return nil, fmt.Errorf("no valid providers found")
+	}
 
-	// if !status.IsAutodepositEnabled {
-	// 	_, err := bidderCli.AutoDeposit(
-	// 		context.Background(),
-	// 		&bidderapiv1.DepositRequest{
-	// 			Amount: config.AutoDepositAmount.String(),
-	// 		},
-	// 	)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+	targetDeposits := make([]*bidderapiv1.TargetDeposit, len(validProviders.ValidProviders))
+	for i, provider := range validProviders.ValidProviders {
+		targetDeposits[i] = &bidderapiv1.TargetDeposit{
+			Provider:      provider,
+			TargetDeposit: config.AutoDepositAmount.Uint64(),
+		}
+	}
+
+	resp, err := bidderCli.SetTargetDeposits(context.Background(), &bidderapiv1.SetTargetDepositsRequest{
+		TargetDeposits: targetDeposits,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set target deposits: %w", err)
+	}
+	if len(resp.SuccessfullySetDeposits) != len(targetDeposits) {
+		return nil, fmt.Errorf("failed to set target deposits")
+	}
 
 	bridgeConfig := transfer.BridgeConfig{
 		Signer:                 config.Signer,

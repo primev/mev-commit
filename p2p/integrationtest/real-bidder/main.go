@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-logr/logr"
 	pb "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/primev/mev-commit/x/util/otelutil"
 	"github.com/prometheus/client_golang/prometheus"
@@ -188,34 +187,6 @@ func main() {
 		return
 	}
 
-	var providerAddress string
-	debugClient := debugapiv1.NewDebugServiceClient(conn)
-	retries := 10
-	for range retries {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		topology, err := debugClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
-		cancel()
-		if err != nil {
-			logger.Error("failed to get topology", "err", err)
-			continue
-		}
-		if f, ok := topology.Topology.Fields["connected_providers"]; ok {
-			vals := f.GetListValue().GetValues()
-			if len(vals) > 0 {
-				providerAddress = vals[0].GetStringValue()
-				break
-			}
-		}
-		time.Sleep(time.Second)
-	}
-
-	if providerAddress == "" {
-		logger.Error("no connected provider found")
-		return
-	}
-
-	fmt.Println("min deposit", minDeposit)
-
 	status, err := bidderClient.DepositManagerStatus(context.Background(), &pb.DepositManagerStatusRequest{})
 	if err != nil {
 		logger.Error("failed to get auto deposit status", "err", err)
@@ -232,7 +203,27 @@ func main() {
 			logger.Error("failed to enable deposit manager")
 			return
 		}
-		logger.Info("deposit manager enabled")
+	}
+	logger.Info("deposit manager enabled")
+
+	var providerAddress string
+	retries := 10
+	for range retries {
+		resp, err := bidderClient.GetValidProviders(context.Background(), &pb.GetValidProvidersRequest{})
+		if err != nil {
+			logger.Error("failed to get valid providers", "err", err)
+			continue
+		}
+		if len(resp.ValidProviders) > 0 {
+			providerAddress = resp.ValidProviders[0]
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	if providerAddress == "" {
+		logger.Error("no connected and valid provider found")
+		return
 	}
 
 	resp, err := bidderClient.SetTargetDeposits(context.Background(), &pb.SetTargetDepositsRequest{

@@ -47,21 +47,51 @@ func newBidder(rpcURL string, depositAmount string) (*bidder, error) {
 }
 
 func (b *bidder) setup(depositAmount string) error {
-	// TODO: set code to deposit manager here, set min deposit for every provider
+	depositAmountInt, ok := new(big.Int).SetString(depositAmount, 10)
+	if !ok {
+		return fmt.Errorf("failed to parse deposit amount")
+	}
 
-	// status, err := b.client.AutoDepositStatus(context.Background(), &pb.EmptyMessage{})
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get auto deposit status: %w", err)
-	// }
+	status, err := b.client.DepositManagerStatus(context.Background(), &pb.DepositManagerStatusRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to get deposit manager status: %w", err)
+	}
+	if !status.Enabled {
+		resp, err := b.client.EnableDepositManager(context.Background(), &pb.EnableDepositManagerRequest{})
+		if err != nil {
+			return fmt.Errorf("failed to enable deposit manager: %w", err)
+		}
+		if !resp.Success {
+			return fmt.Errorf("failed to enable deposit manager")
+		}
+	}
 
-	// if !status.IsAutodepositEnabled {
-	// 	_, err := b.client.AutoDeposit(context.Background(), &pb.DepositRequest{
-	// 		Amount: depositAmount,
-	// 	})
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to auto deposit: %w", err)
-	// 	}
-	// }
+	validProviders, err := b.client.GetValidProviders(context.Background(), &pb.GetValidProvidersRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to get valid providers: %w", err)
+	}
+	if len(validProviders.ValidProviders) == 0 {
+		return fmt.Errorf("no valid providers found")
+	}
+
+	targetDeposits := make([]*pb.TargetDeposit, len(validProviders.ValidProviders))
+	for i, provider := range validProviders.ValidProviders {
+		targetDeposits[i] = &pb.TargetDeposit{
+			Provider:      provider,
+			TargetDeposit: depositAmountInt.Uint64(),
+		}
+	}
+
+	resp, err := b.client.SetTargetDeposits(context.Background(), &pb.SetTargetDepositsRequest{
+		TargetDeposits: targetDeposits,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set target deposits: %w", err)
+	}
+	if len(resp.SuccessfullySetDeposits) != len(targetDeposits) {
+		return fmt.Errorf("failed to set target deposits")
+	}
+
 	return nil
 }
 
