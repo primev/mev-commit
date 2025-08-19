@@ -26,8 +26,8 @@ contract DepositManager {
         _;
     }
 
-    constructor(address _registry, uint256 _minBalance) {
-        BIDDER_REGISTRY = _registry;
+    constructor(address _bidderRegistry, uint256 _minBalance) {
+        BIDDER_REGISTRY = _bidderRegistry;
         MIN_BALANCE = _minBalance;
     }
 
