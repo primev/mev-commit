@@ -7,7 +7,7 @@ interface IBidderRegistry {
     enum State {
         Undefined,
         PreConfirmed,
-        Withdrawn
+        Settled
     }
 
     struct OpenedCommitment {

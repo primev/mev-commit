@@ -181,8 +181,13 @@ contract BidderRegistry is
     ) external nonReentrant onlyPreconfManager whenNotPaused {
         BidState storage bidState = bidPayment[commitmentDigest];
         require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(commitmentDigest, bidState.state, State.PreConfirmed));
-        
-        uint256 decayedAmt = (bidState.bidAmt *
+
+        address bidder = bidState.bidder;
+        uint256 bidAmt = bidState.bidAmt;
+        bidState.state = State.Settled;
+        bidState.bidAmt = 0;
+
+        uint256 decayedAmt = (bidAmt *
             residualBidPercentAfterDecay) / ONE_HUNDRED_PERCENT;
 
         uint256 feeAmt = (decayedAmt * feePercent) /
@@ -197,24 +202,21 @@ contract BidderRegistry is
         providerAmount[provider] += amtMinusFeeAndDecay;
 
         // Transfer non-rewarded funds back to the bidder wallet
-        uint256 fundsToReturn = bidState.bidAmt - decayedAmt;
+        uint256 fundsToReturn = bidAmt - decayedAmt;
         if (fundsToReturn > 0) {
-            if (!payable(bidState.bidder).send(fundsToReturn)) {
+            if (!payable(bidder).send(fundsToReturn)) {
                 // edge case, when bidder is rejecting transfer
-                emit TransferToBidderFailed(bidState.bidder, fundsToReturn);
-                deposits[bidState.bidder][provider].availableAmount += fundsToReturn;
+                emit TransferToBidderFailed(bidder, fundsToReturn);
+                deposits[bidder][provider].availableAmount += fundsToReturn;
             }
         }
 
-        Deposit storage deposit = deposits[bidState.bidder][provider];
-        deposit.escrowedAmount -= bidState.bidAmt;
-
-        bidState.state = State.Withdrawn;
-        bidState.bidAmt = 0;
+        Deposit storage deposit = deposits[bidder][provider];
+        deposit.escrowedAmount -= bidAmt;
 
         emit FundsRewarded(
             commitmentDigest,
-            bidState.bidder,
+            bidder,
             provider,
             decayedAmt
         );
@@ -234,19 +236,20 @@ contract BidderRegistry is
         BidState storage bidState = bidPayment[commitmentDigest];
         require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(commitmentDigest, bidState.state, State.PreConfirmed));
         
-        uint256 amt = bidState.bidAmt;
-        bidState.state = State.Withdrawn;
+        address bidder = bidState.bidder;
+        uint256 bidAmt = bidState.bidAmt;
+        bidState.state = State.Settled;
         bidState.bidAmt = 0;
 
-        Deposit storage deposit = deposits[bidState.bidder][provider];
-        deposit.escrowedAmount -= amt;
+        Deposit storage deposit = deposits[bidder][provider];
+        deposit.escrowedAmount -= bidAmt;
 
-        if (!payable(bidState.bidder).send(amt)) {
-            emit TransferToBidderFailed(bidState.bidder, amt);
-            deposit.availableAmount += amt;
+        if (!payable(bidder).send(bidAmt)) {
+            emit TransferToBidderFailed(bidder, bidAmt);
+            deposit.availableAmount += bidAmt;
         }
 
-        emit FundsUnlocked(commitmentDigest, bidState.bidder, provider, amt);
+        emit FundsUnlocked(commitmentDigest, bidder, provider, bidAmt);
     }
 
     /**
