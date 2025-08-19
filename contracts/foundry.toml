@@ -1,12 +1,20 @@
 [profile.default]
 src = 'contracts'
-solc-version = '0.8.26'
+solc_version = '0.8.26'
 script = 'scripts'
 out = 'out'
-libs = ['node_modules', 'lib']
+libs = ['lib']
 test = 'test'
-cache_path  = 'cache_forge'
+cache_path = 'cache_forge'
 ffi = true
 ast = true
 build_info = true
 extra_output = ["storageLayout"]
+auto_detect_solc = true
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"
+]
