@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-logr/logr"
 	pb "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/primev/mev-commit/x/util/otelutil"
 	"github.com/prometheus/client_golang/prometheus"
@@ -187,25 +188,71 @@ func main() {
 		return
 	}
 
-	// TODO: set code to deposit manager here, set min deposit for every provider
+	var providerAddress string
+	debugClient := debugapiv1.NewDebugServiceClient(conn)
+	retries := 10
+	for range retries {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		topology, err := debugClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
+		cancel()
+		if err != nil {
+			logger.Error("failed to get topology", "err", err)
+			continue
+		}
+		if f, ok := topology.Topology.Fields["connected_providers"]; ok {
+			vals := f.GetListValue().GetValues()
+			if len(vals) > 0 {
+				providerAddress = vals[0].GetStringValue()
+				break
+			}
+		}
+		time.Sleep(time.Second)
+	}
+
+	if providerAddress == "" {
+		logger.Error("no connected provider found")
+		return
+	}
+
 	fmt.Println("min deposit", minDeposit)
 
-	// status, err := bidderClient.AutoDepositStatus(context.Background(), &pb.EmptyMessage{})
-	// if err != nil {
-	// 	logger.Error("failed to get auto deposit status", "err", err)
-	// 	return
-	// }
+	status, err := bidderClient.DepositManagerStatus(context.Background(), &pb.DepositManagerStatusRequest{})
+	if err != nil {
+		logger.Error("failed to get auto deposit status", "err", err)
+		return
+	}
 
-	// if !status.IsAutodepositEnabled {
-	// 	resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
-	// 		Amount: minDeposit.String(),
-	// 	})
-	// 	if err != nil {
-	// 		logger.Error("failed to auto deposit", "err", err)
-	// 		return
-	// 	}
-	// 	logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
-	// }
+	if !status.Enabled {
+		resp, err := bidderClient.EnableDepositManager(context.Background(), &pb.EnableDepositManagerRequest{})
+		if err != nil {
+			logger.Error("failed to enable deposit manager", "err", err)
+			return
+		}
+		if !resp.Success {
+			logger.Error("failed to enable deposit manager")
+			return
+		}
+		logger.Info("deposit manager enabled")
+	}
+
+	resp, err := bidderClient.SetTargetDeposits(context.Background(), &pb.SetTargetDepositsRequest{
+		TargetDeposits: []*pb.TargetDeposit{
+			{
+				TargetDeposit: minDeposit.Uint64(),
+				Provider:      providerAddress,
+			},
+		},
+	})
+	if err != nil {
+		logger.Error("failed to set target deposits", "err", err)
+		return
+	}
+
+	if len(resp.SuccessfullySetDeposits) == 0 {
+		logger.Error("failed to set target deposits")
+		return
+	}
+	logger.Info("target deposits set", "amount", resp.SuccessfullySetDeposits[0].TargetDeposit)
 
 	type blockWithTxns struct {
 		blockNum int64
