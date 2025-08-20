@@ -28,22 +28,23 @@ import (
 
 type Service struct {
 	bidderapiv1.UnimplementedBidderServer
-	owner                common.Address
-	sender               PreconfSender
-	registryContract     BidderRegistryContract
-	providerRegistry     ProviderRegistryContract
-	blockTrackerContract BlockTrackerContract
-	watcher              TxWatcher
-	optsGetter           OptsGetter
-	cs                   CommitmentStore
-	logger               *slog.Logger
-	metrics              *metrics
-	validator            *protovalidate.Validator
-	bidTimeout           time.Duration
-	setCodeHelper        SetCodeHelper
-	depositManager       DepositManagerContract
-	backend              Backend
-	topology             *topology.Topology
+	owner                  common.Address
+	sender                 PreconfSender
+	registryContract       BidderRegistryContract
+	providerRegistry       ProviderRegistryContract
+	blockTrackerContract   BlockTrackerContract
+	watcher                TxWatcher
+	optsGetter             OptsGetter
+	cs                     CommitmentStore
+	logger                 *slog.Logger
+	metrics                *metrics
+	validator              *protovalidate.Validator
+	bidTimeout             time.Duration
+	setCodeHelper          SetCodeHelper
+	depositManager         DepositManagerContract
+	backend                Backend
+	topology               *topology.Topology
+	depositManagerImplAddr common.Address
 }
 
 func NewService(
@@ -62,24 +63,26 @@ func NewService(
 	depositManager DepositManagerContract,
 	backend Backend,
 	topology *topology.Topology,
+	depositManagerImplAddr common.Address,
 ) *Service {
 	return &Service{
-		owner:                owner,
-		sender:               sender,
-		registryContract:     registryContract,
-		blockTrackerContract: blockTrackerContract,
-		providerRegistry:     providerRegistry,
-		cs:                   cs,
-		watcher:              watcher,
-		optsGetter:           optsGetter,
-		logger:               logger,
-		metrics:              newMetrics(),
-		validator:            validator,
-		bidTimeout:           bidderBidTimeout,
-		setCodeHelper:        setCodeHelper,
-		depositManager:       depositManager,
-		backend:              backend,
-		topology:             topology,
+		owner:                  owner,
+		sender:                 sender,
+		registryContract:       registryContract,
+		blockTrackerContract:   blockTrackerContract,
+		providerRegistry:       providerRegistry,
+		cs:                     cs,
+		watcher:                watcher,
+		optsGetter:             optsGetter,
+		logger:                 logger,
+		metrics:                newMetrics(),
+		validator:              validator,
+		bidTimeout:             bidderBidTimeout,
+		setCodeHelper:          setCodeHelper,
+		depositManager:         depositManager,
+		backend:                backend,
+		topology:               topology,
+		depositManagerImplAddr: depositManagerImplAddr,
 	}
 }
 
@@ -558,10 +561,7 @@ func (s *Service) EnableDepositManager(
 		return nil, status.Errorf(codes.FailedPrecondition, "EnableDepositManager failed: deposit manager is already enabled")
 	}
 
-	// TODO: Config param for deposit manager
-	depositManagerAddr := common.HexToAddress("0x0000000000000000000000000000000000000000")
-
-	tx, err := s.setCodeHelper.SetCode(ctx, opts, depositManagerAddr)
+	tx, err := s.setCodeHelper.SetCode(ctx, opts, s.depositManagerImplAddr)
 	if err != nil {
 		s.logger.Error("setting code", "error", err)
 		return nil, status.Errorf(codes.Internal, "setting code: %v", err)
@@ -685,11 +685,8 @@ func (s *Service) DepositManagerStatus(
 		return &bidderapiv1.DepositManagerStatusResponse{Enabled: false}, nil
 	}
 
-	// TODO: Config param for deposit manager
-	depositManagerAddr := common.HexToAddress("0x0000000000000000000000000000000000000000")
-
 	codehash := crypto.Keccak256Hash(code)
-	expectedCodehash := crypto.Keccak256Hash(common.FromHex("0xef0100"), depositManagerAddr.Bytes())
+	expectedCodehash := crypto.Keccak256Hash(common.FromHex("0xef0100"), s.depositManagerImplAddr.Bytes())
 	if codehash != expectedCodehash {
 		s.logger.Error("codehash is not correct", "actual", codehash, "expected", expectedCodehash)
 		return nil, status.Errorf(codes.Internal, "codehash is not correct")
