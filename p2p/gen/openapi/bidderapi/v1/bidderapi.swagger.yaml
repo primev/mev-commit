@@ -352,6 +352,12 @@ definitions:
         items:
           type: object
           $ref: '#/definitions/GetBidInfoResponseCommitmentWithStatus'
+      bidOptions:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/bidderapiv1BidOption'
+        description: Optional bid options for the transaction.
     description: Information about a bid including its commitments.
     title: Bid Info
   GetBidInfoResponseBlockBidInfo:
@@ -439,6 +445,12 @@ definitions:
         type: string
         description: Amount of ETH that will be slashed from the provider if they fail to include the transaction. If zero, the decayed bid amount is used for slashing.
         pattern: '[0-9]+'
+      bidOptions:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/bidderapiv1BidOption'
+        description: Optional bid options for the transaction.
     description: Unsigned bid message from bidders to the bidder mev-commit node.
     title: Bid message
     required:
@@ -446,6 +458,12 @@ definitions:
       - blockNumber
       - decayStartTimestamp
       - decayEndTimestamp
+  bidderapiv1BidOption:
+    type: object
+    properties:
+      positionConstraint:
+        $ref: '#/definitions/bidderapiv1PositionConstraint'
+        description: Position constraint for the transaction in the block.
   bidderapiv1Commitment:
     type: object
     properties:
@@ -497,8 +515,47 @@ definitions:
       slashAmount:
         type: string
         description: Amount of ETH that will be slashed from the provider if they fail to include the transaction.
+      bidOptions:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/bidderapiv1BidOption'
+        description: Optional bid options for the transaction.
     description: Commitment message from the provider to the bidder mev-commit node.
     title: Commitment message
+  bidderapiv1PositionConstraint:
+    type: object
+    properties:
+      anchor:
+        $ref: '#/definitions/bidderapiv1PositionConstraintAnchor'
+        description: Anchor position of the transaction in the block.
+      basis:
+        $ref: '#/definitions/bidderapiv1PositionConstraintBasis'
+        description: Basis for the position constraint.
+      value:
+        type: integer
+        format: int32
+        description: Value of the position constraint. If anchor is TOP, this is the position from the top of the block. If anchor is BOTTOM, this is the position from the bottom of the block.
+    description: Constraint on the position of the transaction in the block.
+    title: Position Constraint
+  bidderapiv1PositionConstraintAnchor:
+    type: string
+    enum:
+      - ANCHOR_TOP
+      - ANCHOR_BOTTOM
+    title: |-
+      - ANCHOR_TOP: Position is at the top of the block
+       - ANCHOR_BOTTOM: Position is at the bottom of the block
+  bidderapiv1PositionConstraintBasis:
+    type: string
+    enum:
+      - BASIS_PERCENTILE
+      - BASIS_ABSOLUTE
+      - BASIS_GAS_PERCENTILE
+    title: |-
+      - BASIS_PERCENTILE: Position is a percentile of the block size
+       - BASIS_ABSOLUTE: Position is an absolute position in the block
+       - BASIS_GAS_PERCENTILE: Position is a percentile of the gas used in the block
   googlerpcStatus:
     type: object
     properties:
