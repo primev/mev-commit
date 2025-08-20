@@ -8,7 +8,6 @@ import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {IProviderRegistry} from "../../contracts/interfaces/IProviderRegistry.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
 import {DepositManager} from "../../contracts/core/DepositManager.sol";

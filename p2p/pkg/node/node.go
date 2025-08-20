@@ -445,22 +445,6 @@ func NewNode(opts *Options) (*Node, error) {
 			depositMgr   preconfirmation.DepositManager = noOpDepositManager{}
 		)
 
-		blockTrackerCaller, err := blocktracker.NewBlocktrackerCaller(
-			common.HexToAddress(opts.BlockTrackerContract),
-			contractRPC,
-		)
-		if err != nil {
-			opts.Logger.Error("failed to instantiate block tracker contract", "error", err)
-			return nil, err
-		}
-
-		blockTrackerSession := &blocktracker.BlocktrackerCallerSession{
-			Contract: blockTrackerCaller,
-			CallOpts: bind.CallOpts{
-				From: opts.KeySigner.GetAddress(),
-			},
-		}
-
 		commitmentDA, err := preconf.NewPreconfmanager(
 			common.HexToAddress(opts.PreconfContract),
 			backend,
@@ -681,7 +665,6 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.KeySigner.GetAddress(),
 				preconfProto,
 				bidderRegistry,
-				blockTrackerSession,
 				providerRegistry,
 				validator,
 				monitor,

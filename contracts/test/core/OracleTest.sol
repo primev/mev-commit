@@ -8,7 +8,6 @@ import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
 import {IPreconfManager} from "../../contracts/interfaces/IPreconfManager.sol";
@@ -208,9 +207,7 @@ contract OracleTest is Test {
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(
-            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
-        );
+        uint64 blockNumber = 12;
         uint64 bid = 2;
         uint256 slashAmt = 0;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -266,9 +263,7 @@ contract OracleTest is Test {
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(
-            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
-        );
+        uint64 blockNumber = 12;
         uint64 bid = 200;
         uint256 slashAmt = 0;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -330,9 +325,7 @@ contract OracleTest is Test {
             memory txn2 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d09";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(
-            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
-        );
+        uint64 blockNumber = 12;
         uint64 bid = 100;
         uint256 slashAmt = 0;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -569,9 +562,7 @@ contract OracleTest is Test {
         ] = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d11";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(
-            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
-        );
+        uint64 blockNumber = 12;
         uint64 bid = 5;
         uint256 slashAmt = 0;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");

@@ -9,7 +9,6 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {Errors} from "../utils/Errors.sol";
-import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 
 /**
  * @title BlockTracker
@@ -81,7 +80,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     ) external onlyOracle whenNotPaused {
         address _winner = providerRegistry.getEoaFromBLSKey(_winnerBLSKey);
         _recordBlockWinner(_blockNumber, _winner);
-        uint256 newWindow = (_blockNumber - 1) / WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1;
+        uint256 newWindow = (_blockNumber - 1) / 10 + 1;
         if (newWindow > currentWindow) {
             // We've entered a new window
             currentWindow = newWindow;
@@ -112,15 +111,6 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     }
 
     /**
-     * @dev Retrieves the current window number.
-     * @return currentWindow The current window number.
-     */
-     // TODO: Remove this and related.
-    function getCurrentWindow() external view returns (uint256) {
-        return currentWindow;
-    }
-
-    /**
      * @dev Function to get the winner of a specific block.
      * @param blockNumber The number of the block.
      * @return The address of the block winner.
@@ -138,14 +128,6 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         string calldata builderNameGraffiti
     ) external view returns (address) {
         return blockBuilderNameToAddress[builderNameGraffiti];
-    }
-
-    /**
-     * @dev Returns the number of blocks per window.
-     * @return The number of blocks per window.
-     */
-    function getBlocksPerWindow() external pure returns (uint256) {
-        return WindowFromBlockNumber.BLOCKS_PER_WINDOW;
     }
 
     /**

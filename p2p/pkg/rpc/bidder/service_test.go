@@ -181,16 +181,6 @@ func (t *testTxWatcher) WaitForReceipt(_ context.Context, tx *types.Transaction)
 	}, nil
 }
 
-type testBlockTrackerContract struct {
-	blockNumberToWinner map[uint64]common.Address
-	lastBlockNumber     uint64
-	blocksPerWindow     uint64
-}
-
-func (btc *testBlockTrackerContract) GetCurrentWindow() (*big.Int, error) {
-	return big.NewInt(int64(btc.lastBlockNumber / btc.blocksPerWindow)), nil
-}
-
 type testStore struct {
 	commitments []*preconfstore.Commitment
 }
@@ -262,13 +252,11 @@ func startServerWithStore(t *testing.T, cs *testStore) bidderapiv1.BidderClient 
 		claim: big.NewInt(1000000000000000000),
 	}
 	sender := &testSender{noOfPreconfs: 2}
-	blockTrackerContract := &testBlockTrackerContract{lastBlockNumber: blocksPerWindow + 1, blocksPerWindow: blocksPerWindow, blockNumberToWinner: make(map[uint64]common.Address)}
 	setCodeHelper := &testSetCodeHelper{}
 	srvImpl := bidderapi.NewService(
 		owner,
 		sender,
 		registryContract,
-		blockTrackerContract,
 		providerRegistry,
 		validator,
 		watcher,

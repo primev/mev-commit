@@ -32,7 +32,6 @@ type Service struct {
 	sender                 PreconfSender
 	registryContract       BidderRegistryContract
 	providerRegistry       ProviderRegistryContract
-	blockTrackerContract   BlockTrackerContract
 	watcher                TxWatcher
 	optsGetter             OptsGetter
 	cs                     CommitmentStore
@@ -51,7 +50,6 @@ func NewService(
 	owner common.Address,
 	sender PreconfSender,
 	registryContract BidderRegistryContract,
-	blockTrackerContract BlockTrackerContract,
 	providerRegistry ProviderRegistryContract,
 	validator *protovalidate.Validator,
 	watcher TxWatcher,
@@ -69,7 +67,6 @@ func NewService(
 		owner:                  owner,
 		sender:                 sender,
 		registryContract:       registryContract,
-		blockTrackerContract:   blockTrackerContract,
 		providerRegistry:       providerRegistry,
 		cs:                     cs,
 		watcher:                watcher,

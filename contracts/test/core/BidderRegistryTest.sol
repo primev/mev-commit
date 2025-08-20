@@ -6,7 +6,6 @@ import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {IBidderRegistry} from "../../contracts/interfaces/IBidderRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {DepositManager} from "../../contracts/core/DepositManager.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
