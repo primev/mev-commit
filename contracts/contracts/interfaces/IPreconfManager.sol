@@ -21,6 +21,7 @@ interface IPreconfManager {
         bytes commitmentSignature;
         string txnHash;
         string revertingTxHashes;
+        bytes encodedOpts;
     }
 
     /// @dev Struct for all the commitment params to avoid too deep in the stack error
@@ -47,6 +48,7 @@ interface IPreconfManager {
         uint64 decayEndTimeStamp; // The end time of the decay
         string txnHash; // The transaction hash
         string revertingTxHashes; // The reverting transaction hashes
+        bytes encodedOpts; // The encoded options
         bytes bidSignature; // The signature of the bid
         // The zk proof array which contains the public key of the provider (zkProof[0], zkProof[1]),
         // the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
@@ -76,7 +78,8 @@ interface IPreconfManager {
         string txnHash,
         string revertingTxHashes,
         bytes32 commitmentDigest,
-        uint64 dispatchTimestamp
+        uint64 dispatchTimestamp,
+        bytes encodedOpts
     );
 
     /// @dev Event to log successful unopened commitment storage

@@ -637,6 +637,7 @@ contract OracleTest is Test {
                     20, // decayEndTimeStamp
                     txnHashes[i],
                     revertingTxHashes,
+                    hex"",
                     bidSignatures[i],
                     zkProof
                 )
@@ -719,6 +720,7 @@ contract OracleTest is Test {
                 params.txnHash,
                 params.revertingTxHashes,
                 hex"",
+                hex"",
                 params.zkProof
             )
         );
@@ -760,6 +762,7 @@ contract OracleTest is Test {
                     20,
                     txnHash,
                     revertingTxHashes,
+                    hex"",
                     hex"",
                     zkproof
                 )
@@ -837,6 +840,7 @@ contract OracleTest is Test {
                 20, // decayEndTimeStamp
                 txnHash,
                 revertingTxHashes,
+                hex"",
                 bidSignature,
                 zkproof
             )
