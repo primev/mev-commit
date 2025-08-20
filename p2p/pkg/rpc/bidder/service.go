@@ -96,6 +96,7 @@ type BidderRegistryContract interface {
 	ParseBidderDeposited(types.Log) (*bidderregistry.BidderregistryBidderDeposited, error)
 	ParseWithdrawalRequested(types.Log) (*bidderregistry.BidderregistryWithdrawalRequested, error)
 	ParseBidderWithdrawal(types.Log) (*bidderregistry.BidderregistryBidderWithdrawal, error)
+	FilterBidderDeposited(opts *bind.FilterOpts, bidder []common.Address, provider []common.Address, depositedAmount []*big.Int) (*bidderregistry.BidderregistryBidderDepositedIterator, error)
 }
 
 type ProviderRegistryContract interface {
@@ -131,6 +132,7 @@ type DepositManagerContract interface {
 
 type Backend interface {
 	CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error)
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
@@ -405,6 +407,51 @@ func (s *Service) GetDeposit(
 	}
 
 	return &bidderapiv1.DepositResponse{Amount: deposit.String(), Provider: r.Provider}, nil
+}
+
+func (s *Service) GetAllDeposits(
+	ctx context.Context,
+	r *bidderapiv1.GetAllDepositsRequest,
+) (*bidderapiv1.GetAllDepositsResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		s.logger.Error("get all deposits validation", "error", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating get all deposits request: %v", err)
+	}
+
+	deposits, err := s.registryContract.FilterBidderDeposited(
+		&bind.FilterOpts{
+			Context: ctx,
+			Start:   0,
+			End:     nil,
+		},
+		[]common.Address{s.owner}, // This bidder
+		[]common.Address{},        // all providers
+		[]*big.Int{},              // all amounts
+	)
+	if err != nil {
+		s.logger.Error("filtering bidder deposited", "error", err)
+		return nil, status.Errorf(codes.Internal, "filtering bidder deposited: %v", err)
+	}
+
+	response := &bidderapiv1.GetAllDepositsResponse{}
+
+	for deposits.Next() {
+		deposit := deposits.Event
+		response.Deposits = append(response.Deposits, &bidderapiv1.DepositInfo{
+			Provider: common.Bytes2Hex(deposit.Provider.Bytes()),
+			Amount:   deposit.DepositedAmount.String(),
+		})
+	}
+
+	balance, err := s.backend.BalanceAt(ctx, s.owner, nil)
+	if err != nil {
+		s.logger.Error("getting bidder balance", "error", err)
+		return nil, status.Errorf(codes.Internal, "getting bidder balance: %v", err)
+	}
+	response.BidderBalance = balance.String()
+
+	return response, nil
 }
 
 func (s *Service) RequestWithdrawals(

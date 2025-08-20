@@ -137,6 +137,22 @@ paths:
           description: An unexpected error response.
           schema:
             $ref: '#/definitions/googlerpcStatus'
+  /v1/bidder/get_all_deposits:
+    get:
+      summary: GetAllDeposits
+      description: |-
+        GetAllDeposits is called by the bidder to get all its deposits in the bidder registry,
+        and the balance of the bidder EOA itself.
+      operationId: Bidder_GetAllDeposits
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1GetAllDepositsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/get_bid_info:
     get:
       summary: GetBidInfo
@@ -496,6 +512,13 @@ definitions:
           type: string
     description: Deposits some amount of ETH evenly across multiple providers.
     title: Deposit evenly response
+  v1DepositInfo:
+    type: object
+    properties:
+      provider:
+        type: string
+      amount:
+        type: string
   v1DepositManagerStatusResponse:
     type: object
     properties:
@@ -527,6 +550,18 @@ definitions:
         type: boolean
     description: EnableDepositManager response.
     title: EnableDepositManager response
+  v1GetAllDepositsResponse:
+    type: object
+    properties:
+      deposits:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1DepositInfo'
+      bidderBalance:
+        type: string
+    description: GetAllDeposits response.
+    title: GetAllDeposits response
   v1GetBidInfoResponse:
     type: object
     properties:

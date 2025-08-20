@@ -29,6 +29,7 @@ const (
 	Bidder_RequestWithdrawals_FullMethodName   = "/bidderapi.v1.Bidder/RequestWithdrawals"
 	Bidder_GetValidProviders_FullMethodName    = "/bidderapi.v1.Bidder/GetValidProviders"
 	Bidder_GetDeposit_FullMethodName           = "/bidderapi.v1.Bidder/GetDeposit"
+	Bidder_GetAllDeposits_FullMethodName       = "/bidderapi.v1.Bidder/GetAllDeposits"
 	Bidder_Withdraw_FullMethodName             = "/bidderapi.v1.Bidder/Withdraw"
 	Bidder_GetBidInfo_FullMethodName           = "/bidderapi.v1.Bidder/GetBidInfo"
 	Bidder_ClaimSlashedFunds_FullMethodName    = "/bidderapi.v1.Bidder/ClaimSlashedFunds"
@@ -86,6 +87,11 @@ type BidderClient interface {
 	//
 	// GetDeposit is called by the bidder to get its deposit specific to a provider in the bidder registry.
 	GetDeposit(ctx context.Context, in *GetDepositRequest, opts ...grpc.CallOption) (*DepositResponse, error)
+	// GetAllDeposits
+	//
+	// GetAllDeposits is called by the bidder to get all its deposits in the bidder registry,
+	// and the balance of the bidder EOA itself.
+	GetAllDeposits(ctx context.Context, in *GetAllDepositsRequest, opts ...grpc.CallOption) (*GetAllDepositsResponse, error)
 	// Withdraw
 	//
 	// Withdraw is called by the bidder to withdraw their deposit to a provider.
@@ -209,6 +215,16 @@ func (c *bidderClient) GetDeposit(ctx context.Context, in *GetDepositRequest, op
 	return out, nil
 }
 
+func (c *bidderClient) GetAllDeposits(ctx context.Context, in *GetAllDepositsRequest, opts ...grpc.CallOption) (*GetAllDepositsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAllDepositsResponse)
+	err := c.cc.Invoke(ctx, Bidder_GetAllDeposits_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *bidderClient) Withdraw(ctx context.Context, in *WithdrawRequest, opts ...grpc.CallOption) (*WithdrawResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(WithdrawResponse)
@@ -291,6 +307,11 @@ type BidderServer interface {
 	//
 	// GetDeposit is called by the bidder to get its deposit specific to a provider in the bidder registry.
 	GetDeposit(context.Context, *GetDepositRequest) (*DepositResponse, error)
+	// GetAllDeposits
+	//
+	// GetAllDeposits is called by the bidder to get all its deposits in the bidder registry,
+	// and the balance of the bidder EOA itself.
+	GetAllDeposits(context.Context, *GetAllDepositsRequest) (*GetAllDepositsResponse, error)
 	// Withdraw
 	//
 	// Withdraw is called by the bidder to withdraw their deposit to a provider.
@@ -341,6 +362,9 @@ func (UnimplementedBidderServer) GetValidProviders(context.Context, *GetValidPro
 }
 func (UnimplementedBidderServer) GetDeposit(context.Context, *GetDepositRequest) (*DepositResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDeposit not implemented")
+}
+func (UnimplementedBidderServer) GetAllDeposits(context.Context, *GetAllDepositsRequest) (*GetAllDepositsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAllDeposits not implemented")
 }
 func (UnimplementedBidderServer) Withdraw(context.Context, *WithdrawRequest) (*WithdrawResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Withdraw not implemented")
@@ -527,6 +551,24 @@ func _Bidder_GetDeposit_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Bidder_GetAllDeposits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAllDepositsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).GetAllDeposits(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_GetAllDeposits_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).GetAllDeposits(ctx, req.(*GetAllDepositsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Bidder_Withdraw_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(WithdrawRequest)
 	if err := dec(in); err != nil {
@@ -619,6 +661,10 @@ var Bidder_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDeposit",
 			Handler:    _Bidder_GetDeposit_Handler,
+		},
+		{
+			MethodName: "GetAllDeposits",
+			Handler:    _Bidder_GetAllDeposits_Handler,
 		},
 		{
 			MethodName: "Withdraw",

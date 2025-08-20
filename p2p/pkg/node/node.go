@@ -674,7 +674,7 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.Logger.With("component", "bidderapi"),
 				setCodeHelper,
 				depositManagerContract,
-				backend,
+				contractRPC,
 				topo,
 				depositManagerImplAddr,
 			)

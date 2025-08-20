@@ -102,6 +102,14 @@ service Bidder {
     };
   }
 
+  // GetAllDeposits
+  //
+  // GetAllDeposits is called by the bidder to get all its deposits in the bidder registry,
+  // and the balance of the bidder EOA itself.
+  rpc GetAllDeposits(GetAllDepositsRequest) returns (GetAllDepositsResponse) {
+    option (google.api.http) = {get: "/v1/bidder/get_all_deposits"};
+  }
+
   // Withdraw
   //
   // Withdraw is called by the bidder to withdraw their deposit to a provider.
@@ -277,6 +285,31 @@ message GetDepositRequest {
       message: "provider must be a valid Ethereum address.",
       expression: "this.matches('^(0x)?[a-fA-F0-9]{40}$')"
     }];
+}
+
+message GetAllDepositsRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "GetAllDeposits request"
+      description: "GetAllDeposits request."
+    }
+  };
+}
+
+message DepositInfo {
+  string provider = 1;
+  string amount = 2;
+}
+
+message GetAllDepositsResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "GetAllDeposits response"
+      description: "GetAllDeposits response."
+    }
+  };
+  repeated DepositInfo deposits = 1;
+  string bidder_balance = 2;
 }
 
 message RequestWithdrawalsRequest {

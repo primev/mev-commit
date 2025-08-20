@@ -158,6 +158,10 @@ func (t *testRegistryContract) ParseBidderWithdrawal(_ types.Log) (*bidderregist
 	}, nil
 }
 
+func (t *testRegistryContract) FilterBidderDeposited(_ *bind.FilterOpts, _ []common.Address, _ []common.Address, _ []*big.Int) (*bidderregistry.BidderregistryBidderDepositedIterator, error) {
+	return nil, nil
+}
+
 type testTxWatcher struct {
 	logs int
 }
