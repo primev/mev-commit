@@ -115,6 +115,7 @@ type Options struct {
 	OracleContract           string
 	ValidatorRouterContract  string
 	DepositManagerImplAddr   string
+	EnableDepositManager     bool
 	RPCEndpoint              string
 	WSRPCEndpoint            string
 	NatAddr                  string
@@ -691,6 +692,14 @@ func NewNode(opts *Options) (*Node, error) {
 				common.HexToAddress(opts.DepositManagerImplAddr),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
+
+			if opts.EnableDepositManager {
+				resp, err := bidderAPI.EnableDepositManager(context.Background(), &bidderapiv1.EnableDepositManagerRequest{})
+				if err != nil || !resp.Success {
+					opts.Logger.Warn("failed to enable deposit manager", "error", err)
+				}
+				opts.Logger.Info("deposit manager enabled")
+			}
 
 			keyexchange := keyexchange.New(
 				topo,

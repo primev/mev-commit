@@ -310,6 +310,14 @@ var (
 		Category: categoryContracts,
 	})
 
+	optionEnableDepositManager = altsrc.NewBoolFlag(&cli.BoolFlag{
+		Name:     "enable-deposit-manager",
+		Usage:    "Whether the deposit manager should be enabled",
+		EnvVars:  []string{"MEV_COMMIT_ENABLE_DEPOSIT_MANAGER"},
+		Value:    false,
+		Category: categoryBidder,
+	})
+
 	optionSettlementRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "settlement-rpc-endpoint",
 		Usage:    "RPC endpoint of the settlement layer",
@@ -501,6 +509,7 @@ func main() {
 		optionValidatorRouterAddr,
 		optionOracleAddr,
 		optionDepositManagerImplAddr,
+		optionEnableDepositManager,
 		optionSettlementRPCEndpoint,
 		optionSettlementWSRPCEndpoint,
 		optionNATAddr,
@@ -678,6 +687,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
 		ValidatorRouterContract:  c.String(optionValidatorRouterAddr.Name),
 		DepositManagerImplAddr:   c.String(optionDepositManagerImplAddr.Name),
+		EnableDepositManager:     c.Bool(optionEnableDepositManager.Name),
 		OracleContract:           c.String(optionOracleAddr.Name),
 		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
 		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),
