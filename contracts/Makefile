@@ -66,3 +66,11 @@ vault-actions:
 		--keystore $$KEYSTORE \
 		--password $$PASSWORD \
 		--broadcast
+
+core:
+	forge clean
+	forge script scripts/core/DeployCore.s.sol:DeployCore \
+		--via-ir \
+		--rpc-url http://localhost:8545 \
+		--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+		--broadcast
