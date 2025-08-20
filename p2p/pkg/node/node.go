@@ -114,7 +114,6 @@ type Options struct {
 	BidderRegistryContract   string
 	OracleContract           string
 	ValidatorRouterContract  string
-	DepositManagerImplAddr   string
 	EnableDepositManager     bool
 	RPCEndpoint              string
 	WSRPCEndpoint            string
@@ -668,7 +667,12 @@ func NewNode(opts *Options) (*Node, error) {
 				chainID,
 			)
 
-			if opts.DepositManagerImplAddr == "" {
+			depositManagerImplAddr, err := bidderRegistry.DepositManagerImpl(nil)
+			if err != nil {
+				opts.Logger.Error("failed to get deposit manager implementation address", "error", err)
+				return nil, err
+			}
+			if depositManagerImplAddr == (common.Address{}) {
 				opts.Logger.Error("deposit manager implementation address is not set")
 				return nil, errors.New("deposit manager implementation address is not set")
 			}
@@ -689,7 +693,7 @@ func NewNode(opts *Options) (*Node, error) {
 				depositManagerContract,
 				backend,
 				topo,
-				common.HexToAddress(opts.DepositManagerImplAddr),
+				depositManagerImplAddr,
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 

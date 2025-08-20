@@ -297,19 +297,6 @@ var (
 		Category: categoryContracts,
 	})
 
-	optionDepositManagerImplAddr = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "deposit-manager-contract",
-		Usage:   "Address of the deposit manager implementation for bidders",
-		EnvVars: []string{"MEV_COMMIT_DEPOSIT_MANAGER_IMPL_ADDR"},
-		Action: func(ctx *cli.Context, s string) error {
-			if s != "" && !common.IsHexAddress(s) {
-				return fmt.Errorf("invalid deposit manager implementation address: %s", s)
-			}
-			return nil
-		},
-		Category: categoryContracts,
-	})
-
 	optionEnableDepositManager = altsrc.NewBoolFlag(&cli.BoolFlag{
 		Name:     "enable-deposit-manager",
 		Usage:    "Whether the deposit manager should be enabled",
@@ -508,7 +495,6 @@ func main() {
 		optionBlockTrackerAddr,
 		optionValidatorRouterAddr,
 		optionOracleAddr,
-		optionDepositManagerImplAddr,
 		optionEnableDepositManager,
 		optionSettlementRPCEndpoint,
 		optionSettlementWSRPCEndpoint,
@@ -686,7 +672,6 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		BidderRegistryContract:   c.String(optionBidderRegistryAddr.Name),
 		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
 		ValidatorRouterContract:  c.String(optionValidatorRouterAddr.Name),
-		DepositManagerImplAddr:   c.String(optionDepositManagerImplAddr.Name),
 		EnableDepositManager:     c.Bool(optionEnableDepositManager.Name),
 		OracleContract:           c.String(optionOracleAddr.Name),
 		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
