@@ -303,6 +303,12 @@ definitions:
         type: string
         description: Amount of ETH that will be slashed from the provider if they fail to include the transaction. If zero, the decayed bid amount is used for slashing.
         pattern: '[0-9]+'
+      options:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/providerapiv1BidOption'
+        description: Optional bid options for the transaction.
     description: Signed bid message from bidders to the provider.
     title: Bid message
     required:
@@ -310,8 +316,47 @@ definitions:
       - bidAmount
       - blockNumber
       - bidDigest
+  providerapiv1BidOption:
+    type: object
+    properties:
+      positionConstraint:
+        $ref: '#/definitions/providerapiv1PositionConstraint'
+        description: Position constraint for the transaction in the block.
   providerapiv1EmptyMessage:
     type: object
+  providerapiv1PositionConstraint:
+    type: object
+    properties:
+      anchor:
+        $ref: '#/definitions/providerapiv1PositionConstraintAnchor'
+        description: Anchor position of the transaction in the block.
+      basis:
+        $ref: '#/definitions/providerapiv1PositionConstraintBasis'
+        description: Basis for the position constraint.
+      value:
+        type: integer
+        format: int32
+        description: Value of the position constraint. If anchor is TOP, this is the position from the top of the block. If anchor is BOTTOM, this is the position from the bottom of the block.
+    description: Constraint on the position of the transaction in the block.
+    title: Position Constraint
+  providerapiv1PositionConstraintAnchor:
+    type: string
+    enum:
+      - ANCHOR_TOP
+      - ANCHOR_BOTTOM
+    title: |-
+      - ANCHOR_TOP: Position is at the top of the block
+       - ANCHOR_BOTTOM: Position is at the bottom of the block
+  providerapiv1PositionConstraintBasis:
+    type: string
+    enum:
+      - BASIS_PERCENTILE
+      - BASIS_ABSOLUTE
+      - BASIS_GAS_PERCENTILE
+    title: |-
+      - BASIS_PERCENTILE: Position is a percentile of the block size
+       - BASIS_ABSOLUTE: Position is an absolute position in the block
+       - BASIS_GAS_PERCENTILE: Position is a percentile of the gas used in the block
   v1BidResponse:
     type: object
     example:
@@ -407,6 +452,12 @@ definitions:
       refund:
         type: string
         description: Refund amount in wei for the commitment, if applicable.
+      options:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/providerapiv1BidOption'
+        description: Optional bid options for the transaction.
   v1RewardResponse:
     type: object
     example:
