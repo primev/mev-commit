@@ -303,11 +303,8 @@ definitions:
         type: string
         description: Amount of ETH that will be slashed from the provider if they fail to include the transaction. If zero, the decayed bid amount is used for slashing.
         pattern: '[0-9]+'
-      options:
-        type: array
-        items:
-          type: object
-          $ref: '#/definitions/providerapiv1BidOption'
+      bidOptions:
+        $ref: '#/definitions/providerapiv1BidOptions'
         description: Optional bid options for the transaction.
     description: Signed bid message from bidders to the provider.
     title: Bid message
@@ -322,6 +319,17 @@ definitions:
       positionConstraint:
         $ref: '#/definitions/providerapiv1PositionConstraint'
         description: Position constraint for the transaction in the block.
+  providerapiv1BidOptions:
+    type: object
+    properties:
+      options:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/providerapiv1BidOption'
+        description: List of bid options.
+    description: Options for the bid.
+    title: Bid Options
   providerapiv1EmptyMessage:
     type: object
   providerapiv1PositionConstraint:
@@ -452,11 +460,8 @@ definitions:
       refund:
         type: string
         description: Refund amount in wei for the commitment, if applicable.
-      options:
-        type: array
-        items:
-          type: object
-          $ref: '#/definitions/providerapiv1BidOption'
+      bidOptions:
+        $ref: '#/definitions/providerapiv1BidOptions'
         description: Optional bid options for the transaction.
   v1RewardResponse:
     type: object

@@ -307,10 +307,7 @@ definitions:
           type: object
           $ref: '#/definitions/GetBidInfoResponseCommitmentWithStatus'
       bidOptions:
-        type: array
-        items:
-          type: object
-          $ref: '#/definitions/bidderapiv1BidOption'
+        $ref: '#/definitions/bidderapiv1BidOptions'
         description: Optional bid options for the transaction.
     description: Information about a bid including its commitments.
     title: Bid Info
@@ -421,10 +418,7 @@ definitions:
         description: Amount of ETH that will be slashed from the provider if they fail to include the transaction. If zero, the decayed bid amount is used for slashing.
         pattern: '[0-9]+'
       bidOptions:
-        type: array
-        items:
-          type: object
-          $ref: '#/definitions/bidderapiv1BidOption'
+        $ref: '#/definitions/bidderapiv1BidOptions'
         description: Optional bid options for the transaction.
     description: Unsigned bid message from bidders to the bidder mev-commit node.
     title: Bid message
@@ -439,6 +433,15 @@ definitions:
       positionConstraint:
         $ref: '#/definitions/bidderapiv1PositionConstraint'
         description: Position constraint for the transaction in the block.
+  bidderapiv1BidOptions:
+    type: object
+    properties:
+      options:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/bidderapiv1BidOption'
+        description: List of bid options for the transaction.
   bidderapiv1Commitment:
     type: object
     properties:
@@ -491,10 +494,7 @@ definitions:
         type: string
         description: Amount of ETH that will be slashed from the provider if they fail to include the transaction.
       bidOptions:
-        type: array
-        items:
-          type: object
-          $ref: '#/definitions/bidderapiv1BidOption'
+        $ref: '#/definitions/bidderapiv1BidOptions'
         description: Optional bid options for the transaction.
     description: Commitment message from the provider to the bidder mev-commit node.
     title: Commitment message

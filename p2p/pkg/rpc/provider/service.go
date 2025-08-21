@@ -16,11 +16,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
+	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type ProcessedBidResponse struct {
@@ -121,6 +123,30 @@ func (s *Service) ProcessBid(
 	if bid.RevertingTxHashes != "" {
 		revertingTxnHashes = strings.Split(bid.RevertingTxHashes, ",")
 	}
+	var opts *providerapiv1.BidOptions
+	if bid.BidOptions != nil {
+		bidderOpts := new(bidderapiv1.BidOptions)
+		if err := proto.Unmarshal(bid.BidOptions, bidderOpts); err != nil {
+			return nil, fmt.Errorf("unmarshalling bid options: %w", err)
+		}
+		opts := new(providerapiv1.BidOptions)
+		for _, bOpt := range bidderOpts.Options {
+			switch {
+			case bOpt.GetPositionConstraint() != nil:
+				c := bOpt.GetPositionConstraint()
+				opt := &providerapiv1.BidOption{
+					Opt: &providerapiv1.BidOption_PositionConstraint{
+						PositionConstraint: &providerapiv1.PositionConstraint{
+							Anchor: providerapiv1.PositionConstraint_Anchor(c.GetAnchor()),
+							Basis:  providerapiv1.PositionConstraint_Basis(c.GetBasis()),
+							Value:  c.GetValue(),
+						},
+					},
+				}
+				opts.Options = append(opts.Options, opt)
+			}
+		}
+	}
 	bidMsg := &providerapiv1.Bid{
 		TxHashes:            strings.Split(bid.TxHash, ","),
 		BidAmount:           bid.BidAmount,
@@ -131,6 +157,7 @@ func (s *Service) ProcessBid(
 		DecayEndTimestamp:   bid.DecayEndTimestamp,
 		RevertingTxHashes:   revertingTxnHashes,
 		RawTransactions:     bid.RawTransactions,
+		BidOptions:          opts,
 	}
 
 	err := s.validator.Validate(bidMsg)

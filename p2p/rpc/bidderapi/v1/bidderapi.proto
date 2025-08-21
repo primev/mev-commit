@@ -333,6 +333,16 @@ message BidOption {
   }
 };
 
+message BidOptions {
+  repeated BidOption options = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "List of bid options for the transaction."
+  }, (buf.validate.field).cel = {
+      id: "options",
+      message: "options must be a valid array of bid options.",
+      expression: "this.all(r, r != null)"
+  }];
+}
+
 message Bid {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
@@ -401,12 +411,8 @@ message Bid {
       message: "slash_amount must be a valid integer.",
       expression: "this == '' || (this.matches('^[0-9]+$') && uint(this) >= 0)"
   }];
-  repeated BidOption bid_options = 9 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+  BidOptions bid_options = 9 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Optional bid options for the transaction."
-  }, (buf.validate.field).cel = {
-      id: "bid_options",
-      message: "bid_options must be a valid array of bid options.",
-      expression: "this.all(r, r != null)"
   }];
 };
 
@@ -457,7 +463,7 @@ message Commitment {
   string slash_amount = 13 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Amount of ETH that will be slashed from the provider if they fail to include the transaction."
   }];
-  repeated BidOption bid_options = 14 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+  BidOptions bid_options = 14 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Optional bid options for the transaction."
   }];
 };
@@ -531,7 +537,7 @@ message GetBidInfoResponse {
       pattern: "[0-9]+"
     }];
     repeated CommitmentWithStatus commitments = 9;
-    repeated BidOption bid_options = 10 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    BidOptions bid_options = 10 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Optional bid options for the transaction."
     }];
   };
