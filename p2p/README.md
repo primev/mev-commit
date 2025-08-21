@@ -46,7 +46,8 @@ curl -s http://localhost:13523/v1/bidder/get_valid_providers | jq
 
 ```
 curl -s -X POST http://localhost:13523/v1/bidder/set_target_deposits \
-    -H 'Content-Type: application/json' -d '{"target_deposits": [{"provider": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC", "amount": "3000000000000000000"}]}' | jq
+  -H 'Content-Type: application/json' \
+  -d '{"target_deposits":[{"provider":"0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC","target_deposit":3000000000000000000}]}' | jq
 ```
 
 
