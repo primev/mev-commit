@@ -775,7 +775,14 @@ func (s *Service) GetValidProviders(
 		return nil, status.Errorf(codes.InvalidArgument, "validating get valid providers request: %v", err)
 	}
 
-	connectedProviders := s.topology.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
+	// Simulate provider p2p connection
+	connectedProviders := []p2p.Peer{
+		p2p.Peer{
+			EthAddress: common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
+			Type:       p2p.PeerTypeProvider,
+		},
+	}
+
 	providerAddrs := make([]common.Address, len(connectedProviders))
 	for i, provider := range connectedProviders {
 		providerAddrs[i] = provider.EthAddress

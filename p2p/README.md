@@ -22,7 +22,7 @@ Private Key: 0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
 __Run `make getcode` from `contracts` directory to get the code of the bidder node__
 
 4. Start local bidder node by running `make bidder` from `p2p` directory
-5. Enable deposit manager for bidder 
+5. Enable deposit manager for bidder. This command sets the code of the bidder EOA to the DepositManager implementation.
   ```
   curl -s -X POST http://localhost:13523/v1/bidder/enable_deposit_manager \
     -H 'Content-Type: application/json' -d '{}' | jq
@@ -30,7 +30,25 @@ __Run `make getcode` from `contracts` directory to get the code of the bidder no
 
 __Run `make getcode` from `contracts` directory again to get the code of the bidder node__
 
-6.
+6. Get all deposits for bidder. There will be none.
+
+```
+curl -s http://localhost:13523/v1/bidder/get_all_deposits | jq
+```
+
+7. Get valid providers. The returned list included providers which are both connected via p2p, and fully registered/staked with the provider registry.
+
+```
+curl -s http://localhost:13523/v1/bidder/get_valid_providers | jq
+```
+
+8. Set target deposit of 3 ETH for only provider returned by `get_valid_providers`
+
+```
+curl -s -X POST http://localhost:13523/v1/bidder/set_target_deposits \
+    -H 'Content-Type: application/json' -d '{"target_deposits": [{"provider": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC", "amount": "3000000000000000000"}]}' | jq
+```
+
 
 
 ## TODO: Document with various commands for demo. Node API, checking balances, simulating bid, etc.
