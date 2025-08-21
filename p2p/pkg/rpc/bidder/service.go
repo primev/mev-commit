@@ -2,7 +2,6 @@ package bidderapi
 
 import (
 	"context"
-	"encoding/hex"
 	"log/slog"
 	"math/big"
 	"strings"
@@ -97,6 +96,13 @@ type BidderRegistryContract interface {
 	ParseWithdrawalRequested(types.Log) (*bidderregistry.BidderregistryWithdrawalRequested, error)
 	ParseBidderWithdrawal(types.Log) (*bidderregistry.BidderregistryBidderWithdrawal, error)
 	FilterBidderDeposited(opts *bind.FilterOpts, bidder []common.Address, provider []common.Address, depositedAmount []*big.Int) (*bidderregistry.BidderregistryBidderDepositedIterator, error)
+	OpenBid(
+		opts *bind.TransactOpts,
+		commitmentDigest [32]byte,
+		bidAmt *big.Int,
+		bidderAddr common.Address,
+		providerAddr common.Address,
+	) (*types.Transaction, error)
 }
 
 type ProviderRegistryContract interface {
@@ -145,103 +151,38 @@ func (s *Service) SendBid(
 	ctx, cancel := context.WithTimeout(srv.Context(), s.bidTimeout)
 	defer cancel()
 
-	s.metrics.ReceivedBidsCount.Inc()
+	// Simulate preconf from provider for demo. Just open bid directly in bidder registry
+	commitmentDigest := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
+	bidAmt, success := big.NewInt(0).SetString(bid.Amount, 10)
+	if !success {
+		s.logger.Error("parsing bid amount", "bid amount", bid.Amount)
+		return status.Errorf(codes.InvalidArgument, "parsing bid amount: %v", bid.Amount)
+	}
 
-	err := s.validator.Validate(bid)
+	bidderAddr := s.owner
+	providerAddr := common.HexToAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
+
+	opts, err := s.optsGetter(ctx)
 	if err != nil {
-		s.logger.Error("bid validation", "error", err)
-		return status.Errorf(codes.InvalidArgument, "validating bid: %v", err)
+		s.logger.Error("getting transact opts", "error", err)
+		return status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 
-	switch {
-	case len(bid.TxHashes) == 0 && len(bid.RawTransactions) == 0:
-		s.logger.Error("empty bid", "bid", bid)
-		return status.Error(codes.InvalidArgument, "empty bid")
-	case len(bid.TxHashes) > 0 && len(bid.RawTransactions) > 0:
-		s.logger.Error("both txHashes and rawTransactions are provided", "bid", bid)
-		return status.Error(codes.InvalidArgument, "both txHashes and rawTransactions are provided")
-	}
-
-	// Helper function to strip "0x" prefix
-	stripPrefix := func(hashes []string) []string {
-		stripped := make([]string, len(hashes))
-		for i, hash := range hashes {
-			stripped[i] = strings.TrimPrefix(hash, "0x")
-		}
-		return stripped
-	}
-	var (
-		txnsStr string
-	)
-	switch {
-	case len(bid.TxHashes) > 0:
-		txnsStr = strings.Join(stripPrefix(bid.TxHashes), ",")
-	case len(bid.RawTransactions) > 0:
-		strBuilder := new(strings.Builder)
-		for i, rawTx := range bid.RawTransactions {
-			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
-			if err != nil {
-				s.logger.Error("decoding raw transaction", "error", err)
-				return status.Errorf(codes.InvalidArgument, "decoding raw transaction: %v", err)
-			}
-			txnObj := new(types.Transaction)
-			err = txnObj.UnmarshalBinary(rawTxnBytes)
-			if err != nil {
-				s.logger.Error("unmarshaling raw transaction", "error", err)
-				return status.Errorf(codes.InvalidArgument, "unmarshaling raw transaction: %v", err)
-			}
-			strBuilder.WriteString(strings.TrimPrefix(txnObj.Hash().Hex(), "0x"))
-			if i != len(bid.RawTransactions)-1 {
-				strBuilder.WriteString(",")
-			}
-		}
-		txnsStr = strBuilder.String()
-	}
-
-	if bid.SlashAmount == "" {
-		bid.SlashAmount = "0"
-	}
-
-	respC, err := s.sender.SendBid(
-		ctx,
-		&preconfirmationv1.Bid{
-			TxHash:              txnsStr,
-			BidAmount:           bid.Amount,
-			SlashAmount:         bid.SlashAmount,
-			BlockNumber:         bid.BlockNumber,
-			DecayStartTimestamp: bid.DecayStartTimestamp,
-			DecayEndTimestamp:   bid.DecayEndTimestamp,
-			RevertingTxHashes:   strings.Join(stripPrefix(bid.RevertingTxHashes), ","),
-			RawTransactions:     bid.RawTransactions,
-		},
-	)
+	tx, err := s.registryContract.OpenBid(opts, commitmentDigest, bidAmt, bidderAddr, providerAddr)
 	if err != nil {
-		s.logger.Error("sending bid", "error", err)
-		return status.Errorf(codes.Internal, "error sending bid: %v", err)
+		s.logger.Error("opening bid", "error", err)
+		return status.Errorf(codes.Internal, "opening bid: %v", err)
 	}
 
-	for resp := range respC {
-		b := resp.Bid
-		err := srv.Send(&bidderapiv1.Commitment{
-			TxHashes:             strings.Split(b.TxHash, ","),
-			BidAmount:            b.BidAmount,
-			SlashAmount:          b.SlashAmount,
-			BlockNumber:          b.BlockNumber,
-			ReceivedBidDigest:    hex.EncodeToString(b.Digest),
-			ReceivedBidSignature: hex.EncodeToString(b.Signature),
-			CommitmentDigest:     hex.EncodeToString(resp.Digest),
-			CommitmentSignature:  hex.EncodeToString(resp.Signature),
-			ProviderAddress:      common.Bytes2Hex(resp.ProviderAddress),
-			DecayStartTimestamp:  b.DecayStartTimestamp,
-			DecayEndTimestamp:    b.DecayEndTimestamp,
-			DispatchTimestamp:    resp.DispatchTimestamp,
-			RevertingTxHashes:    strings.Split(b.RevertingTxHashes, ","),
-		})
-		if err != nil {
-			s.logger.Error("sending preConfirmation", "error", err)
-			return err
-		}
-		s.metrics.ReceivedPreconfsCount.Inc()
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
+		return status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
+		return status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
 	return nil

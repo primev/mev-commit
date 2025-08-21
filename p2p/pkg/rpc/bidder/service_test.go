@@ -162,6 +162,10 @@ func (t *testRegistryContract) FilterBidderDeposited(_ *bind.FilterOpts, _ []com
 	return nil, nil
 }
 
+func (t *testRegistryContract) OpenBid(_ *bind.TransactOpts, _ [32]byte, _ *big.Int, _ common.Address, _ common.Address) (*types.Transaction, error) {
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
 type testTxWatcher struct {
 	logs int
 }
