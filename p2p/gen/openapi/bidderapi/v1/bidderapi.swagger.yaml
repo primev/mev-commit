@@ -644,7 +644,6 @@ definitions:
         type: string
       targetDeposit:
         type: string
-        format: uint64
   v1WithdrawRequest:
     type: object
     properties:

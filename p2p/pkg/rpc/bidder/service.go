@@ -661,7 +661,8 @@ func (s *Service) SetTargetDeposits(
 	amounts := make([]*big.Int, len(r.TargetDeposits))
 	for i, targetDeposit := range r.TargetDeposits {
 		providers[i] = common.HexToAddress(targetDeposit.Provider)
-		amounts[i] = big.NewInt(int64(targetDeposit.TargetDeposit))
+		amounts[i] = big.NewInt(0)
+		amounts[i].SetString(targetDeposit.TargetDeposit, 10)
 	}
 	tx, err := s.depositManager.SetTargetDeposits(opts, providers, amounts)
 	if err != nil {
@@ -685,7 +686,7 @@ func (s *Service) SetTargetDeposits(
 		if targetDeposit, err := s.depositManager.ParseTargetDepositSet(*log); err == nil {
 			response.SuccessfullySetDeposits = append(response.SuccessfullySetDeposits, &bidderapiv1.TargetDeposit{
 				Provider:      common.Bytes2Hex(targetDeposit.Provider.Bytes()),
-				TargetDeposit: targetDeposit.Amount.Uint64(),
+				TargetDeposit: targetDeposit.Amount.String(),
 			})
 		}
 	}

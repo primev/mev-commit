@@ -115,7 +115,7 @@ func New(config *Config) (*Service, error) {
 	for i, provider := range validProviders.ValidProviders {
 		targetDeposits[i] = &bidderapiv1.TargetDeposit{
 			Provider:      provider,
-			TargetDeposit: config.AutoDepositAmount.Uint64(),
+			TargetDeposit: config.AutoDepositAmount.String(),
 		}
 	}
 

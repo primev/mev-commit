@@ -78,7 +78,7 @@ func (b *bidder) setup(depositAmount string) error {
 	for i, provider := range validProviders.ValidProviders {
 		targetDeposits[i] = &pb.TargetDeposit{
 			Provider:      provider,
-			TargetDeposit: depositAmountInt.Uint64(),
+			TargetDeposit: depositAmountInt.String(),
 		}
 	}
 

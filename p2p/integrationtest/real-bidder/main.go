@@ -229,7 +229,7 @@ func main() {
 	resp, err := bidderClient.SetTargetDeposits(context.Background(), &pb.SetTargetDepositsRequest{
 		TargetDeposits: []*pb.TargetDeposit{
 			{
-				TargetDeposit: minDeposit.Uint64(),
+				TargetDeposit: minDeposit.String(),
 				Provider:      providerAddress,
 			},
 		},

@@ -236,7 +236,7 @@ message EnableDepositManagerResponse {
 
 message TargetDeposit {
   string provider = 1;
-  uint64 target_deposit = 2;
+  string target_deposit = 2;
 }
 
 message SetTargetDepositsRequest {
