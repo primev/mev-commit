@@ -69,8 +69,26 @@ vault-actions:
 
 core:
 	forge clean
+	export ORACLE_KEYSTORE_ADDRESS=0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
 	forge script scripts/core/DeployCore.s.sol:DeployCore \
 		--via-ir \
 		--rpc-url http://localhost:8545 \
 		--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
 		--broadcast
+
+provider-reg:
+	forge script scripts/Demo.s.sol:RegisterProvider \
+		--via-ir \
+		--rpc-url http://localhost:8545 \
+		--private-key 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a \
+		--broadcast
+	forge script scripts/Demo.s.sol:ManuallyOverrideBLSKey \
+		--via-ir \
+		--rpc-url http://localhost:8545 \
+		--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+		--broadcast
+
+getcode:
+	forge script scripts/Demo.s.sol:GetCode \
+		--via-ir \
+		--rpc-url http://localhost:8545
