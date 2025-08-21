@@ -61,7 +61,6 @@ curl -s http://localhost:13523/v1/bidder/get_all_deposits | jq
 
 10. Bid 1 ETH. Commitment process is simulated. Commitment is opened onchain by the provider, and deposit relevant to that provider should be topped-up atomically.
 
-Mock out the whole preconf flow, a provider registering, being seen by bidder. balances being decremented when preconf happens etc. Will need to have some make targets for oracle doing things etc....
 ```
 curl -X POST http://localhost:13523/v1/bidder/bid \
 -d '{
