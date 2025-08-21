@@ -21,6 +21,7 @@ interface IPreconfManager {
         bytes commitmentSignature;
         string txnHash;
         string revertingTxHashes;
+        bytes bidOptions;
     }
 
     /// @dev Struct for all the commitment params to avoid too deep in the stack error
@@ -52,6 +53,7 @@ interface IPreconfManager {
         // the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
         // the challenge (zkProof[6]), and the response (zkProof[7])
         uint256[] zkProof;
+        bytes bidOptions; // The encoded options
     }
 
     /// @dev Struct for all the information around unopened preconfirmations commitment
@@ -76,7 +78,8 @@ interface IPreconfManager {
         string txnHash,
         string revertingTxHashes,
         bytes32 commitmentDigest,
-        uint64 dispatchTimestamp
+        uint64 dispatchTimestamp,
+        bytes bidOptions
     );
 
     /// @dev Event to log successful unopened commitment storage
