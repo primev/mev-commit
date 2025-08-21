@@ -60,7 +60,10 @@ service Bidder {
   // within the deposit manager. During this call, the bidder node will also attempt to top-up
   // deposits for each new target deposit.
   rpc SetTargetDeposits(SetTargetDepositsRequest) returns (SetTargetDepositsResponse) {
-    option (google.api.http) = {post: "/v1/bidder/set_target_deposits"};
+    option (google.api.http) = {
+      post: "/v1/bidder/set_target_deposits"
+      body: "*"
+    };
   }
 
   // DepositManagerStatus
@@ -114,7 +117,10 @@ service Bidder {
   //
   // Withdraw is called by the bidder to withdraw their deposit to a provider.
   rpc Withdraw(WithdrawRequest) returns (WithdrawResponse) {
-    option (google.api.http) = {post: "/v1/bidder/withdraw"};
+    option (google.api.http) = {
+      post: "/v1/bidder/withdraw"
+      body: "*"
+    };
   }
 
   // GetBidInfo

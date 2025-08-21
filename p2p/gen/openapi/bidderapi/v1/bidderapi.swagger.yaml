@@ -266,6 +266,13 @@ paths:
           description: An unexpected error response.
           schema:
             $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: body
+          description: OverrideTargetDepositsRequest request.
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1SetTargetDepositsRequest'
   /v1/bidder/withdraw:
     post:
       summary: Withdraw
@@ -281,14 +288,12 @@ paths:
           schema:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
-        - name: providers
-          description: Provider Ethereum addresses.
-          in: query
-          required: false
-          type: array
-          items:
-            type: string
-          collectionFormat: multi
+        - name: body
+          description: Withdraw deposits from provider(s).
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1WithdrawRequest'
 definitions:
   GetBidInfoResponseBidInfo:
     type: object
@@ -608,6 +613,16 @@ definitions:
           type: string
     description: Request withdrawals from provider(s).
     title: RequestWithdrawals response
+  v1SetTargetDepositsRequest:
+    type: object
+    properties:
+      targetDeposits:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1TargetDeposit'
+    description: OverrideTargetDepositsRequest request.
+    title: OverrideTargetDepositsRequest request
   v1SetTargetDepositsResponse:
     type: object
     properties:
@@ -630,6 +645,16 @@ definitions:
       targetDeposit:
         type: string
         format: uint64
+  v1WithdrawRequest:
+    type: object
+    properties:
+      providers:
+        type: array
+        items:
+          type: string
+        description: Provider Ethereum addresses.
+    description: Withdraw deposits from provider(s).
+    title: Withdraw request
   v1WithdrawResponse:
     type: object
     example:
