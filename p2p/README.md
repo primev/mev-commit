@@ -24,29 +24,23 @@ Private Key: 0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
 
 4. Start local bidder node by running `make bidder` from `p2p` directory
 
-__Run `make getcode` from `contracts` directory to get the code of the bidder node__
+5. Run `make getcode` from `contracts` directory to get the code of the bidder node
 
-5. Enable deposit manager for bidder. This command sets the code of the bidder EOA to the DepositManager implementation.
+6. Enable deposit manager for bidder. This command sets the code of the bidder EOA to the DepositManager implementation.
   ```
   curl -s -X POST http://localhost:13523/v1/bidder/enable_deposit_manager \
     -H 'Content-Type: application/json' -d '{}' | jq
   ```
 
-__Run `make getcode` from `contracts` directory again to get the code of the bidder node__
+7. Run `make getcode` from `contracts` directory again to get the code of the bidder node
 
-6. Get all deposits for bidder. There will be none.
-
-```
-curl -s http://localhost:13523/v1/bidder/get_all_deposits | jq
-```
-
-7. Get valid providers. The returned list included providers which are both connected via p2p, and fully registered/staked with the provider registry.
+8. Get valid providers. The returned list included providers which are both connected via p2p, and fully registered/staked with the provider registry.
 
 ```
 curl -s http://localhost:13523/v1/bidder/get_valid_providers | jq
 ```
 
-8. Set target deposit of 3 ETH for only provider returned by `get_valid_providers`
+9. Set target deposit of 3 ETH for only provider returned by `get_valid_providers`
 
 ```
 curl -s -X POST http://localhost:13523/v1/bidder/set_target_deposits \
@@ -54,13 +48,13 @@ curl -s -X POST http://localhost:13523/v1/bidder/set_target_deposits \
   -d '{"target_deposits":[{"provider":"0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC","target_deposit":"3000000000000000000"}]}' | jq
 ```
 
-9. Get all deposits again. Note bidderBalance before we bid.
+10. Get all deposits. Note bidderBalance before we bid.
 
 ```
 curl -s http://localhost:13523/v1/bidder/get_all_deposits | jq
 ```
 
-10. Bid 1 ETH. Commitment process is simulated. Commitment is opened onchain by the provider, and deposit relevant to that provider should be topped-up atomically.
+11. Bid 1 ETH. Commitment process is simulated. Commitment is opened onchain by the provider, and deposit relevant to that provider should be topped-up atomically.
 
 ```
 curl -X POST http://localhost:13523/v1/bidder/bid \
@@ -74,7 +68,7 @@ curl -X POST http://localhost:13523/v1/bidder/bid \
 }'
 ```
 
-11. __Try calling `get_all_deposits` again. Note that the bidder balance has decreased by 1 ETH due to top-up__
+12. __Try calling `get_all_deposits` again. Note that the bidder balance has decreased by 1 ETH due to top-up__
 
 ```
 curl -s http://localhost:13523/v1/bidder/get_all_deposits | jq
