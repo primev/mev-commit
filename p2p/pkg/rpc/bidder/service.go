@@ -434,13 +434,31 @@ func (s *Service) GetAllDeposits(
 		return nil, status.Errorf(codes.Internal, "filtering bidder deposited: %v", err)
 	}
 
-	response := &bidderapiv1.GetAllDepositsResponse{}
-
+	providersToQuery := make(map[common.Address]bool)
 	for deposits.Next() {
-		deposit := deposits.Event
+		providersToQuery[deposits.Event.Provider] = true
+	}
+	if err := deposits.Error(); err != nil {
+		s.logger.Error("error iterating over deposits", "error", err)
+		return nil, status.Errorf(codes.Internal, "error iterating over deposits: %v", err)
+	}
+
+	response := &bidderapiv1.GetAllDepositsResponse{}
+	for provider := range providersToQuery {
+		deposit, err := s.registryContract.GetDeposit(&bind.CallOpts{
+			From:    s.owner,
+			Context: ctx,
+		}, s.owner, provider)
+		if err != nil {
+			s.logger.Error("getting deposit", "error", err)
+			return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
+		}
+		if deposit.Cmp(big.NewInt(0)) == 0 {
+			continue
+		}
 		response.Deposits = append(response.Deposits, &bidderapiv1.DepositInfo{
-			Provider: common.Bytes2Hex(deposit.Provider.Bytes()),
-			Amount:   deposit.DepositedAmount.String(),
+			Provider: provider.Hex(),
+			Amount:   deposit.String(),
 		})
 	}
 
