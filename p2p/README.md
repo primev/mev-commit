@@ -53,7 +53,7 @@ curl -s -X POST http://localhost:13523/v1/bidder/set_target_deposits \
 curl -s http://localhost:13523/v1/bidder/get_all_deposits | jq
 ```
 
-10. Bid 1 ETH. Commitment process is simulated. Commitment is opened onchain by the provider, and deposit relevant to that provider should be topped-up atomically.
+10. Bid 1 ETH, p2p is simulated, commitment is opened in bidder registry, deposit should be topped-up atomically onchain.
 
 ```
 curl -X POST http://localhost:13523/v1/bidder/bid \
