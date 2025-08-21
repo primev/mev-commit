@@ -1,3 +1,4 @@
+# New Bidder UX Demo
 
 The following demonstrates the new preconfirmation flow from the perspective of a bidder. The demo works locally with anvil and simulates parts of the system that are not bidder-specific.
 
