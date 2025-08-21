@@ -37,7 +37,7 @@ contract PreconfManager is
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmt,uint256 bidderPKx,uint256 bidderPKy)"
+            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmt,uint256 bidderPKx,uint256 bidderPKy,bytes bidOptions)"
         );
 
     // Hex characters
@@ -285,7 +285,8 @@ contract PreconfManager is
             commitmentDigest,
             unopenedCommitment.commitmentSignature,
             params.txnHash,
-            params.revertingTxHashes
+            params.revertingTxHashes,
+            params.bidOptions
         );
 
         commitmentIndex = getOpenedCommitmentIndex(newCommitment);
@@ -490,7 +491,8 @@ contract PreconfManager is
                         params.decayEndTimeStamp,
                         params.slashAmt,
                         params.zkProof[2], // _bidderPKx,
-                        params.zkProof[3] // _bidderPKy
+                        params.zkProof[3], // _bidderPKy
+                        keccak256(bytes(params.bidOptions))
                     )
                 )
             );
@@ -636,7 +638,8 @@ contract PreconfManager is
             newCommitment.txnHash,
             newCommitment.revertingTxHashes,
             newCommitment.commitmentDigest,
-            newCommitment.dispatchTimestamp
+            newCommitment.dispatchTimestamp,
+            newCommitment.bidOptions
         );
     }
 
