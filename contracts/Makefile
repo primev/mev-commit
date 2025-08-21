@@ -67,7 +67,7 @@ vault-actions:
 		--password $$PASSWORD \
 		--broadcast
 
-core:
+setup:
 	forge clean
 	export ORACLE_KEYSTORE_ADDRESS=0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
 	forge script scripts/core/DeployCore.s.sol:DeployCore \
@@ -75,8 +75,6 @@ core:
 		--rpc-url http://localhost:8545 \
 		--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
 		--broadcast
-
-provider-reg:
 	forge script scripts/Demo.s.sol:RegisterProvider \
 		--via-ir \
 		--rpc-url http://localhost:8545 \
