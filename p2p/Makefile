@@ -14,7 +14,7 @@ bufgen:
 	cd messages && buf generate -o ../
 
 bidder:
-	export MEV_COMMIT_PRIVKEY_FILE=$(realpath cmd/defaultkey)
+	MEV_COMMIT_PRIVKEY_FILE=$(realpath cmd/defaultkey) \
 	go run cmd/main.go \
 		--peer-type=bidder \
 		--bidder-registry-contract="0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9" \
