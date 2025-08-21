@@ -652,6 +652,11 @@ func (s *Service) SetTargetDeposits(
 		return nil, status.Errorf(codes.FailedPrecondition, "SetTargetDeposits failed: deposit manager is not enabled")
 	}
 
+	if len(r.TargetDeposits) == 0 {
+		s.logger.Error("SetTargetDeposits failed: no target deposits provided")
+		return nil, status.Errorf(codes.InvalidArgument, "SetTargetDeposits failed: no target deposits provided")
+	}
+
 	providers := make([]common.Address, len(r.TargetDeposits))
 	amounts := make([]*big.Int, len(r.TargetDeposits))
 	for i, targetDeposit := range r.TargetDeposits {
