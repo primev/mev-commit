@@ -115,6 +115,7 @@ type Options struct {
 	OracleContract           string
 	ValidatorRouterContract  string
 	EnableDepositManager     bool
+	TargetDepositAmount      *big.Int
 	RPCEndpoint              string
 	WSRPCEndpoint            string
 	NatAddr                  string
@@ -681,11 +682,42 @@ func NewNode(opts *Options) (*Node, error) {
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
 			if opts.EnableDepositManager {
-				resp, err := bidderAPI.EnableDepositManager(context.Background(), &bidderapiv1.EnableDepositManagerRequest{})
-				if err != nil || !resp.Success {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				enableDepositMngrResp, err := bidderAPI.EnableDepositManager(ctx, &bidderapiv1.EnableDepositManagerRequest{})
+				if err != nil || !enableDepositMngrResp.Success {
 					opts.Logger.Warn("failed to enable deposit manager", "error", err)
+				} else {
+					opts.Logger.Info("deposit manager enabled")
 				}
-				opts.Logger.Info("deposit manager enabled")
+				if opts.TargetDepositAmount != nil {
+					providers, err := bidderAPI.GetValidProviders(ctx, &bidderapiv1.GetValidProvidersRequest{})
+					if err != nil {
+						opts.Logger.Warn("failed to get valid providers", "error", err)
+					}
+					opts.Logger.Info("valid providers who'll be deposited to", "providers", providers.ValidProviders)
+					setTargetDepositsReq := &bidderapiv1.SetTargetDepositsRequest{}
+					for _, provider := range providers.ValidProviders {
+						setTargetDepositsReq.TargetDeposits = append(setTargetDepositsReq.TargetDeposits,
+							&bidderapiv1.TargetDeposit{
+								Provider:      provider,
+								TargetDeposit: opts.TargetDepositAmount.String(),
+							},
+						)
+					}
+
+					setTargetDepositsResp, err := bidderAPI.SetTargetDeposits(ctx, setTargetDepositsReq)
+					if err != nil {
+						opts.Logger.Warn("failed to set target deposit amount", "error", err)
+					} else {
+						if len(setTargetDepositsResp.SuccessfullySetDeposits) < len(providers.ValidProviders) {
+							opts.Logger.Warn("failed to set target deposit amount for all valid providers", "error", err)
+						} else {
+							opts.Logger.Info("target deposit amount set for all valid providers", "amount", opts.TargetDepositAmount)
+						}
+						opts.Logger.Info("successfully topped up providers", "providers", setTargetDepositsResp.SuccessfullyToppedUpProviders)
+					}
+				}
 			}
 
 			keyexchange := keyexchange.New(

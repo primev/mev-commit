@@ -297,10 +297,19 @@ var (
 		Category: categoryContracts,
 	})
 
+	optionTargetDepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:  "target-deposit-amount",
+		Usage: "Target deposit amount that'll be set for every valid provider",
+		// Backwards compatible with prev "auto deposit" feature
+		EnvVars:  []string{"MEV_COMMIT_TARGET_DEPOSIT_AMOUNT", "MEV_COMMIT_AUTODEPOSIT_AMOUNT"},
+		Category: categoryBidder,
+	})
+
 	optionEnableDepositManager = altsrc.NewBoolFlag(&cli.BoolFlag{
-		Name:     "enable-deposit-manager",
-		Usage:    "Whether the deposit manager should be enabled",
-		EnvVars:  []string{"MEV_COMMIT_ENABLE_DEPOSIT_MANAGER"},
+		Name:  "enable-deposit-manager",
+		Usage: "Whether the deposit manager should be enabled",
+		// Backwards compatible with prev "auto deposit" feature
+		EnvVars:  []string{"MEV_COMMIT_ENABLE_DEPOSIT_MANAGER", "MEV_COMMIT_AUTODEPOSIT_ENABLED"},
 		Value:    false,
 		Category: categoryBidder,
 	})
@@ -496,6 +505,7 @@ func main() {
 		optionValidatorRouterAddr,
 		optionOracleAddr,
 		optionEnableDepositManager,
+		optionTargetDepositAmount,
 		optionSettlementRPCEndpoint,
 		optionSettlementWSRPCEndpoint,
 		optionNATAddr,
@@ -593,8 +603,16 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 	}
 
 	var (
-		ok bool
+		targetDepositAmount *big.Int
+		ok                  bool
 	)
+	if c.String(optionTargetDepositAmount.Name) != "" && c.Bool(optionEnableDepositManager.Name) {
+		targetDepositAmount, ok = new(big.Int).SetString(c.String(optionTargetDepositAmount.Name), 10)
+		if !ok {
+			return fmt.Errorf("failed to parse target deposit amount %q", c.String(optionTargetDepositAmount.Name))
+		}
+	}
+
 	crtFile := c.String(optionServerTLSCert.Name)
 	keyFile := c.String(optionServerTLSPrivateKey.Name)
 	if (crtFile == "") != (keyFile == "") {
@@ -673,6 +691,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
 		ValidatorRouterContract:  c.String(optionValidatorRouterAddr.Name),
 		EnableDepositManager:     c.Bool(optionEnableDepositManager.Name),
+		TargetDepositAmount:      targetDepositAmount,
 		OracleContract:           c.String(optionOracleAddr.Name),
 		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
 		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),
