@@ -483,7 +483,7 @@ contract PreconfManager is
                         params.slashAmt,
                         params.zkProof[2], // _bidderPKx,
                         params.zkProof[3], // _bidderPKy
-                        keccak256(bytes(params.bidOptions))
+                        keccak256(params.bidOptions)
                     )
                 )
             );
