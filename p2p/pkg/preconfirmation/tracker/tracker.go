@@ -604,6 +604,7 @@ func (t *Tracker) openCommitments(
 				BidSignature:            commitment.Bid.Signature,
 				SlashAmt:                slashAmt,
 				ZkProof:                 zkProof,
+				BidOptions:              commitment.Bid.BidOptions,
 			},
 		)
 		if err != nil {
