@@ -1003,7 +1003,11 @@ func handleEnableDepositManager(bidderAPI *bidderapi.Service, opts *Options) err
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	enableDepositMngrResp, err := bidderAPI.EnableDepositManager(ctx, &bidderapiv1.EnableDepositManagerRequest{})
-	if err != nil || !enableDepositMngrResp.Success {
+	if err != nil && !strings.Contains(err.Error(),
+		"EnableDepositManager failed: deposit manager is already enabled") {
+		return fmt.Errorf("failed to enable deposit manager: %w", err)
+	}
+	if !enableDepositMngrResp.Success {
 		return fmt.Errorf("failed to enable deposit manager: %w", err)
 	}
 	opts.Logger.Info("deposit manager enabled")
