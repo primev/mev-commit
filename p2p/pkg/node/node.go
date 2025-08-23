@@ -434,6 +434,8 @@ func NewNode(opts *Options) (*Node, error) {
 
 	notificationsapiv1.RegisterNotificationsServer(grpcServer, notificationsRPCService)
 
+	var bidderAPI *bidderapi.Service
+
 	if opts.PeerType != p2p.PeerTypeBootnode.String() {
 		validator, err := protovalidate.New()
 		if err != nil {
@@ -662,7 +664,7 @@ func NewNode(opts *Options) (*Node, error) {
 				return nil, errors.New("deposit manager implementation address is not set")
 			}
 
-			bidderAPI := bidderapi.NewService(
+			bidderAPI = bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
 				preconfProto,
 				bidderRegistry,
@@ -680,13 +682,6 @@ func NewNode(opts *Options) (*Node, error) {
 				depositManagerImplAddr,
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
-
-			if opts.EnableDepositManager {
-				err = handleEnableDepositManager(bidderAPI, opts)
-				if err != nil {
-					opts.Logger.Error("failed to handle enable deposit manager flag", "error", err)
-				}
-			}
 
 			keyexchange := keyexchange.New(
 				topo,
@@ -723,6 +718,13 @@ func NewNode(opts *Options) (*Node, error) {
 		closeChan := s.Startable.Start(ctx)
 		healthChecker.Register(health.CloseChannelHealthCheck(s.Desc, closeChan))
 		nd.closers = append(nd.closers, channelCloserFunc(closeChan))
+	}
+
+	if bidderAPI != nil && opts.EnableDepositManager {
+		err = handleEnableDepositManager(bidderAPI, opts)
+		if err != nil {
+			opts.Logger.Error("failed to handle enable deposit manager flag", "error", err)
+		}
 	}
 
 	started := make(chan struct{})
