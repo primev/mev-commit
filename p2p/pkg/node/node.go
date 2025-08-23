@@ -271,12 +271,6 @@ func NewNode(opts *Options) (*Node, error) {
 	bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 	srv.RegisterMetricsCollectors(bidderAPI.Metrics()...)
 
-	if opts.EnableDepositManager {
-		if err := handleEnableDepositManager(bidderAPI, opts); err != nil {
-			opts.Logger.Error("failed to enable deposit manager", "error", err)
-		}
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	nd.cancelFunc = cancel
 
@@ -337,6 +331,12 @@ func NewNode(opts *Options) (*Node, error) {
 	server := &http.Server{
 		Addr:    opts.HTTPAddr,
 		Handler: srv.Router(),
+	}
+
+	if opts.EnableDepositManager {
+		if err := handleEnableDepositManager(bidderAPI, opts); err != nil {
+			opts.Logger.Error("failed to enable deposit manager", "error", err)
+		}
 	}
 
 	go func() {
