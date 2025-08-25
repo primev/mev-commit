@@ -276,6 +276,12 @@ func (s *Service) Deposit(
 	opts.Value = amount
 
 	providerAddr := common.HexToAddress(r.Provider)
+	zeroAddress := common.Address{}
+	if providerAddr == zeroAddress {
+		s.logger.Error("provider address is zero address")
+		return nil, status.Errorf(codes.InvalidArgument, "provider address is zero address")
+	}
+
 	tx, err := s.registryContract.DepositAsBidder(opts, providerAddr)
 	if err != nil {
 		s.logger.Error("depositing", "error", err)
@@ -338,7 +344,13 @@ func (s *Service) DepositEvenly(
 		return nil, status.Errorf(codes.InvalidArgument, "total amount must be positive: %v", r.TotalAmount)
 	}
 
-	providers := make([]common.Address, len(r.Providers))
+	lenProviders := len(r.Providers)
+	if lenProviders == 0 {
+		s.logger.Error("at least one provider is required")
+		return nil, status.Errorf(codes.InvalidArgument, "at least one provider is required")
+	}
+
+	providers := make([]common.Address, lenProviders)
 	for i, provider := range r.Providers {
 		providers[i] = common.HexToAddress(provider)
 	}
@@ -488,7 +500,13 @@ func (s *Service) RequestWithdrawals(
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 
-	providers := make([]common.Address, len(r.Providers))
+	lenProviders := len(r.Providers)
+	if lenProviders == 0 {
+		s.logger.Error("at least one provider is required")
+		return nil, status.Errorf(codes.InvalidArgument, "at least one provider is required")
+	}
+
+	providers := make([]common.Address, lenProviders)
 	for i, provider := range r.Providers {
 		providers[i] = common.HexToAddress(provider)
 	}
@@ -550,7 +568,13 @@ func (s *Service) Withdraw(
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 
-	providers := make([]common.Address, len(r.Providers))
+	lenProviders := len(r.Providers)
+	if lenProviders == 0 {
+		s.logger.Error("at least one provider is required")
+		return nil, status.Errorf(codes.InvalidArgument, "at least one provider is required")
+	}
+
+	providers := make([]common.Address, lenProviders)
 	for i, provider := range r.Providers {
 		providers[i] = common.HexToAddress(provider)
 	}
