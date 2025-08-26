@@ -7,7 +7,6 @@ abstract contract BlockTrackerStorage {
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
     
-    // TODO: Remove this and associated update logic.
     uint256 public currentWindow;
 
     // Mapping from block number to the winner's address
