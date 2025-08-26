@@ -150,53 +150,6 @@ func (s *Store) LastWinnerBlock() (int64, error) {
 	return lastBlock.Int64, nil
 }
 
-func (s *Store) AddEncryptedCommitment(
-	ctx context.Context,
-	commitmentIdx []byte,
-	committer []byte,
-	commitmentHash []byte,
-	commitmentSignature []byte,
-	dispatchTimestamp uint64,
-) error {
-	columns := []string{
-		"commitment_index",
-		"committer",
-		"commitment_hash",
-		"commitment_signature",
-		"dispatch_timestamp",
-	}
-
-	// Convert byte slices to base64 strings for storage
-	commitmentIdxBase64 := base64.StdEncoding.EncodeToString(commitmentIdx)
-	committerBase64 := base64.StdEncoding.EncodeToString(committer)
-	commitmentHashBase64 := base64.StdEncoding.EncodeToString(commitmentHash)
-	commitmentSignatureBase64 := base64.StdEncoding.EncodeToString(commitmentSignature)
-
-	values := []interface{}{
-		commitmentIdxBase64,
-		committerBase64,
-		commitmentHashBase64,
-		commitmentSignatureBase64,
-		dispatchTimestamp,
-	}
-	placeholder := make([]string, len(values))
-	for i := range columns {
-		placeholder[i] = fmt.Sprintf("$%d", i+1)
-	}
-
-	insertStr := fmt.Sprintf(
-		"INSERT INTO encrypted_commitments (%s) VALUES (%s)",
-		strings.Join(columns, ", "),
-		strings.Join(placeholder, ", "),
-	)
-
-	_, err := s.db.ExecContext(ctx, insertStr, values...)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (s *Store) AddSettlement(
 	ctx context.Context,
 	commitmentIdx []byte,
