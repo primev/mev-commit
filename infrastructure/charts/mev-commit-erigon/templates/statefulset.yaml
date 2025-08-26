@@ -46,11 +46,19 @@ spec:
         - name: jwt-secret
           secret:
             secretName: {{ include "erigon-snode.fullname" . }}-jwt
+        {{- if .Values.genesis.accountGeneration.enabled }}
+        - name: genesis-template
+          configMap:
+            name: {{ include "erigon-snode.fullname" . }}-genesis-template
+        - name: password-file
+          secret:
+            secretName: {{ include "erigon-snode.fullname" . }}-password
+        {{- end }}
       initContainers:
         - name: create-jwt
           image: busybox:latest
           command: ["/bin/sh", "-c"]
-          args: ["/scripts/create-jwt.sh"]
+          args: ["cp /secrets/jwt /shared/jwt && chmod 600 /shared/jwt"]
           {{- with .Values.initContainerResources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -59,13 +67,64 @@ spec:
             runAsUser: 0
             runAsGroup: 0
           volumeMounts:
+            - name: jwt-secret
+              mountPath: /secrets
+            - name: erigon-volume
+              mountPath: /shared
+              subPath: shared
+        {{- if .Values.genesis.accountGeneration.enabled }}
+        - name: generate-accounts
+          image: "ethereum/client-go:latest"
+          command: ["/bin/sh", "-c"]
+          args: ["/scripts/generate-account.sh"]
+          {{- with .Values.initContainerResources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          env:
+            - name: ACCOUNT_COUNT
+              value: "{{ .Values.genesis.accountGeneration.count }}"
+            - name: ACCOUNT_BALANCE
+              value: "{{ .Values.genesis.accountGeneration.balance | default "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD4A51000FDA0FFFF" }}"
+          volumeMounts:
             - name: scripts-volume
               mountPath: /scripts
             - name: erigon-volume
               mountPath: /shared
               subPath: shared
-            - name: jwt-secret
-              mountPath: /secrets
+            - name: genesis-template
+              mountPath: /genesis-template
+            - name: password-file
+              mountPath: /password
+            - name: erigon-volume
+              mountPath: /keystore
+              subPath: keystore
+        - name: create-genesis
+          image: alpine:latest
+          command: ["/bin/sh", "-c"]
+          args: ["/scripts/create-genesis.sh"]
+          {{- with .Values.initContainerResources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          env:
+            - name: ACCOUNT_BALANCE
+              value: "{{ .Values.genesis.accountGeneration.balance | default "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD4A51000FDA0FFFF" }}"
+          volumeMounts:
+            - name: scripts-volume
+              mountPath: /scripts
+            - name: erigon-volume
+              mountPath: /shared
+              subPath: shared
+            - name: genesis-template
+              mountPath: /genesis-template
+        {{- else }}
         - name: download-genesis
           image: alpine:latest
           command: ["/bin/sh", "-c"]
@@ -77,12 +136,16 @@ spec:
           securityContext:
             runAsUser: 0
             runAsGroup: 0
+          env:
+            - name: GENESIS_URL
+              value: "{{ .Values.genesis.url }}"
           volumeMounts:
             - name: scripts-volume
               mountPath: /scripts
             - name: erigon-volume
               mountPath: /shared
               subPath: shared
+        {{- end }}
         - name: init-erigon
           image: "{{ .Values.image.erigon.repository }}:{{ .Values.image.erigon.tag }}"
           imagePullPolicy: {{ .Values.image.erigon.pullPolicy }}
@@ -95,6 +158,9 @@ spec:
           securityContext:
             runAsUser: 0
             runAsGroup: 0
+          env:
+            - name: ERIGON_DATADIR
+              value: "{{ .Values.erigon.datadir }}"
           volumeMounts:
             - name: scripts-volume
               mountPath: /scripts
@@ -118,6 +184,7 @@ spec:
             runAsGroup: 0
           args:
             - --datadir={{ .Values.erigon.datadir }}
+            - --private.api.addr=
             - --authrpc.jwtsecret=/shared/jwt
             - --authrpc.addr=0.0.0.0
             - --authrpc.port={{ .Values.erigon.ports.authrpc }}
@@ -167,6 +234,11 @@ spec:
             - name: erigon-volume
               mountPath: /shared
               subPath: shared
+            {{- if .Values.genesis.accountGeneration.enabled }}
+            - name: erigon-volume
+              mountPath: /keystore
+              subPath: keystore
+            {{- end }}
         - name: snode
           image: "{{ .Values.image.snode.repository }}:{{ .Values.image.snode.tag }}"
           imagePullPolicy: {{ .Values.image.snode.pullPolicy }}

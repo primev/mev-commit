@@ -1,6 +1,21 @@
+# Genesis Configuration - Choose ONE method only
+# Method 1: Generate accounts and create genesis automatically. Genesis template is stored in the configmap
+# Method 2: Download genesis from existing URL
+# NOTE: Both methods cannot be used simultaneously - validation will fail if both are configured
+genesis:
+  # Method 1: Account Generation (generates new accounts and creates genesis with them)
+  accountGeneration:
+    enabled: false  # Set to true to enable automatic account generation
+    count: 5        # Number of accounts to generate and fund in genesis. These accounts will be added under alloc{}
+    password: "randompassword"  # Password for generated account keystores
+    timestamp: 0x198c3a13dc8  # Timestamp for genesis block in milliseconds
+  
+  # Method 2: URL Download (downloads existing genesis file)
+  url: "http://example.com/genesis.json"  # Set this to download genesis from URL
+
 
 erigon:
-  networkId: 141414
+  networkId: 10025
   datadir: "/data/erigon"
   ports:
     http: 8545
@@ -23,12 +38,12 @@ erigon:
       enabled: true
       addr: "0.0.0.0"
   zeroFeeTxList:
-    - "0x00"  # Orcale Keystore
-    - "0x00"  # Contracts Deployer Keystore
-    - "0x00"  # Bridge Relayer Keystore
+    - "0x0000000000000000000000000000000000000000"  # Contracts Deployer Keystore
+    - "0x0000000000000000000000000000000000000000"  # Orcale Keystore
+    #- "0x0000000000000000000000000000000000000000"  # Bridge Relayer Keystore
   pruneMode: "archive"
   nodiscover: true
-  # Additional flags to pass to erigon
+  # Additional arguments to pass to erigon
   extraArgs: []
   # Example:
   # extraArgs:
@@ -37,7 +52,7 @@ erigon:
 
 snode:
   instanceId: "snode1"
-  priorityFeeRecipient: "0x00"
+  priorityFeeRecipient: "0x0000000000000000000000000000000000000000"
   ports:
     api: 9090
     health: 8080
@@ -52,23 +67,20 @@ snode:
 jwt:
   token: ""
 
-genesis:
-  url: ""
-
 
 image:
   erigon:
-    repository: 
+    repository:
     tag:
     pullPolicy: IfNotPresent
   snode:
-    repository: 
+    repository:
     tag:
     pullPolicy: IfNotPresent
 
 storage:
-  size: 500Gi
-  storageClassName:
+  size: 100Gi
+  storageClassName: premium-rwo
   accessMode: ReadWriteOnce
 
 security:
@@ -84,18 +96,18 @@ terminationGracePeriodSeconds: 60
 resources:
   erigon:
     requests:
-      cpu: "48"
-      memory: "128Gi"
+      cpu: "1000m"
+      memory: "2Gi"
     limits:
-      cpu: "52"
-      memory: "152Gi"
+      cpu: "6000m"
+      memory: "16Gi"
   snode:
     requests:
-      cpu: "8"
-      memory: "48Gi"
+      cpu: "100m"
+      memory: "1Gi"
     limits:
-      cpu: "12"
-      memory: "64Gi"
+      cpu: "6000m"
+      memory: "16Gi"
 
 # Init container resources
 initContainerResources:
@@ -108,7 +120,7 @@ initContainerResources:
 
 service:
   erigon:
-    type: ClusterIP
+    type: LoadBalancer
     ports:
       http: 8545
       ws: 8546
@@ -132,62 +144,17 @@ service:
     #   app: snode
     #   component: consensus-layer
 
-nodeSelector:
-   workload-type: erigon
+#nodeSelector:
+#   workload-type: erigon
 
 
 tolerations: []
-# Example:
-# tolerations:
-#   - key: "erigon-dedicated"
-#     operator: "Equal"
-#     value: "true"
-#     effect: "NoSchedule"
-#   - key: "node.kubernetes.io/disk-pressure"
-#     operator: "Exists"
-#     effect: "NoSchedule"
+
 
 affinity: {}
-# Example:
-# affinity:
-#   nodeAffinity:
-#     requiredDuringSchedulingIgnoredDuringExecution:
-#       nodeSelectorTerms:
-#       - matchExpressions:
-#         - key: node-type
-#           operator: In
-#           values:
-#           - high-memory
-#     preferredDuringSchedulingIgnoredDuringExecution:
-#     - weight: 100
-#       preference:
-#         matchExpressions:
-#         - key: zone
-#           operator: In
-#           values:
-#           - zone-1
-#   podAntiAffinity:
-#     preferredDuringSchedulingIgnoredDuringExecution:
-#     - weight: 100
-#       podAffinityTerm:
-#         labelSelector:
-#           matchExpressions:
-#           - key: app.kubernetes.io/name
-#             operator: In
-#             values:
-#             - erigon-snode
-#         topologyKey: kubernetes.io/hostname
+
 
 topologySpreadConstraints: []
-# Example:
-# topologySpreadConstraints:
-#   - maxSkew: 1
-#     topologyKey: topology.kubernetes.io/zone
-#     whenUnsatisfiable: DoNotSchedule
-#     labelSelector:
-#       matchLabels:
-#         app.kubernetes.io/name: erigon-snode
-
 
 # Additional labels for StatefulSet
 additionalLabels: {}
@@ -198,12 +165,12 @@ additionalLabels: {}
 #   version: v1.0.0
 
 ingress:
-  enabled: true
-  className: ""
+  enabled: false
+  className: "nginx"
   
   # RPC Configuration
   rpc:
-    host:
+    host: rpc.devnet.xyz
     path: /
     pathType: Prefix
     annotations:
@@ -216,14 +183,14 @@ ingress:
   
   # WebSocket Configuration  
   websocket:
-    host:
+    host: ws.devnet.xyz
     path: /
     pathType: Prefix
     annotations:
       nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
       nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       nginx.ingress.kubernetes.io/proxy-body-size: "0"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "36h00"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
       # WebSocket specific annotations
@@ -232,7 +199,7 @@ ingress:
         Connection "upgrade"
         Upgrade $http_upgrade
   
-  
+  # TLS Configuration (shared)
   tls:
-    secretName:
+    secretName: devnet-tls # Should be pre-created if you using tls
 
