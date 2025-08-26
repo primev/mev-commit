@@ -667,6 +667,54 @@ func (s *Service) EnableDepositManager(
 	return &bidderapiv1.EnableDepositManagerResponse{Success: true}, nil
 }
 
+func (s *Service) DisableDepositManager(
+	ctx context.Context,
+	r *bidderapiv1.DisableDepositManagerRequest,
+) (*bidderapiv1.DisableDepositManagerResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		s.logger.Error("disable deposit manager validation", "error", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating disable deposit manager request: %v", err)
+	}
+
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		s.logger.Error("getting transact opts", "error", err)
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	depositManagerEnabled, err := s.DepositManagerStatus(ctx, &bidderapiv1.DepositManagerStatusRequest{})
+	if err != nil {
+		s.logger.Error("checking deposit manager status", "error", err)
+		return nil, status.Errorf(codes.Internal, "checking deposit manager status: %v", err)
+	}
+
+	if !depositManagerEnabled.Enabled {
+		s.logger.Error("DisableDepositManager failed: deposit manager is already disabled")
+		return nil, status.Errorf(codes.FailedPrecondition, "DisableDepositManager failed: deposit manager is already disabled")
+	}
+
+	zeroAddr := common.Address{}
+	tx, err := s.setCodeHelper.SetCode(ctx, opts, zeroAddr)
+	if err != nil {
+		s.logger.Error("setting code", "error", err)
+		return nil, status.Errorf(codes.Internal, "setting code: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	return &bidderapiv1.DisableDepositManagerResponse{Success: true}, nil
+}
+
 func (s *Service) SetTargetDeposits(
 	ctx context.Context,
 	r *bidderapiv1.SetTargetDepositsRequest,
@@ -786,8 +834,6 @@ func (s *Service) DepositManagerStatus(
 
 	return &bidderapiv1.DepositManagerStatusResponse{Enabled: true}, nil
 }
-
-// TODO: api/handling for a bidder removing set code auth
 
 func (s *Service) GetValidProviders(
 	ctx context.Context,

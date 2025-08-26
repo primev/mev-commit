@@ -54,6 +54,14 @@ service Bidder {
     option (google.api.http) = {post: "/v1/bidder/enable_deposit_manager"};
   }
 
+  // DisableDepositManager
+  //
+  // DisableDepositManager is called by the bidder node to disable the deposit manager 
+  // by setting the bidder EOA's code to zero address.
+  rpc DisableDepositManager(DisableDepositManagerRequest) returns (DisableDepositManagerResponse) {
+    option (google.api.http) = {post: "/v1/bidder/disable_deposit_manager"};
+  }
+
   // SetTargetDeposits
   //
   // SetTargetDeposits is called by the bidder node to set target deposits per provider
@@ -229,6 +237,25 @@ message EnableDepositManagerResponse {
     json_schema: {
       title: "EnableDepositManager response"
       description: "EnableDepositManager response."
+    }
+  };
+  bool success = 1;
+}
+
+message DisableDepositManagerRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "DisableDepositManager request"
+      description: "DisableDepositManager request."
+    }
+  };
+}
+
+message DisableDepositManagerResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "DisableDepositManager response"
+      description: "DisableDepositManager response."
     }
   };
   bool success = 1;

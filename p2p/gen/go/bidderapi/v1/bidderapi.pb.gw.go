@@ -167,6 +167,27 @@ func local_request_Bidder_EnableDepositManager_0(ctx context.Context, marshaler 
 	return msg, metadata, err
 }
 
+func request_Bidder_DisableDepositManager_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq DisableDepositManagerRequest
+		metadata runtime.ServerMetadata
+	)
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.DisableDepositManager(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_Bidder_DisableDepositManager_0(ctx context.Context, marshaler runtime.Marshaler, server BidderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq DisableDepositManagerRequest
+		metadata runtime.ServerMetadata
+	)
+	msg, err := server.DisableDepositManager(ctx, &protoReq)
+	return msg, metadata, err
+}
+
 func request_Bidder_SetTargetDeposits_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq SetTargetDepositsRequest
@@ -474,6 +495,26 @@ func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 		}
 		forward_Bidder_EnableDepositManager_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodPost, pattern_Bidder_DisableDepositManager_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/DisableDepositManager", runtime.WithHTTPPathPattern("/v1/bidder/disable_deposit_manager"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_Bidder_DisableDepositManager_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_Bidder_DisableDepositManager_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	mux.Handle(http.MethodPost, pattern_Bidder_SetTargetDeposits_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -762,6 +803,23 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 		}
 		forward_Bidder_EnableDepositManager_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodPost, pattern_Bidder_DisableDepositManager_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/DisableDepositManager", runtime.WithHTTPPathPattern("/v1/bidder/disable_deposit_manager"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_Bidder_DisableDepositManager_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_Bidder_DisableDepositManager_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	mux.Handle(http.MethodPost, pattern_Bidder_SetTargetDeposits_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -919,33 +977,35 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 }
 
 var (
-	pattern_Bidder_SendBid_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "bid"}, ""))
-	pattern_Bidder_Deposit_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "bidder", "deposit", "amount"}, ""))
-	pattern_Bidder_DepositEvenly_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "deposit_evenly"}, ""))
-	pattern_Bidder_EnableDepositManager_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "enable_deposit_manager"}, ""))
-	pattern_Bidder_SetTargetDeposits_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "set_target_deposits"}, ""))
-	pattern_Bidder_DepositManagerStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "deposit_manager_status"}, ""))
-	pattern_Bidder_RequestWithdrawals_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "request_withdrawals"}, ""))
-	pattern_Bidder_GetValidProviders_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_valid_providers"}, ""))
-	pattern_Bidder_GetDeposit_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_deposit"}, ""))
-	pattern_Bidder_GetAllDeposits_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_all_deposits"}, ""))
-	pattern_Bidder_Withdraw_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "withdraw"}, ""))
-	pattern_Bidder_GetBidInfo_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_bid_info"}, ""))
-	pattern_Bidder_ClaimSlashedFunds_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "claim_slashed_funds"}, ""))
+	pattern_Bidder_SendBid_0               = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "bid"}, ""))
+	pattern_Bidder_Deposit_0               = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "bidder", "deposit", "amount"}, ""))
+	pattern_Bidder_DepositEvenly_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "deposit_evenly"}, ""))
+	pattern_Bidder_EnableDepositManager_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "enable_deposit_manager"}, ""))
+	pattern_Bidder_DisableDepositManager_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "disable_deposit_manager"}, ""))
+	pattern_Bidder_SetTargetDeposits_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "set_target_deposits"}, ""))
+	pattern_Bidder_DepositManagerStatus_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "deposit_manager_status"}, ""))
+	pattern_Bidder_RequestWithdrawals_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "request_withdrawals"}, ""))
+	pattern_Bidder_GetValidProviders_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_valid_providers"}, ""))
+	pattern_Bidder_GetDeposit_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_deposit"}, ""))
+	pattern_Bidder_GetAllDeposits_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_all_deposits"}, ""))
+	pattern_Bidder_Withdraw_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "withdraw"}, ""))
+	pattern_Bidder_GetBidInfo_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_bid_info"}, ""))
+	pattern_Bidder_ClaimSlashedFunds_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "claim_slashed_funds"}, ""))
 )
 
 var (
-	forward_Bidder_SendBid_0              = runtime.ForwardResponseStream
-	forward_Bidder_Deposit_0              = runtime.ForwardResponseMessage
-	forward_Bidder_DepositEvenly_0        = runtime.ForwardResponseMessage
-	forward_Bidder_EnableDepositManager_0 = runtime.ForwardResponseMessage
-	forward_Bidder_SetTargetDeposits_0    = runtime.ForwardResponseMessage
-	forward_Bidder_DepositManagerStatus_0 = runtime.ForwardResponseMessage
-	forward_Bidder_RequestWithdrawals_0   = runtime.ForwardResponseMessage
-	forward_Bidder_GetValidProviders_0    = runtime.ForwardResponseMessage
-	forward_Bidder_GetDeposit_0           = runtime.ForwardResponseMessage
-	forward_Bidder_GetAllDeposits_0       = runtime.ForwardResponseMessage
-	forward_Bidder_Withdraw_0             = runtime.ForwardResponseMessage
-	forward_Bidder_GetBidInfo_0           = runtime.ForwardResponseMessage
-	forward_Bidder_ClaimSlashedFunds_0    = runtime.ForwardResponseMessage
+	forward_Bidder_SendBid_0               = runtime.ForwardResponseStream
+	forward_Bidder_Deposit_0               = runtime.ForwardResponseMessage
+	forward_Bidder_DepositEvenly_0         = runtime.ForwardResponseMessage
+	forward_Bidder_EnableDepositManager_0  = runtime.ForwardResponseMessage
+	forward_Bidder_DisableDepositManager_0 = runtime.ForwardResponseMessage
+	forward_Bidder_SetTargetDeposits_0     = runtime.ForwardResponseMessage
+	forward_Bidder_DepositManagerStatus_0  = runtime.ForwardResponseMessage
+	forward_Bidder_RequestWithdrawals_0    = runtime.ForwardResponseMessage
+	forward_Bidder_GetValidProviders_0     = runtime.ForwardResponseMessage
+	forward_Bidder_GetDeposit_0            = runtime.ForwardResponseMessage
+	forward_Bidder_GetAllDeposits_0        = runtime.ForwardResponseMessage
+	forward_Bidder_Withdraw_0              = runtime.ForwardResponseMessage
+	forward_Bidder_GetBidInfo_0            = runtime.ForwardResponseMessage
+	forward_Bidder_ClaimSlashedFunds_0     = runtime.ForwardResponseMessage
 )

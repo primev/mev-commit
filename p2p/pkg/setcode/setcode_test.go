@@ -136,6 +136,30 @@ func TestSetCode(t *testing.T) {
 	if codehash != expectedCodehash {
 		t.Fatalf("codehash is not correct. Actual: %v, Expected: %v", codehash, expectedCodehash)
 	}
+
+	zeroAddr := common.Address{}
+	tx, err = setCodeHelper.SetCode(context.Background(), opts, zeroAddr)
+	if err != nil {
+		t.Fatalf("failed to set code: %v", err)
+	}
+
+	_ = sim.Commit()
+
+	receipt, err = bind.WaitMined(context.Background(), sim.Client(), tx)
+	if err != nil {
+		t.Fatalf("failed to wait for receipt: %v", err)
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		t.Fatalf("tx failed: %v", receipt.Status)
+	}
+
+	code, err = sim.Client().CodeAt(context.Background(), sender, nil)
+	if err != nil {
+		t.Fatalf("failed to get code: %v", err)
+	}
+	if len(code) != 0 {
+		t.Fatalf("code is not empty after setcode to zero address: %v", code)
+	}
 }
 
 func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {

@@ -20,19 +20,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Bidder_SendBid_FullMethodName              = "/bidderapi.v1.Bidder/SendBid"
-	Bidder_Deposit_FullMethodName              = "/bidderapi.v1.Bidder/Deposit"
-	Bidder_DepositEvenly_FullMethodName        = "/bidderapi.v1.Bidder/DepositEvenly"
-	Bidder_EnableDepositManager_FullMethodName = "/bidderapi.v1.Bidder/EnableDepositManager"
-	Bidder_SetTargetDeposits_FullMethodName    = "/bidderapi.v1.Bidder/SetTargetDeposits"
-	Bidder_DepositManagerStatus_FullMethodName = "/bidderapi.v1.Bidder/DepositManagerStatus"
-	Bidder_RequestWithdrawals_FullMethodName   = "/bidderapi.v1.Bidder/RequestWithdrawals"
-	Bidder_GetValidProviders_FullMethodName    = "/bidderapi.v1.Bidder/GetValidProviders"
-	Bidder_GetDeposit_FullMethodName           = "/bidderapi.v1.Bidder/GetDeposit"
-	Bidder_GetAllDeposits_FullMethodName       = "/bidderapi.v1.Bidder/GetAllDeposits"
-	Bidder_Withdraw_FullMethodName             = "/bidderapi.v1.Bidder/Withdraw"
-	Bidder_GetBidInfo_FullMethodName           = "/bidderapi.v1.Bidder/GetBidInfo"
-	Bidder_ClaimSlashedFunds_FullMethodName    = "/bidderapi.v1.Bidder/ClaimSlashedFunds"
+	Bidder_SendBid_FullMethodName               = "/bidderapi.v1.Bidder/SendBid"
+	Bidder_Deposit_FullMethodName               = "/bidderapi.v1.Bidder/Deposit"
+	Bidder_DepositEvenly_FullMethodName         = "/bidderapi.v1.Bidder/DepositEvenly"
+	Bidder_EnableDepositManager_FullMethodName  = "/bidderapi.v1.Bidder/EnableDepositManager"
+	Bidder_DisableDepositManager_FullMethodName = "/bidderapi.v1.Bidder/DisableDepositManager"
+	Bidder_SetTargetDeposits_FullMethodName     = "/bidderapi.v1.Bidder/SetTargetDeposits"
+	Bidder_DepositManagerStatus_FullMethodName  = "/bidderapi.v1.Bidder/DepositManagerStatus"
+	Bidder_RequestWithdrawals_FullMethodName    = "/bidderapi.v1.Bidder/RequestWithdrawals"
+	Bidder_GetValidProviders_FullMethodName     = "/bidderapi.v1.Bidder/GetValidProviders"
+	Bidder_GetDeposit_FullMethodName            = "/bidderapi.v1.Bidder/GetDeposit"
+	Bidder_GetAllDeposits_FullMethodName        = "/bidderapi.v1.Bidder/GetAllDeposits"
+	Bidder_Withdraw_FullMethodName              = "/bidderapi.v1.Bidder/Withdraw"
+	Bidder_GetBidInfo_FullMethodName            = "/bidderapi.v1.Bidder/GetBidInfo"
+	Bidder_ClaimSlashedFunds_FullMethodName     = "/bidderapi.v1.Bidder/ClaimSlashedFunds"
 )
 
 // BidderClient is the client API for Bidder service.
@@ -59,6 +60,11 @@ type BidderClient interface {
 	//
 	// EnableDepositManager is called by the bidder node to enable the deposit manager via eip 7702.
 	EnableDepositManager(ctx context.Context, in *EnableDepositManagerRequest, opts ...grpc.CallOption) (*EnableDepositManagerResponse, error)
+	// DisableDepositManager
+	//
+	// DisableDepositManager is called by the bidder node to disable the deposit manager
+	// by setting the bidder EOA's code to zero address.
+	DisableDepositManager(ctx context.Context, in *DisableDepositManagerRequest, opts ...grpc.CallOption) (*DisableDepositManagerResponse, error)
 	// SetTargetDeposits
 	//
 	// SetTargetDeposits is called by the bidder node to set target deposits per provider
@@ -159,6 +165,16 @@ func (c *bidderClient) EnableDepositManager(ctx context.Context, in *EnableDepos
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(EnableDepositManagerResponse)
 	err := c.cc.Invoke(ctx, Bidder_EnableDepositManager_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bidderClient) DisableDepositManager(ctx context.Context, in *DisableDepositManagerRequest, opts ...grpc.CallOption) (*DisableDepositManagerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DisableDepositManagerResponse)
+	err := c.cc.Invoke(ctx, Bidder_DisableDepositManager_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -279,6 +295,11 @@ type BidderServer interface {
 	//
 	// EnableDepositManager is called by the bidder node to enable the deposit manager via eip 7702.
 	EnableDepositManager(context.Context, *EnableDepositManagerRequest) (*EnableDepositManagerResponse, error)
+	// DisableDepositManager
+	//
+	// DisableDepositManager is called by the bidder node to disable the deposit manager
+	// by setting the bidder EOA's code to zero address.
+	DisableDepositManager(context.Context, *DisableDepositManagerRequest) (*DisableDepositManagerResponse, error)
 	// SetTargetDeposits
 	//
 	// SetTargetDeposits is called by the bidder node to set target deposits per provider
@@ -347,6 +368,9 @@ func (UnimplementedBidderServer) DepositEvenly(context.Context, *DepositEvenlyRe
 }
 func (UnimplementedBidderServer) EnableDepositManager(context.Context, *EnableDepositManagerRequest) (*EnableDepositManagerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EnableDepositManager not implemented")
+}
+func (UnimplementedBidderServer) DisableDepositManager(context.Context, *DisableDepositManagerRequest) (*DisableDepositManagerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DisableDepositManager not implemented")
 }
 func (UnimplementedBidderServer) SetTargetDeposits(context.Context, *SetTargetDepositsRequest) (*SetTargetDepositsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetTargetDeposits not implemented")
@@ -457,6 +481,24 @@ func _Bidder_EnableDepositManager_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BidderServer).EnableDepositManager(ctx, req.(*EnableDepositManagerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Bidder_DisableDepositManager_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DisableDepositManagerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).DisableDepositManager(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_DisableDepositManager_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).DisableDepositManager(ctx, req.(*DisableDepositManagerRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -641,6 +683,10 @@ var Bidder_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "EnableDepositManager",
 			Handler:    _Bidder_EnableDepositManager_Handler,
+		},
+		{
+			MethodName: "DisableDepositManager",
+			Handler:    _Bidder_DisableDepositManager_Handler,
 		},
 		{
 			MethodName: "SetTargetDeposits",

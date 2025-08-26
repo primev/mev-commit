@@ -123,6 +123,20 @@ paths:
           description: An unexpected error response.
           schema:
             $ref: '#/definitions/googlerpcStatus'
+  /v1/bidder/disable_deposit_manager:
+    post:
+      summary: DisableDepositManager
+      description: "DisableDepositManager is called by the bidder node to disable the deposit manager \nby setting the bidder EOA's code to zero address."
+      operationId: Bidder_DisableDepositManager
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1DisableDepositManagerResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/enable_deposit_manager:
     post:
       summary: EnableDepositManager
@@ -548,6 +562,13 @@ definitions:
         type: string
     description: Deposit for bidder in the bidder registry for a particular provider.
     title: Deposit response
+  v1DisableDepositManagerResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+    description: DisableDepositManager response.
+    title: DisableDepositManager response
   v1EnableDepositManagerResponse:
     type: object
     properties:
