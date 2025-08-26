@@ -50,8 +50,6 @@ func (s *SetCodeHelper) SetCode(
 		return nil, fmt.Errorf("gas limit is required")
 	}
 
-	// TODO: Create our own SetCodeAuthorization signing library compatible with KeySigner.
-	// For now we use geth's EIP-7702 library that only supports ecdsa.PrivateKey
 	pk, err := s.signer.GetPrivateKey()
 	if err != nil {
 		s.logger.Error("error getting private key from keysigner", "error", err)
