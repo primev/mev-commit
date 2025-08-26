@@ -18,7 +18,6 @@ import (
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
-	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"google.golang.org/grpc/codes"
@@ -103,6 +102,7 @@ type ProviderRegistryContract interface {
 	BidderSlashedAmount(*bind.CallOpts, common.Address) (*big.Int, error)
 	WithdrawSlashedAmount(*bind.TransactOpts) (*types.Transaction, error)
 	ParseBidderWithdrawSlashedAmount(log types.Log) (*providerregistry.ProviderregistryBidderWithdrawSlashedAmount, error)
+	FilterProviderRegistered(opts *bind.FilterOpts, provider []common.Address) (*providerregistry.ProviderregistryProviderRegisteredIterator, error)
 	AreProvidersValid(*bind.CallOpts, []common.Address) ([]bool, error)
 }
 
@@ -850,28 +850,43 @@ func (s *Service) GetValidProviders(
 		return nil, status.Errorf(codes.InvalidArgument, "validating get valid providers request: %v", err)
 	}
 
-	connectedProviders := s.topology.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
-	if len(connectedProviders) == 0 {
-		return &bidderapiv1.GetValidProvidersResponse{ValidProviders: []string{}}, nil
+	filterOpts := &bind.FilterOpts{Start: 0, End: nil, Context: ctx}
+	iter, err := s.providerRegistry.FilterProviderRegistered(
+		filterOpts,
+		nil, // all providers
+	)
+	if err != nil {
+		s.logger.Error("filtering provider registered events", "error", err)
+		return nil, status.Errorf(codes.Internal, "filtering provider registered events: %v", err)
+	}
+	defer func() {
+		if err := iter.Close(); err != nil {
+			s.logger.Error("closing iterator", "error", err)
+		}
+	}()
+
+	providersWithRegEvent := make(map[common.Address]bool) // map for deduplication
+	for iter.Next() {
+		providersWithRegEvent[iter.Event.Provider] = true
 	}
 
-	providerAddrs := make([]common.Address, len(connectedProviders))
-	for i, provider := range connectedProviders {
-		providerAddrs[i] = provider.EthAddress
+	providersToCheck := make([]common.Address, 0, len(providersWithRegEvent))
+	for provider := range providersWithRegEvent {
+		providersToCheck = append(providersToCheck, provider)
 	}
 
-	validProviders := make([]string, 0)
 	areValid, err := s.providerRegistry.AreProvidersValid(&bind.CallOpts{
 		Context: ctx,
-	}, providerAddrs)
+	}, providersToCheck)
 	if err != nil {
 		s.logger.Error("checking if providers are valid", "error", err)
 		return nil, status.Errorf(codes.Internal, "checking if providers are valid: %v", err)
 	}
 
+	validProviders := make([]string, 0, len(providersToCheck))
 	for i, isValid := range areValid {
 		if isValid {
-			validProviders = append(validProviders, connectedProviders[i].EthAddress.Hex())
+			validProviders = append(validProviders, providersToCheck[i].Hex())
 		}
 	}
 

@@ -83,7 +83,7 @@ type BidderClient interface {
 	// GetValidProviders
 	//
 	// GetValidProviders is called by the bidder node to get a list of all valid providers.
-	// Each provider returned by this RPC must be connected to the bidder node via p2p and:
+	// Each provider returned by this RPC must:
 	// - Be "registered" in the provider registry
 	// - Have deposit >= minStake in provider registry
 	// - Have no pending withdrawal request with provider registry
@@ -318,7 +318,7 @@ type BidderServer interface {
 	// GetValidProviders
 	//
 	// GetValidProviders is called by the bidder node to get a list of all valid providers.
-	// Each provider returned by this RPC must be connected to the bidder node via p2p and:
+	// Each provider returned by this RPC must:
 	// - Be "registered" in the provider registry
 	// - Have deposit >= minStake in provider registry
 	// - Have no pending withdrawal request with provider registry
