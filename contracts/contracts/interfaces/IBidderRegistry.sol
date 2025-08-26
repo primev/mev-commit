@@ -127,6 +127,12 @@ interface IBidderRegistry {
     /// @dev Error emitted when the bidder tries to deposit 0 amount
     error DepositAmountIsZero();
 
+    /// @dev Error emitted when the provider is a zero address
+    error ProviderIsZeroAddress();
+
+    /// @dev Error emitted when the deposit amount is less than the number of providers
+    error DepositAmountIsLessThanProviders(uint256 depositAmount, uint256 numProviders);
+
     /// @dev Error emitted when no providers are given as an argument
     error NoProviders();
 
@@ -144,6 +150,9 @@ interface IBidderRegistry {
 
     /// @dev Error emitted when a withdrawal request hasn't been made yet
     error WithdrawalRequestDoesNotExist(address bidder, address provider);
+
+    /// @dev Error emitted when a withdrawal request already exists
+    error WithdrawalRequestAlreadyExists(address bidder, address provider);
 
     function openBid(
         bytes32 commitmentDigest,

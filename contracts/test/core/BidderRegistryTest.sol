@@ -809,7 +809,7 @@ contract BidderRegistryTest is Test {
     function test_depositEvenlyAsBidder_DepositAmountIsZero() public {
         address provider = vm.addr(8);
 
-        vm.expectRevert(IBidderRegistry.DepositAmountIsZero.selector);
+        vm.expectRevert(abi.encodeWithSelector(IBidderRegistry.DepositAmountIsLessThanProviders.selector, 0 ether, 1));
         address[] memory providers = new address[](1);
         providers[0] = provider;
         vm.prank(bidder);

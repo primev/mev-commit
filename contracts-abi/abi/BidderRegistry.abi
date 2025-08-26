@@ -1189,6 +1189,22 @@
   },
   {
     "type": "error",
+    "name": "DepositAmountIsLessThanProviders",
+    "inputs": [
+      {
+        "name": "depositAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "numProviders",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "DepositAmountIsZero",
     "inputs": []
   },
@@ -1320,6 +1336,11 @@
   },
   {
     "type": "error",
+    "name": "ProviderIsZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
   },
@@ -1415,6 +1436,22 @@
         "name": "withdrawalPeriodMs",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalRequestAlreadyExists",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },

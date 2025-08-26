@@ -165,6 +165,8 @@ contract PreconfManagerTest is Test {
         // Sets fake block timestamp
         vm.warp(500);
         bidderRegistry.setPreconfManager(address(preconfManager));
+
+        provider = vm.addr(10);
     }
 
     function test_GetBidHash1() public {

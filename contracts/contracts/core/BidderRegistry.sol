@@ -80,6 +80,7 @@ contract BidderRegistry is
         bidderWithdrawalPeriodMs = _bidderWithdrawalPeriodMs;
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
+        __UUPSUpgradeable_init();
         __Pausable_init();
     }
 
@@ -89,6 +90,7 @@ contract BidderRegistry is
      */
     function depositAsBidder(address provider) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
+        require(provider != address(0), ProviderIsZeroAddress());
         _depositAsBidder(provider, msg.value);
     }
 
@@ -97,15 +99,16 @@ contract BidderRegistry is
      * @param providers The providers for which the deposits are being made.
      */
     function depositEvenlyAsBidder(address[] calldata providers) external payable whenNotPaused {
-        require(msg.value != 0, DepositAmountIsZero());
         uint256 len = providers.length;
         require(len > 0, NoProviders());
+        require(msg.value >= len, DepositAmountIsLessThanProviders(msg.value, len));
 
         uint256 amountToDeposit = msg.value / len;
         uint256 remainingAmount = msg.value % len; // to handle rounding issues
 
         for (uint16 i = 0; i < len; ++i) {
             address provider = providers[i];
+            require(provider != address(0), ProviderIsZeroAddress());
             uint256 amount = amountToDeposit;
             if (i == len - 1) {
                 amount += remainingAmount; // Add the remainder to the last provider
@@ -127,6 +130,7 @@ contract BidderRegistry is
             address provider = providers[i];
             Deposit storage deposit = deposits[bidder][provider];
             require(deposit.exists, DepositDoesNotExist(bidder, provider));
+            require(!deposit.withdrawalRequestOccurrence.exists, WithdrawalRequestAlreadyExists(bidder, provider));
             TimestampOccurrence.captureOccurrence(deposit.withdrawalRequestOccurrence);
             emit WithdrawalRequested(bidder, provider, deposit.availableAmount, deposit.escrowedAmount,
                 deposit.withdrawalRequestOccurrence.timestamp);
