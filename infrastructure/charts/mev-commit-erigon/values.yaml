@@ -1,18 +1,7 @@
-# Genesis Configuration - Choose ONE method only
-# Method 1: Generate accounts and create genesis automatically. Genesis template is stored in the configmap
-# Method 2: Download genesis from existing URL
-# NOTE: Both methods cannot be used simultaneously - validation will fail if both are configured
 genesis:
-  # Method 1: Account Generation (generates new accounts and creates genesis with them)
   accountGeneration:
-    enabled: false  # Set to true to enable automatic account generation
-    count: 5        # Number of accounts to generate and fund in genesis. These accounts will be added under alloc{}
-    password: "randompassword"  # Password for generated account keystores
-    timestamp: 0x198c3a13dc8  # Timestamp for genesis block in milliseconds
-  
-  # Method 2: URL Download (downloads existing genesis file)
-  url: "http://example.com/genesis.json"  # Set this to download genesis from URL
-
+    enabled: false
+  url: "https://storage.googleapis.com/devnet-artifacts/devnet-genesis/genesis.json"
 
 erigon:
   networkId: 10025
@@ -38,9 +27,9 @@ erigon:
       enabled: true
       addr: "0.0.0.0"
   zeroFeeTxList:
-    - "0x0000000000000000000000000000000000000000"  # Contracts Deployer Keystore
-    - "0x0000000000000000000000000000000000000000"  # Orcale Keystore
-    #- "0x0000000000000000000000000000000000000000"  # Bridge Relayer Keystore
+    - "0x421657a89f467ac04c542e46645a7752e199b5e6"  # Contracts Deployer Keystore
+    - "0x1c533735c11dd317bc816629f86e00f479d097a3"  # Orcale Keystore
+    #- "0x929f3b326ea399cb953c18854733d6b894b9e819"  # Bridge Relayer Keystore
   pruneMode: "archive"
   nodiscover: true
   # Additional arguments to pass to erigon
@@ -52,7 +41,7 @@ erigon:
 
 snode:
   instanceId: "snode1"
-  priorityFeeRecipient: "0x0000000000000000000000000000000000000000"
+  priorityFeeRecipient: "0xcEc94aeB187321262BA8Ae5BB0A9D79EAd56da92"
   ports:
     api: 9090
     health: 8080
@@ -65,22 +54,22 @@ snode:
 
 
 jwt:
-  token: ""
+  token: "32c2902cc88b19b1c775ffef7e67673f296beb2e610f93230b40e5ef822ae9d4"
 
 
 image:
   erigon:
-    repository:
-    tag:
+    repository: harshsingh07/flood
+    tag: erigon-snode-v3.0.7-ms-patch
     pullPolicy: IfNotPresent
   snode:
-    repository:
-    tag:
+    repository: harshsingh07/snode-consensus
+    tag: amd64-erigon-v3.0.7-simplify-cl
     pullPolicy: IfNotPresent
 
 storage:
   size: 100Gi
-  storageClassName: premium-rwo
+  storageClassName: premium-rwo #erigon-hyperdisk-extreme (for testnet)
   accessMode: ReadWriteOnce
 
 security:
@@ -149,12 +138,62 @@ service:
 
 
 tolerations: []
-
+# Example:
+# tolerations:
+#   - key: "erigon-dedicated"
+#     operator: "Equal"
+#     value: "true"
+#     effect: "NoSchedule"
+#   - key: "node.kubernetes.io/disk-pressure"
+#     operator: "Exists"
+#     effect: "NoSchedule"
 
 affinity: {}
-
+# Example:
+# affinity:
+#   nodeAffinity:
+#     requiredDuringSchedulingIgnoredDuringExecution:
+#       nodeSelectorTerms:
+#       - matchExpressions:
+#         - key: node-type
+#           operator: In
+#           values:
+#           - high-memory
+#     preferredDuringSchedulingIgnoredDuringExecution:
+#     - weight: 100
+#       preference:
+#         matchExpressions:
+#         - key: zone
+#           operator: In
+#           values:
+#           - zone-1
+#   podAntiAffinity:
+#     preferredDuringSchedulingIgnoredDuringExecution:
+#     - weight: 100
+#       podAffinityTerm:
+#         labelSelector:
+#           matchExpressions:
+#           - key: app.kubernetes.io/name
+#             operator: In
+#             values:
+#             - erigon-snode
+#         topologyKey: kubernetes.io/hostname
 
 topologySpreadConstraints: []
+# Example:
+# topologySpreadConstraints:
+#   - maxSkew: 1
+#     topologyKey: topology.kubernetes.io/zone
+#     whenUnsatisfiable: DoNotSchedule
+#     labelSelector:
+#       matchLabels:
+#         app.kubernetes.io/name: erigon-snode
+
+
+# podDisruptionBudget:
+#   enabled: false
+#   minAvailable: 1
+#   maxUnavailable: 1
 
 # Additional labels for StatefulSet
 additionalLabels: {}
@@ -166,40 +205,5 @@ additionalLabels: {}
 
 ingress:
   enabled: false
-  className: "nginx"
-  
-  # RPC Configuration
-  rpc:
-    host: rpc.devnet.xyz
-    path: /
-    pathType: Prefix
-    annotations:
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-      nginx.ingress.kubernetes.io/proxy-body-size: "0"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "1200"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "1200"
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
-  
-  # WebSocket Configuration  
-  websocket:
-    host: ws.devnet.xyz
-    path: /
-    pathType: Prefix
-    annotations:
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-      nginx.ingress.kubernetes.io/proxy-body-size: "0"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "36h00"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
-      # WebSocket specific annotations
-      nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-      nginx.ingress.kubernetes.io/proxy-set-headers: |
-        Connection "upgrade"
-        Upgrade $http_upgrade
-  
-  # TLS Configuration (shared)
-  tls:
-    secretName: devnet-tls # Should be pre-created if you using tls
+
 

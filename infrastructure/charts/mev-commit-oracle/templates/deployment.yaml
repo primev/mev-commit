@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mev-oracle.fullname" . }}
+  labels:
+    {{- include "mev-oracle.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "mev-oracle.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/scripts: {{ .Files.Get "scripts/keystore-init.sh" | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "mev-oracle.selectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+        - name: keystore-init
+          {{- if .Values.keystore.awsEnabled }}
+          image: curlimages/curl:8.5.0
+          {{- else }}
+          image: "alpine/curl:8.5.0"
+          {{- end }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KEYSTORE_PATH
+              value: "{{ .Values.keystore.path }}"
+            - name: KEYSTORE_RETRIES
+              value: "{{ .Values.keystore.retries | default "3" }}"
+            {{- if .Values.keystore.awsEnabled }}
+            - name: KEYSTORE_SOURCE
+              value: "aws"
+            {{- else }}
+            - name: KEYSTORE_SOURCE
+              value: "url"
+            - name: KEYSTORE_DOWNLOAD_URL
+              value: "{{ .Values.keystore.downloadUrl }}"
+            {{- end }}
+          command: ["/bin/sh"]
+          args: ["/scripts/keystore-init.sh"]
+          volumeMounts:
+            - name: keystore-shared
+              mountPath: {{ .Values.keystore.path }}
+            - name: init-scripts
+              mountPath: /scripts
+              readOnly: true
+            {{- if .Values.keystore.awsEnabled }}
+            - name: keystore-secret
+              mountPath: /secrets
+              readOnly: true
+            {{- end }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+      containers:
+        - name: oracle
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.oracle.httpPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          env:
+            - name: MEV_ORACLE_PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mev-oracle.fullname" . }}-postgresql
+                  key: MEV_ORACLE_PG_PASSWORD
+            - name: MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mev-oracle.authTokenSecretName" . }}
+                  key: MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN
+            - name: MEV_ORACLE_KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.keystore.awsEnabled }}
+                  name: {{ include "mev-oracle.fullname" . }}-keystore
+                  key: password.txt
+                  {{- else }}
+                  name: {{ include "mev-oracle.keystoreSecretName" . }}
+                  key: MEV_ORACLE_KEYSTORE_PASSWORD
+                  {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "mev-oracle.fullname" . }}
+          volumeMounts:
+            - name: keystore-shared
+              mountPath: {{ .Values.keystore.path }}
+              readOnly: false
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: keystore-shared
+          persistentVolumeClaim:
+            claimName: {{ .Values.keystore.persistentVolumeClaim }}
+        - name: init-scripts
+          configMap:
+            name: {{ include "mev-oracle.fullname" . }}-init
+            defaultMode: 0755
+        {{- if .Values.keystore.awsEnabled }}
+        - name: keystore-secret
+          secret:
+            secretName: {{ include "mev-oracle.fullname" . }}-keystore
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

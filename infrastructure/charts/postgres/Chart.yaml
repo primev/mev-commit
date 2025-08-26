@@ -1,0 +1,7 @@
+# Chart.yaml
+apiVersion: v2
+name: postgresql
+description: A simple Helm chart for PostgreSQL
+type: application
+version: 0.1.0
+appVersion: "15"

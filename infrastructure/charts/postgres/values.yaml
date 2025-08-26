@@ -1,0 +1,75 @@
+# values.yaml
+# Default values for postgresql
+replicaCount: 1
+
+image:
+  repository: postgres
+  tag: "15"
+  pullPolicy: IfNotPresent
+
+# Deployment strategy
+strategy:
+  type: Recreate
+
+# Additional labels for deployment
+additionalLabels:
+  app: oracle
+  chain: testnet
+
+# PostgreSQL configuration
+postgresql:
+  database: mev_oracle
+  username: mev_oracle
+  # Password will be generated if not set
+  password: "mev_oracle_password"
+
+# Persistence
+persistence:
+  enabled: true
+  storageClass: "premium-rwo"
+  size: 8Gi
+  subPath: "pgdata"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 5432
+  # Custom selector for service (optional)
+  # If not specified, will use standard selector labels
+  customSelector: {}
+    # app: custom-postgres
+    # version: v1
+
+# Resource limits
+resources:
+  limits:
+    cpu: 1000m
+    memory: 4Gi
+  requests:
+    cpu: 100m
+    memory: 1Gi
+
+# Security context
+securityContext:
+  runAsUser: 999
+  runAsGroup: 999
+  fsGroup: 999
+
+probes:
+  liveness:
+    enabled: false
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  readiness:
+    enabled: false
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+
+#nodeSelector:
+#  workload-type: general

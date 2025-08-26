@@ -1,0 +1,122 @@
+# Default values for mev-commit-p2p.
+
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  # Docker image configuration
+  image:
+    repository: harshsingh07/flood
+    tag: mev-commit-v1.2.0-rc1-2-gb9e24ce7
+    pullPolicy: IfNotPresent
+
+  # TLS certificate configuration
+  tls:
+    selfSigned: true
+    existingSecret: ""
+    forceRegenerate: false
+    validityDays: 365
+
+  # External Secret Operator configuration
+  externalSecrets:
+    enabled: false
+    secretStore: "aws-cluster-secret-store"
+    secretStoreKind: "ClusterSecretStore"
+    nodeSecretKey: "mev-commit-node-secrets"
+    tlsSecretKey: "mev-commit-tls"
+
+  # Persistence configuration
+  persistence:
+    enabled: true
+    storageClass: "premium-rwo"
+    dataSize: "10Gi"
+    keystoreSize: "2Mi"
+
+  # Logging configuration
+  logging:
+    format: "json"
+    level: "info"
+    logTags: "service.name:mev-commit-bootnode,service.version:1.2.0,environment:production,team:protocol"
+
+  # Contract addresses
+  contracts:
+    bidderRegistry: "0x3B6fE9ea4421c303FD83795D294b8222ff2d9EB3"
+    blockTracker: "0xFF7cF3A4B4b2acdf426D813e76aa11946bb5329b"
+    # oracle: "0xB241520A1a049e16Dd9193B1FCE23cB458f1f676"
+    preconfStore: "0x16A76F15335e61a04f1aD13858c2383Cb9d14057" 
+    providerRegistry: "0x2B8ff90eAD0069fd6286ca389457bf58107971fe"
+    #validatorRouter: "0x6c7A44A9A1836EF14129261D23166F7BD0196fb8"
+
+  # Gas settings for transactions
+  gas:
+    limit: "2000000"
+    tipCap: "50000000"
+    feeCap: "60000000"
+
+  # RPC endpoints
+  rpc:
+    settlementEndpoint: "http://erigon-snode-erigon.hoodie-testnet.svc.cluster.local:8545"
+    settlementWsEndpoint: "ws://erigon-snode-erigon.hoodie-testnet.svc.cluster.local:8546"
+    l1Endpoint: "https://ethereum-hoodi-rpc.publicnode.com"
+
+  # Notifications
+  notifications:
+    bufferCapacity: "100"
+
+  # Ethereum chain configuration
+  laggardMode: "10"
+
+# Node configuration template (bootnode, provider, or bidder)
+node:
+  type: "bootnode"
+  replicas: 1
+
+  service:
+    type: ClusterIP
+    annotations: {}
+    nodePorts:
+      http: null
+      p2p: null
+      rpc: null
+
+  ports:
+    http: 13523
+    p2p: 13522
+    rpc: 13524
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+
+  podSecurityContext:
+    fsGroup: 0
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2048Mi
+    requests:
+      cpu: 500m
+      memory: 1024Mi
+
+  bootnodeConnectionString: ""
+
+  defaultKeystorePassword: "CXBMf4xEDO0I"
+  defaultP2PSecret: ""
+  existingSecret: ""
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podAnnotations: {}
+  imagePullSecrets: []
+
+# Explicit config for use in ConfigMap
+keystore:
+  path: "/p2p-keystore"
+

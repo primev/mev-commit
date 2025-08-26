@@ -1,0 +1,107 @@
+# Multi-Emulator Helm Chart Values (Bidder & Provider)
+
+# Global settings
+namespace: default
+
+# Name overrides
+nameOverride: ""
+fullnameOverride: ""
+
+# Job configuration
+job:
+  # Type of emulator: "bidder" or "provider"
+  type: "bidder"  # Change to "provider" for provider-emulator
+  name: "bidder-emulator"  # Change to "provider-emulator" for provider
+  replicas: 1
+  
+  # Common flags for both emulators
+  #serverAddr: "mev-commit-provider-mev-commit-p2p-provider.default.svc.cluster.local:13624" # Provider endpoint
+  serverAddr: "erigon-mev-commit-bidder-mev-commit-p2p-bidder.default.svc.cluster.local:13724"  # Bidder endpoint
+  httpPort: 8080
+  env:
+    log-format: "json"     # text or json
+    log-level: "debug"     # debug, info, warn, error
+    log-tags: ""           # Additional comma-separated log tags
+    otel-collector-endpoint-url: ""  # OpenTelemetry collector URL
+  
+  # Bidder-specific flags (only used when type: "bidder")
+  rpcAddr: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"  # mock l1 endpoint
+  bidWorkers: 200
+  
+  # Provider-specific flags (only used when type: "provider")
+  relay: "http://erigon-mev-commit-relay-emulator-mev-commit-emulator.default.svc.cluster.local:8080"               # Relay address
+  errorProbability: 20    # Error probability (0-100)
+
+# Bidder/Provider emulator image
+image:
+  repository: "harshsingh07/flood"  
+  #tag: "provideremulator-amd" # provider --> tag: "provideremulator-amd" 
+  tag: "bidderemulator-amd-v1" # bidderemulator-amd-v1
+  pullPolicy: Always
+
+# Service configuration
+service:
+  enabled: true
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+
+# Resource configuration
+resources:
+  limits:
+    cpu: 15000m
+    memory: 50Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Health checks
+livenessProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: false
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Pod scheduling and configuration
+#nodeSelector:
+#  workload-type: general
+
+tolerations: []
+
+affinity: {}
+
+# Labels and annotations
+annotations: {}
+
+podLabels: {}
+
+podAnnotations: {}
+
+# Example configurations:
+# 
+# For Bidder Emulator:
+# job:
+#   type: "bidder"
+#   name: "bidder-emulator"
+#   rpcAddr: "localhost:8545"
+#   serverAddr: "localhost:13524"
+#   bidWorkers: 2
+#   httpPort: 8080
+#
+# For Provider Emulator:
+# job:
+#   type: "provider"
+#   name: "provider-emulator"
+#   serverAddr: "localhost:13524"
+#   httpPort: 8080
+#   relay: "relay.example.com:8080"
+#   errorProbability: 20

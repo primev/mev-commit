@@ -1,0 +1,107 @@
+# Default values for bidder-emulator
+replicaCount: 1
+
+image:
+  repository: harshsingh07/flood
+  pullPolicy: IfNotPresent
+  tag: "bidder-emulator-v5"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Namespace to deploy to
+namespace: "default"
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext: {}
+
+# Container security context
+securityContext: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Bidder Emulator specific configuration
+bidderEmulator:
+  # L1 RPC URL (required)
+  l1RpcUrl: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
+  
+  # Bidder RPC URL (required) 
+  bidderRpcUrl: "erigon-mev-commit-bidder-mev-commit-p2p-bidder.default.svc.cluster.local:13724"
+  
+  # Deposit amount in wei (default: 1 ETH)
+  depositAmount: "1000000000000000000"
+  
+  # Number of bid workers to run concurrently
+  bidWorkers: 100
+  
+  # Logging configuration
+  logLevel: "info"
+  logFormat: "text"
+  logTags: ""
+
+# Keystore configuration
+
+keystores:
+  urls:
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore1/UTC--2025-07-21T14-22-29.999537000Z--0850f7e6d406c279a54798ebf49cd28a63b2ac66
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore2/UTC--2025-07-21T14-22-30.656419000Z--c2d5682a51108abda388a97c438ad7dcbbe1f19e
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore3/UTC--2025-07-21T14-22-31.312232000Z--3d80a5769d9e9336c8b7cf8d8dc35e6372a17426
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore4/UTC--2025-07-21T14-22-31.970211000Z--54d45c914652c5013d10e65a7b8089aaac05acaf
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore5/UTC--2025-07-21T14-22-32.630793000Z--a9db89c3c31e30b5b70db0196b7b95c209ec3cbc
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore6/UTC--2025-07-21T14-22-33.285067000Z--9b6771c9142e5b7372bc4751ae8eb4a29770a5ad
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore7/UTC--2025-07-21T14-22-33.945507000Z--2e0fc95244294adaec32d7a3f022bafffa40b8bc
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore8/UTC--2025-07-21T14-22-34.606052000Z--ee8558e130ea52dc741e9ced909e831018e85b41
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore9/UTC--2025-07-21T14-22-35.259877000Z--11b06c0692b4a0c578fd060ce1085f78fc535cc7
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore10/UTC--2025-07-21T14-22-35.925315000Z--17d53e9eb9bfafb97f6a9e9b0d1a84b705efe107
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore11/UTC--2025-07-21T14-22-36.581191000Z--92ac5a7a965a7de2d3791dc2d1fbcb50afb460e1
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore12/UTC--2025-07-21T14-22-37.233621000Z--68177dd5a3316e39eb7f800751cc0679c5d407da
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore13/UTC--2025-07-21T14-22-37.892482000Z--10b0a998f27837affe4962d9d84f81dd49bc29fb
+    - https://storage.googleapis.com/devnet-artifacts/keystores/mock-l1-keystores/keystore14/UTC--2025-07-21T14-22-38.548957000Z--bcf0e229b5c8e48066759f29bb34670ae57ffd48
+
+
+
+
+
+  # Keystore password
+  password: "CXBMf4xEDO0I"
+  
+  # Number of download retries
+  retries: 3
+
+# Probes configuration
+livenessProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: false
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Version for labeling
+version: "latest"
