@@ -22,7 +22,5 @@ var TestCases = []TestEntry{
 	{"staking", staking.Run},
 	{"staking_add_deposit", staking.RunAddDeposit},
 	{"connectivity", connectivity.Run},
-	// {"autodeposit", deposit.RunAutoDeposit},
 	{"preconf", preconf.RunPreconf},
-	// {"cancelAutodeposit", deposit.RunCancelAutoDeposit},
 }
