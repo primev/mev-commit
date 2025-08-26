@@ -111,6 +111,14 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     }
 
     /**
+     * @dev Retrieves the current window number.
+     * @return currentWindow The current window number.
+     */
+    function getCurrentWindow() external view returns (uint256) {
+        return currentWindow;
+    }
+
+    /**
      * @dev Function to get the winner of a specific block.
      * @param blockNumber The number of the block.
      * @return The address of the block winner.
