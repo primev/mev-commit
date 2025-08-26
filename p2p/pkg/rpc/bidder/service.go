@@ -445,7 +445,11 @@ func (s *Service) GetAllDeposits(
 		s.logger.Error("filtering bidder deposited", "error", err)
 		return nil, status.Errorf(codes.Internal, "filtering bidder deposited: %v", err)
 	}
-	defer deposits.Close()
+	defer func() {
+		if err := deposits.Close(); err != nil {
+			s.logger.Error("closing deposits", "error", err)
+		}
+	}()
 
 	providersToQuery := make(map[common.Address]bool)
 	for deposits.Next() {
