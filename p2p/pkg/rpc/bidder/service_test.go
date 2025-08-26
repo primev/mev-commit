@@ -211,6 +211,10 @@ func (t *testProviderRegistry) ParseBidderWithdrawSlashedAmount(_log types.Log) 
 	}, nil
 }
 
+func (t *testProviderRegistry) FilterProviderRegistered(_ *bind.FilterOpts, _ []common.Address) (*providerregistry.ProviderregistryProviderRegisteredIterator, error) {
+	return nil, nil
+}
+
 func (t *testProviderRegistry) AreProvidersValid(_ *bind.CallOpts, _ []common.Address) ([]bool, error) {
 	return []bool{true}, nil
 }
