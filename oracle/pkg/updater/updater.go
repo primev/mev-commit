@@ -15,12 +15,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/lib/pq"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
+	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 )
 
 type SettlementType string
@@ -28,6 +29,8 @@ type SettlementType string
 type TxMetadata struct {
 	PosInBlock int
 	Succeeded  bool
+	GasUsed    uint64
+	TotalGas   uint64
 }
 
 const (
@@ -47,26 +50,7 @@ type Winner struct {
 	Winner []byte
 }
 
-type Settlement struct {
-	CommitmentIdx   []byte
-	TxHash          string
-	BlockNum        int64
-	Builder         []byte
-	Amount          *big.Int
-	BidID           []byte
-	Type            SettlementType
-	DecayPercentage int64
-}
-
 type WinnerRegister interface {
-	AddEncryptedCommitment(
-		ctx context.Context,
-		commitmentIdx []byte,
-		committer []byte,
-		commitmentHash []byte,
-		commitmentSignature []byte,
-		dispatchTimestamp uint64,
-	) error
 	IsSettled(ctx context.Context, commitmentIdx []byte) (bool, error)
 	GetWinner(ctx context.Context, blockNum int64) (Winner, error)
 	AddSettlement(
@@ -81,6 +65,7 @@ type WinnerRegister interface {
 		decayPercentage int64,
 		postingTxnHash []byte,
 		nonce uint64,
+		opts []byte,
 	) error
 }
 
@@ -105,7 +90,6 @@ type Updater struct {
 	oracle         Oracle
 	evtMgr         events.EventManager
 	l1BlockCache   *lru.Cache[uint64, map[string]TxMetadata]
-	unopenedCmts   chan *preconf.PreconfmanagerUnopenedCommitmentStored
 	openedCmts     chan *preconf.PreconfmanagerOpenedCommitmentStored
 	metrics        *metrics
 	receiptBatcher txmonitor.BatchReceiptGetter
@@ -133,7 +117,6 @@ func NewUpdater(
 		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
 		openedCmts:     make(chan *preconf.PreconfmanagerOpenedCommitmentStored),
-		unopenedCmts:   make(chan *preconf.PreconfmanagerUnopenedCommitmentStored),
 	}, nil
 }
 
@@ -146,27 +129,9 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	ev1 := events.NewEventHandler(
-		"UnopenedCommitmentStored",
-		func(update *preconf.PreconfmanagerUnopenedCommitmentStored) {
-			select {
-			case <-egCtx.Done():
-			case u.unopenedCmts <- update:
-			}
-		},
-	)
+	ev := events.NewChannelEventHandler(egCtx, "OpenedCommitmentStored", u.openedCmts)
 
-	ev2 := events.NewEventHandler(
-		"OpenedCommitmentStored",
-		func(update *preconf.PreconfmanagerOpenedCommitmentStored) {
-			select {
-			case <-egCtx.Done():
-			case u.openedCmts <- update:
-			}
-		},
-	)
-
-	sub, err := u.evtMgr.Subscribe(ev1, ev2)
+	sub, err := u.evtMgr.Subscribe(ev)
 	if err != nil {
 		u.logger.Error("failed to subscribe to events", "error", err)
 		close(doneChan)
@@ -180,19 +145,6 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 			return nil
 		case err := <-sub.Err():
 			return err
-		}
-	})
-
-	eg.Go(func() error {
-		for {
-			select {
-			case <-egCtx.Done():
-				return nil
-			case ec := <-u.unopenedCmts:
-				if err := u.handleEncryptedCommitment(egCtx, ec); err != nil {
-					return err
-				}
-			}
 		}
 	})
 
@@ -221,42 +173,65 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 	return doneChan
 }
 
-func (u *Updater) handleEncryptedCommitment(
-	ctx context.Context,
-	update *preconf.PreconfmanagerUnopenedCommitmentStored,
-) error {
-	err := u.winnerRegister.AddEncryptedCommitment(
-		ctx,
-		update.CommitmentIndex[:],
-		update.Committer.Bytes(),
-		update.CommitmentDigest[:],
-		update.CommitmentSignature,
-		update.DispatchTimestamp,
-	)
-	if err != nil {
-		// ignore duplicate private key constraint
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
-			u.logger.Warn(
-				"encrypted commitment already exists",
-				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-			)
-			return nil
+func gasUsedUntil(pos int, txns map[string]TxMetadata) uint64 {
+	var gasUsed uint64
+	for _, details := range txns {
+		if details.PosInBlock >= pos {
+			continue
 		}
-		u.logger.Error(
-			"failed to add encrypted commitment",
-			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-			"error", err,
-		)
-		return err
+		gasUsed += details.GasUsed
 	}
-	u.metrics.EncryptedCommitmentsCount.Inc()
-	u.logger.Debug(
-		"added encrypted commitment",
-		"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-		"dispatch timestamp", update.DispatchTimestamp,
-	)
-	return nil
+	return gasUsed
+}
+
+func checkPositionConstraintsSatisfied(
+	opts *bidderapiv1.BidOptions,
+	txnDetails TxMetadata,
+	txns map[string]TxMetadata,
+) int {
+	positionalConstraintsSatisfied := 0
+	for _, constraint := range opts.Options {
+		if c := constraint.GetPositionConstraint(); c != nil {
+			switch c.Basis {
+			case bidderapiv1.PositionConstraint_BASIS_ABSOLUTE:
+				switch c.Anchor {
+				case bidderapiv1.PositionConstraint_ANCHOR_TOP:
+					if txnDetails.PosInBlock <= int(c.Value) {
+						positionalConstraintsSatisfied++
+					}
+				case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
+					if txnDetails.PosInBlock >= len(txns)-int(c.Value) {
+						positionalConstraintsSatisfied++
+					}
+				}
+			case bidderapiv1.PositionConstraint_BASIS_PERCENTILE:
+				switch c.Anchor {
+				case bidderapiv1.PositionConstraint_ANCHOR_TOP:
+					if txnDetails.PosInBlock <= (len(txns)*int(c.Value))/100 {
+						positionalConstraintsSatisfied++
+					}
+				case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
+					if txnDetails.PosInBlock >= (len(txns)*(100-int(c.Value)))/100 {
+						positionalConstraintsSatisfied++
+					}
+				}
+			case bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE:
+				gasUsed := gasUsedUntil(txnDetails.PosInBlock, txns)
+				gasPercentile := (gasUsed * 100) / txnDetails.TotalGas
+				switch c.Anchor {
+				case bidderapiv1.PositionConstraint_ANCHOR_TOP:
+					if gasPercentile <= uint64(c.Value) {
+						positionalConstraintsSatisfied++
+					}
+				case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
+					if gasPercentile >= uint64(100-c.Value) {
+						positionalConstraintsSatisfied++
+					}
+				}
+			}
+		}
+	}
+	return positionalConstraintsSatisfied
 }
 
 func (u *Updater) handleOpenedCommitment(
@@ -338,10 +313,25 @@ func (u *Updater) handleOpenedCommitment(
 		revertableTxnsMap[txn] = true
 	}
 
+	opts := new(bidderapiv1.BidOptions)
+	positionalConstraintsSatisfied := 0
+	if update.BidOptions != nil {
+		if err := proto.Unmarshal(update.BidOptions, opts); err != nil {
+			u.logger.Error(
+				"failed to unmarshal bid options",
+				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+				"error", err,
+			)
+			return err
+		}
+	}
+
 	// Ensure Bundle is atomic and present in the block
 	for i := 0; i < len(commitmentTxnHashes); i++ {
 		txnDetails, found := txns[commitmentTxnHashes[i]]
-		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i || (!txnDetails.Succeeded && !revertableTxnsMap[commitmentTxnHashes[i]]) {
+		if !found ||
+			txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i ||
+			(!txnDetails.Succeeded && !revertableTxnsMap[commitmentTxnHashes[i]]) {
 			u.logger.Info(
 				"bundle does not satisfy committed requirements",
 				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
@@ -361,6 +351,27 @@ func (u *Updater) handleOpenedCommitment(
 				update,
 				SettlementTypeSlash,
 				residualPercentage,
+			)
+		}
+
+		positionalConstraintsSatisfied += checkPositionConstraintsSatisfied(opts, txnDetails, txns)
+		if i == len(commitmentTxnHashes)-1 && positionalConstraintsSatisfied < len(opts.Options) {
+			u.logger.Info(
+				"not all positional constraints satisfied",
+				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+				"txnHash", update.TxnHash,
+				"blockNumber", update.BlockNumber,
+				"positionalConstraintsSatisfied", positionalConstraintsSatisfied,
+				"totalPositionalConstraints", len(opts.Options),
+			)
+			// The committer did not include the transactions in the block
+			// correctly, so this is a slash to be processed
+			return u.settle(
+				ctx,
+				update,
+				SettlementTypeSlash,
+				residualPercentage,
+				winner.Window,
 			)
 		}
 	}
@@ -434,6 +445,7 @@ func (u *Updater) addSettlement(
 		decayPercentage,
 		postingTxnHash,
 		nonce,
+		update.BidOptions,
 	)
 	if err != nil {
 		u.logger.Error(
@@ -464,12 +476,10 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	txns, ok := u.l1BlockCache.Get(blockNum)
 	if ok {
 		u.metrics.BlockTxnCacheHits.Inc()
-		u.logger.Debug("cache hit for block transactions", "blockNum", blockNum)
 		return txns, nil
 	}
 
 	u.metrics.BlockTxnCacheMisses.Inc()
-	u.logger.Debug("cache miss for block transactions", "blockNum", blockNum)
 
 	block, err := u.l1Client.BlockByNumber(ctx, big.NewInt(0).SetUint64(blockNum))
 	if err != nil {
@@ -541,7 +551,12 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 			u.logger.Error("receipt not found for txn", "txnHash", tx.Hex())
 			continue
 		}
-		txnsMap[strings.TrimPrefix(tx.Hex(), "0x")] = TxMetadata{PosInBlock: i, Succeeded: receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful}
+		txnsMap[strings.TrimPrefix(tx.Hex(), "0x")] = TxMetadata{
+			PosInBlock: i,
+			Succeeded:  receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful,
+			GasUsed:    receipt.(*types.Receipt).GasUsed,
+			TotalGas:   block.GasUsed(),
+		}
 		u.logger.Debug("added txn to map", "txnHash", tx.Hex(), "posInBlock", i, "succeeded", receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful)
 	}
 
