@@ -303,7 +303,8 @@ func (s *Service) Deposit(
 		if deposited, err := s.registryContract.ParseBidderDeposited(*log); err == nil {
 			s.logger.Info("deposit successful", "amount", deposited.DepositedAmount.String())
 			return &bidderapiv1.DepositResponse{
-				Amount: deposited.DepositedAmount.String(),
+				Amount:   deposited.DepositedAmount.String(),
+				Provider: deposited.Provider.Hex(),
 			}, nil
 		}
 	}
