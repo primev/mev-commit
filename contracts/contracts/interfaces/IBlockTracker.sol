@@ -42,6 +42,10 @@ interface IBlockTracker {
     /// @return The Ethereum address of the builder.
     function getBuilder(string calldata builderNameGrafiti) external view returns (address);
 
+    /// @notice Gets the current window number.
+    /// @return The current window number.
+    function getCurrentWindow() external view returns (uint256);
+
     /// @notice Retrieves the winner of a specific L1 block.
     /// @param _blockNumber The block number of the L1 block.
     /// @return The address of the winner of the L1 block.
