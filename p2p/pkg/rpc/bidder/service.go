@@ -438,13 +438,14 @@ func (s *Service) GetAllDeposits(
 			End:     nil,
 		},
 		[]common.Address{s.owner}, // This bidder
-		[]common.Address{},        // all providers
-		[]*big.Int{},              // all amounts
+		nil,                       // all providers
+		nil,                       // all amounts
 	)
 	if err != nil {
 		s.logger.Error("filtering bidder deposited", "error", err)
 		return nil, status.Errorf(codes.Internal, "filtering bidder deposited: %v", err)
 	}
+	defer deposits.Close()
 
 	providersToQuery := make(map[common.Address]bool)
 	for deposits.Next() {
@@ -846,6 +847,10 @@ func (s *Service) GetValidProviders(
 	}
 
 	connectedProviders := s.topology.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
+	if len(connectedProviders) == 0 {
+		return &bidderapiv1.GetValidProvidersResponse{ValidProviders: []string{}}, nil
+	}
+
 	providerAddrs := make([]common.Address, len(connectedProviders))
 	for i, provider := range connectedProviders {
 		providerAddrs[i] = provider.EthAddress

@@ -274,10 +274,10 @@ func startServerWithStore(t *testing.T, cs *testStore) bidderapiv1.BidderClient 
 		15*time.Second,
 		logger,
 		setCodeHelper,
-		nil,                  // TODO: Make deposit manager non-nil and test relevant functions from service.go
-		nil,                  // TODO: Make backend non-nil and test relevant functions from service.go
-		&topology.Topology{}, // TODO: Make topology non-nil and test relevant functions from service.go
-		common.HexToAddress("0x0000000000000000000000000000000000000000"), // TODO: Make deposit manager impl address non-nil and test relevant functions from service.go
+		nil,
+		nil,
+		&topology.Topology{},
+		common.HexToAddress("0x0000000000000000000000000000000000000000"),
 	)
 
 	baseServer := grpc.NewServer()
