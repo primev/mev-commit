@@ -66,12 +66,25 @@ func (b *bidder) setup(depositAmount string) error {
 		}
 	}
 
-	validProviders, err := b.client.GetValidProviders(context.Background(), &pb.GetValidProvidersRequest{})
-	if err != nil {
-		return fmt.Errorf("failed to get valid providers: %w", err)
-	}
-	if len(validProviders.ValidProviders) == 0 {
-		return fmt.Errorf("no valid providers found")
+	const maxAttempts = 10
+	var validProviders *pb.GetValidProvidersResponse
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		resp, err := b.client.GetValidProviders(ctx, &pb.GetValidProvidersRequest{})
+		cancel()
+		if err == nil && len(resp.ValidProviders) > 0 {
+			validProviders = resp
+			break
+		}
+
+		if attempt == maxAttempts {
+			if err != nil {
+				return fmt.Errorf("error getting valid providers after %d attempts: %w", attempt, err)
+			}
+			return fmt.Errorf("no valid providers found after %d attempts", attempt)
+		}
+		time.Sleep(30 * time.Second)
 	}
 
 	targetDeposits := make([]*pb.TargetDeposit, len(validProviders.ValidProviders))
