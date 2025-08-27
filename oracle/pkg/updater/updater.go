@@ -354,6 +354,9 @@ func (u *Updater) handleOpenedCommitment(
 			)
 		}
 
+		// Check positional constraints. Only one transaction needs to satisfy each constraint
+		// so we can accumulate the number of satisfied constraints as we go through the transactions
+		// in the bundle. If at the end of the bundle we have not satisfied all constraints, it is a slash.
 		positionalConstraintsSatisfied += checkPositionConstraintsSatisfied(opts, txnDetails, txns)
 		if i == len(commitmentTxnHashes)-1 && positionalConstraintsSatisfied < len(opts.Options) {
 			u.logger.Info(

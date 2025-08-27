@@ -33,16 +33,8 @@ CREATE TABLE IF NOT EXISTS settlements (
 	chainhash TEXT,
 	nonce BIGINT,
 	settled BOOLEAN,
-	decay_percentage BIGINT
-);`
-
-var encryptedCommitmentsTable = `
-CREATE TABLE IF NOT EXISTS encrypted_commitments (
-	commitment_index TEXT PRIMARY KEY,
-	committer TEXT,
-	commitment_hash TEXT,
-	commitment_signature TEXT,
-	dispatch_timestamp BIGINT
+	decay_percentage BIGINT,
+	options TEXT
 );`
 
 var winnersTable = `
@@ -75,7 +67,6 @@ func NewStore(db *sql.DB) (*Store, error) {
 	for _, table := range []string{
 		settlementType,
 		settlementsTable,
-		encryptedCommitmentsTable,
 		winnersTable,
 		transactionsTable,
 		integerTable,
@@ -159,6 +150,7 @@ func (s *Store) AddSettlement(
 	decayPercentage int64,
 	postingTxnHash []byte,
 	postingTxnNonce uint64,
+	options []byte,
 ) error {
 	columns := []string{
 		"commitment_index",
@@ -172,6 +164,7 @@ func (s *Store) AddSettlement(
 		"chainhash",
 		"nonce",
 		"decay_percentage",
+		"options",
 	}
 
 	// Convert byte slices to base64 strings for storage
@@ -179,6 +172,7 @@ func (s *Store) AddSettlement(
 	builderBase64 := base64.StdEncoding.EncodeToString(builder)
 	bidIDBase64 := base64.StdEncoding.EncodeToString(bidID)
 	postingTxnHashBase64 := base64.StdEncoding.EncodeToString(postingTxnHash)
+	optionsBase64 := base64.StdEncoding.EncodeToString(options)
 
 	values := []interface{}{
 		commitmentIdxBase64,
@@ -192,6 +186,7 @@ func (s *Store) AddSettlement(
 		postingTxnHashBase64,
 		postingTxnNonce,
 		decayPercentage,
+		optionsBase64,
 	}
 	placeholder := make([]string, len(values))
 	for i := range columns {
@@ -227,62 +222,6 @@ func (s *Store) IsSettled(
 	}
 
 	return settled, nil
-}
-
-func (s *Store) Settlement(
-	ctx context.Context,
-	commitmentIdx []byte,
-) (updater.Settlement, error) {
-	var (
-		st            updater.Settlement
-		builderBase64 string
-		bidIDBase64   string
-		amountStr     string
-		ok            bool
-	)
-	commitmentIdxBase64 := base64.StdEncoding.EncodeToString(commitmentIdx)
-
-	err := s.db.QueryRowContext(
-		ctx,
-		`
-		SELECT
-			transaction, block_number, builder_address, amount, bid_id, type,
-			decay_percentage
-		FROM settlements
-		WHERE commitment_index = $1`,
-		commitmentIdxBase64,
-	).Scan(
-		&st.TxHash,
-		&st.BlockNum,
-		&builderBase64,
-		&amountStr,
-		&bidIDBase64,
-		&st.Type,
-		&st.DecayPercentage,
-	)
-	if err != nil {
-		return st, err
-	}
-
-	// Convert base64 strings to raw bytes
-	builder, err := base64.StdEncoding.DecodeString(builderBase64)
-	if err != nil {
-		return st, err
-	}
-	st.Builder = builder
-
-	bidID, err := base64.StdEncoding.DecodeString(bidIDBase64)
-	if err != nil {
-		return st, err
-	}
-	st.BidID = bidID
-	st.CommitmentIdx = commitmentIdx
-
-	st.Amount, ok = new(big.Int).SetString(amountStr, 10)
-	if !ok {
-		return st, fmt.Errorf("failed to parse amount: %s", amountStr)
-	}
-	return st, nil
 }
 
 func (s *Store) Save(ctx context.Context, txHash common.Hash, nonce uint64) error {
