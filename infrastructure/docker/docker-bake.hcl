@@ -3,10 +3,31 @@ variable "PLATFORM" { default = ["linux/amd64"] }
 variable "REGISTRY" { default = "ghcr.io/primev" }
 variable "REPO_NAME" { default = "" }
 
+# Git variables - these will be passed from Makefile
+variable "GIT_BRANCH" { 
+  default = null
+}
+
+variable "GIT_COMMIT" { 
+  default = null
+}
+
+function "get_labels" {
+  params = [component]
+  result = {
+    "branch" = GIT_BRANCH != null ? GIT_BRANCH : "unknown"
+    "commit" = GIT_COMMIT != null ? GIT_COMMIT : "unknown"
+    "component" = component
+    "build.timestamp" = timestamp()
+    "build.tag" = TAG
+  }
+}
+
 target "mev-commit-builder" {
   inherits   = ["_common"]
   context    = "../../"
   dockerfile = "infrastructure/docker/Dockerfile.builder"
+  labels = get_labels("builder")
 }
 
 target "mev-commit-oracle" {
@@ -17,6 +38,7 @@ target "mev-commit-oracle" {
     builder_ctx = "target:mev-commit-builder"
   }
   tags = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-mev-commit-oracle" : "${REGISTRY}/mev-commit-oracle:${TAG}"]
+  labels = get_labels("oracle")
 }
 
 target "mev-commit" {
@@ -27,6 +49,7 @@ target "mev-commit" {
     builder_ctx = "target:mev-commit-builder"
   }
   tags = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-mev-commit" : "${REGISTRY}/mev-commit:${TAG}"]
+  labels = get_labels("p2p")
 }
 
 target "mev-commit-bridge" {
@@ -37,6 +60,7 @@ target "mev-commit-bridge" {
     builder_ctx = "target:mev-commit-builder"
   }
   tags = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-mev-commit-bridge" : "${REGISTRY}/mev-commit-bridge:${TAG}"]
+  labels = get_labels("bridge")
 }
 
 target "mev-commit-dashboard" {
@@ -47,6 +71,7 @@ target "mev-commit-dashboard" {
     builder_ctx = "target:mev-commit-builder"
   }
   tags = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-mev-commit-dashboard" : "${REGISTRY}/mev-commit-dashboard:${TAG}"]
+  labels = get_labels("dashboard")
 }
 
 target "preconf-rpc" {
@@ -57,6 +82,7 @@ target "preconf-rpc" {
     builder_ctx = "target:mev-commit-builder"
   }
   tags = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-preconf-rpc" : "${REGISTRY}/preconf-rpc:${TAG}"]
+  labels = get_labels("preconf-rpc")
 }
 
 target "bidder-emulator" {
@@ -67,6 +93,7 @@ target "bidder-emulator" {
     builder_ctx = "target:mev-commit-builder"
   }
   tags = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-bidder-emulator" : "${REGISTRY}/bidder-emulator:${TAG}"]
+  labels = get_labels("bidder-emulator")
 }
 
 target "provider-emulator" {
@@ -77,6 +104,7 @@ target "provider-emulator" {
     builder_ctx = "target:mev-commit-builder"
   }
   tags = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-provider-emulator" : "${REGISTRY}/provider-emulator:${TAG}"]
+  labels = get_labels("provider-emulator")
 }
 
 target "relay-emulator" {
@@ -87,6 +115,7 @@ target "relay-emulator" {
     builder_ctx = "target:mev-commit-builder"
   }
   tags = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-relay-emulator" : "${REGISTRY}/relay-emulator:${TAG}"]
+  labels = get_labels("relay-emulator")
 }
 
 group "all" {
