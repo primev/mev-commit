@@ -34,9 +34,9 @@ job:
 
 # Bidder/Provider emulator image
 image:
-  repository: "harshsingh07/flood"  
+  repository: "primev/primev"  
   #tag: "provideremulator-amd" # provider --> tag: "provideremulator-amd" 
-  tag: "bidderemulator-amd-v1" # bidderemulator-amd-v1
+  tag: "" # bidderemulator-amd-v1
   pullPolicy: Always
 
 # Service configuration

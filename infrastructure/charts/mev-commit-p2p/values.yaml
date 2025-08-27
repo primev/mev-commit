@@ -6,9 +6,9 @@ fullnameOverride: ""
 global:
   # Docker image configuration
   image:
-    repository: harshsingh07/flood
-    tag: mev-commit-v1.2.0-rc1-2-gb9e24ce7
-    pullPolicy: IfNotPresent
+    repository: primev/primev
+    tag:
+    pullPolicy: Always
 
   # TLS certificate configuration
   tls:

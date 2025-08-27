@@ -2,8 +2,8 @@
 replicaCount: 1
 
 image:
-  repository: harshsingh07/flood
-  pullPolicy: IfNotPresent
+  repository: primev/primev
+  pullPolicy: Always
   tag: "bidder-emulator-v5"
 
 imagePullSecrets: []

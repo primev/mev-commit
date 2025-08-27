@@ -1,8 +1,8 @@
 replicaCount: 1
 
 image:
-  repository: harshsingh07/flood
-  tag: mev-commit-dashboard-v1.2.0-rc1-2-gb9e24ce7
+  repository: primev/primev
+  tag:
   pullPolicy: Always
 
 nameOverride: ""

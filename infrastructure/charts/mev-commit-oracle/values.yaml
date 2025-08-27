@@ -5,9 +5,9 @@ fullnameOverride: "erigon-oracle"
 replicaCount: 1
 
 image:
-  repository: harshsingh07/flood
-  pullPolicy: IfNotPresent
-  tag: "mev-commit-oracle-v1.2.0-rc1-2-gb9e24ce7"
+  repository: primev/primev
+  pullPolicy: Always
+  tag: ""
 
 # Pod annotations for monitoring
 podAnnotations:

@@ -25,6 +25,16 @@ SKIP_CONTRACTS=false
 PASSWORD=""
 WORK_DIR=""
 SELECTED_CHARTS=""
+BRANCH=""
+CONTRACTS_FILE=""
+
+# Image variables
+DASHBOARD_IMAGE=""
+P2P_IMAGE=""
+RELAY_IMAGE=""
+BIDDER_EMULATOR_IMAGE=""
+PROVIDER_EMULATOR_IMAGE=""
+ORACLE_IMAGE=""
 
 # Parse args
 while [[ $# -gt 0 ]]; do
@@ -36,9 +46,13 @@ while [[ $# -gt 0 ]]; do
         --password) PASSWORD="$2"; shift 2 ;;
         --work-dir) WORK_DIR="$2"; shift 2 ;;
         --charts) SELECTED_CHARTS="$2"; shift 2 ;;
+        --branch) BRANCH="$2"; shift 2 ;;
+        --contracts-file) CONTRACTS_FILE="$2"; shift 2 ;;
         --help) 
-            echo "Usage: $0 [--dry-run] [--cleanup] [--skip-contracts] [--password PASS] [--charts CHARTS]"
-            echo "Charts: mock-l1,erigon-snode,relay-emulator,dashboard"
+            echo "Usage: $0 [--dry-run] [--cleanup] [--skip-contracts] [--password PASS] [--charts CHARTS] [--branch BRANCH] [--contracts-file FILE]"
+            echo "Charts: mock-l1,erigon-snode,relay-emulator,dashboard,oracle,bootnode,bidder,bidder-emulator,provider,provider-emulator"
+            echo "Branch: Filter Docker images by branch label (required for image discovery)"
+            echo "Contracts File: JSON file with contract addresses (used with --skip-contracts)"
             exit 0 ;;
         *) print_error "Unknown option: $1"; exit 1 ;;
     esac
@@ -48,7 +62,7 @@ done
 cleanup_all() {
     print_info "Cleaning up all releases..."
     
-    for release in "mev-commit-dashboard" "mev-commit-relay-emulator" "erigon-snode" "erigon-mev-commit-mock-l1"; do
+    for release in "mev-commit-dashboard" "mev-commit-relay-emulator" "erigon-snode" "erigon-mev-commit-mock-l1" "erigon-oracle" "erigon-mev-commit-bootnode" "erigon-mev-commit-bidder" "mev-commit-emulator-bt" "erigon-mev-commit-provider" "mev-commit-emulator"; do
         if helm list -n $NAMESPACE | grep -q "^$release"; then
             print_info "Deleting $release"
             helm uninstall "$release" -n "$NAMESPACE" || true
@@ -66,6 +80,71 @@ if [[ "$CLEANUP" == true ]]; then
     cleanup_all
     exit 0
 fi
+
+# Discover Docker images by branch and component
+discover_images() {
+    if [[ -z "$BRANCH" ]]; then
+        print_warning "No branch specified, using hardcoded image values"
+        return 0
+    fi
+    
+    print_info "Discovering Docker images for branch: $BRANCH"
+    
+    # Get all images filtered by branch
+    BRANCH_IMAGES=$(docker images --filter "label=branch=$BRANCH" --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}" 2>/dev/null || true)
+    
+    if [[ -z "$BRANCH_IMAGES" ]]; then
+        print_warning "No Docker images found with branch label: $BRANCH"
+        print_warning "Using hardcoded image values from charts"
+        return 0
+    fi
+    
+    print_info "Found images for branch $BRANCH:"
+    echo "$BRANCH_IMAGES"
+    echo
+    
+    # Extract images by component label
+    print_info "Matching images by component labels..."
+    
+    # Dashboard image (component=dashboard)
+    DASHBOARD_IMAGE=$(docker images --filter "label=branch=$BRANCH" --filter "label=component=dashboard" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | head -1 || true)
+    
+    # P2P image (component=p2p) - used by bootnode, bidder, provider
+    P2P_IMAGE=$(docker images --filter "label=branch=$BRANCH" --filter "label=component=p2p" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | head -1 || true)
+    
+    # Relay emulator image (component=relay-emulator)
+    RELAY_IMAGE=$(docker images --filter "label=branch=$BRANCH" --filter "label=component=relay-emulator" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | head -1 || true)
+    
+    # Bidder emulator image (component=bidder-emulator)
+    BIDDER_EMULATOR_IMAGE=$(docker images --filter "label=branch=$BRANCH" --filter "label=component=bidder-emulator" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | head -1 || true)
+    
+    # Provider emulator image (component=provider-emulator)
+    PROVIDER_EMULATOR_IMAGE=$(docker images --filter "label=branch=$BRANCH" --filter "label=component=provider-emulator" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | head -1 || true)
+    
+    # Oracle image (component=oracle)
+    ORACLE_IMAGE=$(docker images --filter "label=branch=$BRANCH" --filter "label=component=oracle" --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | head -1 || true)
+    
+    print_info "=== Image Discovery Results ==="
+    [[ -n "$DASHBOARD_IMAGE" ]] && print_success "Dashboard: $DASHBOARD_IMAGE" || print_warning "Dashboard: Using chart default"
+    [[ -n "$P2P_IMAGE" ]] && print_success "P2P (bootnode/bidder/provider): $P2P_IMAGE" || print_warning "P2P: Using chart default"
+    [[ -n "$RELAY_IMAGE" ]] && print_success "Relay Emulator: $RELAY_IMAGE" || print_warning "Relay Emulator: Using chart default"
+    [[ -n "$BIDDER_EMULATOR_IMAGE" ]] && print_success "Bidder Emulator: $BIDDER_EMULATOR_IMAGE" || print_warning "Bidder Emulator: Using chart default"
+    [[ -n "$PROVIDER_EMULATOR_IMAGE" ]] && print_success "Provider Emulator: $PROVIDER_EMULATOR_IMAGE" || print_warning "Provider Emulator: Using chart default"
+    [[ -n "$ORACLE_IMAGE" ]] && print_success "Oracle: $ORACLE_IMAGE" || print_warning "Oracle: Using chart default"
+    echo
+}
+
+# Parse discovered image into repository and tag
+parse_image() {
+    local IMAGE="$1"
+    if [[ -n "$IMAGE" && "$IMAGE" == *":"* ]]; then
+        REPO="${IMAGE%:*}"
+        TAG="${IMAGE##*:}"
+        echo "$REPO" "$TAG"
+    else
+        echo "" ""
+    fi
+}
 
 # Find pod by app label
 find_pod() {
@@ -260,12 +339,66 @@ get_bootnode_connection() {
     return 1
 }
 
+# Load contracts from file (when --skip-contracts is used)
+load_contracts_from_file() {
+    if [[ "$SKIP_CONTRACTS" == false ]]; then
+        return 0  # Not skipping contracts, will deploy them
+    fi
+    
+    print_info "Loading contracts from file (--skip-contracts enabled)..."
+    
+    # Determine contracts file to use
+    CONTRACTS_JSON=""
+    
+    if [[ -n "$CONTRACTS_FILE" ]]; then
+        # Use specified file
+        if [[ -f "$CONTRACTS_FILE" ]]; then
+            CONTRACTS_JSON="$CONTRACTS_FILE"
+            print_info "Using specified contracts file: $CONTRACTS_FILE"
+        else
+            print_error "Specified contracts file not found: $CONTRACTS_FILE"
+            return 1
+        fi
+    else
+        # Auto-discover latest contracts file
+        CONTRACTS_JSON=$(find_contracts_json)
+        if [[ -n "$CONTRACTS_JSON" ]]; then
+            print_info "Auto-discovered contracts file: $CONTRACTS_JSON"
+        else
+            print_error "No contracts file found. Provide one with --contracts-file or deploy contracts first"
+            print_info "Expected JSON format:"
+            cat << 'EOF'
+{
+  "BidderRegistry": "0x1234567890123456789012345678901234567890",
+  "BlockTracker": "0x2345678901234567890123456789012345678901",
+  "Oracle": "0x3456789012345678901234567890123456789012",
+  "PreconfManager": "0x4567890123456789012345678901234567890123",
+  "ProviderRegistry": "0x5678901234567890123456789012345678901234"
+}
+EOF
+            return 1
+        fi
+    fi
+    
+    # Load contracts from file
+    if extract_contracts "$CONTRACTS_JSON"; then
+        print_success "Contracts loaded from file!"
+        print_info "BidderRegistry: $BIDDER_REGISTRY"
+        print_info "BlockTracker: $BLOCK_TRACKER" 
+        print_info "Oracle: $ORACLE"
+        print_info "PreconfManager: $PRECONF_MANAGER"
+        print_info "ProviderRegistry: $PROVIDER_REGISTRY"
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Port forward cleanup
 cleanup_pf() {
     [[ -n "$PF_PID" ]] && { kill $PF_PID 2>/dev/null || true; wait $PF_PID 2>/dev/null || true; }
 }
 trap cleanup_pf EXIT
-
 # Determine charts to deploy
 if [[ -n "$SELECTED_CHARTS" ]]; then
     IFS=',' read -ra CHARTS <<< "$SELECTED_CHARTS"
@@ -289,21 +422,29 @@ for CHART in "${CHARTS[@]}"; do
     [[ ! -d "$CHART_PATH" ]] && { print_error "Chart not found: $CHART_PATH"; exit 1; }
 done
 
-# Check password requirement
+# Check password requirement (only when deploying contracts)
 if [[ "$SKIP_CONTRACTS" == false && "$DRY_RUN" == false && -z "$PASSWORD" ]]; then
     for CHART in "${CHARTS[@]}"; do
         [[ "$CHART" == "erigon-snode" ]] && { print_error "Password required for contracts"; exit 1; }
     done
 fi
 
+# Discover images before deployment
+discover_images
+
+# Load contracts from file if skipping deployment
+load_contracts_from_file
+
 print_info "Deploying charts: ${CHARTS[*]}"
 
-# Initialize contract variables
-BIDDER_REGISTRY=""
-BLOCK_TRACKER=""
-ORACLE=""
-PRECONF_MANAGER=""
-PROVIDER_REGISTRY=""
+# Initialize contract variables (will be set by load_contracts_from_file if skipping)
+if [[ "$SKIP_CONTRACTS" == false ]]; then
+    BIDDER_REGISTRY=""
+    BLOCK_TRACKER=""
+    ORACLE=""
+    PRECONF_MANAGER=""
+    PROVIDER_REGISTRY=""
+fi
 
 # Deploy charts
 for CHART in "${CHARTS[@]}"; do
@@ -360,8 +501,18 @@ for CHART in "${CHARTS[@]}"; do
             L1_SERVICE=$(find_service "mev-commit-mock-l1")
             L1_URL="http://${L1_SERVICE:-erigon-mev-commit-mock-l1}.${NAMESPACE}.svc.cluster.local:8545"
             
-            deploy_chart "mev-commit-emulator" "mev-commit-relay-emulator" "./mev-commit-relay-emulator" \
-                --set "job.l1RpcUrl=$L1_URL"
+            # Prepare image args
+            RELAY_ARGS=(--set "job.l1RpcUrl=$L1_URL")
+            
+            if [[ -n "$RELAY_IMAGE" ]]; then
+                read RELAY_REPO RELAY_TAG <<< "$(parse_image "$RELAY_IMAGE")"
+                if [[ -n "$RELAY_REPO" && -n "$RELAY_TAG" ]]; then
+                    RELAY_ARGS+=(--set "image.repository=$RELAY_REPO" --set "image.tag=$RELAY_TAG")
+                    print_info "Using discovered relay image: $RELAY_IMAGE"
+                fi
+            fi
+            
+            deploy_chart "mev-commit-emulator" "mev-commit-relay-emulator" "./mev-commit-relay-emulator" "${RELAY_ARGS[@]}"
             ;;
         oracle)
             # Oracle needs all services and contract addresses
@@ -381,6 +532,15 @@ for CHART in "${CHARTS[@]}"; do
                 --set "network.settlementRpcWs=$ERIGON_WS"
                 --set "network.relayUrls[0]=$RELAY_URL"
             )
+            
+            # Add discovered oracle image
+            if [[ -n "$ORACLE_IMAGE" ]]; then
+                read ORACLE_REPO ORACLE_TAG <<< "$(parse_image "$ORACLE_IMAGE")"
+                if [[ -n "$ORACLE_REPO" && -n "$ORACLE_TAG" ]]; then
+                    ORACLE_ARGS+=(--set "image.repository=$ORACLE_REPO" --set "image.tag=$ORACLE_TAG")
+                    print_info "Using discovered oracle image: $ORACLE_IMAGE"
+                fi
+            fi
             
             # Add contract addresses if available
             if [[ -n "$BIDDER_REGISTRY" ]]; then
@@ -409,6 +569,15 @@ for CHART in "${CHARTS[@]}"; do
                 --set "global.rpc.settlementEndpoint=$ERIGON_HTTP"
                 --set "global.rpc.settlementWsEndpoint=$ERIGON_WS"
             )
+            
+            # Add discovered P2P image
+            if [[ -n "$P2P_IMAGE" ]]; then
+                read P2P_REPO P2P_TAG <<< "$(parse_image "$P2P_IMAGE")"
+                if [[ -n "$P2P_REPO" && -n "$P2P_TAG" ]]; then
+                    BOOTNODE_ARGS+=(--set "global.image.repository=$P2P_REPO" --set "global.image.tag=$P2P_TAG")
+                    print_info "Using discovered P2P image: $P2P_IMAGE"
+                fi
+            fi
             
             # Add contract addresses if available
             if [[ -n "$BIDDER_REGISTRY" ]]; then
@@ -448,6 +617,15 @@ for CHART in "${CHARTS[@]}"; do
                 --set "global.rpc.settlementWsEndpoint=$ERIGON_WS"
             )
             
+            # Add discovered P2P image
+            if [[ -n "$P2P_IMAGE" ]]; then
+                read P2P_REPO P2P_TAG <<< "$(parse_image "$P2P_IMAGE")"
+                if [[ -n "$P2P_REPO" && -n "$P2P_TAG" ]]; then
+                    BIDDER_ARGS+=(--set "global.image.repository=$P2P_REPO" --set "global.image.tag=$P2P_TAG")
+                    print_info "Using discovered P2P image: $P2P_IMAGE"
+                fi
+            fi
+            
             [[ -n "$BOOTNODE_CONNECTION" ]] && BIDDER_ARGS+=(--set "node.bootnodeConnectionString=$BOOTNODE_CONNECTION")
             
             # Add contract addresses if available
@@ -476,6 +654,15 @@ for CHART in "${CHARTS[@]}"; do
                 --set "bidderEmulator.bidderRpcUrl=$BIDDER_RPC_URL"
             )
             
+            # Add discovered bidder emulator image
+            if [[ -n "$BIDDER_EMULATOR_IMAGE" ]]; then
+                read BIDDER_EMU_REPO BIDDER_EMU_TAG <<< "$(parse_image "$BIDDER_EMULATOR_IMAGE")"
+                if [[ -n "$BIDDER_EMU_REPO" && -n "$BIDDER_EMU_TAG" ]]; then
+                    BIDDER_EMU_ARGS+=(--set "image.repository=$BIDDER_EMU_REPO" --set "image.tag=$BIDDER_EMU_TAG")
+                    print_info "Using discovered bidder emulator image: $BIDDER_EMULATOR_IMAGE"
+                fi
+            fi
+            
             deploy_chart "mev-commit-emulator-bt" "mev-commit-emulator-bt" "./mev-commit-emulator-bt" "${BIDDER_EMU_ARGS[@]}"
             ;;
         provider)
@@ -498,6 +685,15 @@ for CHART in "${CHARTS[@]}"; do
                 --set "global.rpc.settlementEndpoint=$ERIGON_HTTP"
                 --set "global.rpc.settlementWsEndpoint=$ERIGON_WS"
             )
+            
+            # Add discovered P2P image
+            if [[ -n "$P2P_IMAGE" ]]; then
+                read P2P_REPO P2P_TAG <<< "$(parse_image "$P2P_IMAGE")"
+                if [[ -n "$P2P_REPO" && -n "$P2P_TAG" ]]; then
+                    PROVIDER_ARGS+=(--set "global.image.repository=$P2P_REPO" --set "global.image.tag=$P2P_TAG")
+                    print_info "Using discovered P2P image: $P2P_IMAGE"
+                fi
+            fi
             
             [[ -n "$BOOTNODE_CONNECTION" ]] && PROVIDER_ARGS+=(--set "node.bootnodeConnectionString=$BOOTNODE_CONNECTION")
             
@@ -526,6 +722,15 @@ for CHART in "${CHARTS[@]}"; do
                 --set "job.relay=$RELAY_URL"
             )
             
+            # Add discovered provider emulator image
+            if [[ -n "$PROVIDER_EMULATOR_IMAGE" ]]; then
+                read PROVIDER_EMU_REPO PROVIDER_EMU_TAG <<< "$(parse_image "$PROVIDER_EMULATOR_IMAGE")"
+                if [[ -n "$PROVIDER_EMU_REPO" && -n "$PROVIDER_EMU_TAG" ]]; then
+                    PROVIDER_EMU_ARGS+=(--set "image.repository=$PROVIDER_EMU_REPO" --set "image.tag=$PROVIDER_EMU_TAG")
+                    print_info "Using discovered provider emulator image: $PROVIDER_EMULATOR_IMAGE"
+                fi
+            fi
+            
             deploy_chart "mev-commit-emulator" "mev-commit-emulator" "./mev-commit-emulator" "${PROVIDER_EMU_ARGS[@]}" -f "./mev-commit-emulator/provider-emulator-values.yaml"
             ;;
         dashboard)
@@ -536,6 +741,15 @@ for CHART in "${CHARTS[@]}"; do
             DASHBOARD_ARGS=(
                 --set "config.rpcUrl=$RPC_URL"
             )
+            
+            # Add discovered dashboard image
+            if [[ -n "$DASHBOARD_IMAGE" ]]; then
+                read DASHBOARD_REPO DASHBOARD_TAG <<< "$(parse_image "$DASHBOARD_IMAGE")"
+                if [[ -n "$DASHBOARD_REPO" && -n "$DASHBOARD_TAG" ]]; then
+                    DASHBOARD_ARGS+=(--set "image.repository=$DASHBOARD_REPO" --set "image.tag=$DASHBOARD_TAG")
+                    print_info "Using discovered dashboard image: $DASHBOARD_IMAGE"
+                fi
+            fi
             
             # Add contract addresses if available
             if [[ -n "$BIDDER_REGISTRY" ]]; then
@@ -568,3 +782,14 @@ for CHART in "${CHARTS[@]}"; do
     esac
 done
 [[ -n "$BIDDER_REGISTRY" ]] && print_info "Contracts deployed ✅"
+
+# Image summary
+if [[ -n "$BRANCH" ]]; then
+    print_info "=== Images Used ==="
+    [[ -n "$DASHBOARD_IMAGE" ]] && print_info "Dashboard: $DASHBOARD_IMAGE" || print_info "Dashboard: Chart default"
+    [[ -n "$P2P_IMAGE" ]] && print_info "P2P (bootnode/bidder/provider): $P2P_IMAGE" || print_info "P2P: Chart default"
+    [[ -n "$RELAY_IMAGE" ]] && print_info "Relay Emulator: $RELAY_IMAGE" || print_info "Relay Emulator: Chart default"
+    [[ -n "$BIDDER_EMULATOR_IMAGE" ]] && print_info "Bidder Emulator: $BIDDER_EMULATOR_IMAGE" || print_info "Bidder Emulator: Chart default"
+    [[ -n "$PROVIDER_EMULATOR_IMAGE" ]] && print_info "Provider Emulator: $PROVIDER_EMULATOR_IMAGE" || print_info "Provider Emulator: Chart default"
+    [[ -n "$ORACLE_IMAGE" ]] && print_info "Oracle: $ORACLE_IMAGE" || print_info "Oracle: Chart default"
+fi

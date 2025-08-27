@@ -24,9 +24,9 @@ job:
 
 # Application image
 image:
-  repository: "harshsingh07/flood"
-  tag: "relayemulator-amd"
-  pullPolicy: IfNotPresent
+  repository: "primev/primev"
+  tag: ""
+  pullPolicy: Always
 
 # Service configuration
 service:
