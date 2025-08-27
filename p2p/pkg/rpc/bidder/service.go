@@ -128,6 +128,7 @@ type DepositManagerContract interface {
 	TopUpDeposits(opts *bind.TransactOpts, providers []common.Address) (*types.Transaction, error)
 	ParseTargetDepositSet(types.Log) (*depositmanager.DepositmanagerTargetDepositSet, error)
 	ParseDepositToppedUp(types.Log) (*depositmanager.DepositmanagerDepositToppedUp, error)
+	FilterTargetDepositSet(opts *bind.FilterOpts, providers []common.Address) (*depositmanager.DepositmanagerTargetDepositSetIterator, error)
 }
 
 type Backend interface {
@@ -838,7 +839,34 @@ func (s *Service) DepositManagerStatus(
 		return nil, status.Errorf(codes.Internal, "codehash is not correct")
 	}
 
-	return &bidderapiv1.DepositManagerStatusResponse{Enabled: true}, nil
+	filterOpts := &bind.FilterOpts{
+		Start:   0,
+		End:     nil,
+		Context: ctx,
+	}
+	iterator, err := s.depositManager.FilterTargetDepositSet(filterOpts, nil) // all providers
+	if err != nil {
+		s.logger.Error("filtering target deposits", "error", err)
+		return nil, status.Errorf(codes.Internal, "filtering target deposits: %v", err)
+	}
+	defer func() {
+		if iterator.Close() != nil {
+			s.logger.Error("closing iterator", "error", iterator.Close())
+		}
+	}()
+
+	resp := &bidderapiv1.DepositManagerStatusResponse{
+		Enabled:        true,
+		TargetDeposits: make([]*bidderapiv1.TargetDeposit, 0),
+	}
+	for iterator.Next() {
+		resp.TargetDeposits = append(resp.TargetDeposits, &bidderapiv1.TargetDeposit{
+			Provider:      iterator.Event.Provider.Hex(),
+			TargetDeposit: iterator.Event.Amount.String(),
+		})
+	}
+
+	return resp, nil
 }
 
 func (s *Service) GetValidProviders(
