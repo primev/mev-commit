@@ -103,18 +103,12 @@ log_path = log_dir / f"deploy_core_{ts}.log"
 full_json_path = out_dir / f"contracts_{ts}.json"
 core_json_path = out_dir / "core-contracts.json"
 
-# ---------- Step 3. Forge install (repo root) ----------
-print("🔹 forge install …")
-for pkg in ("OpenZeppelin/openzeppelin-contracts-upgradeable", "OpenZeppelin/openzeppelin-contracts"):
-    if run(["forge", "install", pkg], cwd=repo_dir, log_file=log_path) != 0:
-        sys.exit(1)
-
-# ---------- Step 4. Clean/build (contracts/) ----------
+# ---------- Step 3. Clean/build (contracts/) ----------
 print("🔹 forge clean && forge build …")
 if run(["forge", "clean"], cwd=contracts_dir, log_file=log_path) != 0: sys.exit(1)
 if run(["forge", "build"], cwd=contracts_dir, log_file=log_path) != 0: sys.exit(1)
 
-# ---------- Step 5. Port-forward + Deploy ----------
+# ---------- Step 4. Port-forward + Deploy ----------
 print(f"🔹 Port-forward {KUBE_POD} → localhost:{RPC_PORT}")
 pf = subprocess.Popen([KUBECTL_BIN, "port-forward", f"pod/{KUBE_POD}", f"{RPC_PORT}:{RPC_PORT}"],
                       preexec_fn=os.setsid)
