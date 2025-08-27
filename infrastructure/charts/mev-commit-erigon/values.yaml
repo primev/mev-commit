@@ -59,11 +59,11 @@ jwt:
 
 image:
   erigon:
-    repository: harshsingh07/flood
+    repository: primev/primev
     tag: erigon-snode-v3.0.7-ms-patch
     pullPolicy: IfNotPresent
   snode:
-    repository: harshsingh07/snode-consensus
+    repository: primev/primev
     tag: amd64-erigon-v3.0.7-simplify-cl
     pullPolicy: IfNotPresent
 
