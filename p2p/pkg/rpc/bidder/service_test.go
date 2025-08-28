@@ -22,7 +22,6 @@ import (
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
-	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -280,7 +279,6 @@ func startServerWithStore(t *testing.T, cs *testStore) bidderapiv1.BidderClient 
 		setCodeHelper,
 		nil,
 		nil,
-		&topology.Topology{},
 		common.HexToAddress("0x0000000000000000000000000000000000000000"),
 	)
 

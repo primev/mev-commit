@@ -19,7 +19,6 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
-	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -41,7 +40,6 @@ type Service struct {
 	setCodeHelper          SetCodeHelper
 	depositManager         DepositManagerContract
 	backend                Backend
-	topology               *topology.Topology
 	depositManagerImplAddr common.Address
 }
 
@@ -59,7 +57,6 @@ func NewService(
 	setCodeHelper SetCodeHelper,
 	depositManager DepositManagerContract,
 	backend Backend,
-	topology *topology.Topology,
 	depositManagerImplAddr common.Address,
 ) *Service {
 	return &Service{
@@ -77,7 +74,6 @@ func NewService(
 		setCodeHelper:          setCodeHelper,
 		depositManager:         depositManager,
 		backend:                backend,
-		topology:               topology,
 		depositManagerImplAddr: depositManagerImplAddr,
 	}
 }
