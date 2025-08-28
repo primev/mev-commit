@@ -192,7 +192,7 @@ func main() {
 				evtMgr,
 			)
 
-			statHdlr, err := newStatHandler(evtMgr, 10)
+			statHdlr, err := newStatHandler(evtMgr)
 			if err != nil {
 				return err
 			}

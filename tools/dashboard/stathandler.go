@@ -17,7 +17,6 @@ import (
 type statHandler struct {
 	statMu                    sync.RWMutex
 	lastBlock                 uint64
-	blocksPerWindow           uint64
 	blockStats                *lru.Cache[uint64, *BlockStats]
 	providerStakes            *lru.Cache[string, *ProviderBalances]
 	bidderDeposits            *lru.Cache[depositKey, []*BidderDeposit]
@@ -35,7 +34,6 @@ type statHandler struct {
 type BlockStats struct {
 	Number                 uint64 `json:"number"`
 	Winner                 string `json:"winner"`
-	Window                 int64  `json:"window"`
 	TotalOpenedCommitments int    `json:"total_opened_commitments"`
 	TotalRewards           int    `json:"total_rewards"`
 	TotalSlashes           int    `json:"total_slashes"`
@@ -79,9 +77,11 @@ type AggregateStats struct {
 type DashboardOut struct {
 	Aggregate *AggregateStats     `json:"aggregate"`
 	Providers []*ProviderBalances `json:"providers"`
+	Blocks    []*BlockStats       `json:"blocks"`
+	Bidders   []*BidderDeposit    `json:"bidders"`
 }
 
-func newStatHandler(evtMgr events.EventManager, blocksPerWindow uint64) (*statHandler, error) {
+func newStatHandler(evtMgr events.EventManager) (*statHandler, error) {
 	blockStats, err := lru.New[uint64, *BlockStats](10000)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,6 @@ func newStatHandler(evtMgr events.EventManager, blocksPerWindow uint64) (*statHa
 	}
 
 	st := &statHandler{
-		blocksPerWindow:    blocksPerWindow,
 		blockStats:         blockStats,
 		providerStakes:     providerStakes,
 		bidderDeposits:     bidderDeposits,
@@ -140,7 +139,6 @@ func (s *statHandler) configureDashboard() error {
 				}
 
 				existing.Winner = upd.Winner.Hex()
-				existing.Window = upd.Window.Int64()
 				_ = s.blockStats.Add(upd.BlockNumber.Uint64(), existing)
 				if upd.BlockNumber.Uint64() > s.lastBlock {
 					s.lastBlock = upd.BlockNumber.Uint64()
@@ -465,7 +463,6 @@ func (s *statHandler) close() {
 
 func (s *statHandler) getDashboard(page, limit int) *DashboardOut {
 	s.statMu.RLock()
-	providers := s.providerStakes.Values()
 	agg := &AggregateStats{
 		TotalEncryptedCommitments: s.totalEncryptedCommitments,
 		TotalOpenedCommitments:    s.totalOpenedCommitments,
@@ -474,9 +471,15 @@ func (s *statHandler) getDashboard(page, limit int) *DashboardOut {
 	}
 	s.statMu.RUnlock()
 
+	providers := s.getProviders()
+	blocks := s.getBlocks(page, limit)
+	bidders := s.getBidders()
+
 	return &DashboardOut{
-		Providers: providers,
 		Aggregate: agg,
+		Providers: providers,
+		Blocks:    blocks,
+		Bidders:   bidders,
 	}
 }
 
@@ -513,8 +516,9 @@ func (s *statHandler) getBlockStats(block uint64) *BlockStats {
 
 func (s *statHandler) getBlocks(page, limit int) []*BlockStats {
 	s.statMu.RLock()
+	defer s.statMu.RUnlock()
+
 	start := s.lastBlock
-	s.statMu.RUnlock()
 
 	if start > uint64(limit*page) {
 		start = start - uint64(limit*page)
