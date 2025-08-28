@@ -333,7 +333,7 @@ func publishBidderWithdrawal(
 	br *bidderregistry.BidderregistryBidderWithdrawal,
 ) error {
 	event := brABI.Events["BidderWithdrawal"]
-	buf, err := event.Inputs.NonIndexed().Pack(br.AmountWithdrawn)
+	buf, err := event.Inputs.NonIndexed().Pack(br.AmountStillEscrowed)
 	if err != nil {
 		return err
 	}
