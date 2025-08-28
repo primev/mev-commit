@@ -193,6 +193,7 @@ func TestHashing(t *testing.T) {
 			DecayStartTimestamp: 10,
 			DecayEndTimestamp:   20,
 			NikePublicKey:       nikePublicKey,
+			BidOptions:          []byte("test"),
 		}
 
 		preconfAddr := common.HexToAddress("0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
@@ -208,7 +209,7 @@ func TestHashing(t *testing.T) {
 
 		hashStr := hex.EncodeToString(hash)
 		// This hash is sourced from the solidity contract to ensure interoperability
-		expHash := "8d1f669e1d55329ba0dc133fba063c06c8ae146b8e815732f9951930c807ff7f"
+		expHash := "a5b1326e41e48fb9d718700c97771c3518c6127140e53c123431476025066f09"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
