@@ -209,7 +209,7 @@ message BidOptions {
   }, (buf.validate.field).cel = {
       id: "options",
       message: "options must be a valid array of bid options.",
-      expression: "this.all(r, r.has('opt'))"
+      expression: "this.all(r, r != null)"
   }];
 };
 
