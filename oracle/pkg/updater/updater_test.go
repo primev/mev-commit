@@ -1276,14 +1276,6 @@ type testSettlement struct {
 	opts            []byte
 }
 
-type testEncryptedCommitment struct {
-	commitmentIdx       []byte
-	committer           []byte
-	commitmentHash      []byte
-	commitmentSignature []byte
-	dispatchTimestamp   uint64
-}
-
 type testWinner struct {
 	blockNum int64
 	winner   updater.Winner
