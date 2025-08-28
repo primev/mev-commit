@@ -23,6 +23,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.12.4
 	github.com/multiformats/go-multiaddr-dns v0.3.1
 	github.com/primev/mev-commit/contracts-abi v0.0.1
+	github.com/primev/mev-commit/p2p v0.0.1
 	github.com/primev/mev-commit/x v0.0.1
 	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.10.0
@@ -182,5 +183,6 @@ require (
 
 replace (
 	github.com/primev/mev-commit/contracts-abi => ../contracts-abi
+	github.com/primev/mev-commit/p2p => ../p2p
 	github.com/primev/mev-commit/x => ../x
 )
