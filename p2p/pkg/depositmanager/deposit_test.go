@@ -22,24 +22,15 @@ import (
 )
 
 type MockBidderRegistryContract struct {
-	GetDepositFunc              func(opts *bind.CallOpts, bidder common.Address, provider common.Address) (*big.Int, error)
-	WithdrawalRequestExistsFunc func(opts *bind.CallOpts, bidder common.Address, provider common.Address) (bool, error)
+	GetDepositConsideringWithdrawalRequestFunc func(opts *bind.CallOpts, bidder common.Address, provider common.Address) (*big.Int, error)
 }
 
-func (m *MockBidderRegistryContract) GetDeposit(
+func (m *MockBidderRegistryContract) GetDepositConsideringWithdrawalRequest(
 	opts *bind.CallOpts,
 	bidder common.Address,
 	provider common.Address,
 ) (*big.Int, error) {
-	return m.GetDepositFunc(opts, bidder, provider)
-}
-
-func (m *MockBidderRegistryContract) WithdrawalRequestExists(
-	opts *bind.CallOpts,
-	bidder common.Address,
-	provider common.Address,
-) (bool, error) {
-	return m.WithdrawalRequestExistsFunc(opts, bidder, provider)
+	return m.GetDepositConsideringWithdrawalRequestFunc(opts, bidder, provider)
 }
 
 func TestDepositManager(t *testing.T) {
@@ -60,19 +51,12 @@ func TestDepositManager(t *testing.T) {
 
 	st := depositstore.New(inmemstorage.New())
 	bidderRegistry := &MockBidderRegistryContract{
-		GetDepositFunc: func(
+		GetDepositConsideringWithdrawalRequestFunc: func(
 			opts *bind.CallOpts,
 			bidder common.Address,
 			provider common.Address,
 		) (*big.Int, error) {
 			return big.NewInt(0), nil
-		},
-		WithdrawalRequestExistsFunc: func(
-			opts *bind.CallOpts,
-			bidder common.Address,
-			provider common.Address,
-		) (bool, error) {
-			return false, nil
 		},
 	}
 
@@ -248,7 +232,7 @@ func TestStartWithBidderAlreadyDeposited(t *testing.T) {
 
 	st := depositstore.New(inmemstorage.New())
 	bidderRegistry := &MockBidderRegistryContract{
-		GetDepositFunc: func(
+		GetDepositConsideringWithdrawalRequestFunc: func(
 			opts *bind.CallOpts,
 			bidder common.Address,
 			provider common.Address,
@@ -257,16 +241,6 @@ func TestStartWithBidderAlreadyDeposited(t *testing.T) {
 				t.Fatal("expected block number 15")
 			}
 			return big.NewInt(33), nil // Existing deposit
-		},
-		WithdrawalRequestExistsFunc: func(
-			opts *bind.CallOpts,
-			bidder common.Address,
-			provider common.Address,
-		) (bool, error) {
-			if opts.BlockNumber.Cmp(big.NewInt(15)) != 0 {
-				t.Fatal("expected block number 15")
-			}
-			return false, nil
 		},
 	}
 

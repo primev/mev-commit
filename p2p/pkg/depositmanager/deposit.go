@@ -16,8 +16,7 @@ import (
 )
 
 type BidderRegistryContract interface {
-	GetDeposit(opts *bind.CallOpts, bidder common.Address, provider common.Address) (*big.Int, error)
-	WithdrawalRequestExists(opts *bind.CallOpts, bidder common.Address, provider common.Address) (bool, error)
+	GetDepositConsideringWithdrawalRequest(opts *bind.CallOpts, bidder common.Address, provider common.Address) (*big.Int, error)
 }
 
 type Store interface {
@@ -260,19 +259,13 @@ func (dm *DepositManager) getDefaultBalance(
 		BlockNumber: blockNumber,
 	}
 
-	balance, err := dm.bidderRegistry.GetDeposit(callOpts, bidderAddr, providerAddr)
+	balance, err := dm.bidderRegistry.GetDepositConsideringWithdrawalRequest(callOpts, bidderAddr, providerAddr)
 	if err != nil {
 		dm.logger.Error("getting deposit from contract", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to get deposit: %v", err)
 	}
 
-	withdrawalRequest, err := dm.bidderRegistry.WithdrawalRequestExists(callOpts, bidderAddr, providerAddr)
-	if err != nil {
-		dm.logger.Error("getting withdrawal request from contract", "error", err)
-		return nil, status.Errorf(codes.Internal, "failed to get withdrawal request: %v", err)
-	}
-
-	if !withdrawalRequest && balance.Cmp(big.NewInt(0)) > 0 {
+	if balance.Cmp(big.NewInt(0)) > 0 {
 		if err := dm.store.SetBalance(bidderAddr, providerAddr, balance); err != nil {
 			dm.logger.Error("setting balance", "error", err)
 			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)

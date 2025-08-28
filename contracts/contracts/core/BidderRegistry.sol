@@ -416,6 +416,17 @@ contract BidderRegistry is
         return deposits[bidder][provider].availableAmount;
     }
 
+    function getDepositConsideringWithdrawalRequest(
+        address bidder,
+        address provider
+    ) external view returns (uint256) {
+        Deposit storage deposit = deposits[bidder][provider];
+        if (!deposit.exists || deposit.withdrawalRequestOccurrence.exists) {
+            return 0;
+        }
+        return deposit.availableAmount;
+    }
+
     function getEscrowedAmount(
         address bidder,
         address provider
