@@ -300,7 +300,6 @@ func NewNode(opts *Options) (*Node, error) {
 	srv := apiserver.New(
 		nd.logger.With("component", "apiserver"),
 		evtMgr,
-		st,
 		opts.RegistrationAuthToken,
 		blockTrackerTransactor,
 		providerRegistryCaller,

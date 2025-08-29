@@ -32,7 +32,7 @@ var (
 )
 
 var (
-	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmt,uint256 bidderPKx,uint256 bidderPKy)"))
+	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmt,uint256 bidderPKx,uint256 bidderPKy,bytes bidOptions)"))
 	EIP712CommitmentTypeHash = crypto.Keccak256Hash([]byte("OpenedCommitment(bytes32 bidHash,string signature,uint256 sharedKeyX,uint256 sharedKeyY)"))
 )
 
@@ -299,6 +299,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 
 	txnHashHash := crypto.Keccak256Hash([]byte(bid.TxHash))
 	revertingTxHashesHash := crypto.Keccak256Hash([]byte(bid.RevertingTxHashes))
+	bidOptionsHash := crypto.Keccak256Hash(bid.BidOptions)
 	bidderPK, err := p2pcrypto.BN254PublicKeyFromBytes(bid.NikePublicKey)
 	if err != nil {
 		return common.Hash{}, err
@@ -314,6 +315,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "slashAmt", Type: "uint256"},
 		{Name: "bidderPKx", Type: "uint256"},
 		{Name: "bidderPKy", Type: "uint256"},
+		{Name: "bidOptions", Type: "bytes32"},
 	})
 	if err != nil {
 		return common.Hash{}, err
@@ -331,6 +333,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "slashAmt", Type: *bidStructType.TupleElems[7]},
 		{Name: "bidderPKx", Type: *bidStructType.TupleElems[8]},
 		{Name: "bidderPKy", Type: *bidStructType.TupleElems[9]},
+		{Name: "bidOptions", Type: *bidStructType.TupleElems[10]},
 	}
 
 	pkXBigInt, pkYBigInt := p2pcrypto.AffineToBigIntXY(bidderPK)
@@ -347,6 +350,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		slashAmt,
 		&pkXBigInt,
 		&pkYBigInt,
+		bidOptionsHash,
 	)
 	if err != nil {
 		return common.Hash{}, err

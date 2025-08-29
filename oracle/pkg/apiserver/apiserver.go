@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
-	"github.com/primev/mev-commit/oracle/pkg/updater"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/primev/mev-commit/x/health"
@@ -29,10 +28,6 @@ const (
 	defaultNamespace = "mev_commit_oracle"
 )
 
-type Store interface {
-	Settlement(context.Context, []byte) (updater.Settlement, error)
-}
-
 // Service wraps http.Server with additional functionality for metrics and
 // other common middlewares.
 type Service struct {
@@ -41,7 +36,6 @@ type Service struct {
 	router           *http.ServeMux
 	srv              *http.Server
 	evtMgr           events.EventManager
-	store            Store
 	blockTracker     *blocktracker.BlocktrackerTransactorSession
 	providerRegistry *providerregistry.ProviderregistryCallerSession
 	monitor          *txmonitor.Monitor
@@ -52,7 +46,6 @@ type Service struct {
 func New(
 	logger *slog.Logger,
 	evm events.EventManager,
-	store Store,
 	token string,
 	blockTracker *blocktracker.BlocktrackerTransactorSession,
 	providerRegistry *providerregistry.ProviderregistryCallerSession,
@@ -64,7 +57,6 @@ func New(
 		router:           http.NewServeMux(),
 		metricsRegistry:  newMetrics(),
 		evtMgr:           evm,
-		store:            store,
 		blockTracker:     blockTracker,
 		providerRegistry: providerRegistry,
 		monitor:          monitor,

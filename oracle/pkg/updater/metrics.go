@@ -14,12 +14,9 @@ type metrics struct {
 	DuplicateCommitmentsCount      prometheus.Counter
 	RewardsCount                   prometheus.Counter
 	SlashesCount                   prometheus.Counter
-	EncryptedCommitmentsCount      prometheus.Counter
 	NoWinnerCount                  prometheus.Counter
 	BlockTxnCacheHits              prometheus.Counter
 	BlockTxnCacheMisses            prometheus.Counter
-	BlockTimeCacheHits             prometheus.Counter
-	BlockTimeCacheMisses           prometheus.Counter
 	LastSentNonce                  prometheus.Gauge
 	TxnReceiptRequestDuration      prometheus.Histogram
 	TxnReceiptRequestBlockDuration prometheus.Histogram
@@ -75,14 +72,6 @@ func newMetrics() *metrics {
 			Help:      "Number of slashes",
 		},
 	)
-	m.EncryptedCommitmentsCount = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: defaultNamespace,
-			Subsystem: subsystem,
-			Name:      "encrypted_commitments_count",
-			Help:      "Number of encrypted commitments",
-		},
-	)
 	m.NoWinnerCount = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: defaultNamespace,
@@ -105,22 +94,6 @@ func newMetrics() *metrics {
 			Subsystem: subsystem,
 			Name:      "block_txn_cache_misses",
 			Help:      "Number of block txn cache misses",
-		},
-	)
-	m.BlockTimeCacheHits = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: defaultNamespace,
-			Subsystem: subsystem,
-			Name:      "block_time_cache_hits",
-			Help:      "Number of block time cache hits",
-		},
-	)
-	m.BlockTimeCacheMisses = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: defaultNamespace,
-			Subsystem: subsystem,
-			Name:      "block_time_cache_misses",
-			Help:      "Number of block time cache misses",
 		},
 	)
 	m.LastSentNonce = prometheus.NewGauge(
@@ -158,12 +131,9 @@ func (m *metrics) Collectors() []prometheus.Collector {
 		m.DuplicateCommitmentsCount,
 		m.RewardsCount,
 		m.SlashesCount,
-		m.EncryptedCommitmentsCount,
 		m.NoWinnerCount,
 		m.BlockTxnCacheHits,
 		m.BlockTxnCacheMisses,
-		m.BlockTimeCacheHits,
-		m.BlockTimeCacheMisses,
 		m.LastSentNonce,
 		m.TxnReceiptRequestDuration,
 		m.TxnReceiptRequestBlockDuration,

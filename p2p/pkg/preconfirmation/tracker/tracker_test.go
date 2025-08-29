@@ -200,6 +200,7 @@ func TestTracker(t *testing.T) {
 		RevertingTxHashes:   commitments[4].Bid.RevertingTxHashes,
 		CommitmentDigest:    common.BytesToHash(commitments[4].Digest),
 		DispatchTimestamp:   uint64(1),
+		BidOptions:          []byte("dummy options"),
 	})
 
 	if err != nil {
@@ -690,6 +691,7 @@ func publishOpenedCommitment(
 		c.RevertingTxHashes,
 		c.CommitmentDigest,
 		c.DispatchTimestamp,
+		c.BidOptions,
 	)
 	if err != nil {
 		return err
