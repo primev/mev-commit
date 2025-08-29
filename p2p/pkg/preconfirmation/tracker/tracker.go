@@ -402,7 +402,6 @@ func (t *Tracker) handleNewL1Block(
 		"new L1 Block event received",
 		"blockNumber", newL1Block.BlockNumber,
 		"winner", newL1Block.Winner,
-		"window", newL1Block.Window,
 	)
 
 	return t.store.AddWinner(&store.BlockWinner{

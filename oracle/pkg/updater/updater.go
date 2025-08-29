@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lib/pq"
-	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
@@ -47,7 +45,6 @@ var (
 
 type Winner struct {
 	Winner []byte
-	Window int64
 }
 
 type Settlement struct {
@@ -82,7 +79,6 @@ type WinnerRegister interface {
 		bidID []byte,
 		settlementType SettlementType,
 		decayPercentage int64,
-		window int64,
 		postingTxnHash []byte,
 		nonce uint64,
 	) error
@@ -111,7 +107,6 @@ type Updater struct {
 	l1BlockCache   *lru.Cache[uint64, map[string]TxMetadata]
 	unopenedCmts   chan *preconf.PreconfmanagerUnopenedCommitmentStored
 	openedCmts     chan *preconf.PreconfmanagerOpenedCommitmentStored
-	currentWindow  atomic.Int64
 	metrics        *metrics
 	receiptBatcher txmonitor.BatchReceiptGetter
 }
@@ -171,14 +166,7 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 		},
 	)
 
-	ev3 := events.NewEventHandler(
-		"NewWindow",
-		func(update *blocktracker.BlocktrackerNewWindow) {
-			u.currentWindow.Store(update.Window.Int64())
-		},
-	)
-
-	sub, err := u.evtMgr.Subscribe(ev1, ev2, ev3)
+	sub, err := u.evtMgr.Subscribe(ev1, ev2)
 	if err != nil {
 		u.logger.Error("failed to subscribe to events", "error", err)
 		close(doneChan)
@@ -311,18 +299,6 @@ func (u *Updater) handleOpenedCommitment(
 		return err
 	}
 
-	if u.currentWindow.Load() > 2 && winner.Window < u.currentWindow.Load()-2 {
-		u.logger.Info(
-			"commitment is too old",
-			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-			"winner", winner.Winner,
-			"window", winner.Window,
-			"currentWindow", u.currentWindow.Load(),
-		)
-		u.metrics.CommitmentsTooOldCount.Inc()
-		return nil
-	}
-
 	if common.BytesToAddress(winner.Winner).Cmp(update.Committer) != 0 {
 		// The winner is not the committer of the commitment
 		u.logger.Info(
@@ -385,7 +361,6 @@ func (u *Updater) handleOpenedCommitment(
 				update,
 				SettlementTypeSlash,
 				residualPercentage,
-				winner.Window,
 			)
 		}
 	}
@@ -395,7 +370,6 @@ func (u *Updater) handleOpenedCommitment(
 		update,
 		SettlementTypeReward,
 		residualPercentage,
-		winner.Window,
 	)
 }
 
@@ -404,7 +378,6 @@ func (u *Updater) settle(
 	update *preconf.PreconfmanagerOpenedCommitmentStored,
 	settlementType SettlementType,
 	residualPercentage *big.Int,
-	window int64,
 ) error {
 	commitmentPostingTxn, err := u.oracle.ProcessBuilderCommitmentForBlockNumber(
 		update.CommitmentIndex,
@@ -436,7 +409,6 @@ func (u *Updater) settle(
 		update,
 		settlementType,
 		residualPercentage.Int64(),
-		window,
 		commitmentPostingTxn.Hash().Bytes(),
 		commitmentPostingTxn.Nonce(),
 	)
@@ -447,7 +419,6 @@ func (u *Updater) addSettlement(
 	update *preconf.PreconfmanagerOpenedCommitmentStored,
 	settlementType SettlementType,
 	decayPercentage int64,
-	window int64,
 	postingTxnHash []byte,
 	nonce uint64,
 ) error {
@@ -461,7 +432,6 @@ func (u *Updater) addSettlement(
 		update.CommitmentDigest[:],
 		settlementType,
 		decayPercentage,
-		window,
 		postingTxnHash,
 		nonce,
 	)

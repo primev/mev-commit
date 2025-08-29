@@ -74,11 +74,6 @@ contract OracleTest is Test {
         string blockBuilderName
     );
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
-    event FundsRetrieved(
-        bytes32 indexed commitmentDigest,
-        uint256 window,
-        uint256 amount
-    );
 
     function setUp() public {
         address BLS_VERIFY_ADDRESS = address(0xf0);

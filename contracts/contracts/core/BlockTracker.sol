@@ -50,7 +50,6 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
      * @param owner_ Address of the contract owner.
      */
     function initialize(address oracleAccount_, address owner_) external initializer {
-        currentWindow = 1;
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
         __Pausable_init();
@@ -80,13 +79,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     ) external onlyOracle whenNotPaused {
         address _winner = providerRegistry.getEoaFromBLSKey(_winnerBLSKey);
         _recordBlockWinner(_blockNumber, _winner);
-        uint256 newWindow = (_blockNumber - 1) / 10 + 1;
-        if (newWindow > currentWindow) {
-            // We've entered a new window
-            currentWindow = newWindow;
-            emit NewWindow(currentWindow);
-        }
-        emit NewL1Block(_blockNumber, _winner, currentWindow);
+        emit NewL1Block(_blockNumber, _winner);
     }
 
     /// @dev Allows the owner to set the provider registry.
@@ -108,14 +101,6 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     /// @dev Allows the owner to unpause the contract.
     function unpause() external onlyOwner {
         _unpause();
-    }
-
-    /**
-     * @dev Retrieves the current window number.
-     * @return currentWindow The current window number.
-     */
-    function getCurrentWindow() external view returns (uint256) {
-        return currentWindow;
     }
 
     /**

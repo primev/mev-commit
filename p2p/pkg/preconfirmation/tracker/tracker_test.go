@@ -210,7 +210,6 @@ func TestTracker(t *testing.T) {
 		publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
 			BlockNumber: big.NewInt(int64(i)),
 			Winner:      winnerProvider,
-			Window:      big.NewInt(1),
 		})
 	}
 
@@ -271,12 +270,10 @@ func TestTracker(t *testing.T) {
 	publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
 		BlockNumber: big.NewInt(6),
 		Winner:      winnerProvider,
-		Window:      big.NewInt(1),
 	})
 	publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
 		BlockNumber: big.NewInt(7),
 		Winner:      winnerProvider,
-		Window:      big.NewInt(1),
 	})
 
 	opened = []*store.Commitment{
@@ -446,7 +443,6 @@ func TestTracker(t *testing.T) {
 	publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
 		BlockNumber: big.NewInt(10012),
 		Winner:      winnerProvider,
-		Window:      big.NewInt(1001),
 	})
 
 	start = time.Now()
@@ -723,7 +719,6 @@ func publishNewWinner(
 			event.ID,                        // The first topic is the hash of the event signature
 			common.BigToHash(w.BlockNumber), // The next topics are the indexed event parameters
 			common.HexToHash(w.Winner.Hex()),
-			common.BigToHash(w.Window),
 		},
 		// Non-indexed parameters are stored in the Data field
 		Data: nil,

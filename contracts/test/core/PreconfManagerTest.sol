@@ -447,7 +447,7 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.zkProof
         );
 
-        // Step 3: Move to the next window
+        // Step 3: Record the block
         blockTracker.recordL1Block(2, validBLSPubkey2);
 
         // Step 4: Open the commitment
