@@ -28,10 +28,10 @@ type Store interface {
 	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
 
-type pendingRefund struct {
-	bidder   common.Address
-	provider common.Address
-	amount   *big.Int
+type PendingRefund struct {
+	Bidder   common.Address
+	Provider common.Address
+	Amount   *big.Int
 }
 
 type CommitmentDigest [32]byte
@@ -44,7 +44,7 @@ type DepositManager struct {
 	withdrawRequests chan *bidderregistry.BidderregistryWithdrawalRequested
 	withdrawals      chan *bidderregistry.BidderregistryBidderWithdrawal
 	logger           *slog.Logger
-	pendingRefunds   *lru.Cache[CommitmentDigest, pendingRefund]
+	pendingRefunds   *lru.Cache[CommitmentDigest, PendingRefund]
 	pendingRefundsMu sync.RWMutex
 }
 
@@ -54,7 +54,7 @@ func NewDepositManager(
 	bidderRegistry BidderRegistryContract,
 	logger *slog.Logger,
 ) *DepositManager {
-	pendingRefunds, err := lru.New[CommitmentDigest, pendingRefund](1000)
+	pendingRefunds, err := lru.New[CommitmentDigest, PendingRefund](1000)
 	if err != nil {
 		logger.Error("failed to create pending refunds cache", "error", err)
 		pendingRefunds = nil
@@ -300,10 +300,10 @@ func (dm *DepositManager) AddPendingRefund(
 ) {
 	dm.pendingRefundsMu.Lock()
 	defer dm.pendingRefundsMu.Unlock()
-	evicted := dm.pendingRefunds.Add(commitmentDigest, pendingRefund{
-		bidder:   bidder,
-		provider: provider,
-		amount:   amount,
+	evicted := dm.pendingRefunds.Add(commitmentDigest, PendingRefund{
+		Bidder:   bidder,
+		Provider: provider,
+		Amount:   amount,
 	})
 	if evicted {
 		dm.logger.Warn("evicted pending refund. Tracker may not be working properly", "commitmentDigest", commitmentDigest)
@@ -324,7 +324,7 @@ func (dm *DepositManager) ApplyPendingRefund(
 	if !removed {
 		return status.Errorf(codes.Internal, "failed to remove pending refund from cache")
 	}
-	return dm.store.RefundBalanceIfExists(pendingRefund.bidder, pendingRefund.provider, pendingRefund.amount)
+	return dm.store.RefundBalanceIfExists(pendingRefund.Bidder, pendingRefund.Provider, pendingRefund.Amount)
 }
 
 func (dm *DepositManager) DropPendingRefund(
