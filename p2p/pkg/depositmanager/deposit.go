@@ -58,7 +58,8 @@ func NewDepositManager(
 ) *DepositManager {
 	pendingRefunds, err := lru.New[CommitmentDigest, pendingRefund](1000)
 	if err != nil {
-		panic(err)
+		logger.Error("failed to create pending refunds cache", "error", err)
+		pendingRefunds = nil
 	}
 	return &DepositManager{
 		store:               store,
