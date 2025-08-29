@@ -184,54 +184,54 @@ func gasUsedUntil(pos int, txns map[string]TxMetadata) uint64 {
 	return gasUsed
 }
 
-func checkPositionConstraintsSatisfied(
-	opts *bidderapiv1.BidOptions,
+func checkPositionConstraintSatisfied(
+	c *bidderapiv1.PositionConstraint,
 	txnDetails TxMetadata,
 	txns map[string]TxMetadata,
-) int {
-	positionalConstraintsSatisfied := 0
-	for _, constraint := range opts.Options {
-		if c := constraint.GetPositionConstraint(); c != nil {
-			switch c.Basis {
-			case bidderapiv1.PositionConstraint_BASIS_ABSOLUTE:
-				switch c.Anchor {
-				case bidderapiv1.PositionConstraint_ANCHOR_TOP:
-					if txnDetails.PosInBlock <= int(c.Value) {
-						positionalConstraintsSatisfied++
-					}
-				case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-					if txnDetails.PosInBlock >= len(txns)-int(c.Value) {
-						positionalConstraintsSatisfied++
-					}
-				}
-			case bidderapiv1.PositionConstraint_BASIS_PERCENTILE:
-				switch c.Anchor {
-				case bidderapiv1.PositionConstraint_ANCHOR_TOP:
-					if txnDetails.PosInBlock <= (len(txns)*int(c.Value))/100 {
-						positionalConstraintsSatisfied++
-					}
-				case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-					if txnDetails.PosInBlock >= (len(txns)*(100-int(c.Value)))/100 {
-						positionalConstraintsSatisfied++
-					}
-				}
-			case bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE:
-				gasUsed := gasUsedUntil(txnDetails.PosInBlock, txns)
-				gasPercentile := (gasUsed * 100) / txnDetails.TotalGas
-				switch c.Anchor {
-				case bidderapiv1.PositionConstraint_ANCHOR_TOP:
-					if gasPercentile <= uint64(c.Value) {
-						positionalConstraintsSatisfied++
-					}
-				case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-					if gasPercentile >= uint64(100-c.Value) {
-						positionalConstraintsSatisfied++
-					}
-				}
+) bool {
+	switch c.Basis {
+	case bidderapiv1.PositionConstraint_BASIS_ABSOLUTE:
+		switch c.Anchor {
+		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
+			if txnDetails.PosInBlock <= int(c.Value) {
+				return true
+			}
+		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
+			if txnDetails.PosInBlock >= len(txns)-int(c.Value) {
+				return true
+			}
+		}
+	case bidderapiv1.PositionConstraint_BASIS_PERCENTILE:
+		switch c.Anchor {
+		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
+			if txnDetails.PosInBlock <= (len(txns)*int(c.Value))/100 {
+				return true
+			}
+		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
+			if txnDetails.PosInBlock >= (len(txns)*(100-int(c.Value)))/100 {
+				return true
+			}
+		}
+	case bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE:
+		gasUsed := gasUsedUntil(txnDetails.PosInBlock, txns)
+		gasPercentile := (gasUsed * 100) / txnDetails.TotalGas
+		txnGasPercentile := (txnDetails.GasUsed * 100) / txnDetails.TotalGas
+		if txnGasPercentile > uint64(c.Value) {
+			// The transaction itself uses more gas than the constraint allows
+			return true
+		}
+		switch c.Anchor {
+		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
+			if gasPercentile <= uint64(c.Value) {
+				return true
+			}
+		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
+			if gasPercentile >= uint64(100-c.Value) {
+				return true
 			}
 		}
 	}
-	return positionalConstraintsSatisfied
+	return false
 }
 
 func (u *Updater) handleOpenedCommitment(
@@ -354,11 +354,23 @@ func (u *Updater) handleOpenedCommitment(
 			)
 		}
 
-		// Check positional constraints. Only one transaction needs to satisfy each constraint
-		// so we can accumulate the number of satisfied constraints as we go through the transactions
-		// in the bundle. If at the end of the bundle we have not satisfied all constraints, it is a slash.
-		positionalConstraintsSatisfied += checkPositionConstraintsSatisfied(opts, txnDetails, txns)
-		if i == len(commitmentTxnHashes)-1 && positionalConstraintsSatisfied < len(opts.Options) {
+		for idx, opt := range opts.Options {
+			if opt.GetPositionConstraint() != nil {
+				if checkPositionConstraintSatisfied(opt.GetPositionConstraint(), txnDetails, txns) {
+					u.logger.Debug(
+						"positional constraint satisfied",
+						"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+						"txnHash", update.TxnHash,
+						"blockNumber", update.BlockNumber,
+						"constraint", opt.GetPositionConstraint(),
+					)
+					// Remove the satisfied constraint
+					opts.Options = append(opts.Options[:idx], opts.Options[idx+1:]...)
+					break
+				}
+			}
+		}
+		if i == len(commitmentTxnHashes)-1 && len(opts.Options) > 0 {
 			u.logger.Info(
 				"not all positional constraints satisfied",
 				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
