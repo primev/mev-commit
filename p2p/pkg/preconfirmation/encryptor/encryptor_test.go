@@ -237,7 +237,7 @@ func TestHashing(t *testing.T) {
 	})
 
 	t.Run("preConfirmation", func(t *testing.T) {
-		bidHash := "8d1f669e1d55329ba0dc133fba063c06c8ae146b8e815732f9951930c807ff7f"
+		bidHash := "abfb28441e35ddbe17a41f3d306127fb6049dcc46a3ebbc9c68719f370dc2784"
 		bidSignature := "aeed5b345d04360c6ad52d4fb4fce32eec8a552f87686afb39ceea04f9fd1a782b180e4eef5e02af77015292840c541e2681c8e165b44be1d8276aba7211bde21b"
 
 		bidHashBytes, err := hex.DecodeString(bidHash)
@@ -289,7 +289,7 @@ func TestHashing(t *testing.T) {
 			t.Fatal(err)
 		}
 		hashStr := hex.EncodeToString(hash)
-		expHash := "87d7e787de6386cba19d3d5680a8feaa5378c46f1c5e13c622ffcdb354485d23"
+		expHash := "560e3d9563e22ae88412f2b2a0aded962adc0bd1ed02ba14e30be5e0becdc758"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
