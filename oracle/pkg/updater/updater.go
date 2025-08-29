@@ -216,17 +216,13 @@ func checkPositionConstraintSatisfied(
 		gasUsed := gasUsedUntil(txnDetails.PosInBlock, txns)
 		gasPercentile := (gasUsed * 100) / txnDetails.TotalGas
 		txnGasPercentile := (txnDetails.GasUsed * 100) / txnDetails.TotalGas
-		if txnGasPercentile > uint64(c.Value) {
-			// The transaction itself uses more gas than the constraint allows
-			return true
-		}
 		switch c.Anchor {
 		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
 			if gasPercentile <= uint64(c.Value) {
 				return true
 			}
 		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-			if gasPercentile >= uint64(100-c.Value) {
+			if gasPercentile+txnGasPercentile >= uint64(100-c.Value) {
 				return true
 			}
 		}
@@ -370,25 +366,26 @@ func (u *Updater) handleOpenedCommitment(
 				}
 			}
 		}
-		if i == len(commitmentTxnHashes)-1 && len(opts.Options) > 0 {
-			u.logger.Info(
-				"not all positional constraints satisfied",
-				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-				"txnHash", update.TxnHash,
-				"blockNumber", update.BlockNumber,
-				"positionalConstraintsSatisfied", positionalConstraintsSatisfied,
-				"totalPositionalConstraints", len(opts.Options),
-			)
-			// The committer did not include the transactions in the block
-			// correctly, so this is a slash to be processed
-			return u.settle(
-				ctx,
-				update,
-				SettlementTypeSlash,
-				residualPercentage,
-				winner.Window,
-			)
-		}
+	}
+
+	if len(opts.Options) > 0 {
+		u.logger.Info(
+			"not all positional constraints satisfied",
+			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+			"txnHash", update.TxnHash,
+			"blockNumber", update.BlockNumber,
+			"positionalConstraintsSatisfied", positionalConstraintsSatisfied,
+			"totalPositionalConstraints", len(opts.Options),
+		)
+		// The committer did not include the transactions in the block
+		// correctly, so this is a slash to be processed
+		return u.settle(
+			ctx,
+			update,
+			SettlementTypeSlash,
+			residualPercentage,
+			winner.Window,
+		)
 	}
 
 	return u.settle(
