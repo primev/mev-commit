@@ -39,6 +39,7 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
+	dm "github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	depositmanagerstore "github.com/primev/mev-commit/p2p/pkg/depositmanager/store"
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
@@ -568,13 +569,15 @@ func NewNode(opts *Options) (*Node, error) {
 			providerapiv1.RegisterProviderServer(grpcServer, providerAPI)
 			bidProcessor = providerAPI
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
-			depositMgr = depositmanager.NewDepositManager(
+			dmConcrete := depositmanager.NewDepositManager(
 				depositmanagerstore.New(store),
 				evtMgr,
 				bidderRegistry,
 				opts.KeySigner.GetAddress(),
 				opts.Logger.With("component", "depositmanager"),
 			)
+			depositMgr = dmConcrete
+			tracker.SetDepositManager(dmConcrete)
 			startables = append(
 				startables,
 				StartableObjWithDesc{
@@ -939,6 +942,16 @@ type noOpDepositManager struct{}
 
 func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ common.Address, _ string) (func() error, error) {
 	return func() error { return nil }, nil
+}
+
+func (noOpDepositManager) AddPendingRefund(_ dm.CommitmentDigest, _ common.Address, _ common.Address, _ *big.Int) {
+}
+
+func (noOpDepositManager) ApplyPendingRefund(_ dm.CommitmentDigest) error {
+	return nil
+}
+func (noOpDepositManager) DropPendingRefund(_ dm.CommitmentDigest) error {
+	return nil
 }
 
 type channelCloser <-chan struct{}

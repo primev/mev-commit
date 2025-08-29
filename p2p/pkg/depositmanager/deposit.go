@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	lru "github.com/hashicorp/golang-lru/v2"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"golang.org/x/sync/errgroup"
@@ -26,6 +28,14 @@ type Store interface {
 	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
 
+type pendingRefund struct {
+	bidder   common.Address
+	provider common.Address
+	amount   *big.Int
+}
+
+type CommitmentDigest [32]byte
+
 type DepositManager struct {
 	store               Store
 	evtMgr              events.EventManager
@@ -35,6 +45,8 @@ type DepositManager struct {
 	withdrawals         chan *bidderregistry.BidderregistryBidderWithdrawal
 	thisProviderAddress common.Address
 	logger              *slog.Logger
+	pendingRefunds      *lru.Cache[CommitmentDigest, pendingRefund]
+	pendingRefundsMu    sync.RWMutex
 }
 
 func NewDepositManager(
@@ -44,6 +56,10 @@ func NewDepositManager(
 	thisProviderAddress common.Address,
 	logger *slog.Logger,
 ) *DepositManager {
+	pendingRefunds, err := lru.New[CommitmentDigest, pendingRefund](1000)
+	if err != nil {
+		panic(err)
+	}
 	return &DepositManager{
 		store:               store,
 		bidderRegistry:      bidderRegistry,
@@ -53,6 +69,7 @@ func NewDepositManager(
 		evtMgr:              evtMgr,
 		thisProviderAddress: thisProviderAddress,
 		logger:              logger,
+		pendingRefunds:      pendingRefunds,
 	}
 }
 
@@ -287,4 +304,51 @@ func (dm *DepositManager) getDefaultBalance(
 	}
 
 	return balance, nil
+}
+
+func (dm *DepositManager) AddPendingRefund(
+	commitmentDigest CommitmentDigest,
+	bidder common.Address,
+	provider common.Address,
+	amount *big.Int,
+) {
+	dm.pendingRefundsMu.Lock()
+	defer dm.pendingRefundsMu.Unlock()
+	evicted := dm.pendingRefunds.Add(commitmentDigest, pendingRefund{
+		bidder:   bidder,
+		provider: provider,
+		amount:   amount,
+	})
+	if evicted {
+		dm.logger.Warn("evicted pending refund. Tracker may not be working properly", "commitmentDigest", commitmentDigest)
+	}
+}
+
+func (dm *DepositManager) ApplyPendingRefund(
+	commitmentDigest CommitmentDigest,
+) error {
+	dm.pendingRefundsMu.Lock()
+	defer dm.pendingRefundsMu.Unlock()
+
+	pendingRefund, ok := dm.pendingRefunds.Get(commitmentDigest)
+	if !ok {
+		return status.Errorf(codes.NotFound, "pending refund not found for commitment digest %x", commitmentDigest)
+	}
+	removed := dm.pendingRefunds.Remove(commitmentDigest)
+	if !removed {
+		return status.Errorf(codes.Internal, "failed to remove pending refund from cache")
+	}
+	return dm.store.RefundBalanceIfExists(pendingRefund.bidder, pendingRefund.provider, pendingRefund.amount)
+}
+
+func (dm *DepositManager) DropPendingRefund(
+	commitmentDigest CommitmentDigest,
+) error {
+	dm.pendingRefundsMu.Lock()
+	defer dm.pendingRefundsMu.Unlock()
+	removed := dm.pendingRefunds.Remove(commitmentDigest)
+	if !removed {
+		return status.Errorf(codes.Internal, "failed to remove pending refund from cache")
+	}
+	return nil
 }

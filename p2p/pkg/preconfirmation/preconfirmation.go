@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math/big"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	dm "github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
@@ -58,6 +60,12 @@ type DepositManager interface {
 		providerAddr common.Address,
 		bidAmount string,
 	) (func() error, error)
+	AddPendingRefund(
+		commitmentDigest dm.CommitmentDigest,
+		bidder common.Address,
+		provider common.Address,
+		amount *big.Int,
+	)
 }
 
 type Tracker interface {
@@ -364,6 +372,14 @@ func (p *Preconfirmation) handleBid(
 
 			// If we reach here, the bid was successful
 			successful = true
+
+			// Add pending refund. Preconf tracker will handle applying or dropping it from here.
+			bidAmount, ok := new(big.Int).SetString(bid.BidAmount, 10)
+			if !ok {
+				p.logger.Error("failed to parse bid amount", "bidAmount", bid.BidAmount)
+				return status.Errorf(codes.Internal, "failed to parse bid amount: %v", bid.BidAmount)
+			}
+			p.depositMgr.AddPendingRefund(commitmentDigest, *bidderAddr, providerAddr, bidAmount)
 
 			return nil
 		}
