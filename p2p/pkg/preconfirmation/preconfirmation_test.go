@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"io"
 	"log/slog"
-	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -20,7 +19,6 @@ import (
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
-	dm "github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
@@ -113,22 +111,13 @@ func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {
 
 type testDepositManager struct{}
 
-func (t *testDepositManager) CheckAndDeductDeposit(
+func (t *testDepositManager) CheckDeposit(
 	ctx context.Context,
 	bidderAddr common.Address,
 	providerAddr common.Address,
 	bidAmountStr string,
-) (func() error, error) {
-	return func() error { return nil }, nil
-}
-
-func (t *testDepositManager) AddPendingRefund(
-	commitmentDigest dm.CommitmentDigest,
-	bidder common.Address,
-	provider common.Address,
-	amount *big.Int,
-) {
-
+) error {
+	return nil
 }
 
 type testTracker struct{}

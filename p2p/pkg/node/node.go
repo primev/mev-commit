@@ -39,7 +39,6 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
-	dm "github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	depositmanagerstore "github.com/primev/mev-commit/p2p/pkg/depositmanager/store"
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
@@ -940,17 +939,7 @@ func (noOpBidProcessor) ProcessBid(
 
 type noOpDepositManager struct{}
 
-func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ common.Address, _ string) (func() error, error) {
-	return func() error { return nil }, nil
-}
-
-func (noOpDepositManager) AddPendingRefund(_ dm.CommitmentDigest, _ common.Address, _ common.Address, _ *big.Int) {
-}
-
-func (noOpDepositManager) ApplyPendingRefund(_ dm.CommitmentDigest) error {
-	return nil
-}
-func (noOpDepositManager) DropPendingRefund(_ dm.CommitmentDigest) error {
+func (noOpDepositManager) CheckDeposit(_ context.Context, _ common.Address, _ common.Address, _ string) error {
 	return nil
 }
 

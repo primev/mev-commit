@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	lru "github.com/hashicorp/golang-lru/v2"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"golang.org/x/sync/errgroup"
@@ -25,16 +23,9 @@ type Store interface {
 	GetBalance(bidder common.Address, provider common.Address) (*big.Int, error)
 	SetBalance(bidder common.Address, provider common.Address, balance *big.Int) error
 	DeleteBalance(bidder common.Address, provider common.Address) error
-	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	IncreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	DecreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
-
-type PendingRefund struct {
-	Bidder   common.Address
-	Provider common.Address
-	Amount   *big.Int
-}
-
-type CommitmentDigest [32]byte
 
 type DepositManager struct {
 	store               Store
@@ -45,8 +36,6 @@ type DepositManager struct {
 	withdrawals         chan *bidderregistry.BidderregistryBidderWithdrawal
 	thisProviderAddress common.Address
 	logger              *slog.Logger
-	pendingRefunds      *lru.Cache[CommitmentDigest, PendingRefund]
-	pendingRefundsMu    sync.RWMutex
 }
 
 func NewDepositManager(
@@ -56,11 +45,6 @@ func NewDepositManager(
 	thisProviderAddress common.Address,
 	logger *slog.Logger,
 ) *DepositManager {
-	pendingRefunds, err := lru.New[CommitmentDigest, PendingRefund](1000)
-	if err != nil {
-		logger.Error("failed to create pending refunds cache", "error", err)
-		pendingRefunds = nil
-	}
 	return &DepositManager{
 		store:               store,
 		bidderRegistry:      bidderRegistry,
@@ -70,7 +54,6 @@ func NewDepositManager(
 		evtMgr:              evtMgr,
 		thisProviderAddress: thisProviderAddress,
 		logger:              logger,
-		pendingRefunds:      pendingRefunds,
 	}
 }
 
@@ -209,38 +192,31 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 	return doneChan
 }
 
-func (dm *DepositManager) CheckAndDeductDeposit(
+func (dm *DepositManager) CheckDeposit(
 	ctx context.Context,
 	bidderAddr common.Address,
 	providerAddr common.Address,
 	bidAmountStr string,
-) (func() error, error) {
+) error {
 	bidAmount, ok := new(big.Int).SetString(bidAmountStr, 10)
 	if !ok {
 		dm.logger.Error("parsing bid amount", "amount", bidAmountStr)
-		return nil, status.Errorf(codes.InvalidArgument, "failed to parse bid amount")
+		return status.Errorf(codes.InvalidArgument, "failed to parse bid amount")
 	}
 
 	balance, err := dm.store.GetBalance(bidderAddr, providerAddr)
 	if err != nil {
 		dm.logger.Error("getting balance", "error", err)
-		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
+		return status.Errorf(codes.Internal, "failed to get balance: %v", err)
 	}
 
 	if balance != nil {
 		newBalance := new(big.Int).Sub(balance, bidAmount)
 		if newBalance.Cmp(big.NewInt(0)) < 0 {
 			dm.logger.Error("insufficient balance", "balance", balance.Uint64(), "bidAmount", bidAmount.Uint64())
-			return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
+			return status.Errorf(codes.FailedPrecondition, "insufficient balance")
 		}
-
-		if err := dm.store.SetBalance(bidderAddr, providerAddr, newBalance); err != nil {
-			dm.logger.Error("setting balance", "error", err)
-			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
-		}
-		return func() error {
-			return dm.store.RefundBalanceIfExists(bidderAddr, providerAddr, bidAmount)
-		}, nil
+		return nil
 	}
 	dm.logger.Info("balance not found in store, defaulting to contract call",
 		"bidder", bidderAddr.Hex(),
@@ -249,29 +225,21 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 
 	defaultBalance, err := dm.getDefaultBalance(ctx, bidderAddr, providerAddr, nil) // nil for latest block
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if defaultBalance == nil {
 		dm.logger.Error("bidder balance not found", "bidder", bidderAddr.Hex(), "provider", providerAddr.Hex())
-		return nil, status.Errorf(codes.FailedPrecondition,
+		return status.Errorf(codes.FailedPrecondition,
 			"balance not found for bidder %s and provider %s", bidderAddr.Hex(), providerAddr.Hex())
 	}
 
 	if defaultBalance.Cmp(bidAmount) < 0 {
 		dm.logger.Error("insufficient balance", "balance", defaultBalance, "bidAmount", bidAmount)
-		return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
+		return status.Errorf(codes.FailedPrecondition, "insufficient balance")
 	}
 
-	newBalance := new(big.Int).Sub(defaultBalance, bidAmount)
-	if err := dm.store.SetBalance(bidderAddr, providerAddr, newBalance); err != nil {
-		dm.logger.Error("setting balance for block", "error", err)
-		return nil, status.Errorf(codes.Internal, "failed to set balance for block: %v", err)
-	}
-
-	return func() error {
-		return dm.store.RefundBalanceIfExists(bidderAddr, providerAddr, bidAmount)
-	}, nil
+	return nil
 }
 
 // fallback to contract if balance not found in store
@@ -307,49 +275,10 @@ func (dm *DepositManager) getDefaultBalance(
 	return balance, nil
 }
 
-func (dm *DepositManager) AddPendingRefund(
-	commitmentDigest CommitmentDigest,
-	bidder common.Address,
-	provider common.Address,
-	amount *big.Int,
-) {
-	dm.pendingRefundsMu.Lock()
-	defer dm.pendingRefundsMu.Unlock()
-	evicted := dm.pendingRefunds.Add(commitmentDigest, PendingRefund{
-		Bidder:   bidder,
-		Provider: provider,
-		Amount:   amount,
-	})
-	if evicted {
-		dm.logger.Warn("evicted pending refund. Tracker may not be working properly", "commitmentDigest", commitmentDigest)
-	}
+func (dm *DepositManager) IncreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
+	return dm.store.IncreaseBalanceIfExists(bidder, provider, amount)
 }
 
-func (dm *DepositManager) ApplyPendingRefund(
-	commitmentDigest CommitmentDigest,
-) error {
-	dm.pendingRefundsMu.Lock()
-	defer dm.pendingRefundsMu.Unlock()
-
-	pendingRefund, ok := dm.pendingRefunds.Get(commitmentDigest)
-	if !ok {
-		return status.Errorf(codes.NotFound, "pending refund not found for commitment digest %x", commitmentDigest)
-	}
-	removed := dm.pendingRefunds.Remove(commitmentDigest)
-	if !removed {
-		return status.Errorf(codes.Internal, "failed to remove pending refund from cache")
-	}
-	return dm.store.RefundBalanceIfExists(pendingRefund.Bidder, pendingRefund.Provider, pendingRefund.Amount)
-}
-
-func (dm *DepositManager) DropPendingRefund(
-	commitmentDigest CommitmentDigest,
-) error {
-	dm.pendingRefundsMu.Lock()
-	defer dm.pendingRefundsMu.Unlock()
-	removed := dm.pendingRefunds.Remove(commitmentDigest)
-	if !removed {
-		return status.Errorf(codes.Internal, "failed to remove pending refund from cache")
-	}
-	return nil
+func (dm *DepositManager) DecreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
+	return dm.store.DecreaseBalanceIfExists(bidder, provider, amount)
 }
