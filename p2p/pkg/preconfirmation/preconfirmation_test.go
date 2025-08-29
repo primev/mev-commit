@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"io"
 	"log/slog"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
+	dm "github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
@@ -118,6 +120,15 @@ func (t *testDepositManager) CheckAndDeductDeposit(
 	bidAmountStr string,
 ) (func() error, error) {
 	return func() error { return nil }, nil
+}
+
+func (t *testDepositManager) AddPendingRefund(
+	commitmentDigest dm.CommitmentDigest,
+	bidder common.Address,
+	provider common.Address,
+	amount *big.Int,
+) {
+
 }
 
 type testTracker struct{}

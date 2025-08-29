@@ -20,6 +20,7 @@ import (
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
+	dm "github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
@@ -58,6 +59,7 @@ type Tracker struct {
 	triggerOpen     chan struct{}
 	metrics         *metrics
 	logger          *slog.Logger
+	depositMgr      DepositManager // Nullable and only used by provider
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
@@ -94,6 +96,11 @@ type PreconfContract interface {
 
 type Watcher interface {
 	WatchTx(txnHash common.Hash, nonce uint64) <-chan txmonitor.Result
+}
+
+type DepositManager interface {
+	ApplyPendingRefund(commitmentDigest dm.CommitmentDigest) error
+	DropPendingRefund(commitmentDigest dm.CommitmentDigest) error
 }
 
 func NewTracker(
@@ -134,6 +141,10 @@ func NewTracker(
 		metrics:         newMetrics(),
 		logger:          logger,
 	}
+}
+
+func (t *Tracker) SetDepositManager(depositMgr DepositManager) {
+	t.depositMgr = depositMgr
 }
 
 func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
@@ -538,6 +549,14 @@ func (t *Tracker) openCommitments(
 				"providerAddress", commitment.ProviderAddress,
 				"winner", newL1Block.Winner,
 			)
+			if t.depositMgr != nil {
+				commitmentDigest := dm.CommitmentDigest{}
+				copy(commitmentDigest[:], commitment.Commitment[:])
+				if err := t.depositMgr.ApplyPendingRefund(commitmentDigest); err != nil {
+					t.logger.Error("failed to apply pending refund", "error", err)
+				}
+				t.logger.Info("applied pending refund", "commitmentDigest", commitmentDigest)
+			}
 			continue
 		}
 		startTime := time.Now()
@@ -700,6 +719,15 @@ func (t *Tracker) handleOpenedCommitmentStored(
 		); err != nil {
 			return fmt.Errorf("failed to set status: %w", err)
 		}
+	}
+
+	if t.depositMgr != nil {
+		commitmentDigest := dm.CommitmentDigest{}
+		copy(commitmentDigest[:], cs.CommitmentDigest[:])
+		if err := t.depositMgr.DropPendingRefund(commitmentDigest); err != nil {
+			t.logger.Error("failed to drop pending refund", "error", err)
+		}
+		t.logger.Info("dropped pending refund", "commitmentDigest", commitmentDigest)
 	}
 
 	return nil
