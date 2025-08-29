@@ -489,3 +489,95 @@ func publishBidderWithdrawal(
 
 	return nil
 }
+
+func TestPendingRefunds(t *testing.T) {
+	t.Parallel()
+
+	logger := util.NewTestLogger(io.Discard)
+	st := depositstore.New(inmemstorage.New())
+	dm := depositmanager.NewDepositManager(st, nil, nil, logger)
+
+	digest1 := depositmanager.CommitmentDigest{
+		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+	}
+
+	pendingRefund, ok := dm.GetPendingRefund(digest1)
+	if ok {
+		t.Fatal("expected no pending refunds")
+	}
+	if pendingRefund != (depositmanager.PendingRefund{}) {
+		t.Fatal("expected zeroed pending refund")
+	}
+
+	dm.AddPendingRefund(digest1, common.HexToAddress("0x123"), common.HexToAddress("0x456"), big.NewInt(100))
+
+	pendingRefund, ok = dm.GetPendingRefund(digest1)
+	if !ok {
+		t.Fatal("expected pending refund")
+	}
+	if pendingRefund.Bidder != common.HexToAddress("0x123") {
+		t.Fatal("expected bidder 0x123")
+	}
+	if pendingRefund.Provider != common.HexToAddress("0x456") {
+		t.Fatal("expected provider 0x456")
+	}
+	if pendingRefund.Amount.Cmp(big.NewInt(100)) != 0 {
+		t.Fatal("expected amount 100")
+	}
+
+	err := st.SetBalance(common.HexToAddress("0x123"), common.HexToAddress("0x456"), big.NewInt(77))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	balance, err := st.GetBalance(common.HexToAddress("0x123"), common.HexToAddress("0x456"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if balance.Cmp(big.NewInt(77)) != 0 {
+		t.Fatal("expected balance 77")
+	}
+
+	err = dm.ApplyPendingRefund(digest1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	balance, err = st.GetBalance(common.HexToAddress("0x123"), common.HexToAddress("0x456"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if balance.Cmp(big.NewInt(177)) != 0 {
+		t.Fatal("expected balance 177")
+	}
+
+	digest2 := depositmanager.CommitmentDigest{
+		33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+	}
+
+	dm.AddPendingRefund(digest2, common.HexToAddress("0x123"), common.HexToAddress("0x456"), big.NewInt(302))
+
+	pendingRefund, ok = dm.GetPendingRefund(digest2)
+	if !ok {
+		t.Fatal("expected pending refund")
+	}
+	if pendingRefund.Bidder != common.HexToAddress("0x123") {
+		t.Fatal("expected bidder 0x123")
+	}
+	if pendingRefund.Provider != common.HexToAddress("0x456") {
+		t.Fatal("expected provider 0x456")
+	}
+	if pendingRefund.Amount.Cmp(big.NewInt(302)) != 0 {
+		t.Fatal("expected amount 302")
+	}
+
+	err = dm.DropPendingRefund(digest2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pendingRefund, ok = dm.GetPendingRefund(digest2)
+	if ok {
+		t.Fatal("expected no pending refund")
+	}
+}
