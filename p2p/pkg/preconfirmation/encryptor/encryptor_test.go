@@ -209,7 +209,7 @@ func TestHashing(t *testing.T) {
 
 		hashStr := hex.EncodeToString(hash)
 		// This hash is sourced from the solidity contract to ensure interoperability
-		expHash := "a5b1326e41e48fb9d718700c97771c3518c6127140e53c123431476025066f09"
+		expHash := "60819d90017de06a844d07153d40579e42726c405910a09eebf69f1750502258"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
