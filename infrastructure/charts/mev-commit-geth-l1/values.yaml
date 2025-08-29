@@ -1,0 +1,107 @@
+# values.yaml
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: "erigon-mev-commit-mock-l1"
+
+image:
+  repository: ethereum/client-go
+  tag: "v1.15.11"
+  pullPolicy: IfNotPresent
+
+# Geth configuration
+geth:
+
+  dataDir: "/data/geth"
+  networkId: 133787
+  dev:
+    enabled: true
+    period: 12  # Block time in seconds
+  ports:
+    http: 8545
+    ws: 8546
+    p2p: 30303
+  rpc:
+    apis: "eth,net,web3,debug,admin,personal,txpool"
+    cors: "*"
+    vhosts: "*"
+    wsOrigins: "*"
+  logging:
+    verbosity: 3
+  allowInsecureUnlock: true
+  # Extra arguments to pass to geth command
+  extraArgs: []
+    # - "--mine"
+    # - "--miner.threads=1"
+    # - "--gcmode=archive"
+  passwordFile:
+    enabled: true
+    password: "password"
+
+# Funding configuration
+funding:
+  enabled: true
+  image:
+    repository: ghcr.io/foundry-rs/foundry  # Image with cast tool
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  # Keystore configuration - uses the same password as geth
+  keystore:
+    password: "password"  # Same as geth.passwordFile.password
+  
+  # Funding parameters
+  amount: "10000ether"
+  gasPrice: "5000000000"  # 5 gwei
+  
+  # List of addresses to fund
+  addresses:
+    - "0x0850f7e6d406c279a54798ebf49cd28a63b2ac66"
+    - "0xc2d5682a51108abda388a97c438ad7dcbbe1f19e"
+    - "0x3d80a5769d9e9336c8b7cf8d8dc35e6372a17426"
+    - "0x54d45c914652c5013d10e65a7b8089aaac05acaf"
+    - "0xa9db89c3c31e30b5b70db0196b7b95c209ec3cbc"
+    - "0x9b6771c9142e5b7372bc4751ae8eb4a29770a5ad"
+    - "0x2e0fc95244294adaec32d7a3f022bafffa40b8bc"
+    - "0xee8558e130ea52dc741e9ced909e831018e85b41"
+    - "0x11b06c0692b4a0c578fd060ce1085f78fc535cc7"
+    - "0x17d53e9eb9bfafb97f6a9e9b0d1a84b705efe107"
+    - "0x92ac5a7a965a7de2d3791dc2d1fbcb50afb460e1"
+    - "0x68177dd5a3316e39eb7f800751cc0679c5d407da"
+    - "0x10b0a998f27837affe4962d9d84f81dd49bc29fb"
+    - "0xbcf0e229b5c8e48066759f29bb34670ae57ffd48"
+
+# Storage
+persistence:
+  enabled: true
+  storageClass: "premium-rwo"
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# Service configuration
+service:
+  type: ClusterIP
+  http:
+    port: 8545
+    targetPort: 8545
+  ws:
+    port: 8546
+    targetPort: 8546
+
+# Resource limits
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Node selector and tolerations
+#nodeSelector:
+#  node.kubernetes.io/instance-type: c2-standard-8
+tolerations: []
+affinity: {}
+
+# Pod annotations
+podAnnotations: {}

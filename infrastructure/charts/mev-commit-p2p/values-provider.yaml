@@ -1,0 +1,81 @@
+# Override values specific to provider deployment
+
+global:
+  # TLS configuration - disabled for bidder
+  tls:
+    disabled: false
+    selfSigned: true
+
+  contracts:
+    bidderRegistry: "0x00000000000000000000000000000000000000"
+    blockTracker: "0x00000000000000000000000000000000000000"
+    # oracle: "0x00000000000000000000000000000000000000"
+    preconfStore: "0x00000000000000000000000000000000000000"
+    providerRegistry: "0x00000000000000000000000000000000000000"
+
+
+  # RPC endpoints
+  rpc:
+    settlementEndpoint: ""
+    settlementWsEndpoint: ""
+    l1Endpoint: "" # mock L1
+    
+
+node:
+  type: "provider"
+  replicas: 1
+
+  ports:
+    http: 13623
+    p2p: 13622
+    rpc: 13624
+
+  service:
+    type: ClusterIP
+    annotations: {}
+
+  defaultKeystorePassword: "CXBMf4xEDO0I"
+  defaultP2PSecret: "mev-commit-provider-secret"
+
+  bootnodeConnectionString: "/ip4/35.196.27.69/tcp/13522/p2p/16Uiu2HAmUeBCkYDwrxn4wKmbFd55JpgbW2WuF3fpLxQvwNbWP4SY"
+
+  resources:
+    limits:
+      cpu: 16000m
+      memory: 32Gi
+    requests:
+      cpu: 700m
+      memory: 1Gi
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+
+  podSecurityContext:
+    fsGroup: 0
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podAnnotations: {}
+  imagePullSecrets: []
+
+# Provider-specific configuration
+provider:
+  decisionTimeout: "30s"
+
+#nodeSelector:
+#  workload-type: general
+
+keystore:
+  path: "/keystore"
+  downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore5/UTC--2025-06-24T18-20-46.524919000Z--44b5a4b0c879844033e11b88b507816492ff98b0"
+
+  
+  # AWS Secrets Manager keystore (still enabled for keystore files)
+  awsEnabled: false  # Keep AWS SM for keystore files only

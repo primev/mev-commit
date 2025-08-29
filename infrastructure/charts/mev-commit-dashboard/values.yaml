@@ -1,15 +1,15 @@
 replicaCount: 1
 
 image:
-  repository: 
-  tag: 
+  repository: primev/primev
+  tag:
   pullPolicy: Always
 
 nameOverride: ""
-fullnameOverride: ""
+fullnameOverride: "erigon-mev-commit-dashboard-snode"
 
 # Namespace to deploy resources
-namespace: mev-commit-observability
+namespace: default
 
 # Common labels to apply to all resources
 commonLabels: {}

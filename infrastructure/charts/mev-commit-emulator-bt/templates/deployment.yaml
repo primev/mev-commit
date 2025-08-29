@@ -1,0 +1,150 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bidder-emulator.fullname" . }}
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    {{- include "bidder-emulator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "bidder-emulator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/scripts: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "bidder-emulator.selectorLabels" . | nindent 8 }}
+        service.name: {{ include "bidder-emulator.name" . }}
+        service.version: {{ .Values.version }}
+    spec:
+      {{- include "bidder-emulator.validateValues" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: setup-keystores
+          image: "curlimages/curl:8.5.0"
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh"]
+          args: ["/scripts/setup.sh"]
+          env:
+            {{- if .Values.keystores.urls }}
+            - name: KEYSTORE_DOWNLOAD_URLS
+              value: "{{ join " " .Values.keystores.urls }}"
+            {{- end }}
+            - name: KEYSTORE_PATH
+              value: "/shared/keystores"
+            - name: KEYSTORE_RETRIES
+              value: "{{ .Values.keystores.retries }}"
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+            - name: setup-scripts
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+      containers:
+        - name: {{ include "bidder-emulator.name" . }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/usr/local/bin/bidder-emulator"]
+          args:
+            - --l1-rpc-url={{ .Values.bidderEmulator.l1RpcUrl }}
+            - --bidder-rpc-url={{ .Values.bidderEmulator.bidderRpcUrl }}
+            - --deposit-amount={{ .Values.bidderEmulator.depositAmount }}
+            - --bid-workers={{ .Values.bidderEmulator.bidWorkers }}
+            {{- if .Values.bidderEmulator.logFormat }}
+            - --log-fmt={{ .Values.bidderEmulator.logFormat }}
+            {{- end }}
+            {{- if .Values.bidderEmulator.logLevel }}
+            - --log-level={{ .Values.bidderEmulator.logLevel }}
+            {{- end }}
+            {{- if include "bidder-emulator.logTags" . }}
+            - --log-tags={{ include "bidder-emulator.logTags" . }}
+            {{- end }}
+          env:
+            {{- $keystorePaths := list }}
+            {{- if .Values.keystores.urls }}
+            {{- range $index, $url := .Values.keystores.urls }}
+            {{- $filename := base $url }}
+            {{- $keystoreDir := printf "keystore%d" (add $index 1) }}
+            {{- $keystorePaths = append $keystorePaths (printf "/shared/keystores/%s/%s:%s" $keystoreDir $filename $.Values.keystores.password) }}
+            {{- end }}
+            {{- end }}
+            {{- if $keystorePaths }}
+            - name: TRANSACTOR_KEYSTORE_PATH_PASSWORD
+              value: "{{ join "," $keystorePaths }}"
+            {{- end }}
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep bidder-emulator"
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep bidder-emulator"
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+
+      volumes:
+        - name: shared-data
+          emptyDir: {}
+        - name: setup-scripts
+          configMap:
+            name: {{ include "bidder-emulator.fullname" . }}-scripts
+            defaultMode: 0755
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
