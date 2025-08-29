@@ -193,7 +193,7 @@ func TestHashing(t *testing.T) {
 			DecayStartTimestamp: 10,
 			DecayEndTimestamp:   20,
 			NikePublicKey:       nikePublicKey,
-			BidOptions:          []byte("test"),
+			BidOptions:          common.Hex2Bytes("1234"),
 		}
 
 		preconfAddr := common.HexToAddress("0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
@@ -209,7 +209,7 @@ func TestHashing(t *testing.T) {
 
 		hashStr := hex.EncodeToString(hash)
 		// This hash is sourced from the solidity contract to ensure interoperability
-		expHash := "60819d90017de06a844d07153d40579e42726c405910a09eebf69f1750502258"
+		expHash := "63fc79776bb6995561cf5850551f6abf99471e5130bd3785feff90285f7dda26"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
@@ -237,8 +237,8 @@ func TestHashing(t *testing.T) {
 	})
 
 	t.Run("preConfirmation", func(t *testing.T) {
-		bidHash := "abfb28441e35ddbe17a41f3d306127fb6049dcc46a3ebbc9c68719f370dc2784"
-		bidSignature := "aeed5b345d04360c6ad52d4fb4fce32eec8a552f87686afb39ceea04f9fd1a782b180e4eef5e02af77015292840c541e2681c8e165b44be1d8276aba7211bde21b"
+		bidHash := "63fc79776bb6995561cf5850551f6abf99471e5130bd3785feff90285f7dda26"
+		bidSignature := "61d34b1a021c4cd494d3db724251f21ab9359d69e14cc11653b7008609c09f493b404d3749248e4357a51cb1a3a070c8443a38e01a174aa731b3fd9a0769f9bd01"
 
 		bidHashBytes, err := hex.DecodeString(bidHash)
 		if err != nil {
@@ -265,6 +265,7 @@ func TestHashing(t *testing.T) {
 			Digest:              bidHashBytes,
 			Signature:           bidSigBytes,
 			NikePublicKey:       nikePublicKey,
+			BidOptions:          common.Hex2Bytes("1234"),
 		}
 
 		var sharedKey bn254.G1Affine
@@ -289,7 +290,7 @@ func TestHashing(t *testing.T) {
 			t.Fatal(err)
 		}
 		hashStr := hex.EncodeToString(hash)
-		expHash := "560e3d9563e22ae88412f2b2a0aded962adc0bd1ed02ba14e30be5e0becdc758"
+		expHash := "590792f6362caaf7767383249b2a8a249d8f164cb9a62131847cd80870d70207"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
