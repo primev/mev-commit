@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "emulator.fullname" . }}
+  namespace: {{ .Values.namespace | default "default" }}
+  labels:
+    {{- include "emulator.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.job.replicas }}
+  selector:
+    matchLabels:
+      {{- include "emulator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "emulator.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "emulator.validateValues" . }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.job.name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /usr/local/bin/{{ .Values.job.type }}-emulator
+          args:
+{{- if and (eq .Values.job.type "bidder") .Values.job.rpcAddr }}
+            - "-rpc-addr={{ .Values.job.rpcAddr }}"
+{{- end }}
+{{- if .Values.job.serverAddr }}
+            - "-server-addr={{ .Values.job.serverAddr }}"
+{{- end }}
+{{- if and (eq .Values.job.type "bidder") .Values.job.bidWorkers }}
+            - "-bid-workers={{ .Values.job.bidWorkers }}"
+{{- end }}
+{{- if .Values.job.httpPort }}
+            - "-http-port={{ .Values.job.httpPort }}"
+{{- end }}
+{{- if and (eq .Values.job.type "provider") .Values.job.relay }}
+            - "-relay={{ .Values.job.relay }}"
+{{- end }}
+{{- if and (eq .Values.job.type "provider") (hasKey .Values.job "errorProbability") }}
+            - "-error-probability={{ .Values.job.errorProbability }}"
+{{- end }}
+{{- if index .Values.job.env "log-format" }}
+            - "-log-fmt={{ index .Values.job.env "log-format" }}"
+{{- end }}
+{{- if index .Values.job.env "log-level" }}
+            - "-log-level={{ index .Values.job.env "log-level" }}"
+{{- end }}
+{{- if index .Values.job.env "log-tags" }}
+            - "-log-tags={{ index .Values.job.env "log-tags" }}"
+{{- end }}
+{{- if index .Values.job.env "otel-collector-endpoint-url" }}
+            - "-otel-collector-endpoint-url={{ index .Values.job.env "otel-collector-endpoint-url" }}"
+{{- end }}
+          ports:
+            - containerPort: {{ .Values.job.httpPort | default 8080 }}
+              name: metrics
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
