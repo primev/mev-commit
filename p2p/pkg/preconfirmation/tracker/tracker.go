@@ -20,7 +20,6 @@ import (
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
-	dm "github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
@@ -99,8 +98,8 @@ type Watcher interface {
 }
 
 type DepositManager interface {
-	ApplyPendingRefund(commitmentDigest dm.CommitmentDigest) error
-	DropPendingRefund(commitmentDigest dm.CommitmentDigest) error
+	IncreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	DecreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
 
 func NewTracker(
@@ -457,6 +456,12 @@ func (t *Tracker) statusUpdater(
 							details = fmt.Sprintf("failed to store commitment: %s", r.Err)
 						} else {
 							status = store.CommitmentStatusStored
+							if t.depositMgr != nil {
+								// Try to decrease cached balance now that commitment was successfully stored
+								if err := t.tryDecreaseCachedBalance(task.commitment); err != nil {
+									t.logger.Error("failed to decrease cached balance", "error", err)
+								}
+							}
 						}
 					case store.CommitmentStatusOpened:
 						if r.Err != nil {
@@ -550,12 +555,10 @@ func (t *Tracker) openCommitments(
 				"winner", newL1Block.Winner,
 			)
 			if t.depositMgr != nil {
-				commitmentDigest := dm.CommitmentDigest{}
-				copy(commitmentDigest[:], commitment.Commitment[:])
-				if err := t.depositMgr.ApplyPendingRefund(commitmentDigest); err != nil {
-					t.logger.Error("failed to apply pending refund", "error", err)
+				// This node isn't the winner, so try to refund relevant cached balance
+				if err := t.tryIncreaseCachedBalance(commitment); err != nil {
+					t.logger.Error("failed to refund cached balance", "error", err)
 				}
-				t.logger.Info("applied pending refund", "commitmentDigest", commitmentDigest)
 			}
 			continue
 		}
@@ -721,15 +724,6 @@ func (t *Tracker) handleOpenedCommitmentStored(
 		}
 	}
 
-	if t.depositMgr != nil {
-		commitmentDigest := dm.CommitmentDigest{}
-		copy(commitmentDigest[:], cs.CommitmentDigest[:])
-		if err := t.depositMgr.DropPendingRefund(commitmentDigest); err != nil {
-			t.logger.Error("failed to drop pending refund", "error", err)
-		}
-		t.logger.Info("dropped pending refund", "commitmentDigest", commitmentDigest)
-	}
-
 	return nil
 }
 
@@ -804,4 +798,46 @@ func (t *Tracker) generateBidderProof(
 		zeroInt,
 		zeroInt,
 	}
+}
+
+func (t *Tracker) tryIncreaseCachedBalance(
+	commitment *store.Commitment,
+) error {
+	if commitment.BidderAddress == nil || commitment.ProviderAddress == nil || commitment.BidAmount == nil {
+		return fmt.Errorf("nil commitment fields")
+	}
+	if err := t.depositMgr.IncreaseBalanceIfExists(
+		*commitment.BidderAddress,
+		common.BytesToAddress(commitment.ProviderAddress),
+		commitment.BidAmount,
+	); err != nil {
+		return fmt.Errorf("failed to increase balance: %w", err)
+	}
+	t.logger.Info("increased cached balance from commitment",
+		"bidder", commitment.BidderAddress,
+		"provider", common.BytesToAddress(commitment.ProviderAddress),
+		"amount", commitment.BidAmount,
+	)
+	return nil
+}
+
+func (t *Tracker) tryDecreaseCachedBalance(
+	commitment *store.Commitment,
+) error {
+	if commitment.BidderAddress == nil || commitment.ProviderAddress == nil || commitment.BidAmount == nil {
+		return fmt.Errorf("nil commitment fields")
+	}
+	if err := t.depositMgr.DecreaseBalanceIfExists(
+		*commitment.BidderAddress,
+		common.BytesToAddress(commitment.ProviderAddress),
+		commitment.BidAmount,
+	); err != nil {
+		return fmt.Errorf("failed to decrease balance: %w", err)
+	}
+	t.logger.Info("decreased cached balance from commitment",
+		"bidder", commitment.BidderAddress,
+		"provider", common.BytesToAddress(commitment.ProviderAddress),
+		"amount", commitment.BidAmount,
+	)
+	return nil
 }
