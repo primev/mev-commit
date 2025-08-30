@@ -52,7 +52,7 @@ type Tracker struct {
 	commitments     chan *preconfcommstore.PreconfmanagerOpenedCommitmentStored
 	processed       chan *oracle.OracleCommitmentProcessed
 	rewards         chan *bidderregistry.BidderregistryFundsRewarded
-	returns         chan *bidderregistry.BidderregistryFundsRetrieved
+	returns         chan *bidderregistry.BidderregistryFundsUnlocked
 	statusUpdate    chan statusUpdateTask
 	blockOpened     chan int64
 	triggerOpen     chan struct{}
@@ -127,7 +127,7 @@ func NewTracker(
 		commitments:     make(chan *preconfcommstore.PreconfmanagerOpenedCommitmentStored),
 		processed:       make(chan *oracle.OracleCommitmentProcessed),
 		rewards:         make(chan *bidderregistry.BidderregistryFundsRewarded),
-		returns:         make(chan *bidderregistry.BidderregistryFundsRetrieved),
+		returns:         make(chan *bidderregistry.BidderregistryFundsUnlocked),
 		statusUpdate:    make(chan statusUpdateTask),
 		blockOpened:     make(chan int64),
 		triggerOpen:     make(chan struct{}),
@@ -152,7 +152,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 	if t.peerType == p2p.PeerTypeBidder {
 		evts = append(
 			evts,
-			events.NewChannelEventHandler(egCtx, "FundsRetrieved", t.returns),
+			events.NewChannelEventHandler(egCtx, "FundsUnlocked", t.returns),
 		)
 	}
 
@@ -331,7 +331,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			for {
 				select {
 				case <-egCtx.Done():
-					t.logger.Info("handleFundsRetrieved context done")
+					t.logger.Info("handleFundsUnlocked context done")
 					return nil
 				case err := <-sub.Err():
 					return fmt.Errorf("event subscription error: %w", err)
@@ -402,7 +402,6 @@ func (t *Tracker) handleNewL1Block(
 		"new L1 Block event received",
 		"blockNumber", newL1Block.BlockNumber,
 		"winner", newL1Block.Winner,
-		"window", newL1Block.Window,
 	)
 
 	return t.store.AddWinner(&store.BlockWinner{

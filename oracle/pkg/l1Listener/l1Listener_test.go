@@ -108,7 +108,6 @@ func TestL1Listener(t *testing.T) {
 				eventManager,
 				big.NewInt(int64(i)),
 				addr,
-				big.NewInt(int64(i)),
 			)
 			if err != nil {
 				t.Error(err)
@@ -124,9 +123,6 @@ func TestL1Listener(t *testing.T) {
 			}
 			if !bytes.Equal(winner.winner, addr.Bytes()) {
 				t.Fatal("wrong winner")
-			}
-			if winner.window != int64(i) {
-				t.Fatal("wrong window")
 			}
 		}
 	}
@@ -162,15 +158,14 @@ func (t *testRelayQuerier) Query(ctx context.Context, blockNumber int64, blockHa
 type winnerObj struct {
 	blockNum int64
 	winner   []byte
-	window   int64
 }
 
 type testRegister struct {
 	winners chan winnerObj
 }
 
-func (t *testRegister) RegisterWinner(_ context.Context, blockNum int64, winner []byte, window int64) error {
-	t.winners <- winnerObj{blockNum: blockNum, winner: winner, window: window}
+func (t *testRegister) RegisterWinner(_ context.Context, blockNum int64, winner []byte) error {
+	t.winners <- winnerObj{blockNum: blockNum, winner: winner}
 	return nil
 }
 
@@ -234,14 +229,12 @@ func publishLog(
 	eventManager events.EventManager,
 	blockNum *big.Int,
 	winner common.Address,
-	window *big.Int,
 ) {
-	eventSignature := []byte("NewL1Block(uint256,address,uint256)")
+	eventSignature := []byte("NewL1Block(uint256,address)")
 	hashEventSignature := crypto.Keccak256Hash(eventSignature)
 
 	blockNumber := common.BigToHash(blockNum)
 	winnerHash := common.HexToHash(winner.Hex())
-	windowNumber := common.BigToHash(window)
 
 	// Creating a Log object
 	testLog := types.Log{
@@ -249,7 +242,6 @@ func publishLog(
 			hashEventSignature, // The first topic is the hash of the event signature
 			blockNumber,        // The next topics are the indexed event parameters
 			winnerHash,
-			windowNumber,
 		},
 		// Since there are no non-indexed parameters, Data is empty
 		Data: []byte{},

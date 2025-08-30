@@ -187,7 +187,6 @@ func TestUpdater(t *testing.T) {
 				blockNum: 5,
 				winner: updater.Winner{
 					Winner: builderAddr.Bytes(),
-					Window: 1,
 				},
 			},
 		},
@@ -245,11 +244,6 @@ func TestUpdater(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := updtr.Start(ctx)
-
-	w := blocktracker.BlocktrackerNewWindow{
-		Window: big.NewInt(1),
-	}
-	publishNewWindow(evtMgr, &btABI, w)
 
 	for _, ec := range unopenedCommitments {
 		if err := publishUnopenedCommitment(evtMgr, &pcABI, ec); err != nil {
@@ -333,9 +327,6 @@ func TestUpdater(t *testing.T) {
 			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
 			}
-			if settlement.window != 1 {
-				t.Fatal("wrong window")
-			}
 		}
 	}
 
@@ -346,6 +337,7 @@ func TestUpdater(t *testing.T) {
 		t.Fatal("timeout")
 	}
 }
+
 func TestUpdaterRevertedTxns(t *testing.T) {
 	t.Parallel()
 
@@ -451,7 +443,6 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 				blockNum: 5,
 				winner: updater.Winner{
 					Winner: builderAddr.Bytes(),
-					Window: 1,
 				},
 			},
 		},
@@ -515,11 +506,6 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := updtr.Start(ctx)
-
-	w := blocktracker.BlocktrackerNewWindow{
-		Window: big.NewInt(1),
-	}
-	publishNewWindow(evtMgr, &btABI, w)
 
 	for _, ec := range unopenedCommitments {
 		if err := publishUnopenedCommitment(evtMgr, &pcABI, ec); err != nil {
@@ -602,9 +588,6 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			}
 			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
-			}
-			if settlement.window != 1 {
-				t.Fatal("wrong window")
 			}
 		}
 	}
@@ -722,7 +705,6 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 				blockNum: 5,
 				winner: updater.Winner{
 					Winner: builderAddr.Bytes(),
-					Window: 1,
 				},
 			},
 		},
@@ -786,11 +768,6 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := updtr.Start(ctx)
-
-	w := blocktracker.BlocktrackerNewWindow{
-		Window: big.NewInt(1),
-	}
-	publishNewWindow(evtMgr, &btABI, w)
 
 	for _, ec := range unopenedCommitments {
 		if err := publishUnopenedCommitment(evtMgr, &pcABI, ec); err != nil {
@@ -874,9 +851,6 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
 			}
-			if settlement.window != 1 {
-				t.Fatal("wrong window")
-			}
 		}
 	}
 
@@ -887,6 +861,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		t.Fatal("timeout")
 	}
 }
+
 func TestUpdaterBundlesFailure(t *testing.T) {
 	t.Parallel()
 
@@ -947,7 +922,6 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 				blockNum: 5,
 				winner: updater.Winner{
 					Winner: builderAddr.Bytes(),
-					Window: 1,
 				},
 			},
 		},
@@ -1005,11 +979,6 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := updtr.Start(ctx)
 
-	w := blocktracker.BlocktrackerNewWindow{
-		Window: big.NewInt(1),
-	}
-	publishNewWindow(evtMgr, &btABI, w)
-
 	for _, c := range commitments {
 		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
@@ -1060,9 +1029,6 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			}
 			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
-			}
-			if settlement.window != 1 {
-				t.Fatal("wrong window")
 			}
 		}
 	}
@@ -1142,17 +1108,9 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 	register := &testWinnerRegister{
 		winners: []testWinner{
 			{
-				blockNum: 5,
-				winner: updater.Winner{
-					Winner: builderAddr.Bytes(),
-					Window: 1,
-				},
-			},
-			{
 				blockNum: 10,
 				winner: updater.Winner{
 					Winner: builderAddr.Bytes(),
-					Window: 5,
 				},
 			},
 		},
@@ -1213,11 +1171,6 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := updtr.Start(ctx)
 
-	w := blocktracker.BlocktrackerNewWindow{
-		Window: big.NewInt(5),
-	}
-	publishNewWindow(evtMgr, &btABI, w)
-
 	for i, c := range commitments {
 		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
@@ -1277,9 +1230,6 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			}
 			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
-			}
-			if settlement.window != 5 {
-				t.Fatal("wrong window")
 			}
 		}
 	}
@@ -1462,7 +1412,6 @@ type testSettlement struct {
 	amount          *big.Int
 	settlementType  updater.SettlementType
 	decayPercentage int64
-	window          int64
 	chainhash       []byte
 	nonce           uint64
 }
@@ -1519,7 +1468,6 @@ func (t *testWinnerRegister) AddSettlement(
 	_ []byte,
 	settlementType updater.SettlementType,
 	decayPercentage int64,
-	window int64,
 	chainhash []byte,
 	nonce uint64,
 ) error {
@@ -1535,7 +1483,6 @@ func (t *testWinnerRegister) AddSettlement(
 		builder:         builder,
 		settlementType:  settlementType,
 		decayPercentage: decayPercentage,
-		window:          window,
 		chainhash:       chainhash,
 		nonce:           nonce,
 	}
@@ -1671,24 +1618,4 @@ func publishOpenedCommitment(
 
 	evtMgr.PublishLogEvent(context.Background(), testLog)
 	return nil
-}
-
-func publishNewWindow(
-	evtMgr events.EventManager,
-	btABI *abi.ABI,
-	w blocktracker.BlocktrackerNewWindow,
-) {
-	event := btABI.Events["NewWindow"]
-
-	// Creating a Log object
-	testLog := types.Log{
-		Topics: []common.Hash{
-			event.ID,                   // The first topic is the hash of the event signature
-			common.BigToHash(w.Window), // The next topics are the indexed event parameters
-		},
-		// Non-indexed parameters are stored in the Data field
-		Data: nil,
-	}
-
-	evtMgr.PublishLogEvent(context.Background(), testLog)
 }

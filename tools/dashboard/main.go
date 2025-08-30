@@ -192,7 +192,7 @@ func main() {
 				evtMgr,
 			)
 
-			statHdlr, err := newStatHandler(evtMgr, 10)
+			statHdlr, err := newStatHandler(evtMgr)
 			if err != nil {
 				return err
 			}
@@ -303,43 +303,6 @@ func registerRoutes(mux *http.ServeMux, statHdlr *statHandler) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	mux.HandleFunc("GET /windows", func(w http.ResponseWriter, r *http.Request) {
-		page, limit := parsePagination(r)
-
-		dout := statHdlr.getWindows(page, limit)
-		if dout == nil {
-			http.Error(w, "no data", http.StatusNotFound)
-			return
-		}
-
-		if err := json.NewEncoder(w).Encode(dout); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-
-		w.WriteHeader(http.StatusOK)
-	})
-
-	mux.HandleFunc("GET /window/{window}", func(w http.ResponseWriter, r *http.Request) {
-		windowStr := r.PathValue("window")
-		window, err := strconv.Atoi(windowStr)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		dout := statHdlr.getWindowStat(uint64(window))
-		if dout == nil {
-			http.Error(w, "no data", http.StatusNotFound)
-			return
-		}
-
-		if err := json.NewEncoder(w).Encode(dout); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-
-		w.WriteHeader(http.StatusOK)
-	})
-
 	mux.HandleFunc("GET /blocks", func(w http.ResponseWriter, r *http.Request) {
 		page, limit := parsePagination(r)
 
@@ -392,28 +355,7 @@ func registerRoutes(mux *http.ServeMux, statHdlr *statHandler) {
 	})
 
 	mux.HandleFunc("GET /bidders", func(w http.ResponseWriter, r *http.Request) {
-		dout := statHdlr.getCurrentBidders()
-		if dout == nil {
-			http.Error(w, "no data", http.StatusNotFound)
-			return
-		}
-
-		if err := json.NewEncoder(w).Encode(dout); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-
-		w.WriteHeader(http.StatusOK)
-	})
-
-	mux.HandleFunc("GET /bidders/{window}", func(w http.ResponseWriter, r *http.Request) {
-		windowStr := r.PathValue("window")
-		window, err := strconv.Atoi(windowStr)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		dout := statHdlr.getBidders(window)
+		dout := statHdlr.getBidders()
 		if dout == nil {
 			http.Error(w, "no data", http.StatusNotFound)
 			return

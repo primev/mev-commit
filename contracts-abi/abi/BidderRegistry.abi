@@ -89,6 +89,19 @@
   },
   {
     "type": "function",
+    "name": "bidderWithdrawalPeriodMs",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "blockTrackerContract",
     "inputs": [],
     "outputs": [
@@ -102,12 +115,35 @@
   },
   {
     "type": "function",
-    "name": "depositForWindow",
+    "name": "convertFundsToProviderReward",
     "inputs": [
       {
-        "name": "window",
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address payable"
+      },
+      {
+        "name": "residualBidPercentAfterDecay",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "depositAsBidder",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -115,16 +151,93 @@
   },
   {
     "type": "function",
-    "name": "depositForWindows",
+    "name": "depositEvenlyAsBidder",
     "inputs": [
       {
-        "name": "windows",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "name": "providers",
+        "type": "address[]",
+        "internalType": "address[]"
       }
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "depositManagerHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "depositManagerImpl",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "deposits",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "exists",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "availableAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "escrowedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "withdrawalRequestOccurrence",
+        "type": "tuple",
+        "internalType": "struct TimestampOccurrence.Occurrence",
+        "components": [
+          {
+            "name": "exists",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -162,9 +275,57 @@
         "internalType": "address"
       },
       {
-        "name": "window",
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDepositConsideringWithdrawalRequest",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEscrowedAmount",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -223,34 +384,15 @@
         "name": "_feePayoutPeriod",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "_bidderWithdrawalPeriodMs",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "lockedFunds",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -258,30 +400,6 @@
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "maxBidPerBlock",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -303,9 +421,9 @@
         "internalType": "address"
       },
       {
-        "name": "blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -445,27 +563,12 @@
   },
   {
     "type": "function",
-    "name": "retrieveFunds",
+    "name": "requestWithdrawalsAsBidder",
     "inputs": [
       {
-        "name": "windowToSettle",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "commitmentDigest",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "provider",
-        "type": "address",
-        "internalType": "address payable"
-      },
-      {
-        "name": "residualBidPercentAfterDecay",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "providers",
+        "type": "address[]",
+        "internalType": "address[]"
       }
     ],
     "outputs": [],
@@ -477,6 +580,19 @@
     "inputs": [
       {
         "name": "newBlockTrackerContract",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDepositManagerImpl",
+    "inputs": [
+      {
+        "name": "_depositManagerImpl",
         "type": "address",
         "internalType": "address"
       }
@@ -554,9 +670,9 @@
     "name": "unlockFunds",
     "inputs": [
       {
-        "name": "window",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
       },
       {
         "name": "commitmentDigest",
@@ -594,54 +710,12 @@
   },
   {
     "type": "function",
-    "name": "usedFunds",
+    "name": "withdrawAsBidder",
     "inputs": [
       {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "withdrawBidderAmountFromWindow",
-    "inputs": [
-      {
-        "name": "bidder",
-        "type": "address",
-        "internalType": "address payable"
-      },
-      {
-        "name": "window",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "withdrawFromWindows",
-    "inputs": [
-      {
-        "name": "windows",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "name": "providers",
+        "type": "address[]",
+        "internalType": "address[]"
       }
     ],
     "outputs": [],
@@ -661,11 +735,66 @@
     "stateMutability": "nonpayable"
   },
   {
-    "type": "event",
-    "name": "BidderRegistered",
+    "type": "function",
+    "name": "withdrawalRequestExists",
     "inputs": [
       {
         "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "BidAmountReduced",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newBidAmt",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BidderDeposited",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -677,9 +806,9 @@
         "internalType": "uint256"
       },
       {
-        "name": "windowNumber",
+        "name": "newAvailableAmount",
         "type": "uint256",
-        "indexed": true,
+        "indexed": false,
         "internalType": "uint256"
       }
     ],
@@ -696,15 +825,21 @@
         "internalType": "address"
       },
       {
-        "name": "window",
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amountWithdrawn",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
       },
       {
-        "name": "amount",
+        "name": "amountStillEscrowed",
         "type": "uint256",
-        "indexed": true,
+        "indexed": false,
         "internalType": "uint256"
       }
     ],
@@ -716,6 +851,19 @@
     "inputs": [
       {
         "name": "newBlockTracker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DepositManagerImplUpdated",
+    "inputs": [
+      {
+        "name": "newDepositManagerImpl",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -770,37 +918,6 @@
   },
   {
     "type": "event",
-    "name": "FundsRetrieved",
-    "inputs": [
-      {
-        "name": "commitmentDigest",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "bidder",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "window",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "FundsRewarded",
     "inputs": [
       {
@@ -822,10 +939,35 @@
         "internalType": "address"
       },
       {
-        "name": "window",
+        "name": "amount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FundsUnlocked",
+    "inputs": [
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
         "name": "amount",
@@ -928,6 +1070,25 @@
   },
   {
     "type": "event",
+    "name": "TopUpFailed",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "TransferToBidderFailed",
     "inputs": [
       {
@@ -967,6 +1128,43 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WithdrawalRequested",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "availableAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "escrowedAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1021,7 +1219,44 @@
   },
   {
     "type": "error",
+    "name": "DepositAmountIsLessThanProviders",
+    "inputs": [
+      {
+        "name": "depositAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "numProviders",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "DepositAmountIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DepositDoesNotExist",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DepositManagerNotSet",
     "inputs": []
   },
   {
@@ -1063,6 +1298,11 @@
   {
     "type": "error",
     "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoProviders",
     "inputs": []
   },
   {
@@ -1126,6 +1366,11 @@
   },
   {
     "type": "error",
+    "name": "ProviderIsZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
   },
@@ -1184,22 +1429,75 @@
   },
   {
     "type": "error",
-    "name": "WindowNotSettled",
-    "inputs": []
+    "name": "WithdrawalOccurrenceExists",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "requestTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
-    "name": "WithdrawAfterWindowSettled",
+    "name": "WithdrawalPeriodNotElapsed",
     "inputs": [
       {
-        "name": "window",
+        "name": "currentTimestampMs",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "currentWindow",
+        "name": "withdrawalTimestampMs",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "withdrawalPeriodMs",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalRequestAlreadyExists",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalRequestDoesNotExist",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   }

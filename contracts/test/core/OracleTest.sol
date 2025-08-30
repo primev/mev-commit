@@ -8,10 +8,10 @@ import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
 import {IPreconfManager} from "../../contracts/interfaces/IPreconfManager.sol";
+import {DepositManager} from "../../contracts/core/DepositManager.sol";
 
 contract OracleTest is Test {
     using ECDSA for bytes32;
@@ -36,6 +36,7 @@ contract OracleTest is Test {
         hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
     uint256 public constant withdrawalDelay = 24 hours; // 24 hours
     uint256 public constant protocolFeePayoutPeriodBlocks = 100;
+    uint256 public constant bidderWithdrawalPeriodMs = 10000;
 
     struct CommitmentParamsSimple {
         uint64 bid;
@@ -73,11 +74,6 @@ contract OracleTest is Test {
         string blockBuilderName
     );
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
-    event FundsRetrieved(
-        bytes32 indexed commitmentDigest,
-        uint256 window,
-        uint256 amount
-    );
 
     function setUp() public {
         address BLS_VERIFY_ADDRESS = address(0xf0);
@@ -145,11 +141,16 @@ contract OracleTest is Test {
                     feePercent,
                     address(this),
                     address(blockTracker),
-                    protocolFeePayoutPeriodBlocks
+                    protocolFeePayoutPeriodBlocks,
+                    bidderWithdrawalPeriodMs
                 )
             )
         );
         bidderRegistry = BidderRegistry(payable(proxy3));
+
+        uint256 depositManagerMinBalance = 0.01 ether;
+        DepositManager depositManager = new DepositManager(address(bidderRegistry), depositManagerMinBalance);
+        bidderRegistry.setDepositManagerImpl(address(depositManager));
 
         address proxy4 = Upgrades.deployUUPSProxy(
             "PreconfManager.sol",
@@ -169,8 +170,8 @@ contract OracleTest is Test {
 
         vm.deal(ownerInstance, 5 ether);
         vm.startPrank(ownerInstance);
-        uint256 window = blockTracker.getCurrentWindow();
-        bidderRegistry.depositForWindow{value: 2 ether}(window + 1);
+        address provider = vm.addr(4);
+        bidderRegistry.depositAsBidder{value: 2 ether}(provider);
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
@@ -201,9 +202,7 @@ contract OracleTest is Test {
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(
-            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
-        );
+        uint64 blockNumber = 12;
         uint64 bid = 2;
         uint256 slashAmt = 0;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -211,8 +210,7 @@ contract OracleTest is Test {
 
         vm.deal(bidder, 200000 ether);
         vm.startPrank(bidder);
-        uint256 window = blockTracker.getCurrentWindow();
-        bidderRegistry.depositForWindow{value: 250 ether}(window + 1);
+        bidderRegistry.depositAsBidder{value: 250 ether}(provider);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);
@@ -260,9 +258,7 @@ contract OracleTest is Test {
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(
-            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
-        );
+        uint64 blockNumber = 12;
         uint64 bid = 200;
         uint256 slashAmt = 0;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -270,8 +266,7 @@ contract OracleTest is Test {
 
         vm.deal(bidder, 200000 ether);
         vm.startPrank(bidder);
-        uint256 window = blockTracker.getCurrentWindow();
-        bidderRegistry.depositForWindow{value: 250 ether}(window + 1);
+        bidderRegistry.depositAsBidder{value: 250 ether}(provider);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);
@@ -325,9 +320,7 @@ contract OracleTest is Test {
             memory txn2 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d09";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(
-            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
-        );
+        uint64 blockNumber = 12;
         uint64 bid = 100;
         uint256 slashAmt = 0;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -337,8 +330,7 @@ contract OracleTest is Test {
 
         vm.deal(bidder, 200000 ether);
         vm.startPrank(bidder);
-        uint256 window = blockTracker.getCurrentWindow();
-        bidderRegistry.depositForWindow{value: 250 ether}(window + 1);
+        bidderRegistry.depositAsBidder{value: 250 ether}(provider);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);
@@ -431,11 +423,8 @@ contract OracleTest is Test {
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
 
         vm.deal(bidder, 200000 ether);
-        uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(
-            blockNumber
-        );
         vm.startPrank(bidder);
-        bidderRegistry.depositForWindow{value: 250 ether}(window);
+        bidderRegistry.depositAsBidder{value: 250 ether}(provider);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);
@@ -568,18 +557,15 @@ contract OracleTest is Test {
         ] = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d11";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(
-            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
-        );
+        uint64 blockNumber = 12;
         uint64 bid = 5;
         uint256 slashAmt = 0;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
 
         vm.deal(bidder, 200000 ether);
-        uint256 window = blockTracker.getCurrentWindow();
         vm.startPrank(bidder);
-        bidderRegistry.depositForWindow{value: 250 ether}(window + 1);
+        bidderRegistry.depositAsBidder{value: 250 ether}(provider);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);

@@ -24,6 +24,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	depositmanagercontract "github.com/primev/mev-commit/contracts-abi/clients/DepositManager"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
@@ -36,8 +37,6 @@ import (
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
-	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
-	autodepositorstore "github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	depositmanagerstore "github.com/primev/mev-commit/p2p/pkg/depositmanager/store"
@@ -56,6 +55,7 @@ import (
 	notificationsapi "github.com/primev/mev-commit/p2p/pkg/rpc/notifications"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	validatorapi "github.com/primev/mev-commit/p2p/pkg/rpc/validator"
+	"github.com/primev/mev-commit/p2p/pkg/setcode"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/stakemanager"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
@@ -114,7 +114,8 @@ type Options struct {
 	BidderRegistryContract   string
 	OracleContract           string
 	ValidatorRouterContract  string
-	AutodepositAmount        *big.Int
+	EnableDepositManager     bool
+	TargetDepositAmount      *big.Int
 	RPCEndpoint              string
 	WSRPCEndpoint            string
 	NatAddr                  string
@@ -124,7 +125,6 @@ type Options struct {
 	DefaultGasLimit          uint64
 	DefaultGasTipCap         *big.Int
 	DefaultGasFeeCap         *big.Int
-	OracleWindowOffset       *big.Int
 	BeaconAPIURL             string
 	L1RPCURL                 string
 	LaggardMode              *big.Int
@@ -288,17 +288,17 @@ func NewNode(opts *Options) (*Node, error) {
 	)
 	srv.RegisterMetricsCollectors(monitor.Metrics()...)
 
-	contractsBackend := transactor.NewMetricsWrapper(
+	backend := transactor.NewMetricsWrapper(
 		transactor.NewTransactor(
 			contractRPC,
 			monitor,
 		),
 	)
-	srv.RegisterMetricsCollectors(contractsBackend.Metrics()...)
+	srv.RegisterMetricsCollectors(backend.Metrics()...)
 
 	providerRegistry, err := providerregistry.NewProviderregistry(
 		common.HexToAddress(opts.ProviderRegistryContract),
-		contractsBackend,
+		backend,
 	)
 	if err != nil {
 		opts.Logger.Error("failed to instantiate provider registry contract", "error", err)
@@ -307,10 +307,19 @@ func NewNode(opts *Options) (*Node, error) {
 
 	bidderRegistry, err := bidderregistry.NewBidderregistry(
 		common.HexToAddress(opts.BidderRegistryContract),
-		contractsBackend,
+		backend,
 	)
 	if err != nil {
 		opts.Logger.Error("failed to instantiate bidder registry contract", "error", err)
+		return nil, err
+	}
+
+	depositManagerContract, err := depositmanagercontract.NewDepositmanager(
+		opts.KeySigner.GetAddress(), // Bind contract to this EOA account (EIP-7702 will be used here)
+		backend,
+	)
+	if err != nil {
+		opts.Logger.Error("creating deposit manager", "error", err)
 		return nil, err
 	}
 
@@ -425,7 +434,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	notificationsapiv1.RegisterNotificationsServer(grpcServer, notificationsRPCService)
 
-	var autoDeposit *autodepositor.AutoDepositTracker
+	var bidderAPI *bidderapi.Service
 
 	if opts.PeerType != p2p.PeerTypeBootnode.String() {
 		validator, err := protovalidate.New()
@@ -439,25 +448,9 @@ func NewNode(opts *Options) (*Node, error) {
 			depositMgr   preconfirmation.DepositManager = noOpDepositManager{}
 		)
 
-		blockTrackerCaller, err := blocktracker.NewBlocktrackerCaller(
-			common.HexToAddress(opts.BlockTrackerContract),
-			contractRPC,
-		)
-		if err != nil {
-			opts.Logger.Error("failed to instantiate block tracker contract", "error", err)
-			return nil, err
-		}
-
-		blockTrackerSession := &blocktracker.BlocktrackerCallerSession{
-			Contract: blockTrackerCaller,
-			CallOpts: bind.CallOpts{
-				From: opts.KeySigner.GetAddress(),
-			},
-		}
-
 		commitmentDA, err := preconf.NewPreconfmanager(
 			common.HexToAddress(opts.PreconfContract),
-			contractsBackend,
+			backend,
 		)
 		if err != nil {
 			opts.Logger.Error("failed to instantiate preconf commitment store contract", "error", err)
@@ -504,12 +497,6 @@ func NewNode(opts *Options) (*Node, error) {
 			},
 		)
 		srv.RegisterMetricsCollectors(tracker.Metrics()...)
-
-		bpwBigInt, err := blockTrackerSession.GetBlocksPerWindow()
-		if err != nil {
-			opts.Logger.Error("failed to get blocks per window", "error", err)
-			return nil, err
-		}
 
 		l1ContractRPC, err := ethclient.Dial(opts.L1RPCURL)
 		if err != nil {
@@ -565,7 +552,6 @@ func NewNode(opts *Options) (*Node, error) {
 				Startable: validatorAPI,
 			},
 		)
-		blocksPerWindow := bpwBigInt.Uint64()
 
 		switch opts.PeerType {
 		case p2p.PeerTypeProvider.String():
@@ -583,7 +569,6 @@ func NewNode(opts *Options) (*Node, error) {
 			bidProcessor = providerAPI
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
 			depositMgr = depositmanager.NewDepositManager(
-				blocksPerWindow,
 				depositmanagerstore.New(store),
 				evtMgr,
 				bidderRegistry,
@@ -662,45 +647,38 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
-			autodepositorStore := autodepositorstore.New(store)
-
-			autoDeposit = autodepositor.New(
-				evtMgr,
-				bidderRegistry,
-				blockTrackerSession,
-				optsGetter,
-				autodepositorStore,
-				opts.OracleWindowOffset,
-				opts.Logger.With("component", "auto_deposit_tracker"),
+			setCodeHelper := setcode.NewSetCodeHelper(
+				opts.Logger.With("component", "setcode_helper"),
+				opts.KeySigner,
+				backend,
+				chainID,
 			)
 
-			nd.closers = append(
-				nd.closers,
-				ioCloserFunc(func() error {
-					_, err := autoDeposit.Stop()
-					if errors.Is(err, autodepositor.ErrNotRunning) {
-						return nil
-					}
-					return err
-				}),
-			)
+			depositManagerImplAddr, err := bidderRegistry.DepositManagerImpl(nil)
+			if err != nil {
+				opts.Logger.Error("failed to get deposit manager implementation address", "error", err)
+				return nil, err
+			}
+			if depositManagerImplAddr == (common.Address{}) {
+				opts.Logger.Error("deposit manager implementation address is not set")
+				return nil, errors.New("deposit manager implementation address is not set")
+			}
 
-			bidderAPI := bidderapi.NewService(
+			bidderAPI = bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
-				blocksPerWindow,
 				preconfProto,
 				bidderRegistry,
-				blockTrackerSession,
 				providerRegistry,
 				validator,
 				monitor,
 				optsGetter,
-				autoDeposit,
-				autodepositorStore,
 				preconfStore,
-				opts.OracleWindowOffset,
 				opts.BidderBidTimeout,
 				opts.Logger.With("component", "bidderapi"),
+				setCodeHelper,
+				depositManagerContract,
+				contractRPC,
+				depositManagerImplAddr,
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
@@ -741,11 +719,10 @@ func NewNode(opts *Options) (*Node, error) {
 		nd.closers = append(nd.closers, channelCloserFunc(closeChan))
 	}
 
-	if opts.AutodepositAmount != nil && autoDeposit != nil {
-		err = autoDeposit.Start(ctx, nil, opts.AutodepositAmount)
+	if bidderAPI != nil && opts.EnableDepositManager {
+		err = handleEnableDepositManager(bidderAPI, opts)
 		if err != nil {
-			opts.Logger.Error("failed to start auto deposit tracker", "error", err)
-			return nil, errors.Join(err, nd.Close())
+			opts.Logger.Error("failed to handle enable deposit manager flag", "error", err)
 		}
 	}
 
@@ -959,7 +936,7 @@ func (noOpBidProcessor) ProcessBid(
 
 type noOpDepositManager struct{}
 
-func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ string, _ int64) (func() error, error) {
+func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ common.Address, _ string) (func() error, error) {
 	return func() error { return nil }, nil
 }
 
@@ -1021,4 +998,49 @@ func setDefault(field *string, defaultValue string) {
 	if *field == "" {
 		*field = defaultValue
 	}
+}
+
+func handleEnableDepositManager(bidderAPI *bidderapi.Service, opts *Options) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	enableDepositMngrResp, err := bidderAPI.EnableDepositManager(ctx, &bidderapiv1.EnableDepositManagerRequest{})
+	if err != nil {
+		if strings.Contains(err.Error(), "EnableDepositManager failed: deposit manager is already enabled") {
+			opts.Logger.Info("deposit manager already enabled")
+		} else {
+			return fmt.Errorf("failed to enable deposit manager: %w", err)
+		}
+	} else {
+		if enableDepositMngrResp == nil || !enableDepositMngrResp.Success {
+			return fmt.Errorf("failed to enable deposit manager")
+		}
+		opts.Logger.Info("deposit manager enabled")
+	}
+	if opts.TargetDepositAmount != nil {
+		providers, err := bidderAPI.GetValidProviders(ctx, &bidderapiv1.GetValidProvidersRequest{})
+		if err != nil {
+			return fmt.Errorf("failed to get valid providers: %w", err)
+		}
+		opts.Logger.Info("valid providers who'll be deposited to", "providers", providers.ValidProviders)
+		setTargetDepositsReq := &bidderapiv1.SetTargetDepositsRequest{}
+		for _, provider := range providers.ValidProviders {
+			setTargetDepositsReq.TargetDeposits = append(setTargetDepositsReq.TargetDeposits,
+				&bidderapiv1.TargetDeposit{
+					Provider:      provider,
+					TargetDeposit: opts.TargetDepositAmount.String(),
+				},
+			)
+		}
+
+		setTargetDepositsResp, err := bidderAPI.SetTargetDeposits(ctx, setTargetDepositsReq)
+		if err != nil {
+			return fmt.Errorf("failed to set target deposit amount: %w", err)
+		}
+		if len(setTargetDepositsResp.SuccessfullySetDeposits) < len(providers.ValidProviders) {
+			return fmt.Errorf("failed to set target deposit amount for all valid providers: %w", err)
+		}
+		opts.Logger.Info("target deposit amount set for all valid providers", "amount", opts.TargetDepositAmount)
+		opts.Logger.Info("successfully topped up providers", "providers", setTargetDepositsResp.SuccessfullyToppedUpProviders)
+	}
+	return nil
 }

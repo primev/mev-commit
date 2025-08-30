@@ -187,22 +187,63 @@ func main() {
 		return
 	}
 
-	status, err := bidderClient.AutoDepositStatus(context.Background(), &pb.EmptyMessage{})
+	status, err := bidderClient.DepositManagerStatus(context.Background(), &pb.DepositManagerStatusRequest{})
 	if err != nil {
 		logger.Error("failed to get auto deposit status", "err", err)
 		return
 	}
 
-	if !status.IsAutodepositEnabled {
-		resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
-			Amount: minDeposit.String(),
-		})
+	if !status.Enabled {
+		resp, err := bidderClient.EnableDepositManager(context.Background(), &pb.EnableDepositManagerRequest{})
 		if err != nil {
-			logger.Error("failed to auto deposit", "err", err)
+			logger.Error("failed to enable deposit manager", "err", err)
 			return
 		}
-		logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
+		if !resp.Success {
+			logger.Error("failed to enable deposit manager")
+			return
+		}
 	}
+	logger.Info("deposit manager enabled")
+
+	var providerAddress string
+	retries := 10
+	for range retries {
+		resp, err := bidderClient.GetValidProviders(context.Background(), &pb.GetValidProvidersRequest{})
+		if err != nil {
+			logger.Error("failed to get valid providers", "err", err)
+			continue
+		}
+		if len(resp.ValidProviders) > 0 {
+			providerAddress = resp.ValidProviders[0]
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	if providerAddress == "" {
+		logger.Error("no connected and valid provider found")
+		return
+	}
+
+	resp, err := bidderClient.SetTargetDeposits(context.Background(), &pb.SetTargetDepositsRequest{
+		TargetDeposits: []*pb.TargetDeposit{
+			{
+				TargetDeposit: minDeposit.String(),
+				Provider:      providerAddress,
+			},
+		},
+	})
+	if err != nil {
+		logger.Error("failed to set target deposits", "err", err)
+		return
+	}
+
+	if len(resp.SuccessfullySetDeposits) == 0 {
+		logger.Error("failed to set target deposits")
+		return
+	}
+	logger.Info("target deposits set", "amount", resp.SuccessfullySetDeposits[0].TargetDeposit)
 
 	type blockWithTxns struct {
 		blockNum int64

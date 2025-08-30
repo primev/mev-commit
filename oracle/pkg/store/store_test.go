@@ -19,7 +19,6 @@ import (
 type blockWinner struct {
 	BlockNumber int64
 	Winner      []byte
-	Window      int64
 }
 
 type testSettlement struct {
@@ -88,12 +87,10 @@ func TestStore(t *testing.T) {
 
 	winners := []blockWinner{
 		{
-			Window:      1,
 			Winner:      common.HexToAddress("0x01").Bytes(),
 			BlockNumber: 1,
 		},
 		{
-			Window:      2,
 			Winner:      common.HexToAddress("0x02").Bytes(),
 			BlockNumber: 2,
 		},
@@ -183,7 +180,7 @@ func TestStore(t *testing.T) {
 		}
 
 		for _, winner := range winners {
-			err = st.RegisterWinner(context.Background(), winner.BlockNumber, winner.Winner, winner.Window)
+			err = st.RegisterWinner(context.Background(), winner.BlockNumber, winner.Winner)
 			if err != nil {
 				t.Fatalf("Failed to register winner: %s", err)
 			}
@@ -248,8 +245,7 @@ func TestStore(t *testing.T) {
 			t.Fatalf("Failed to create store: %s", err)
 		}
 
-		for i, settlement := range settlements {
-			window := int64(i/3) + 1
+		for _, settlement := range settlements {
 			err = st.AddSettlement(
 				context.Background(),
 				settlement.CommitmentIdx,
@@ -260,7 +256,6 @@ func TestStore(t *testing.T) {
 				settlement.BidID,
 				settlement.Type,
 				settlement.DecayPercentage,
-				window,
 				settlement.ChainHash,
 				settlement.Nonce,
 			)
