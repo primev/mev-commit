@@ -80,9 +80,10 @@ func TestDepositManager(t *testing.T) {
 	}
 
 	br := &bidderregistry.BidderregistryBidderDeposited{
-		Bidder:          common.HexToAddress("0x123"),
-		Provider:        common.HexToAddress("0x456"),
-		DepositedAmount: big.NewInt(100),
+		Bidder:             common.HexToAddress("0x123"),
+		Provider:           common.HexToAddress("0x456"),
+		DepositedAmount:    big.NewInt(100),
+		NewAvailableAmount: big.NewInt(100),
 	}
 
 	err = publishBidderDeposited(evtMgr, &brABI, br)
@@ -192,9 +193,10 @@ func TestDepositManager(t *testing.T) {
 	}
 
 	err = publishBidderDeposited(evtMgr, &brABI, &bidderregistry.BidderregistryBidderDeposited{
-		Bidder:          common.HexToAddress("0x123"),
-		Provider:        common.HexToAddress("0x456"),
-		DepositedAmount: big.NewInt(777),
+		Bidder:             common.HexToAddress("0x123"),
+		Provider:           common.HexToAddress("0x456"),
+		DepositedAmount:    big.NewInt(777),
+		NewAvailableAmount: big.NewInt(777),
 	})
 	if err != nil {
 		t.Fatal(err)
