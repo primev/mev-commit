@@ -459,7 +459,7 @@ func (t *Tracker) statusUpdater(
 							if t.depositMgr != nil {
 								// Try to decrease cached balance now that commitment was successfully stored
 								if err := t.tryDecreaseCachedBalance(task.commitment); err != nil {
-									t.logger.Error("failed to decrease cached balance", "error", err)
+									t.logger.Warn("failed to decrease cached balance. Bidder is likely withdrawing", "error", err)
 								}
 							}
 						}
@@ -557,7 +557,7 @@ func (t *Tracker) openCommitments(
 			if t.depositMgr != nil {
 				// This node isn't the winner, so try to refund relevant cached balance
 				if err := t.tryIncreaseCachedBalance(commitment); err != nil {
-					t.logger.Error("failed to refund cached balance", "error", err)
+					t.logger.Warn("failed to refund cached balance. Bidder is likely withdrawing", "error", err)
 				}
 			}
 			continue
