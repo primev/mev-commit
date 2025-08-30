@@ -938,7 +938,7 @@ func (noOpBidProcessor) ProcessBid(
 type noOpDepositManager struct{}
 
 func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ string) (func() error, error) {
-	return nil, nil
+	return func() error { return nil }, nil
 }
 
 type channelCloser <-chan struct{}
