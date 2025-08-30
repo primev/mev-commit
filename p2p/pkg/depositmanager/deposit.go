@@ -27,29 +27,32 @@ type Store interface {
 }
 
 type DepositManager struct {
-	store            Store
-	evtMgr           events.EventManager
-	bidderRegistry   BidderRegistryContract
-	deposits         chan *bidderregistry.BidderregistryBidderDeposited
-	withdrawRequests chan *bidderregistry.BidderregistryWithdrawalRequested
-	withdrawals      chan *bidderregistry.BidderregistryBidderWithdrawal
-	logger           *slog.Logger
+	store               Store
+	evtMgr              events.EventManager
+	bidderRegistry      BidderRegistryContract
+	deposits            chan *bidderregistry.BidderregistryBidderDeposited
+	withdrawRequests    chan *bidderregistry.BidderregistryWithdrawalRequested
+	withdrawals         chan *bidderregistry.BidderregistryBidderWithdrawal
+	thisProviderAddress common.Address
+	logger              *slog.Logger
 }
 
 func NewDepositManager(
 	store Store,
 	evtMgr events.EventManager,
 	bidderRegistry BidderRegistryContract,
+	thisProviderAddress common.Address,
 	logger *slog.Logger,
 ) *DepositManager {
 	return &DepositManager{
-		store:            store,
-		bidderRegistry:   bidderRegistry,
-		deposits:         make(chan *bidderregistry.BidderregistryBidderDeposited),
-		withdrawRequests: make(chan *bidderregistry.BidderregistryWithdrawalRequested),
-		withdrawals:      make(chan *bidderregistry.BidderregistryBidderWithdrawal),
-		evtMgr:           evtMgr,
-		logger:           logger,
+		store:               store,
+		bidderRegistry:      bidderRegistry,
+		deposits:            make(chan *bidderregistry.BidderregistryBidderDeposited),
+		withdrawRequests:    make(chan *bidderregistry.BidderregistryWithdrawalRequested),
+		withdrawals:         make(chan *bidderregistry.BidderregistryBidderWithdrawal),
+		evtMgr:              evtMgr,
+		thisProviderAddress: thisProviderAddress,
+		logger:              logger,
 	}
 }
 
@@ -117,6 +120,10 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 				return nil
 
 			case deposit := <-dm.deposits:
+				if deposit.Provider != dm.thisProviderAddress {
+					dm.logger.Debug("ignoring deposit event for different provider", "provider", deposit.Provider)
+					continue
+				}
 				currentBalance, err := dm.store.GetBalance(deposit.Bidder, deposit.Provider)
 				if err != nil {
 					dm.logger.Error("getting balance", "error", err)
@@ -145,6 +152,10 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 					)
 				}
 			case withdrawalRequest := <-dm.withdrawRequests:
+				if withdrawalRequest.Provider != dm.thisProviderAddress {
+					dm.logger.Debug("ignoring withdrawal request event for different provider", "provider", withdrawalRequest.Provider)
+					continue
+				}
 				if err := dm.store.DeleteBalance(withdrawalRequest.Bidder, withdrawalRequest.Provider); err != nil {
 					dm.logger.Error("deleting balance", "error", err)
 					return err
@@ -155,6 +166,10 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 				)
 
 			case withdrawal := <-dm.withdrawals:
+				if withdrawal.Provider != dm.thisProviderAddress {
+					dm.logger.Debug("ignoring withdrawal event for different provider", "provider", withdrawal.Provider)
+					continue
+				}
 				if err := dm.store.DeleteBalance(withdrawal.Bidder, withdrawal.Provider); err != nil {
 					dm.logger.Error("deleting balance", "error", err)
 					return err

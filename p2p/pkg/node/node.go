@@ -572,6 +572,7 @@ func NewNode(opts *Options) (*Node, error) {
 				depositmanagerstore.New(store),
 				evtMgr,
 				bidderRegistry,
+				opts.KeySigner.GetAddress(),
 				opts.Logger.With("component", "depositmanager"),
 			)
 			startables = append(

@@ -1,6 +1,7 @@
 package depositmanager_test
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"math/big"
@@ -62,7 +63,9 @@ func TestDepositManager(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	dm := depositmanager.NewDepositManager(st, evtMgr, bidderRegistry, logger)
+	providerAddress := common.HexToAddress("0x456")
+
+	dm := depositmanager.NewDepositManager(st, evtMgr, bidderRegistry, providerAddress, logger)
 	done := dm.Start(ctx)
 
 	// no deposit
@@ -248,7 +251,9 @@ func TestStartWithBidderAlreadyDeposited(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	dm := depositmanager.NewDepositManager(st, evtMgr, bidderRegistry, logger)
+	providerAddress := common.HexToAddress("0x456")
+
+	dm := depositmanager.NewDepositManager(st, evtMgr, bidderRegistry, providerAddress, logger)
 	done := dm.Start(ctx)
 
 	err = publishBidderDeposited(evtMgr, &brABI, &bidderregistry.BidderregistryBidderDeposited{
@@ -272,6 +277,101 @@ func TestStartWithBidderAlreadyDeposited(t *testing.T) {
 			break
 		}
 		time.Sleep(1 * time.Second)
+	}
+
+	cancel()
+	<-done
+}
+
+func TestOtherProvidersEventsAreIgnored(t *testing.T) {
+	t.Parallel()
+
+	brABI, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var logBuf bytes.Buffer
+	logger := util.NewTestLogger(&logBuf)
+	evtMgr := events.NewListener(logger, &btABI, &brABI)
+
+	st := depositstore.New(inmemstorage.New())
+	bidderRegistry := &MockBidderRegistryContract{
+		GetDepositConsideringWithdrawalRequestFunc: func(
+			opts *bind.CallOpts,
+			bidder common.Address,
+			provider common.Address,
+		) (*big.Int, error) {
+			return big.NewInt(0), nil
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	providerAddress := common.HexToAddress("0x456")
+
+	dm := depositmanager.NewDepositManager(st, evtMgr, bidderRegistry, providerAddress, logger)
+	done := dm.Start(ctx)
+
+	differentProvider := common.HexToAddress("0x789")
+
+	err = publishBidderDeposited(evtMgr, &brABI, &bidderregistry.BidderregistryBidderDeposited{
+		Bidder:          common.HexToAddress("0x123"),
+		Provider:        differentProvider,
+		DepositedAmount: big.NewInt(100),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = publishBidderWithdrawalRequested(evtMgr, &brABI, &bidderregistry.BidderregistryWithdrawalRequested{
+		Bidder:          common.HexToAddress("0x123"),
+		Provider:        differentProvider,
+		AvailableAmount: big.NewInt(100),
+		EscrowedAmount:  big.NewInt(100),
+		Timestamp:       big.NewInt(1000),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = publishBidderWithdrawal(evtMgr, &brABI, &bidderregistry.BidderregistryBidderWithdrawal{
+		Bidder:              common.HexToAddress("0x123"),
+		Provider:            differentProvider,
+		AmountWithdrawn:     big.NewInt(100),
+		AmountStillEscrowed: big.NewInt(100),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type seen struct {
+		deposit           bool
+		withdrawalRequest bool
+		withdrawal        bool
+	}
+	haveSeen := seen{}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if strings.Contains(logBuf.String(), "ignoring deposit event for different provider") {
+			haveSeen.deposit = true
+		}
+		if strings.Contains(logBuf.String(), "ignoring withdrawal request event for different provider") {
+			haveSeen.withdrawalRequest = true
+		}
+		if strings.Contains(logBuf.String(), "ignoring withdrawal event for different provider") {
+			haveSeen.withdrawal = true
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if !haveSeen.deposit || !haveSeen.withdrawalRequest || !haveSeen.withdrawal {
+		t.Fatal("expected all events to be seen, but got ", haveSeen)
 	}
 
 	cancel()
