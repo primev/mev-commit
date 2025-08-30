@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -296,7 +297,7 @@ func TestOtherProvidersEventsAreIgnored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var logBuf bytes.Buffer
+	var logBuf SafeBuffer
 	logger := util.NewTestLogger(&logBuf)
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 
@@ -376,6 +377,35 @@ func TestOtherProvidersEventsAreIgnored(t *testing.T) {
 
 	cancel()
 	<-done
+}
+
+type SafeBuffer struct {
+	mu  sync.RWMutex
+	buf bytes.Buffer
+}
+
+func (b *SafeBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *SafeBuffer) String() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.buf.String()
+}
+
+func (b *SafeBuffer) Reset() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf.Reset()
+}
+
+func (b *SafeBuffer) Bytes() []byte {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return append([]byte(nil), b.buf.Bytes()...)
 }
 
 func publishBidderDeposited(
