@@ -297,8 +297,8 @@ func TestOtherProvidersEventsAreIgnored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var logBuf SafeBuffer
-	logger := util.NewTestLogger(&logBuf)
+	logBuf := &SafeBuffer{}
+	logger := util.NewTestLogger(logBuf)
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 
 	st := depositstore.New(inmemstorage.New())
