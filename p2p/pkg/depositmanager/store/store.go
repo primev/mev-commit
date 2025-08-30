@@ -84,29 +84,6 @@ func (s *Store) RefundBalanceIfExists(
 	return s.st.Put(balanceKey(bidder, provider), newAmount.Bytes())
 }
 
-func (s *Store) DeductBalanceIfExists(
-	bidder common.Address,
-	provider common.Address,
-	amount *big.Int,
-) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	val, err := s.st.Get(balanceKey(bidder, provider))
-	switch {
-	case errors.Is(err, storage.ErrKeyNotFound):
-		return status.Errorf(codes.FailedPrecondition, "balance not found, no decrease needed")
-	case err != nil:
-		return err
-	}
-
-	newBalance := new(big.Int).Sub(new(big.Int).SetBytes(val), amount)
-	if newBalance.Cmp(big.NewInt(0)) < 0 {
-		return status.Errorf(codes.Internal, "balance cannot be decreased below 0")
-	}
-	return s.st.Put(balanceKey(bidder, provider), newBalance.Bytes())
-}
-
 func (s *Store) BalanceEntries(bidder common.Address) (int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

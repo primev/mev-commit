@@ -18,6 +18,7 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	depositstore "github.com/primev/mev-commit/p2p/pkg/depositmanager/store"
+	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/util"
@@ -66,18 +67,20 @@ func TestDepositManager(t *testing.T) {
 
 	providerAddress := common.HexToAddress("0x456")
 
-	dm := depositmanager.NewDepositManager(st, evtMgr, bidderRegistry, providerAddress, logger)
+	dm := depositmanager.NewDepositManager(st, evtMgr, notifications.New(10), bidderRegistry, providerAddress, logger)
 	done := dm.Start(ctx)
 
 	// no deposit
-	err = dm.CheckDeposit(
+	refund, err := dm.CheckAndDeductDeposit(
 		context.Background(),
 		common.HexToAddress("0x123"),
-		common.HexToAddress("0x456"),
 		"10",
 	)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if refund != nil {
+		t.Fatal("expected nil refund")
 	}
 
 	br := &bidderregistry.BidderregistryBidderDeposited{
@@ -102,31 +105,35 @@ func TestDepositManager(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 
-	err = dm.CheckDeposit(
+	// deduct deposit
+	refund, err = dm.CheckAndDeductDeposit(
 		context.Background(),
 		common.HexToAddress("0x123"),
-		common.HexToAddress("0x456"),
 		"100",
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// not enough deposit to handle 101
-	err = dm.CheckDeposit(
+	// not enough deposit
+	_, err = dm.CheckAndDeductDeposit(
 		context.Background(),
 		common.HexToAddress("0x123"),
-		common.HexToAddress("0x456"),
-		"101",
+		"10",
 	)
 	if err == nil || !strings.Contains(err.Error(), "insufficient balance") {
 		t.Fatal("expected error for insufficient balance")
 	}
 
-	err = dm.CheckDeposit(
+	err = refund()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// deduct deposit after refund
+	_, err = dm.CheckAndDeductDeposit(
 		context.Background(),
 		common.HexToAddress("0x123"),
-		common.HexToAddress("0x456"),
 		"10",
 	)
 	if err != nil {
@@ -140,8 +147,8 @@ func TestDepositManager(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if balance == nil || balance.Cmp(big.NewInt(100)) != 0 {
-		t.Fatal("expected balance of 100")
+	if balance == nil || balance.Cmp(big.NewInt(90)) != 0 {
+		t.Fatal("expected balance of 90")
 	}
 
 	err = publishBidderWithdrawalRequested(evtMgr, &brABI, &bidderregistry.BidderregistryWithdrawalRequested{
@@ -244,7 +251,7 @@ func TestStartWithBidderAlreadyDeposited(t *testing.T) {
 
 	providerAddress := common.HexToAddress("0x456")
 
-	dm := depositmanager.NewDepositManager(st, evtMgr, bidderRegistry, providerAddress, logger)
+	dm := depositmanager.NewDepositManager(st, evtMgr, notifications.New(10), bidderRegistry, providerAddress, logger)
 	done := dm.Start(ctx)
 
 	err = publishBidderDeposited(evtMgr, &brABI, &bidderregistry.BidderregistryBidderDeposited{
@@ -306,7 +313,7 @@ func TestOtherProvidersEventsAreIgnored(t *testing.T) {
 
 	providerAddress := common.HexToAddress("0x456")
 
-	dm := depositmanager.NewDepositManager(st, evtMgr, bidderRegistry, providerAddress, logger)
+	dm := depositmanager.NewDepositManager(st, evtMgr, notifications.New(10), bidderRegistry, providerAddress, logger)
 	done := dm.Start(ctx)
 
 	differentProvider := common.HexToAddress("0x789")

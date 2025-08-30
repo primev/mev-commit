@@ -58,7 +58,6 @@ type Tracker struct {
 	triggerOpen     chan struct{}
 	metrics         *metrics
 	logger          *slog.Logger
-	depositMgr      DepositManager // Nullable and only used by provider
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
@@ -95,11 +94,6 @@ type PreconfContract interface {
 
 type Watcher interface {
 	WatchTx(txnHash common.Hash, nonce uint64) <-chan txmonitor.Result
-}
-
-type DepositManager interface {
-	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
-	DeductBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
 
 func NewTracker(
@@ -140,10 +134,6 @@ func NewTracker(
 		metrics:         newMetrics(),
 		logger:          logger,
 	}
-}
-
-func (t *Tracker) SetDepositManager(depositMgr DepositManager) {
-	t.depositMgr = depositMgr
 }
 
 func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
@@ -456,12 +446,6 @@ func (t *Tracker) statusUpdater(
 							details = fmt.Sprintf("failed to store commitment: %s", r.Err)
 						} else {
 							status = store.CommitmentStatusStored
-							if t.depositMgr != nil {
-								// Try to deduct cached balance now that commitment was successfully stored
-								if err := t.tryDeductCachedBalance(task.commitment); err != nil {
-									t.logger.Warn("failed to deduct cached balance. Bidder is likely withdrawing", "error", err)
-								}
-							}
 						}
 					case store.CommitmentStatusOpened:
 						if r.Err != nil {
@@ -492,6 +476,8 @@ func (t *Tracker) statusUpdater(
 							"commitmentDigest": hex.EncodeToString(task.commitment.Commitment[:]),
 							"txnHash":          task.commitment.Bid.TxHash,
 							"error":            r.Err.Error(),
+							"bidder":           common.Bytes2Hex(task.commitment.BidderAddress[:]),
+							"bidAmount":        task.commitment.BidAmount.String(),
 						}
 						switch task.onSuccess {
 						case store.CommitmentStatusStored:
@@ -554,12 +540,16 @@ func (t *Tracker) openCommitments(
 				"providerAddress", commitment.ProviderAddress,
 				"winner", newL1Block.Winner,
 			)
-			if t.depositMgr != nil {
-				// This node isn't the winner, so try to refund relevant cached balance
-				if err := t.tryRefundCachedBalance(commitment); err != nil {
-					t.logger.Warn("failed to refund cached balance. Bidder is likely withdrawing", "error", err)
-				}
-			}
+			t.notifier.Notify(
+				notifications.NewNotification(
+					notifications.TopicOtherProviderWonBlock,
+					map[string]any{
+						"commitmentDigest": hex.EncodeToString(commitment.Commitment[:]),
+						"bidder":           common.Bytes2Hex(commitment.BidderAddress[:]),
+						"bidAmount":        commitment.BidAmount.String(),
+					},
+				),
+			)
 			continue
 		}
 		startTime := time.Now()
@@ -798,46 +788,4 @@ func (t *Tracker) generateBidderProof(
 		zeroInt,
 		zeroInt,
 	}
-}
-
-func (t *Tracker) tryRefundCachedBalance(
-	commitment *store.Commitment,
-) error {
-	if commitment.BidderAddress == nil || commitment.ProviderAddress == nil || commitment.BidAmount == nil {
-		return fmt.Errorf("nil commitment fields")
-	}
-	if err := t.depositMgr.RefundBalanceIfExists(
-		*commitment.BidderAddress,
-		common.BytesToAddress(commitment.ProviderAddress),
-		commitment.BidAmount,
-	); err != nil {
-		return fmt.Errorf("failed to refund balance: %w", err)
-	}
-	t.logger.Info("refunded cached balance from commitment",
-		"bidder", commitment.BidderAddress,
-		"provider", common.BytesToAddress(commitment.ProviderAddress),
-		"amount", commitment.BidAmount,
-	)
-	return nil
-}
-
-func (t *Tracker) tryDeductCachedBalance(
-	commitment *store.Commitment,
-) error {
-	if commitment.BidderAddress == nil || commitment.ProviderAddress == nil || commitment.BidAmount == nil {
-		return fmt.Errorf("nil commitment fields")
-	}
-	if err := t.depositMgr.DeductBalanceIfExists(
-		*commitment.BidderAddress,
-		common.BytesToAddress(commitment.ProviderAddress),
-		commitment.BidAmount,
-	); err != nil {
-		return fmt.Errorf("failed to decrease balance: %w", err)
-	}
-	t.logger.Info("decreased cached balance from commitment",
-		"bidder", commitment.BidderAddress,
-		"provider", common.BytesToAddress(commitment.ProviderAddress),
-		"amount", commitment.BidAmount,
-	)
-	return nil
 }

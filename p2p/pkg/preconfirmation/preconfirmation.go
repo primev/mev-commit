@@ -53,12 +53,11 @@ type BidProcessor interface {
 }
 
 type DepositManager interface {
-	CheckDeposit(
+	CheckAndDeductDeposit(
 		ctx context.Context,
 		bidderAddr common.Address,
-		providerAddr common.Address,
 		bidAmount string,
-	) error
+	) (func() error, error)
 }
 
 type Tracker interface {
@@ -278,21 +277,25 @@ func (p *Preconfirmation) handleBid(
 	if err != nil {
 		return err
 	}
-	if bidderAddr == nil {
-		return status.Errorf(codes.Internal, "bidder address not provided")
-	}
 
-	opts, err := p.optsGetter(ctx)
-	if err != nil {
-		return err
-	}
-	providerAddr := opts.From
-
-	err = p.depositMgr.CheckDeposit(ctx, *bidderAddr, providerAddr, bid.BidAmount)
+	tryRefund, err := p.depositMgr.CheckAndDeductDeposit(ctx, *bidderAddr, bid.BidAmount)
 	if err != nil {
 		p.logger.Error("checking deposit", "error", err)
 		return err
 	}
+
+	// Setup defer for possible refund
+	successful := false
+	defer func() {
+		if !successful {
+			// Refund the deducted amount if the bid process did not succeed and deposit still exists in store.
+			// If deposit no longer exists, the bidder is in withdrawal process and refund is thrown away
+			refundErr := tryRefund()
+			if refundErr != nil {
+				p.logger.Error("refunding deposit", "error", refundErr)
+			}
+		}
+	}()
 
 	// try to get a decision within 30 seconds
 	ctx, cancel := context.WithTimeout(ctx, p.providerTimeout)
@@ -359,6 +362,9 @@ func (p *Preconfirmation) handleBid(
 				p.logger.Error("tracking commitment", "error", err)
 				return status.Errorf(codes.Internal, "failed to track commitment: %v", err)
 			}
+
+			// If we reach here, the bid was successful
+			successful = true
 
 			return nil
 		}

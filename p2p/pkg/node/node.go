@@ -567,15 +567,14 @@ func NewNode(opts *Options) (*Node, error) {
 			providerapiv1.RegisterProviderServer(grpcServer, providerAPI)
 			bidProcessor = providerAPI
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
-			dmConcrete := depositmanager.NewDepositManager(
+			depositMgr = depositmanager.NewDepositManager(
 				depositmanagerstore.New(store),
 				evtMgr,
+				notificationsSvc,
 				bidderRegistry,
 				opts.KeySigner.GetAddress(),
 				opts.Logger.With("component", "depositmanager"),
 			)
-			depositMgr = dmConcrete
-			tracker.SetDepositManager(dmConcrete)
 			startables = append(
 				startables,
 				StartableObjWithDesc{
@@ -938,8 +937,8 @@ func (noOpBidProcessor) ProcessBid(
 
 type noOpDepositManager struct{}
 
-func (noOpDepositManager) CheckDeposit(_ context.Context, _ common.Address, _ common.Address, _ string) error {
-	return nil
+func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ string) (func() error, error) {
+	return nil, nil
 }
 
 type channelCloser <-chan struct{}

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -24,12 +25,12 @@ type Store interface {
 	SetBalance(bidder common.Address, provider common.Address, balance *big.Int) error
 	DeleteBalance(bidder common.Address, provider common.Address) error
 	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
-	DeductBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
 
 type DepositManager struct {
 	store               Store
 	evtMgr              events.EventManager
+	notifiee            notifications.Notifiee
 	bidderRegistry      BidderRegistryContract
 	deposits            chan *bidderregistry.BidderregistryBidderDeposited
 	withdrawRequests    chan *bidderregistry.BidderregistryWithdrawalRequested
@@ -41,12 +42,14 @@ type DepositManager struct {
 func NewDepositManager(
 	store Store,
 	evtMgr events.EventManager,
+	notifiee notifications.Notifiee,
 	bidderRegistry BidderRegistryContract,
 	thisProviderAddress common.Address,
 	logger *slog.Logger,
 ) *DepositManager {
 	return &DepositManager{
 		store:               store,
+		notifiee:            notifiee,
 		bidderRegistry:      bidderRegistry,
 		deposits:            make(chan *bidderregistry.BidderregistryBidderDeposited),
 		withdrawRequests:    make(chan *bidderregistry.BidderregistryWithdrawalRequested),
@@ -61,6 +64,11 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 	doneChan := make(chan struct{})
 
 	eg, egCtx := errgroup.WithContext(ctx)
+
+	notifCh := dm.notifiee.Subscribe(
+		notifications.TopicCommitmentStoreFailed,
+		notifications.TopicOtherProviderWonBlock,
+	)
 
 	ev1 := events.NewEventHandler(
 		"BidderDeposited",
@@ -104,6 +112,11 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 	eg.Go(func() error {
 		defer sub.Unsubscribe()
 
+		defer func() {
+			unsubDone := dm.notifiee.Unsubscribe(notifCh)
+			<-unsubDone
+		}()
+
 		select {
 		case <-egCtx.Done():
 			dm.logger.Info("event subscription context done")
@@ -119,6 +132,34 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				dm.logger.Info("deposit manager context done")
 				return nil
+
+			case n := <-notifCh:
+				topic := n.Topic()
+				if topic != notifications.TopicOtherProviderWonBlock && topic != notifications.TopicCommitmentStoreFailed {
+					dm.logger.Debug("ignoring notification for topic", "topic", topic)
+					continue
+				}
+
+				val := n.Value()
+				bidderHex := val["bidder"].(string)
+				bidAmount := val["bidAmount"].(string)
+
+				if bidderHex == "" || bidAmount == "" {
+					dm.logger.Error("bidder and bid amount are required to refund", "bidder", bidderHex, "bidAmount", bidAmount)
+					continue
+				}
+				bidder := common.HexToAddress(bidderHex)
+				bidAmountInt, ok := new(big.Int).SetString(bidAmount, 10)
+				if !ok {
+					dm.logger.Error("failed to parse bid amount", "bidAmount", bidAmount)
+					continue
+				}
+
+				if err := dm.store.RefundBalanceIfExists(bidder, dm.thisProviderAddress, bidAmountInt); err != nil {
+					dm.logger.Error("refunding balance", "error", err)
+					return err
+				}
+				dm.logger.Info("refunded balance from notification", "bidder", bidder, "bidAmount", bidAmountInt)
 
 			case deposit := <-dm.deposits:
 				if deposit.Provider != dm.thisProviderAddress {
@@ -192,54 +233,68 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 	return doneChan
 }
 
-func (dm *DepositManager) CheckDeposit(
+func (dm *DepositManager) CheckAndDeductDeposit(
 	ctx context.Context,
 	bidderAddr common.Address,
-	providerAddr common.Address,
 	bidAmountStr string,
-) error {
+) (func() error, error) {
 	bidAmount, ok := new(big.Int).SetString(bidAmountStr, 10)
 	if !ok {
 		dm.logger.Error("parsing bid amount", "amount", bidAmountStr)
-		return status.Errorf(codes.InvalidArgument, "failed to parse bid amount")
+		return nil, status.Errorf(codes.InvalidArgument, "failed to parse bid amount")
 	}
 
-	balance, err := dm.store.GetBalance(bidderAddr, providerAddr)
+	balance, err := dm.store.GetBalance(bidderAddr, dm.thisProviderAddress)
 	if err != nil {
 		dm.logger.Error("getting balance", "error", err)
-		return status.Errorf(codes.Internal, "failed to get balance: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
 	}
 
 	if balance != nil {
 		newBalance := new(big.Int).Sub(balance, bidAmount)
 		if newBalance.Cmp(big.NewInt(0)) < 0 {
 			dm.logger.Error("insufficient balance", "balance", balance.Uint64(), "bidAmount", bidAmount.Uint64())
-			return status.Errorf(codes.FailedPrecondition, "insufficient balance")
+			return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
 		}
-		return nil
+
+		if err := dm.store.SetBalance(bidderAddr, dm.thisProviderAddress, newBalance); err != nil {
+			dm.logger.Error("setting balance", "error", err)
+			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
+		}
+		return func() error {
+			return dm.store.RefundBalanceIfExists(bidderAddr, dm.thisProviderAddress, bidAmount)
+		}, nil
 	}
 	dm.logger.Info("balance not found in store, defaulting to contract call",
 		"bidder", bidderAddr.Hex(),
-		"provider", providerAddr.Hex(),
+		"provider", dm.thisProviderAddress.Hex(),
 	)
 
-	defaultBalance, err := dm.getDefaultBalance(ctx, bidderAddr, providerAddr, nil) // nil for latest block
+	defaultBalance, err := dm.getDefaultBalance(ctx, bidderAddr, dm.thisProviderAddress, nil) // nil for latest block
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if defaultBalance == nil {
-		dm.logger.Error("bidder balance not found", "bidder", bidderAddr.Hex(), "provider", providerAddr.Hex())
-		return status.Errorf(codes.FailedPrecondition,
-			"balance not found for bidder %s and provider %s", bidderAddr.Hex(), providerAddr.Hex())
+		dm.logger.Error("bidder balance not found", "bidder", bidderAddr.Hex(), "provider", dm.thisProviderAddress.Hex())
+		return nil, status.Errorf(codes.FailedPrecondition,
+			"balance not found for bidder %s and provider %s", bidderAddr.Hex(), dm.thisProviderAddress.Hex())
 	}
 
 	if defaultBalance.Cmp(bidAmount) < 0 {
 		dm.logger.Error("insufficient balance", "balance", defaultBalance, "bidAmount", bidAmount)
-		return status.Errorf(codes.FailedPrecondition, "insufficient balance")
+		return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
 	}
 
-	return nil
+	newBalance := new(big.Int).Sub(defaultBalance, bidAmount)
+	if err := dm.store.SetBalance(bidderAddr, dm.thisProviderAddress, newBalance); err != nil {
+		dm.logger.Error("setting balance for block", "error", err)
+		return nil, status.Errorf(codes.Internal, "failed to set balance for block: %v", err)
+	}
+
+	return func() error {
+		return dm.store.RefundBalanceIfExists(bidderAddr, dm.thisProviderAddress, bidAmount)
+	}, nil
 }
 
 // fallback to contract if balance not found in store
@@ -273,12 +328,4 @@ func (dm *DepositManager) getDefaultBalance(
 	}
 
 	return balance, nil
-}
-
-func (dm *DepositManager) RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
-	return dm.store.RefundBalanceIfExists(bidder, provider, amount)
-}
-
-func (dm *DepositManager) DeductBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
-	return dm.store.DeductBalanceIfExists(bidder, provider, amount)
 }
