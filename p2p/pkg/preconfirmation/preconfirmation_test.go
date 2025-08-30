@@ -116,7 +116,7 @@ func (t *testDepositManager) CheckAndDeductDeposit(
 	bidderAddr common.Address,
 	bidAmountStr string,
 ) (func() error, error) {
-	return nil, nil
+	return func() error { return nil }, nil
 }
 
 type testTracker struct{}
