@@ -82,8 +82,8 @@ func TestStore_RefundBalanceIfExists(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "balance not found, no increase needed") {
-		t.Fatalf("expected error containing 'balance not found, no increase needed', got %v", err)
+	if !strings.Contains(err.Error(), "balance not found, no refund needed") {
+		t.Fatalf("expected error containing 'balance not found, no refund needed', got %v", err)
 	}
 
 	err = s.SetBalance(bidder, provider, amount)
