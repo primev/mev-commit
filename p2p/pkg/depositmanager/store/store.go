@@ -64,7 +64,7 @@ func (s *Store) DeleteBalance(bidder common.Address, provider common.Address) er
 	return s.st.Delete(balanceKey(bidder, provider))
 }
 
-func (s *Store) IncreaseBalanceIfExists(
+func (s *Store) RefundBalanceIfExists(
 	bidder common.Address,
 	provider common.Address,
 	amount *big.Int,
@@ -84,7 +84,7 @@ func (s *Store) IncreaseBalanceIfExists(
 	return s.st.Put(balanceKey(bidder, provider), newAmount.Bytes())
 }
 
-func (s *Store) DecreaseBalanceIfExists(
+func (s *Store) DeductBalanceIfExists(
 	bidder common.Address,
 	provider common.Address,
 	amount *big.Int,

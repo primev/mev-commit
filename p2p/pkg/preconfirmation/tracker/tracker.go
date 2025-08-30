@@ -98,8 +98,8 @@ type Watcher interface {
 }
 
 type DepositManager interface {
-	IncreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
-	DecreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	DeductBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
 
 func NewTracker(
@@ -457,9 +457,9 @@ func (t *Tracker) statusUpdater(
 						} else {
 							status = store.CommitmentStatusStored
 							if t.depositMgr != nil {
-								// Try to decrease cached balance now that commitment was successfully stored
-								if err := t.tryDecreaseCachedBalance(task.commitment); err != nil {
-									t.logger.Warn("failed to decrease cached balance. Bidder is likely withdrawing", "error", err)
+								// Try to deduct cached balance now that commitment was successfully stored
+								if err := t.tryDeductCachedBalance(task.commitment); err != nil {
+									t.logger.Warn("failed to deduct cached balance. Bidder is likely withdrawing", "error", err)
 								}
 							}
 						}
@@ -556,7 +556,7 @@ func (t *Tracker) openCommitments(
 			)
 			if t.depositMgr != nil {
 				// This node isn't the winner, so try to refund relevant cached balance
-				if err := t.tryIncreaseCachedBalance(commitment); err != nil {
+				if err := t.tryRefundCachedBalance(commitment); err != nil {
 					t.logger.Warn("failed to refund cached balance. Bidder is likely withdrawing", "error", err)
 				}
 			}
@@ -800,20 +800,20 @@ func (t *Tracker) generateBidderProof(
 	}
 }
 
-func (t *Tracker) tryIncreaseCachedBalance(
+func (t *Tracker) tryRefundCachedBalance(
 	commitment *store.Commitment,
 ) error {
 	if commitment.BidderAddress == nil || commitment.ProviderAddress == nil || commitment.BidAmount == nil {
 		return fmt.Errorf("nil commitment fields")
 	}
-	if err := t.depositMgr.IncreaseBalanceIfExists(
+	if err := t.depositMgr.RefundBalanceIfExists(
 		*commitment.BidderAddress,
 		common.BytesToAddress(commitment.ProviderAddress),
 		commitment.BidAmount,
 	); err != nil {
-		return fmt.Errorf("failed to increase balance: %w", err)
+		return fmt.Errorf("failed to refund balance: %w", err)
 	}
-	t.logger.Info("increased cached balance from commitment",
+	t.logger.Info("refunded cached balance from commitment",
 		"bidder", commitment.BidderAddress,
 		"provider", common.BytesToAddress(commitment.ProviderAddress),
 		"amount", commitment.BidAmount,
@@ -821,13 +821,13 @@ func (t *Tracker) tryIncreaseCachedBalance(
 	return nil
 }
 
-func (t *Tracker) tryDecreaseCachedBalance(
+func (t *Tracker) tryDeductCachedBalance(
 	commitment *store.Commitment,
 ) error {
 	if commitment.BidderAddress == nil || commitment.ProviderAddress == nil || commitment.BidAmount == nil {
 		return fmt.Errorf("nil commitment fields")
 	}
-	if err := t.depositMgr.DecreaseBalanceIfExists(
+	if err := t.depositMgr.DeductBalanceIfExists(
 		*commitment.BidderAddress,
 		common.BytesToAddress(commitment.ProviderAddress),
 		commitment.BidAmount,

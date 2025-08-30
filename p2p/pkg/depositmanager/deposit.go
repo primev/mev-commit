@@ -23,8 +23,8 @@ type Store interface {
 	GetBalance(bidder common.Address, provider common.Address) (*big.Int, error)
 	SetBalance(bidder common.Address, provider common.Address, balance *big.Int) error
 	DeleteBalance(bidder common.Address, provider common.Address) error
-	IncreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
-	DecreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	DeductBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
 
 type DepositManager struct {
@@ -275,10 +275,10 @@ func (dm *DepositManager) getDefaultBalance(
 	return balance, nil
 }
 
-func (dm *DepositManager) IncreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
-	return dm.store.IncreaseBalanceIfExists(bidder, provider, amount)
+func (dm *DepositManager) RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
+	return dm.store.RefundBalanceIfExists(bidder, provider, amount)
 }
 
-func (dm *DepositManager) DecreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
-	return dm.store.DecreaseBalanceIfExists(bidder, provider, amount)
+func (dm *DepositManager) DeductBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
+	return dm.store.DeductBalanceIfExists(bidder, provider, amount)
 }

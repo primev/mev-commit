@@ -70,7 +70,7 @@ func TestStore_GetBalance_NoBalance(t *testing.T) {
 	}
 }
 
-func TestStore_IncreaseBalanceIfExists(t *testing.T) {
+func TestStore_RefundBalanceIfExists(t *testing.T) {
 	st := inmem.New()
 	s := store.New(st)
 
@@ -78,7 +78,7 @@ func TestStore_IncreaseBalanceIfExists(t *testing.T) {
 	provider := common.HexToAddress("0x456")
 	amount := big.NewInt(20)
 
-	err := s.IncreaseBalanceIfExists(bidder, provider, amount)
+	err := s.RefundBalanceIfExists(bidder, provider, amount)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -92,7 +92,7 @@ func TestStore_IncreaseBalanceIfExists(t *testing.T) {
 	}
 
 	increaseAmount := big.NewInt(5)
-	err = s.IncreaseBalanceIfExists(bidder, provider, increaseAmount)
+	err = s.RefundBalanceIfExists(bidder, provider, increaseAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestStore_IncreaseBalanceIfExists(t *testing.T) {
 	}
 }
 
-func TestStore_DecreaseBalanceIfExists(t *testing.T) {
+func TestStore_DeductBalanceIfExists(t *testing.T) {
 	st := inmem.New()
 	s := store.New(st)
 
@@ -115,7 +115,7 @@ func TestStore_DecreaseBalanceIfExists(t *testing.T) {
 	provider := common.HexToAddress("0x456")
 	initialBalance := big.NewInt(20)
 
-	err := s.DecreaseBalanceIfExists(bidder, provider, big.NewInt(10))
+	err := s.DeductBalanceIfExists(bidder, provider, big.NewInt(10))
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -129,7 +129,7 @@ func TestStore_DecreaseBalanceIfExists(t *testing.T) {
 	}
 
 	decreaseAmount := big.NewInt(5)
-	err = s.DecreaseBalanceIfExists(bidder, provider, decreaseAmount)
+	err = s.DeductBalanceIfExists(bidder, provider, decreaseAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
