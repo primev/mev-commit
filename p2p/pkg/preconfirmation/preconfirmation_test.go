@@ -111,13 +111,13 @@ func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {
 
 type testDepositManager struct{}
 
-func (t *testDepositManager) CheckAndDeductDeposit(
+func (t *testDepositManager) CheckDeposit(
 	ctx context.Context,
 	bidderAddr common.Address,
 	providerAddr common.Address,
 	bidAmountStr string,
-) (func() error, error) {
-	return func() error { return nil }, nil
+) error {
+	return nil
 }
 
 type testTracker struct{}

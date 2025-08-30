@@ -66,7 +66,7 @@ func TestDepositManager(t *testing.T) {
 	done := dm.Start(ctx)
 
 	// no deposit
-	refund, err := dm.CheckAndDeductDeposit(
+	err = dm.CheckDeposit(
 		context.Background(),
 		common.HexToAddress("0x123"),
 		common.HexToAddress("0x456"),
@@ -74,9 +74,6 @@ func TestDepositManager(t *testing.T) {
 	)
 	if err == nil {
 		t.Fatal("expected error")
-	}
-	if refund != nil {
-		t.Fatal("expected nil refund")
 	}
 
 	br := &bidderregistry.BidderregistryBidderDeposited{
@@ -101,8 +98,7 @@ func TestDepositManager(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 
-	// deduct deposit
-	refund, err = dm.CheckAndDeductDeposit(
+	err = dm.CheckDeposit(
 		context.Background(),
 		common.HexToAddress("0x123"),
 		common.HexToAddress("0x456"),
@@ -112,24 +108,18 @@ func TestDepositManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// not enough deposit
-	_, err = dm.CheckAndDeductDeposit(
+	// not enough deposit to handle 101
+	err = dm.CheckDeposit(
 		context.Background(),
 		common.HexToAddress("0x123"),
 		common.HexToAddress("0x456"),
-		"10",
+		"101",
 	)
 	if err == nil || !strings.Contains(err.Error(), "insufficient balance") {
 		t.Fatal("expected error for insufficient balance")
 	}
 
-	err = refund()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// deduct deposit after refund
-	_, err = dm.CheckAndDeductDeposit(
+	err = dm.CheckDeposit(
 		context.Background(),
 		common.HexToAddress("0x123"),
 		common.HexToAddress("0x456"),
@@ -146,8 +136,8 @@ func TestDepositManager(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if balance == nil || balance.Cmp(big.NewInt(90)) != 0 {
-		t.Fatal("expected balance of 90")
+	if balance == nil || balance.Cmp(big.NewInt(100)) != 0 {
+		t.Fatal("expected balance of 100")
 	}
 
 	err = publishBidderWithdrawalRequested(evtMgr, &brABI, &bidderregistry.BidderregistryWithdrawalRequested{

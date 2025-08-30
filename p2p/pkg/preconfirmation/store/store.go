@@ -84,10 +84,12 @@ const (
 type Commitment struct {
 	*preconfpb.EncryptedPreConfirmation
 	*preconfpb.PreConfirmation
-	Status  CommitmentStatus
-	Details string
-	Payment string
-	Refund  string
+	Status        CommitmentStatus
+	Details       string
+	Payment       string
+	Refund        string
+	BidderAddress *common.Address
+	BidAmount     *big.Int
 }
 
 type BlockWinner struct {

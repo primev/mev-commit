@@ -70,7 +70,7 @@ func TestStore_GetBalance_NoBalance(t *testing.T) {
 	}
 }
 
-func TestStore_RefundBalanceIfExists(t *testing.T) {
+func TestStore_IncreaseBalanceIfExists(t *testing.T) {
 	st := inmem.New()
 	s := store.New(st)
 
@@ -78,12 +78,12 @@ func TestStore_RefundBalanceIfExists(t *testing.T) {
 	provider := common.HexToAddress("0x456")
 	amount := big.NewInt(20)
 
-	err := s.RefundBalanceIfExists(bidder, provider, amount)
+	err := s.IncreaseBalanceIfExists(bidder, provider, amount)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "balance not found, no refund needed") {
-		t.Fatalf("expected error containing 'balance not found, no refund needed', got %v", err)
+	if !strings.Contains(err.Error(), "balance not found, no increase needed") {
+		t.Fatalf("expected error containing 'balance not found, no increase needed', got %v", err)
 	}
 
 	err = s.SetBalance(bidder, provider, amount)
@@ -91,8 +91,8 @@ func TestStore_RefundBalanceIfExists(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	refundAmount := big.NewInt(5)
-	err = s.RefundBalanceIfExists(bidder, provider, refundAmount)
+	increaseAmount := big.NewInt(5)
+	err = s.IncreaseBalanceIfExists(bidder, provider, increaseAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,6 +102,43 @@ func TestStore_RefundBalanceIfExists(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectedAmount := new(big.Int).SetUint64(25)
+	if val.Cmp(expectedAmount) != 0 {
+		t.Fatalf("expected %s, got %s", expectedAmount.String(), val.String())
+	}
+}
+
+func TestStore_DecreaseBalanceIfExists(t *testing.T) {
+	st := inmem.New()
+	s := store.New(st)
+
+	bidder := common.HexToAddress("0x123")
+	provider := common.HexToAddress("0x456")
+	initialBalance := big.NewInt(20)
+
+	err := s.DecreaseBalanceIfExists(bidder, provider, big.NewInt(10))
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "balance not found, no decrease needed") {
+		t.Fatalf("expected error containing 'balance not found, no decrease needed', got %v", err)
+	}
+
+	err = s.SetBalance(bidder, provider, initialBalance)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decreaseAmount := big.NewInt(5)
+	err = s.DecreaseBalanceIfExists(bidder, provider, decreaseAmount)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	val, err := s.GetBalance(bidder, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedAmount := new(big.Int).SetUint64(15)
 	if val.Cmp(expectedAmount) != 0 {
 		t.Fatalf("expected %s, got %s", expectedAmount.String(), val.String())
 	}

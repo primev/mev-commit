@@ -23,7 +23,8 @@ type Store interface {
 	GetBalance(bidder common.Address, provider common.Address) (*big.Int, error)
 	SetBalance(bidder common.Address, provider common.Address, balance *big.Int) error
 	DeleteBalance(bidder common.Address, provider common.Address) error
-	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	IncreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	DecreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
 }
 
 type DepositManager struct {
@@ -176,38 +177,31 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 	return doneChan
 }
 
-func (dm *DepositManager) CheckAndDeductDeposit(
+func (dm *DepositManager) CheckDeposit(
 	ctx context.Context,
 	bidderAddr common.Address,
 	providerAddr common.Address,
 	bidAmountStr string,
-) (func() error, error) {
+) error {
 	bidAmount, ok := new(big.Int).SetString(bidAmountStr, 10)
 	if !ok {
 		dm.logger.Error("parsing bid amount", "amount", bidAmountStr)
-		return nil, status.Errorf(codes.InvalidArgument, "failed to parse bid amount")
+		return status.Errorf(codes.InvalidArgument, "failed to parse bid amount")
 	}
 
 	balance, err := dm.store.GetBalance(bidderAddr, providerAddr)
 	if err != nil {
 		dm.logger.Error("getting balance", "error", err)
-		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
+		return status.Errorf(codes.Internal, "failed to get balance: %v", err)
 	}
 
 	if balance != nil {
 		newBalance := new(big.Int).Sub(balance, bidAmount)
 		if newBalance.Cmp(big.NewInt(0)) < 0 {
 			dm.logger.Error("insufficient balance", "balance", balance.Uint64(), "bidAmount", bidAmount.Uint64())
-			return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
+			return status.Errorf(codes.FailedPrecondition, "insufficient balance")
 		}
-
-		if err := dm.store.SetBalance(bidderAddr, providerAddr, newBalance); err != nil {
-			dm.logger.Error("setting balance", "error", err)
-			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
-		}
-		return func() error {
-			return dm.store.RefundBalanceIfExists(bidderAddr, providerAddr, bidAmount)
-		}, nil
+		return nil
 	}
 	dm.logger.Info("balance not found in store, defaulting to contract call",
 		"bidder", bidderAddr.Hex(),
@@ -216,29 +210,21 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 
 	defaultBalance, err := dm.getDefaultBalance(ctx, bidderAddr, providerAddr, nil) // nil for latest block
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if defaultBalance == nil {
 		dm.logger.Error("bidder balance not found", "bidder", bidderAddr.Hex(), "provider", providerAddr.Hex())
-		return nil, status.Errorf(codes.FailedPrecondition,
+		return status.Errorf(codes.FailedPrecondition,
 			"balance not found for bidder %s and provider %s", bidderAddr.Hex(), providerAddr.Hex())
 	}
 
 	if defaultBalance.Cmp(bidAmount) < 0 {
 		dm.logger.Error("insufficient balance", "balance", defaultBalance, "bidAmount", bidAmount)
-		return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
+		return status.Errorf(codes.FailedPrecondition, "insufficient balance")
 	}
 
-	newBalance := new(big.Int).Sub(defaultBalance, bidAmount)
-	if err := dm.store.SetBalance(bidderAddr, providerAddr, newBalance); err != nil {
-		dm.logger.Error("setting balance for block", "error", err)
-		return nil, status.Errorf(codes.Internal, "failed to set balance for block: %v", err)
-	}
-
-	return func() error {
-		return dm.store.RefundBalanceIfExists(bidderAddr, providerAddr, bidAmount)
-	}, nil
+	return nil
 }
 
 // fallback to contract if balance not found in store
@@ -272,4 +258,12 @@ func (dm *DepositManager) getDefaultBalance(
 	}
 
 	return balance, nil
+}
+
+func (dm *DepositManager) IncreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
+	return dm.store.IncreaseBalanceIfExists(bidder, provider, amount)
+}
+
+func (dm *DepositManager) DecreaseBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error {
+	return dm.store.DecreaseBalanceIfExists(bidder, provider, amount)
 }

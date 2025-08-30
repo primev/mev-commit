@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math/big"
 	"sync"
 	"time"
 
@@ -52,12 +53,12 @@ type BidProcessor interface {
 }
 
 type DepositManager interface {
-	CheckAndDeductDeposit(
+	CheckDeposit(
 		ctx context.Context,
 		bidderAddr common.Address,
 		providerAddr common.Address,
 		bidAmount string,
-	) (func() error, error)
+	) error
 }
 
 type Tracker interface {
@@ -277,6 +278,9 @@ func (p *Preconfirmation) handleBid(
 	if err != nil {
 		return err
 	}
+	if bidderAddr == nil {
+		return status.Errorf(codes.Internal, "bidder address not provided")
+	}
 
 	opts, err := p.optsGetter(ctx)
 	if err != nil {
@@ -284,24 +288,11 @@ func (p *Preconfirmation) handleBid(
 	}
 	providerAddr := opts.From
 
-	tryRefund, err := p.depositMgr.CheckAndDeductDeposit(ctx, *bidderAddr, providerAddr, bid.BidAmount)
+	err = p.depositMgr.CheckDeposit(ctx, *bidderAddr, providerAddr, bid.BidAmount)
 	if err != nil {
 		p.logger.Error("checking deposit", "error", err)
 		return err
 	}
-
-	// Setup defer for possible refund
-	successful := false
-	defer func() {
-		if !successful {
-			// Refund the deducted amount if the bid process did not succeed and deposit still exists in store.
-			// If deposit no longer exists, the bidder is in withdrawal process and refund is thrown away
-			refundErr := tryRefund()
-			if refundErr != nil {
-				p.logger.Error("refunding deposit", "error", refundErr)
-			}
-		}
-	}()
 
 	// try to get a decision within 30 seconds
 	ctx, cancel := context.WithTimeout(ctx, p.providerTimeout)
@@ -352,18 +343,22 @@ func (p *Preconfirmation) handleBid(
 				return status.Errorf(codes.Internal, "failed to store commitments: %v", err)
 			}
 
+			bidAmount, ok := new(big.Int).SetString(bid.BidAmount, 10)
+			if !ok {
+				return status.Errorf(codes.Internal, "failed to parse bid amount: %v", bid.BidAmount)
+			}
+
 			encryptedAndDecryptedPreconfirmation := &store.Commitment{
 				EncryptedPreConfirmation: encryptedPreConfirmation,
 				PreConfirmation:          preConfirmation,
+				BidderAddress:            bidderAddr,
+				BidAmount:                bidAmount,
 			}
 
 			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation, txn); err != nil {
 				p.logger.Error("tracking commitment", "error", err)
 				return status.Errorf(codes.Internal, "failed to track commitment: %v", err)
 			}
-
-			// If we reach here, the bid was successful
-			successful = true
 
 			return nil
 		}
