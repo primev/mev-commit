@@ -75,7 +75,7 @@ func (s *Store) RefundBalanceIfExists(
 	val, err := s.st.Get(balanceKey(bidder, provider))
 	switch {
 	case errors.Is(err, storage.ErrKeyNotFound):
-		return status.Errorf(codes.FailedPrecondition, "balance not found, no increase needed")
+		return status.Errorf(codes.FailedPrecondition, "balance not found, no refund needed")
 	case err != nil:
 		return err
 	}
