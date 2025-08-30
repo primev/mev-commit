@@ -23,7 +23,7 @@ contract BidderRegistryTest is Test {
     BlockTracker public blockTracker;
     ProviderRegistry public providerRegistry;
 
-    event BidderDeposited(address indexed bidder, address indexed provider, uint256 indexed depositedAmount);
+    event BidderDeposited(address indexed bidder, address indexed provider, uint256 indexed depositedAmount, uint256 newAvailableAmount);
     event BidderWithdrawal(address indexed bidder, address indexed provider, uint256 indexed withdrawalAmount, uint256 escrowedAmount);
 
     event FeeTransfer(uint256 amount, address indexed recipient);
@@ -92,14 +92,14 @@ contract BidderRegistryTest is Test {
 
         vm.startPrank(bidder);
         vm.expectEmit(true, false, false, true);
-        emit BidderDeposited(bidder, provider1, 1 ether);
+        emit BidderDeposited(bidder, provider1, 1 ether, 1 ether);
         bidderRegistry.depositAsBidder{value: 1 ether}(provider1);
         uint256 bidderStakeStored = bidderRegistry.getDeposit(bidder, provider1);
         assertEq(bidderStakeStored, 1 ether);
 
         address provider2 = vm.addr(3);
         vm.expectEmit(true, false, false, true);
-        emit BidderDeposited(bidder, provider2, 2 ether);
+        emit BidderDeposited(bidder, provider2, 2 ether, 2 ether);
         bidderRegistry.depositAsBidder{value: 2 ether}(provider2);
         uint256 bidderStakeStored2 = bidderRegistry.getDeposit(bidder, provider2);
         assertEq(bidderStakeStored2, 2 ether);
@@ -357,7 +357,7 @@ contract BidderRegistryTest is Test {
         for (uint256 i = 0; i < 3; ++i) {
 
             vm.expectEmit(true, false, false, true);
-            emit BidderDeposited(bidder, providers[i], depositAmount / 3);
+            emit BidderDeposited(bidder, providers[i], depositAmount / 3, depositAmount / 3);
             bidderRegistry.depositAsBidder{value: depositAmount / 3}(providers[i]);
 
             uint256 lockedFunds = bidderRegistry.getDeposit(bidder, providers[i]);
@@ -382,7 +382,7 @@ contract BidderRegistryTest is Test {
         vm.startPrank(bidder);
         for (uint16 i = 0; i < 3; ++i) {
             vm.expectEmit(true, false, false, true);
-            emit BidderDeposited(bidder, providers[i], depositAmount / 3);
+            emit BidderDeposited(bidder, providers[i], depositAmount / 3, depositAmount / 3);
             bidderRegistry.depositAsBidder{value: depositAmount / 3}(providers[i]);
 
             uint256 lockedFunds = bidderRegistry.getDeposit(bidder, providers[i]);
@@ -837,9 +837,9 @@ contract BidderRegistryTest is Test {
         assertFalse(deposit2.exists, "deposit2 should not exist");
 
         vm.expectEmit(true, true, true, true);
-        emit IBidderRegistry.BidderDeposited(bidder, provider1, 5 ether);
+        emit IBidderRegistry.BidderDeposited(bidder, provider1, 5 ether, 5 ether);
         vm.expectEmit(true, true, true, true);
-        emit IBidderRegistry.BidderDeposited(bidder, provider2, 5 ether);
+        emit IBidderRegistry.BidderDeposited(bidder, provider2, 5 ether, 5 ether);
 
         vm.deal(bidder, 10 ether);
         vm.prank(bidder);
@@ -872,9 +872,9 @@ contract BidderRegistryTest is Test {
         IBidderRegistry.Deposit memory deposit2Before = getDepositStruct(bidder, provider2);
 
         vm.expectEmit(true, true, true, true);
-        emit IBidderRegistry.BidderDeposited(bidder, provider1, 1 wei);
+        emit IBidderRegistry.BidderDeposited(bidder, provider1, 1 wei, deposit1Before.availableAmount + 1 wei);
         vm.expectEmit(true, true, true, true);
-        emit IBidderRegistry.BidderDeposited(bidder, provider2, 2 wei);
+        emit IBidderRegistry.BidderDeposited(bidder, provider2, 2 wei, deposit2Before.availableAmount + 2 wei);
 
         vm.deal(bidder, 3 wei);
         vm.prank(bidder);
@@ -1117,9 +1117,11 @@ contract BidderRegistryTest is Test {
         vm.deal(bidder, 25 ether + 1 wei);
 
         vm.expectEmit(true, true, true, true);
-        emit IBidderRegistry.BidderDeposited(bidder, provider1, 12.5 ether);
+        emit IBidderRegistry.BidderDeposited(bidder, provider1, 12.5 ether,
+            deposit1Before.availableAmount + 12.5 ether);
         vm.expectEmit(true, true, true, true);
-        emit IBidderRegistry.BidderDeposited(bidder, provider2, 12.5 ether + 1 wei);
+        emit IBidderRegistry.BidderDeposited(bidder, provider2, 12.5 ether + 1 wei,
+            deposit2Before.availableAmount + 12.5 ether + 1 wei);
         vm.prank(bidder);
         bidderRegistry.depositEvenlyAsBidder{value: 25 ether + 1 wei}(providers);
 

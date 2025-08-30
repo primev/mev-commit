@@ -43,7 +43,8 @@ interface IBidderRegistry {
     event BidderDeposited(
         address indexed bidder,
         address indexed provider,
-        uint256 indexed depositedAmount
+        uint256 indexed depositedAmount,
+        uint256 newAvailableAmount
     );
 
     /// @dev Event emitted when a bidder requests a withdrawal from a specific provider

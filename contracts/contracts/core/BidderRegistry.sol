@@ -463,7 +463,7 @@ contract BidderRegistry is
                     timestamp: 0})
             });
         }
-        emit BidderDeposited(bidder, provider, amount);
+        emit BidderDeposited(bidder, provider, amount, deposit.availableAmount);
     }
 
     // solhint-disable-next-line no-empty-blocks

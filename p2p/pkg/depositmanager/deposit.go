@@ -123,32 +123,27 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 					return err
 				}
 				if currentBalance == nil {
-					dm.logger.Debug("balance not found in store, using default from contract",
-						"bidder", deposit.Bidder,
-						"provider", deposit.Provider,
-					)
-					blockBeforeDeposit := new(big.Int).SetUint64(deposit.Raw.BlockNumber - 1)
-					currentBalance, err = dm.getDefaultBalance(egCtx, deposit.Bidder, deposit.Provider, blockBeforeDeposit)
-					if err != nil {
-						dm.logger.Error("getting default balance", "error", err)
+					if err := dm.store.SetBalance(deposit.Bidder, deposit.Provider, deposit.NewAvailableAmount); err != nil {
+						dm.logger.Error("setting balance", "error", err)
 						return err
 					}
-					if currentBalance == nil {
-						dm.logger.Error("No balance found in contract. Assuming zero")
-						currentBalance = big.NewInt(0)
+					dm.logger.Info("current balance not found in store, stored new available amount from event",
+						"bidder", deposit.Bidder,
+						"provider", deposit.Provider,
+						"new balance", deposit.NewAvailableAmount,
+					)
+				} else {
+					newBalance := new(big.Int).Add(currentBalance, deposit.DepositedAmount)
+					if err := dm.store.SetBalance(deposit.Bidder, deposit.Provider, newBalance); err != nil {
+						dm.logger.Error("setting balance", "error", err)
+						return err
 					}
+					dm.logger.Info("set balance from bidder deposit event",
+						"bidder", deposit.Bidder,
+						"provider", deposit.Provider,
+						"new balance", newBalance,
+					)
 				}
-				newBalance := new(big.Int).Add(currentBalance, deposit.DepositedAmount)
-				if err := dm.store.SetBalance(deposit.Bidder, deposit.Provider, newBalance); err != nil {
-					dm.logger.Error("setting balance", "error", err)
-					return err
-				}
-				dm.logger.Info("set balance from bidder deposit event",
-					"bidder", deposit.Bidder,
-					"provider", deposit.Provider,
-					"new balance", newBalance,
-				)
-
 			case withdrawalRequest := <-dm.withdrawRequests:
 				if err := dm.store.DeleteBalance(withdrawalRequest.Bidder, withdrawalRequest.Provider); err != nil {
 					dm.logger.Error("deleting balance", "error", err)

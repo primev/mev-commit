@@ -250,9 +250,10 @@ func TestStartWithBidderAlreadyDeposited(t *testing.T) {
 	done := dm.Start(ctx)
 
 	err = publishBidderDeposited(evtMgr, &brABI, &bidderregistry.BidderregistryBidderDeposited{
-		Bidder:          common.HexToAddress("0x123"),
-		Provider:        common.HexToAddress("0x456"),
-		DepositedAmount: big.NewInt(100),
+		Bidder:             common.HexToAddress("0x123"),
+		Provider:           common.HexToAddress("0x456"),
+		DepositedAmount:    big.NewInt(100),
+		NewAvailableAmount: big.NewInt(133),
 		Raw: types.Log{
 			BlockNumber: 16,
 		},
@@ -281,7 +282,12 @@ func publishBidderDeposited(
 	br *bidderregistry.BidderregistryBidderDeposited,
 ) error {
 	event := brABI.Events["BidderDeposited"]
-	buf, err := event.Inputs.NonIndexed().Pack()
+
+	newAvail := br.NewAvailableAmount
+	if newAvail == nil {
+		newAvail = big.NewInt(0)
+	}
+	buf, err := event.Inputs.NonIndexed().Pack(newAvail)
 	if err != nil {
 		return err
 	}
