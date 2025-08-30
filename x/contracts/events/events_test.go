@@ -20,9 +20,10 @@ func TestEventHandler(t *testing.T) {
 	t.Parallel()
 
 	b := bidderregistry.BidderregistryBidderDeposited{
-		Bidder:          common.HexToAddress("0xabcd"),
-		Provider:        common.HexToAddress("0x1234"),
-		DepositedAmount: big.NewInt(1000),
+		Bidder:             common.HexToAddress("0xabcd"),
+		Provider:           common.HexToAddress("0x1234"),
+		DepositedAmount:    big.NewInt(1000),
+		NewAvailableAmount: big.NewInt(1000),
 	}
 
 	errC := make(chan error, 1)
@@ -42,6 +43,10 @@ func TestEventHandler(t *testing.T) {
 				errC <- fmt.Errorf("expected prepaid amount %d, got %d", b.DepositedAmount, ev.DepositedAmount)
 				return
 			}
+			if ev.NewAvailableAmount.Cmp(b.NewAvailableAmount) != 0 {
+				errC <- fmt.Errorf("expected new available amount %d, got %d", b.NewAvailableAmount, ev.NewAvailableAmount)
+				return
+			}
 			close(errC)
 		},
 	)
@@ -55,7 +60,7 @@ func TestEventHandler(t *testing.T) {
 
 	evtHdlr.setTopicAndContract(event.ID, &bidderABI)
 
-	buf, err := event.Inputs.NonIndexed().Pack()
+	buf, err := event.Inputs.NonIndexed().Pack(b.NewAvailableAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,14 +100,16 @@ func TestEventManager(t *testing.T) {
 
 	bidders := []bidderregistry.BidderregistryBidderDeposited{
 		{
-			Bidder:          common.HexToAddress("0xabcd"),
-			Provider:        common.HexToAddress("0x1234"),
-			DepositedAmount: big.NewInt(1000),
+			Bidder:             common.HexToAddress("0xabcd"),
+			Provider:           common.HexToAddress("0x1234"),
+			DepositedAmount:    big.NewInt(1000),
+			NewAvailableAmount: big.NewInt(1000),
 		},
 		{
-			Bidder:          common.HexToAddress("0xcdef"),
-			Provider:        common.HexToAddress("0x5678"),
-			DepositedAmount: big.NewInt(2000),
+			Bidder:             common.HexToAddress("0xcdef"),
+			Provider:           common.HexToAddress("0x5678"),
+			DepositedAmount:    big.NewInt(2000),
+			NewAvailableAmount: big.NewInt(2000),
 		},
 	}
 
@@ -131,6 +138,10 @@ func TestEventManager(t *testing.T) {
 				errC <- fmt.Errorf("expected prepaid amount %d, got %d", bidders[count].DepositedAmount, ev.DepositedAmount)
 				return
 			}
+			if ev.NewAvailableAmount.Cmp(bidders[count].NewAvailableAmount) != 0 {
+				errC <- fmt.Errorf("expected new available amount %d, got %d", bidders[count].NewAvailableAmount, ev.NewAvailableAmount)
+				return
+			}
 			count++
 			handlerTriggered <- count
 		},
@@ -141,12 +152,12 @@ func TestEventManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data1, err := bidderABI.Events["BidderDeposited"].Inputs.NonIndexed().Pack()
+	data1, err := bidderABI.Events["BidderDeposited"].Inputs.NonIndexed().Pack(bidders[0].NewAvailableAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data2, err := bidderABI.Events["BidderDeposited"].Inputs.NonIndexed().Pack()
+	data2, err := bidderABI.Events["BidderDeposited"].Inputs.NonIndexed().Pack(bidders[1].NewAvailableAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
