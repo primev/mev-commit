@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
@@ -167,8 +166,6 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 	}
 
-	progressstore := &progressStore{contractRPC: contractRPC}
-
 	chainID, err := contractRPC.ChainID(context.Background())
 	if err != nil {
 		opts.Logger.Error("failed to get chain ID", "error", err)
@@ -218,6 +215,8 @@ func NewNode(opts *Options) (*Node, error) {
 		store = inmem.New()
 	}
 	nd.closers = append(nd.closers, store)
+
+	progressstore := NewDurableProgressStore(store, contractRPC)
 
 	contracts, err := getContractABIs(opts)
 	if err != nil {
@@ -571,6 +570,7 @@ func NewNode(opts *Options) (*Node, error) {
 			depositMgr = depositmanager.NewDepositManager(
 				depositmanagerstore.New(store),
 				evtMgr,
+				notificationsSvc,
 				bidderRegistry,
 				opts.KeySigner.GetAddress(),
 				opts.Logger.With("component", "depositmanager"),
@@ -937,7 +937,7 @@ func (noOpBidProcessor) ProcessBid(
 
 type noOpDepositManager struct{}
 
-func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ common.Address, _ string) (func() error, error) {
+func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ string) (func() error, error) {
 	return func() error { return nil }, nil
 }
 
@@ -979,20 +979,6 @@ type StartableFunc func(ctx context.Context) <-chan struct{}
 
 func (f StartableFunc) Start(ctx context.Context) <-chan struct{} {
 	return f(ctx)
-}
-
-type progressStore struct {
-	contractRPC *ethclient.Client
-	lastBlock   atomic.Uint64
-}
-
-func (p *progressStore) LastBlock() (uint64, error) {
-	return p.contractRPC.BlockNumber(context.Background())
-}
-
-func (p *progressStore) SetLastBlock(block uint64) error {
-	p.lastBlock.Store(block)
-	return nil
 }
 
 func setDefault(field *string, defaultValue string) {

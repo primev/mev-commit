@@ -477,6 +477,12 @@ func (t *Tracker) statusUpdater(
 							"txnHash":          task.commitment.Bid.TxHash,
 							"error":            r.Err.Error(),
 						}
+						if task.commitment.BidderAddress != nil {
+							notificationPayload["bidder"] = common.Bytes2Hex(task.commitment.BidderAddress[:])
+						}
+						if task.commitment.BidAmount != nil {
+							notificationPayload["bidAmount"] = task.commitment.BidAmount.String()
+						}
 						switch task.onSuccess {
 						case store.CommitmentStatusStored:
 							t.notifier.Notify(
@@ -538,6 +544,19 @@ func (t *Tracker) openCommitments(
 				"providerAddress", commitment.ProviderAddress,
 				"winner", newL1Block.Winner,
 			)
+			notificationPayload := map[string]any{
+				"commitmentDigest": hex.EncodeToString(commitment.Commitment[:]),
+			}
+			if commitment.BidderAddress != nil {
+				notificationPayload["bidder"] = common.Bytes2Hex(commitment.BidderAddress[:])
+			}
+			if commitment.BidAmount != nil {
+				notificationPayload["bidAmount"] = commitment.BidAmount.String()
+			}
+			t.notifier.Notify(notifications.NewNotification(
+				notifications.TopicOtherProviderWonBlock,
+				notificationPayload,
+			))
 			continue
 		}
 		startTime := time.Now()

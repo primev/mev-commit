@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math/big"
 	"sync"
 	"time"
 
@@ -55,7 +56,6 @@ type DepositManager interface {
 	CheckAndDeductDeposit(
 		ctx context.Context,
 		bidderAddr common.Address,
-		providerAddr common.Address,
 		bidAmount string,
 	) (func() error, error)
 }
@@ -278,13 +278,7 @@ func (p *Preconfirmation) handleBid(
 		return err
 	}
 
-	opts, err := p.optsGetter(ctx)
-	if err != nil {
-		return err
-	}
-	providerAddr := opts.From
-
-	tryRefund, err := p.depositMgr.CheckAndDeductDeposit(ctx, *bidderAddr, providerAddr, bid.BidAmount)
+	tryRefund, err := p.depositMgr.CheckAndDeductDeposit(ctx, *bidderAddr, bid.BidAmount)
 	if err != nil {
 		p.logger.Error("checking deposit", "error", err)
 		return err
@@ -352,9 +346,16 @@ func (p *Preconfirmation) handleBid(
 				return status.Errorf(codes.Internal, "failed to store commitments: %v", err)
 			}
 
+			bidAmount, ok := new(big.Int).SetString(bid.BidAmount, 10)
+			if !ok {
+				return status.Errorf(codes.Internal, "failed to parse bid amount: %v", bid.BidAmount)
+			}
+
 			encryptedAndDecryptedPreconfirmation := &store.Commitment{
 				EncryptedPreConfirmation: encryptedPreConfirmation,
 				PreConfirmation:          preConfirmation,
+				BidderAddress:            bidderAddr,
+				BidAmount:                bidAmount,
 			}
 
 			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation, txn); err != nil {

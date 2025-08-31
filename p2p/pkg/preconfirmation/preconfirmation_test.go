@@ -114,7 +114,6 @@ type testDepositManager struct{}
 func (t *testDepositManager) CheckAndDeductDeposit(
 	ctx context.Context,
 	bidderAddr common.Address,
-	providerAddr common.Address,
 	bidAmountStr string,
 ) (func() error, error) {
 	return func() error { return nil }, nil

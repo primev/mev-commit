@@ -15,15 +15,14 @@ func TestStore_SetBalance(t *testing.T) {
 	s := store.New(st)
 
 	bidder := common.HexToAddress("0x123")
-	provider := common.HexToAddress("0x456")
 	depositedAmount := big.NewInt(10)
 
-	err := s.SetBalance(bidder, provider, depositedAmount)
+	err := s.SetBalance(bidder, depositedAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	val, err := s.GetBalance(bidder, provider)
+	val, err := s.GetBalance(bidder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,15 +36,14 @@ func TestStore_GetBalance(t *testing.T) {
 	s := store.New(st)
 
 	bidder := common.HexToAddress("0x123")
-	provider := common.HexToAddress("0x456")
 	depositedAmount := big.NewInt(10)
 
-	err := s.SetBalance(bidder, provider, depositedAmount)
+	err := s.SetBalance(bidder, depositedAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	val, err := s.GetBalance(bidder, provider)
+	val, err := s.GetBalance(bidder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,9 +57,8 @@ func TestStore_GetBalance_NoBalance(t *testing.T) {
 	s := store.New(st)
 
 	bidder := common.HexToAddress("0x123")
-	provider := common.HexToAddress("0x456")
 
-	val, err := s.GetBalance(bidder, provider)
+	val, err := s.GetBalance(bidder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,10 +72,9 @@ func TestStore_RefundBalanceIfExists(t *testing.T) {
 	s := store.New(st)
 
 	bidder := common.HexToAddress("0x123")
-	provider := common.HexToAddress("0x456")
 	amount := big.NewInt(20)
 
-	err := s.RefundBalanceIfExists(bidder, provider, amount)
+	err := s.RefundBalanceIfExists(bidder, amount)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -86,18 +82,18 @@ func TestStore_RefundBalanceIfExists(t *testing.T) {
 		t.Fatalf("expected error containing 'balance not found, no refund needed', got %v", err)
 	}
 
-	err = s.SetBalance(bidder, provider, amount)
+	err = s.SetBalance(bidder, amount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	refundAmount := big.NewInt(5)
-	err = s.RefundBalanceIfExists(bidder, provider, refundAmount)
+	increaseAmount := big.NewInt(5)
+	err = s.RefundBalanceIfExists(bidder, increaseAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	val, err := s.GetBalance(bidder, provider)
+	val, err := s.GetBalance(bidder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,15 +108,14 @@ func TestStore_DeleteBalance(t *testing.T) {
 	s := store.New(st)
 
 	bidder := common.HexToAddress("0x123")
-	provider := common.HexToAddress("0x456")
 	depositedAmount := big.NewInt(10)
 
-	err := s.SetBalance(bidder, provider, depositedAmount)
+	err := s.SetBalance(bidder, depositedAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	val, err := s.GetBalance(bidder, provider)
+	val, err := s.GetBalance(bidder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,12 +123,12 @@ func TestStore_DeleteBalance(t *testing.T) {
 		t.Fatalf("expected %s, got %s", depositedAmount.String(), val.String())
 	}
 
-	err = s.DeleteBalance(bidder, provider)
+	err = s.DeleteBalance(bidder)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	val, err = s.GetBalance(bidder, provider)
+	val, err = s.GetBalance(bidder)
 	if err != nil {
 		t.Fatal(err)
 	}
