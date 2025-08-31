@@ -544,6 +544,9 @@ func (t *Tracker) openCommitments(
 				"providerAddress", commitment.ProviderAddress,
 				"winner", newL1Block.Winner,
 			)
+			if t.peerType != p2p.PeerTypeProvider {
+				continue
+			}
 			notificationPayload := map[string]any{
 				"commitmentDigest": hex.EncodeToString(commitment.Commitment[:]),
 			}
