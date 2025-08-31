@@ -98,7 +98,6 @@ func TestDepositManager(t *testing.T) {
 	for {
 		if val, err := st.GetBalance(
 			common.HexToAddress("0x123"),
-			common.HexToAddress("0x456"),
 		); err == nil && val != nil && val.Cmp(big.NewInt(100)) == 0 {
 			break
 		}
@@ -142,7 +141,6 @@ func TestDepositManager(t *testing.T) {
 
 	balance, err := st.GetBalance(
 		common.HexToAddress("0x123"),
-		common.HexToAddress("0x456"),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -165,7 +163,6 @@ func TestDepositManager(t *testing.T) {
 	for {
 		if val, err := st.GetBalance(
 			common.HexToAddress("0x123"),
-			common.HexToAddress("0x456"),
 		); err == nil && val == nil {
 			break
 		}
@@ -206,7 +203,6 @@ func TestDepositManager(t *testing.T) {
 	for {
 		if val, err := st.GetBalance(
 			common.HexToAddress("0x123"),
-			common.HexToAddress("0x456"),
 		); err == nil && val != nil && val.Cmp(big.NewInt(777)) == 0 {
 			break
 		}
@@ -270,7 +266,6 @@ func TestStartWithBidderAlreadyDeposited(t *testing.T) {
 	for {
 		if val, err := st.GetBalance(
 			common.HexToAddress("0x123"),
-			common.HexToAddress("0x456"),
 		); err == nil && val != nil && val.Cmp(big.NewInt(133)) == 0 {
 			break
 		}

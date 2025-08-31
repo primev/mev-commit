@@ -21,10 +21,10 @@ type BidderRegistryContract interface {
 }
 
 type Store interface {
-	GetBalance(bidder common.Address, provider common.Address) (*big.Int, error)
-	SetBalance(bidder common.Address, provider common.Address, balance *big.Int) error
-	DeleteBalance(bidder common.Address, provider common.Address) error
-	RefundBalanceIfExists(bidder common.Address, provider common.Address, amount *big.Int) error
+	GetBalance(bidder common.Address) (*big.Int, error)
+	SetBalance(bidder common.Address, balance *big.Int) error
+	DeleteBalance(bidder common.Address) error
+	RefundBalanceIfExists(bidder common.Address, amount *big.Int) error
 }
 
 type DepositManager struct {
@@ -151,7 +151,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 					continue
 				}
 
-				if err := dm.store.RefundBalanceIfExists(bidder, dm.thisProviderAddress, bidAmountInt); err != nil {
+				if err := dm.store.RefundBalanceIfExists(bidder, bidAmountInt); err != nil {
 					dm.logger.Error("refunding balance", "error", err)
 					return err
 				}
@@ -162,13 +162,13 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 					dm.logger.Debug("ignoring deposit event for different provider", "provider", deposit.Provider)
 					continue
 				}
-				currentBalance, err := dm.store.GetBalance(deposit.Bidder, deposit.Provider)
+				currentBalance, err := dm.store.GetBalance(deposit.Bidder)
 				if err != nil {
 					dm.logger.Error("getting balance", "error", err)
 					return err
 				}
 				if currentBalance == nil {
-					if err := dm.store.SetBalance(deposit.Bidder, deposit.Provider, deposit.NewAvailableAmount); err != nil {
+					if err := dm.store.SetBalance(deposit.Bidder, deposit.NewAvailableAmount); err != nil {
 						dm.logger.Error("setting balance", "error", err)
 						return err
 					}
@@ -179,7 +179,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 					)
 				} else {
 					newBalance := new(big.Int).Add(currentBalance, deposit.DepositedAmount)
-					if err := dm.store.SetBalance(deposit.Bidder, deposit.Provider, newBalance); err != nil {
+					if err := dm.store.SetBalance(deposit.Bidder, newBalance); err != nil {
 						dm.logger.Error("setting balance", "error", err)
 						return err
 					}
@@ -194,7 +194,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 					dm.logger.Debug("ignoring withdrawal request event for different provider", "provider", withdrawalRequest.Provider)
 					continue
 				}
-				if err := dm.store.DeleteBalance(withdrawalRequest.Bidder, withdrawalRequest.Provider); err != nil {
+				if err := dm.store.DeleteBalance(withdrawalRequest.Bidder); err != nil {
 					dm.logger.Error("deleting balance", "error", err)
 					return err
 				}
@@ -208,7 +208,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 					dm.logger.Debug("ignoring withdrawal event for different provider", "provider", withdrawal.Provider)
 					continue
 				}
-				if err := dm.store.DeleteBalance(withdrawal.Bidder, withdrawal.Provider); err != nil {
+				if err := dm.store.DeleteBalance(withdrawal.Bidder); err != nil {
 					dm.logger.Error("deleting balance", "error", err)
 					return err
 				}
@@ -240,7 +240,7 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 		return nil, status.Errorf(codes.InvalidArgument, "failed to parse bid amount")
 	}
 
-	balance, err := dm.store.GetBalance(bidderAddr, dm.thisProviderAddress)
+	balance, err := dm.store.GetBalance(bidderAddr)
 	if err != nil {
 		dm.logger.Error("getting balance", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
@@ -253,12 +253,12 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 			return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
 		}
 
-		if err := dm.store.SetBalance(bidderAddr, dm.thisProviderAddress, newBalance); err != nil {
+		if err := dm.store.SetBalance(bidderAddr, newBalance); err != nil {
 			dm.logger.Error("setting balance", "error", err)
 			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
 		}
 		return func() error {
-			return dm.store.RefundBalanceIfExists(bidderAddr, dm.thisProviderAddress, bidAmount)
+			return dm.store.RefundBalanceIfExists(bidderAddr, bidAmount)
 		}, nil
 	}
 	dm.logger.Info("balance not found in store, defaulting to contract call",
@@ -283,13 +283,13 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 	}
 
 	newBalance := new(big.Int).Sub(defaultBalance, bidAmount)
-	if err := dm.store.SetBalance(bidderAddr, dm.thisProviderAddress, newBalance); err != nil {
+	if err := dm.store.SetBalance(bidderAddr, newBalance); err != nil {
 		dm.logger.Error("setting balance for block", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to set balance for block: %v", err)
 	}
 
 	return func() error {
-		return dm.store.RefundBalanceIfExists(bidderAddr, dm.thisProviderAddress, bidAmount)
+		return dm.store.RefundBalanceIfExists(bidderAddr, bidAmount)
 	}, nil
 }
 
@@ -313,7 +313,7 @@ func (dm *DepositManager) getDefaultBalance(
 	}
 
 	if balance.Cmp(big.NewInt(0)) > 0 {
-		if err := dm.store.SetBalance(bidderAddr, providerAddr, balance); err != nil {
+		if err := dm.store.SetBalance(bidderAddr, balance); err != nil {
 			dm.logger.Error("setting balance", "error", err)
 			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
 		}

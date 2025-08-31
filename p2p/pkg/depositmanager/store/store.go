@@ -17,8 +17,8 @@ const (
 )
 
 var (
-	balanceKey = func(bidder common.Address, provider common.Address) string {
-		return fmt.Sprintf("%s%s/%s", balanceNS, bidder, provider)
+	balanceKey = func(bidder common.Address) string {
+		return fmt.Sprintf("%s%s", balanceNS, bidder)
 	}
 	balancePrefix = func(bidder common.Address) string {
 		return fmt.Sprintf("%s%s", balanceNS, bidder)
@@ -36,18 +36,18 @@ func New(st storage.Storage) *Store {
 	}
 }
 
-func (s *Store) SetBalance(bidder common.Address, provider common.Address, depositedAmount *big.Int) error {
+func (s *Store) SetBalance(bidder common.Address, depositedAmount *big.Int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.st.Put(balanceKey(bidder, provider), depositedAmount.Bytes())
+	return s.st.Put(balanceKey(bidder), depositedAmount.Bytes())
 }
 
-func (s *Store) GetBalance(bidder common.Address, provider common.Address) (*big.Int, error) {
+func (s *Store) GetBalance(bidder common.Address) (*big.Int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	val, err := s.st.Get(balanceKey(bidder, provider))
+	val, err := s.st.Get(balanceKey(bidder))
 	switch {
 	case errors.Is(err, storage.ErrKeyNotFound):
 		return nil, nil
@@ -58,21 +58,20 @@ func (s *Store) GetBalance(bidder common.Address, provider common.Address) (*big
 	return new(big.Int).SetBytes(val), nil
 }
 
-func (s *Store) DeleteBalance(bidder common.Address, provider common.Address) error {
+func (s *Store) DeleteBalance(bidder common.Address) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.st.Delete(balanceKey(bidder, provider))
+	return s.st.Delete(balanceKey(bidder))
 }
 
 func (s *Store) RefundBalanceIfExists(
 	bidder common.Address,
-	provider common.Address,
 	amount *big.Int,
 ) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	val, err := s.st.Get(balanceKey(bidder, provider))
+	val, err := s.st.Get(balanceKey(bidder))
 	switch {
 	case errors.Is(err, storage.ErrKeyNotFound):
 		return status.Errorf(codes.FailedPrecondition, "balance not found, no refund needed")
@@ -81,7 +80,7 @@ func (s *Store) RefundBalanceIfExists(
 	}
 
 	newAmount := new(big.Int).Add(new(big.Int).SetBytes(val), amount)
-	return s.st.Put(balanceKey(bidder, provider), newAmount.Bytes())
+	return s.st.Put(balanceKey(bidder), newAmount.Bytes())
 }
 
 func (s *Store) BalanceEntries(bidder common.Address) (int, error) {
