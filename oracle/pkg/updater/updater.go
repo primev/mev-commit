@@ -310,7 +310,6 @@ func (u *Updater) handleOpenedCommitment(
 	}
 
 	opts := new(bidderapiv1.BidOptions)
-	positionalConstraintsSatisfied := 0
 	if update.BidOptions != nil {
 		if err := proto.Unmarshal(update.BidOptions, opts); err != nil {
 			u.logger.Error(
@@ -374,8 +373,7 @@ func (u *Updater) handleOpenedCommitment(
 			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
 			"txnHash", update.TxnHash,
 			"blockNumber", update.BlockNumber,
-			"positionalConstraintsSatisfied", positionalConstraintsSatisfied,
-			"totalPositionalConstraints", len(opts.Options),
+			"totalPositionalConstraintsLeft", len(opts.Options),
 		)
 		// The committer did not include the transactions in the block
 		// correctly, so this is a slash to be processed
