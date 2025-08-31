@@ -544,24 +544,19 @@ func (t *Tracker) openCommitments(
 				"providerAddress", commitment.ProviderAddress,
 				"winner", newL1Block.Winner,
 			)
-			if commitment.BidderAddress == nil {
-				t.logger.Warn("commitment's bidder address is nil. No notification will be sent", "commitment", commitment)
-				continue
+			notificationPayload := map[string]any{
+				"commitmentDigest": hex.EncodeToString(commitment.Commitment[:]),
 			}
-			if commitment.BidAmount == nil {
-				t.logger.Warn("commitment's bid amount is nil. No notification will be sent", "commitment", commitment)
-				continue
+			if commitment.BidderAddress != nil {
+				notificationPayload["bidder"] = common.Bytes2Hex(commitment.BidderAddress[:])
 			}
-			t.notifier.Notify(
-				notifications.NewNotification(
-					notifications.TopicOtherProviderWonBlock,
-					map[string]any{
-						"commitmentDigest": hex.EncodeToString(commitment.Commitment[:]),
-						"bidder":           common.Bytes2Hex(commitment.BidderAddress[:]),
-						"bidAmount":        commitment.BidAmount.String(),
-					},
-				),
-			)
+			if commitment.BidAmount != nil {
+				notificationPayload["bidAmount"] = commitment.BidAmount.String()
+			}
+			t.notifier.Notify(notifications.NewNotification(
+				notifications.TopicOtherProviderWonBlock,
+				notificationPayload,
+			))
 			continue
 		}
 		startTime := time.Now()
