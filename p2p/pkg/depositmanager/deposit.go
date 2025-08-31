@@ -144,10 +144,6 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 				bidderHex := val["bidder"].(string)
 				bidAmount := val["bidAmount"].(string)
 
-				if bidderHex == "" || bidAmount == "" {
-					dm.logger.Error("bidder and bid amount are required to refund", "bidder", bidderHex, "bidAmount", bidAmount)
-					continue
-				}
 				bidder := common.HexToAddress(bidderHex)
 				bidAmountInt, ok := new(big.Int).SetString(bidAmount, 10)
 				if !ok {
