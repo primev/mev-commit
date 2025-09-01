@@ -40,10 +40,10 @@ service:
 resources:
   requests:
     cpu: "100m"
-    memory: "128Mi"
+    memory: "50Mi"
   limits:
     cpu: "500m"
-    memory: "512Mi"
+    memory: "100Mi"
 
 # Configuration for the Dashboard
 config:

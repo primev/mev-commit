@@ -85,15 +85,15 @@ terminationGracePeriodSeconds: 60
 resources:
   erigon:
     requests:
-      cpu: "1000m"
-      memory: "2Gi"
+      cpu: "100m"
+      memory: "500Mi"
     limits:
       cpu: "6000m"
       memory: "16Gi"
   snode:
     requests:
       cpu: "100m"
-      memory: "1Gi"
+      memory: "100Mi"
     limits:
       cpu: "6000m"
       memory: "16Gi"
@@ -101,11 +101,12 @@ resources:
 # Init container resources
 initContainerResources:
   requests:
-    cpu: "500m"
-    memory: "500Mi"
+    cpu: "50m"
+    memory: "100Mi"
   limits:
     cpu: "1000m"
     memory: "1Gi"
+
 
 service:
   erigon:
