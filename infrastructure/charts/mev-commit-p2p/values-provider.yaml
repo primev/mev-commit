@@ -45,7 +45,7 @@ node:
       memory: 32Gi
     requests:
       cpu: 700m
-      memory: 1Gi
+      memory: 10Mi
 
   securityContext:
     capabilities:
