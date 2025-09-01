@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math/big"
 	"sync"
 	"time"
 
@@ -54,9 +55,8 @@ type BidProcessor interface {
 type DepositManager interface {
 	CheckAndDeductDeposit(
 		ctx context.Context,
-		ethAddress common.Address,
+		bidderAddr common.Address,
 		bidAmount string,
-		blockNumber int64,
 	) (func() error, error)
 }
 
@@ -273,12 +273,12 @@ func (p *Preconfirmation) handleBid(
 	if err != nil {
 		return err
 	}
-	ethAddress, err := p.encryptor.VerifyBid(bid)
+	bidderAddr, err := p.encryptor.VerifyBid(bid)
 	if err != nil {
 		return err
 	}
 
-	refund, err := p.depositMgr.CheckAndDeductDeposit(ctx, *ethAddress, bid.BidAmount, bid.BlockNumber)
+	tryRefund, err := p.depositMgr.CheckAndDeductDeposit(ctx, *bidderAddr, bid.BidAmount)
 	if err != nil {
 		p.logger.Error("checking deposit", "error", err)
 		return err
@@ -288,8 +288,9 @@ func (p *Preconfirmation) handleBid(
 	successful := false
 	defer func() {
 		if !successful {
-			// Refund the deducted amount if the bid process did not succeed
-			refundErr := refund()
+			// Refund the deducted amount if the bid process did not succeed and deposit still exists in store.
+			// If deposit no longer exists, the bidder is in withdrawal process and refund is thrown away
+			refundErr := tryRefund()
 			if refundErr != nil {
 				p.logger.Error("refunding deposit", "error", refundErr)
 			}
@@ -345,9 +346,16 @@ func (p *Preconfirmation) handleBid(
 				return status.Errorf(codes.Internal, "failed to store commitments: %v", err)
 			}
 
+			bidAmount, ok := new(big.Int).SetString(bid.BidAmount, 10)
+			if !ok {
+				return status.Errorf(codes.Internal, "failed to parse bid amount: %v", bid.BidAmount)
+			}
+
 			encryptedAndDecryptedPreconfirmation := &store.Commitment{
 				EncryptedPreConfirmation: encryptedPreConfirmation,
 				PreConfirmation:          preConfirmation,
+				BidderAddress:            bidderAddr,
+				BidAmount:                bidAmount,
 			}
 
 			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation, txn); err != nil {
