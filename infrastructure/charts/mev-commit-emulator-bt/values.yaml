@@ -37,8 +37,8 @@ resources:
     cpu: 1000m
     memory: 1Gi
   requests:
-    cpu: 500m
-    memory: 512Mi
+    cpu: 50m
+    memory: 100Mi
 
 # Bidder Emulator specific configuration
 bidderEmulator:

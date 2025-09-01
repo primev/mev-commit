@@ -47,7 +47,7 @@ resources:
     memory: 4Gi
   requests:
     cpu: 100m
-    memory: 1Gi
+    memory: 10Mi
 
 # Security context
 securityContext:

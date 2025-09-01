@@ -94,8 +94,8 @@ resources:
     cpu: 2000m
     memory: 4Gi
   requests:
-    cpu: 500m
-    memory: 1Gi
+    cpu: 50m
+    memory: 100Mi
 
 # Node selector and tolerations
 #nodeSelector:
