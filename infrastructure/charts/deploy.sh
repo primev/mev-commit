@@ -27,6 +27,7 @@ WORK_DIR=""
 SELECTED_CHARTS=""
 BRANCH=""
 CONTRACTS_FILE=""
+LOCAL=false
 
 # Image variables
 DASHBOARD_IMAGE=""
@@ -48,11 +49,13 @@ while [[ $# -gt 0 ]]; do
         --charts) SELECTED_CHARTS="$2"; shift 2 ;;
         --branch) BRANCH="$2"; shift 2 ;;
         --contracts-file) CONTRACTS_FILE="$2"; shift 2 ;;
+        --local) LOCAL="$2"; shift 2 ;;
         --help) 
-            echo "Usage: $0 [--dry-run] [--cleanup] [--skip-contracts] [--password PASS] [--charts CHARTS] [--branch BRANCH] [--contracts-file FILE]"
+            echo "Usage: $0 [--dry-run] [--cleanup] [--skip-contracts] [--password PASS] [--charts CHARTS] [--branch BRANCH] [--contracts-file FILE] [--local true/false]"
             echo "Charts: mock-l1,erigon-snode,relay-emulator,dashboard,oracle,bootnode,bidder,bidder-emulator,provider,provider-emulator"
             echo "Branch: Filter Docker images by branch label (required for image discovery)"
             echo "Contracts File: JSON file with contract addresses (used with --skip-contracts)"
+            echo "Local: true=use ClusterIP & IfNotPresent policy (minikube), false=use LoadBalancer & Always policy (cloud)"
             exit 0 ;;
         *) print_error "Unknown option: $1"; exit 1 ;;
     esac
@@ -287,53 +290,97 @@ extract_contracts() {
     print_success "Contracts extracted"
 }
 
-# Get bootnode connection info
+# Get bootnode connection info - behavior depends on --local flag
 get_bootnode_connection() {
     BOOTNODE_SERVICE="erigon-mev-commit-bootnode-mev-commit-p2p-bootnode"
-    MAX_ATTEMPTS=30
+    MAX_ATTEMPTS=20
     
-    print_info "Getting bootnode connection info..."
-    
-    # Wait for LoadBalancer to get external IP
-    print_info "Waiting for LoadBalancer external IP..."
-    for i in $(seq 1 $MAX_ATTEMPTS); do
-        BOOTNODE_IP=$(kubectl get svc "$BOOTNODE_SERVICE" -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
-        if [[ -n "$BOOTNODE_IP" && "$BOOTNODE_IP" != "<nil>" ]]; then
-            break
+    if [[ "$LOCAL" == "true" ]]; then
+        print_info "Getting bootnode connection info for local deployment..."
+        
+        # Get ClusterIP for the connection string (internal cluster communication)
+        BOOTNODE_CLUSTER_IP=$(kubectl get svc "$BOOTNODE_SERVICE" -n "$NAMESPACE" -o jsonpath='{.spec.clusterIP}' 2>/dev/null)
+        
+        if [[ -z "$BOOTNODE_CLUSTER_IP" || "$BOOTNODE_CLUSTER_IP" == "<nil>" ]]; then
+            print_error "Failed to get bootnode ClusterIP"
+            kubectl get svc "$BOOTNODE_SERVICE" -n "$NAMESPACE" || true
+            return 1
         fi
-        print_info "Attempt $i/$MAX_ATTEMPTS: Waiting for LoadBalancer IP..."
-        sleep 10
-    done
-    
-    if [[ -z "$BOOTNODE_IP" || "$BOOTNODE_IP" == "<nil>" ]]; then
-        print_error "Failed to get bootnode external IP after $((MAX_ATTEMPTS * 10)) seconds"
-        kubectl get svc "$BOOTNODE_SERVICE" -n "$NAMESPACE" || true
-        return 1
+        
+        print_success "Bootnode ClusterIP: $BOOTNODE_CLUSTER_IP (for connection string)"
+        
+        # For local deployment, use 127.0.0.1 for API access (minikube exposes via localhost)
+        print_info "Using 127.0.0.1 for API access (minikube/local setup)"
+        API_HOST="127.0.0.1"
+        API_URL="https://$API_HOST:13723/v1/debug/topology"
+        
+        # Connection string will use ClusterIP for internal cluster communication
+        CONNECTION_IP="$BOOTNODE_CLUSTER_IP"
+        
+    else
+        print_info "Getting bootnode connection info for cloud deployment..."
+        
+        # Wait for LoadBalancer to get external IP
+        print_info "Waiting for LoadBalancer external IP..."
+        for i in $(seq 1 30); do
+            BOOTNODE_EXTERNAL_IP=$(kubectl get svc "$BOOTNODE_SERVICE" -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+            if [[ -n "$BOOTNODE_EXTERNAL_IP" && "$BOOTNODE_EXTERNAL_IP" != "<nil>" ]]; then
+                break
+            fi
+            print_info "Attempt $i/30: Waiting for LoadBalancer IP..."
+            sleep 10
+        done
+        
+        if [[ -z "$BOOTNODE_EXTERNAL_IP" || "$BOOTNODE_EXTERNAL_IP" == "<nil>" ]]; then
+            print_error "Failed to get bootnode external IP after 300 seconds"
+            kubectl get svc "$BOOTNODE_SERVICE" -n "$NAMESPACE" || true
+            return 1
+        fi
+        
+        print_success "Bootnode LoadBalancer IP: $BOOTNODE_EXTERNAL_IP"
+        
+        # For cloud deployment, use external IP for both API and connection string
+        API_URL="https://$BOOTNODE_EXTERNAL_IP:13723/v1/debug/topology"
+        CONNECTION_IP="$BOOTNODE_EXTERNAL_IP"
     fi
-    
-    print_success "Bootnode IP: $BOOTNODE_IP"
     
     # Get peer ID from bootnode API
     print_info "Getting peer ID from bootnode API..."
-    for i in $(seq 1 20); do
-        print_info "Attempt $i/20: Calling https://$BOOTNODE_IP:13723/v1/debug/topology"
+    for i in $(seq 1 $MAX_ATTEMPTS); do
+        print_info "Attempt $i/$MAX_ATTEMPTS: Calling $API_URL"
         
-        # Simple curl call matching the manual version
-        PEER_ID=$(curl -sk "https://$BOOTNODE_IP:13723/v1/debug/topology" | jq -r '.topology.self.Underlay' 2>/dev/null)
+        # Use HTTPS for API call
+        PEER_ID=$(curl -sk "$API_URL" | jq -r '.topology.self.Underlay' 2>/dev/null)
         
         if [[ -n "$PEER_ID" && "$PEER_ID" != "null" ]]; then
-            BOOTNODE_CONNECTION="/ip4/$BOOTNODE_IP/tcp/13522/p2p/$PEER_ID"
+            # Connection string uses the appropriate IP based on deployment type
+            BOOTNODE_CONNECTION="/ip4/$CONNECTION_IP/tcp/13522/p2p/$PEER_ID"
             print_success "Bootnode connection: $BOOTNODE_CONNECTION"
+            
+            if [[ "$LOCAL" == "true" ]]; then
+                print_info "Local deployment: API via 127.0.0.1, P2P connection via ClusterIP"
+            else
+                print_info "Cloud deployment: Both API and P2P connection via LoadBalancer IP"
+            fi
             return 0
         fi
         
-        print_warning "No valid peer ID received, retrying in 10 seconds..."
-        
-        sleep 15
+        print_warning "No valid peer ID received, retrying in 5 seconds..."
+        sleep 5
     done
     
-    print_error "Failed to get bootnode peer ID after 20 attempts"
-    print_info "Final attempt to check bootnode service and pod status:"
+    print_error "Failed to get bootnode peer ID after $MAX_ATTEMPTS attempts"
+    
+    if [[ "$LOCAL" == "true" ]]; then
+        print_info "For local deployment, make sure:"
+        print_info "1. Bootnode service is accessible via https://127.0.0.1:13723"
+        print_info "2. You may need to run: kubectl port-forward svc/$BOOTNODE_SERVICE 13723:13723 -n $NAMESPACE"
+        print_info "3. Or use: minikube service $BOOTNODE_SERVICE --url -n $NAMESPACE"
+    else
+        print_info "For cloud deployment, make sure LoadBalancer service is properly configured"
+    fi
+    
+    print_info "Checking bootnode service and pod status:"
     kubectl get svc "$BOOTNODE_SERVICE" -n "$NAMESPACE" || true
     kubectl get pods -l "app.kubernetes.io/name=mev-commit-p2p,app.kubernetes.io/component=bootnode" -n "$NAMESPACE" || true
     return 1
@@ -399,6 +446,7 @@ cleanup_pf() {
     [[ -n "$PF_PID" ]] && { kill $PF_PID 2>/dev/null || true; wait $PF_PID 2>/dev/null || true; }
 }
 trap cleanup_pf EXIT
+
 # Determine charts to deploy
 if [[ -n "$SELECTED_CHARTS" ]]; then
     IFS=',' read -ra CHARTS <<< "$SELECTED_CHARTS"
@@ -507,8 +555,10 @@ for CHART in "${CHARTS[@]}"; do
             if [[ -n "$RELAY_IMAGE" ]]; then
                 read RELAY_REPO RELAY_TAG <<< "$(parse_image "$RELAY_IMAGE")"
                 if [[ -n "$RELAY_REPO" && -n "$RELAY_TAG" ]]; then
-                    RELAY_ARGS+=(--set "image.repository=$RELAY_REPO" --set "image.tag=$RELAY_TAG")
-                    print_info "Using discovered relay image: $RELAY_IMAGE"
+                    PULL_POLICY="Always"
+                    [[ "$LOCAL" == "true" ]] && PULL_POLICY="IfNotPresent"
+                    RELAY_ARGS+=(--set "image.repository=$RELAY_REPO" --set "image.tag=$RELAY_TAG" --set "image.pullPolicy=$PULL_POLICY")
+                    print_info "Using discovered relay image: $RELAY_IMAGE (pullPolicy: $PULL_POLICY)"
                 fi
             fi
             
@@ -537,8 +587,10 @@ for CHART in "${CHARTS[@]}"; do
             if [[ -n "$ORACLE_IMAGE" ]]; then
                 read ORACLE_REPO ORACLE_TAG <<< "$(parse_image "$ORACLE_IMAGE")"
                 if [[ -n "$ORACLE_REPO" && -n "$ORACLE_TAG" ]]; then
-                    ORACLE_ARGS+=(--set "image.repository=$ORACLE_REPO" --set "image.tag=$ORACLE_TAG")
-                    print_info "Using discovered oracle image: $ORACLE_IMAGE"
+                    PULL_POLICY="Always"
+                    [[ "$LOCAL" == "true" ]] && PULL_POLICY="IfNotPresent"
+                    ORACLE_ARGS+=(--set "image.repository=$ORACLE_REPO" --set "image.tag=$ORACLE_TAG" --set "image.pullPolicy=$PULL_POLICY")
+                    print_info "Using discovered oracle image: $ORACLE_IMAGE (pullPolicy: $PULL_POLICY)"
                 fi
             fi
             
@@ -574,8 +626,10 @@ for CHART in "${CHARTS[@]}"; do
             if [[ -n "$P2P_IMAGE" ]]; then
                 read P2P_REPO P2P_TAG <<< "$(parse_image "$P2P_IMAGE")"
                 if [[ -n "$P2P_REPO" && -n "$P2P_TAG" ]]; then
-                    BOOTNODE_ARGS+=(--set "global.image.repository=$P2P_REPO" --set "global.image.tag=$P2P_TAG")
-                    print_info "Using discovered P2P image: $P2P_IMAGE"
+                    PULL_POLICY="Always"
+                    [[ "$LOCAL" == "true" ]] && PULL_POLICY="IfNotPresent"
+                    BOOTNODE_ARGS+=(--set "global.image.repository=$P2P_REPO" --set "global.image.tag=$P2P_TAG" --set "global.image.pullPolicy=$PULL_POLICY")
+                    print_info "Using discovered P2P image: $P2P_IMAGE (pullPolicy: $PULL_POLICY)"
                 fi
             fi
             
@@ -621,8 +675,10 @@ for CHART in "${CHARTS[@]}"; do
             if [[ -n "$P2P_IMAGE" ]]; then
                 read P2P_REPO P2P_TAG <<< "$(parse_image "$P2P_IMAGE")"
                 if [[ -n "$P2P_REPO" && -n "$P2P_TAG" ]]; then
-                    BIDDER_ARGS+=(--set "global.image.repository=$P2P_REPO" --set "global.image.tag=$P2P_TAG")
-                    print_info "Using discovered P2P image: $P2P_IMAGE"
+                    PULL_POLICY="Always"
+                    [[ "$LOCAL" == "true" ]] && PULL_POLICY="IfNotPresent"
+                    BIDDER_ARGS+=(--set "global.image.repository=$P2P_REPO" --set "global.image.tag=$P2P_TAG" --set "global.image.pullPolicy=$PULL_POLICY")
+                    print_info "Using discovered P2P image: $P2P_IMAGE (pullPolicy: $PULL_POLICY)"
                 fi
             fi
             
@@ -658,8 +714,10 @@ for CHART in "${CHARTS[@]}"; do
             if [[ -n "$BIDDER_EMULATOR_IMAGE" ]]; then
                 read BIDDER_EMU_REPO BIDDER_EMU_TAG <<< "$(parse_image "$BIDDER_EMULATOR_IMAGE")"
                 if [[ -n "$BIDDER_EMU_REPO" && -n "$BIDDER_EMU_TAG" ]]; then
-                    BIDDER_EMU_ARGS+=(--set "image.repository=$BIDDER_EMU_REPO" --set "image.tag=$BIDDER_EMU_TAG")
-                    print_info "Using discovered bidder emulator image: $BIDDER_EMULATOR_IMAGE"
+                    PULL_POLICY="Always"
+                    [[ "$LOCAL" == "true" ]] && PULL_POLICY="IfNotPresent"
+                    BIDDER_EMU_ARGS+=(--set "image.repository=$BIDDER_EMU_REPO" --set "image.tag=$BIDDER_EMU_TAG" --set "image.pullPolicy=$PULL_POLICY")
+                    print_info "Using discovered bidder emulator image: $BIDDER_EMULATOR_IMAGE (pullPolicy: $PULL_POLICY)"
                 fi
             fi
             
@@ -690,8 +748,10 @@ for CHART in "${CHARTS[@]}"; do
             if [[ -n "$P2P_IMAGE" ]]; then
                 read P2P_REPO P2P_TAG <<< "$(parse_image "$P2P_IMAGE")"
                 if [[ -n "$P2P_REPO" && -n "$P2P_TAG" ]]; then
-                    PROVIDER_ARGS+=(--set "global.image.repository=$P2P_REPO" --set "global.image.tag=$P2P_TAG")
-                    print_info "Using discovered P2P image: $P2P_IMAGE"
+                    PULL_POLICY="Always"
+                    [[ "$LOCAL" == "true" ]] && PULL_POLICY="IfNotPresent"
+                    PROVIDER_ARGS+=(--set "global.image.repository=$P2P_REPO" --set "global.image.tag=$P2P_TAG" --set "global.image.pullPolicy=$PULL_POLICY")
+                    print_info "Using discovered P2P image: $P2P_IMAGE (pullPolicy: $PULL_POLICY)"
                 fi
             fi
             
@@ -726,8 +786,10 @@ for CHART in "${CHARTS[@]}"; do
             if [[ -n "$PROVIDER_EMULATOR_IMAGE" ]]; then
                 read PROVIDER_EMU_REPO PROVIDER_EMU_TAG <<< "$(parse_image "$PROVIDER_EMULATOR_IMAGE")"
                 if [[ -n "$PROVIDER_EMU_REPO" && -n "$PROVIDER_EMU_TAG" ]]; then
-                    PROVIDER_EMU_ARGS+=(--set "image.repository=$PROVIDER_EMU_REPO" --set "image.tag=$PROVIDER_EMU_TAG")
-                    print_info "Using discovered provider emulator image: $PROVIDER_EMULATOR_IMAGE"
+                    PULL_POLICY="Always"
+                    [[ "$LOCAL" == "true" ]] && PULL_POLICY="IfNotPresent"
+                    PROVIDER_EMU_ARGS+=(--set "image.repository=$PROVIDER_EMU_REPO" --set "image.tag=$PROVIDER_EMU_TAG" --set "image.pullPolicy=$PULL_POLICY")
+                    print_info "Using discovered provider emulator image: $PROVIDER_EMULATOR_IMAGE (pullPolicy: $PULL_POLICY)"
                 fi
             fi
             
@@ -746,8 +808,10 @@ for CHART in "${CHARTS[@]}"; do
             if [[ -n "$DASHBOARD_IMAGE" ]]; then
                 read DASHBOARD_REPO DASHBOARD_TAG <<< "$(parse_image "$DASHBOARD_IMAGE")"
                 if [[ -n "$DASHBOARD_REPO" && -n "$DASHBOARD_TAG" ]]; then
-                    DASHBOARD_ARGS+=(--set "image.repository=$DASHBOARD_REPO" --set "image.tag=$DASHBOARD_TAG")
-                    print_info "Using discovered dashboard image: $DASHBOARD_IMAGE"
+                    PULL_POLICY="Always"
+                    [[ "$LOCAL" == "true" ]] && PULL_POLICY="IfNotPresent"
+                    DASHBOARD_ARGS+=(--set "image.repository=$DASHBOARD_REPO" --set "image.tag=$DASHBOARD_TAG" --set "image.pullPolicy=$PULL_POLICY")
+                    print_info "Using discovered dashboard image: $DASHBOARD_IMAGE (pullPolicy: $PULL_POLICY)"
                 fi
             fi
             
