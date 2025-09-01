@@ -164,13 +164,22 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 	}
 
 	eg.Go(func() error {
+		defer sub.Unsubscribe()
+		select {
+		case <-egCtx.Done():
+			t.logger.Info("event subscription context done")
+			return nil
+		case err := <-sub.Err():
+			return fmt.Errorf("event subscription error: %w", err)
+		}
+	})
+
+	eg.Go(func() error {
 		for {
 			select {
 			case <-egCtx.Done():
 				t.logger.Info("handleNewL1Block context done")
 				return nil
-			case err := <-sub.Err():
-				return fmt.Errorf("event subscription error: %w", err)
 			case newL1Block := <-t.newL1Blocks:
 				if err := t.handleNewL1Block(egCtx, newL1Block); err != nil {
 					t.logger.Error("failed to handle new L1 block", "error", err)
@@ -187,8 +196,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				t.logger.Info("handleUnopenedCommitmentStored context done")
 				return nil
-			case err := <-sub.Err():
-				return fmt.Errorf("event subscription error: %w", err)
 			case ec := <-t.unopenedCmts:
 				if err := t.handleUnopenedCommitmentStored(egCtx, ec); err != nil {
 					t.logger.Error(
@@ -263,7 +270,12 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				}
 			}
 
-			t.blockOpened <- winners[len(winners)-1].BlockNumber
+			select {
+			case <-egCtx.Done():
+				t.logger.Info("openCommitments context done")
+				return nil
+			case t.blockOpened <- winners[len(winners)-1].BlockNumber:
+			}
 		}
 	})
 
@@ -273,8 +285,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				t.logger.Info("handleCommitmentProcessed context done")
 				return nil
-			case err := <-sub.Err():
-				return fmt.Errorf("event subscription error: %w", err)
 			case cp := <-t.processed:
 				if err := t.store.UpdateSettlement(cp.CommitmentIndex[:], cp.IsSlash); err != nil {
 					t.logger.Error("failed to update commitment index", "error", err)
@@ -290,8 +300,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				t.logger.Info("handleFundsRewarded context done")
 				return nil
-			case err := <-sub.Err():
-				return fmt.Errorf("event subscription error: %w", err)
 			case fr := <-t.rewards:
 				if err := t.store.UpdatePayment(fr.CommitmentDigest[:], fr.Amount.String(), ""); err != nil {
 					t.logger.Error("failed to update payment", "error", err)
@@ -307,8 +315,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				t.logger.Info("handleCommitmentStored context done")
 				return nil
-			case err := <-sub.Err():
-				return fmt.Errorf("event subscription error: %w", err)
 			case cs := <-t.commitments:
 				if err := t.handleOpenedCommitmentStored(egCtx, cs); err != nil {
 					t.logger.Error("failed to handle opened commitment stored", "error", err)
@@ -333,8 +339,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				case <-egCtx.Done():
 					t.logger.Info("handleFundsUnlocked context done")
 					return nil
-				case err := <-sub.Err():
-					return fmt.Errorf("event subscription error: %w", err)
 				case fr := <-t.returns:
 					if err := t.store.UpdatePayment(fr.CommitmentDigest[:], "", fr.Amount.String()); err != nil {
 						t.logger.Error("failed to update payment", "error", err)
