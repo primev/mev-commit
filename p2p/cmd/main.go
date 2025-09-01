@@ -298,18 +298,16 @@ var (
 	})
 
 	optionTargetDepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:  "target-deposit-amount",
-		Usage: "Target deposit amount that'll be set for every valid provider",
-		// Backwards compatible with prev "auto deposit" feature
-		EnvVars:  []string{"MEV_COMMIT_TARGET_DEPOSIT_AMOUNT", "MEV_COMMIT_AUTODEPOSIT_AMOUNT"},
+		Name:     "target-deposit-amount",
+		Usage:    "Target deposit amount that'll be set for every valid provider",
+		EnvVars:  []string{"MEV_COMMIT_TARGET_DEPOSIT_AMOUNT"},
 		Category: categoryBidder,
 	})
 
 	optionEnableDepositManager = altsrc.NewBoolFlag(&cli.BoolFlag{
-		Name:  "enable-deposit-manager",
-		Usage: "Whether the deposit manager should be enabled",
-		// Backwards compatible with prev "auto deposit" feature
-		EnvVars:  []string{"MEV_COMMIT_ENABLE_DEPOSIT_MANAGER", "MEV_COMMIT_AUTODEPOSIT_ENABLED"},
+		Name:     "enable-deposit-manager",
+		Usage:    "Whether the deposit manager should be enabled",
+		EnvVars:  []string{"MEV_COMMIT_ENABLE_DEPOSIT_MANAGER"},
 		Value:    false,
 		Category: categoryBidder,
 	})
