@@ -160,6 +160,59 @@ message RewardResponse {
 
 message EmptyMessage {};
 
+message PositionConstraint {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Position Constraint"
+      description: "Constraint on the position of the transaction in the block."
+    }
+  };
+  enum Anchor {
+    ANCHOR_UNSPECIFIED = 0;
+    ANCHOR_TOP = 1; // Position is at the top of the block
+    ANCHOR_BOTTOM = 2; // Position is at the bottom of the block
+  }
+  enum Basis {
+    BASIS_UNSPECIFIED = 0;
+    BASIS_PERCENTILE = 1; // Position is a percentile of the block size
+    BASIS_ABSOLUTE = 2; // Position is an absolute position in the block
+    BASIS_GAS_PERCENTILE = 3; // Position is a percentile of the gas used in the block
+  }
+  Anchor anchor = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Anchor position of the transaction in the block."
+  }];
+  Basis basis = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Basis for the position constraint."
+  }];
+  int32 value = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Value of the position constraint. If anchor is TOP, this is the position from the top of the block. If anchor is BOTTOM, this is the position from the bottom of the block."
+  }];
+};
+
+message BidOption {
+  oneof opt {
+    PositionConstraint position_constraint = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Position constraint for the transaction in the block."
+    }];
+  }
+};
+
+message BidOptions {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Bid Options"
+      description: "Options for the bid."
+    }
+  };
+  repeated BidOption options = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "List of bid options."
+  }, (buf.validate.field).cel = {
+      id: "options",
+      message: "options must be a valid array of bid options.",
+      expression: "this.all(r, r != null)"
+  }];
+};
+
 message Bid {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
@@ -229,6 +282,9 @@ message Bid {
       id: "slash_amount",
       message: "slash_amount must be a valid integer.",
       expression: "this == '' || (this.matches('^[0-9]+$') && uint(this) >= 0)"
+  }];
+  BidOptions bid_options = 10 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional bid options for the transaction."
   }];
 };
 
@@ -331,6 +387,9 @@ message CommitmentInfoResponse {
     }];
     string refund = 13 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Refund amount in wei for the commitment, if applicable."
+    }];
+    BidOptions bid_options = 14 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Optional bid options for the transaction."
     }];
   };
   message BlockCommitments {

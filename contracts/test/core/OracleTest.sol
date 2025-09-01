@@ -624,7 +624,8 @@ contract OracleTest is Test {
                     txnHashes[i],
                     revertingTxHashes,
                     bidSignatures[i],
-                    zkProof
+                    zkProof,
+                    hex""
                 )
             );
             vm.stopPrank();
@@ -705,7 +706,8 @@ contract OracleTest is Test {
                 params.txnHash,
                 params.revertingTxHashes,
                 hex"",
-                params.zkProof
+                params.zkProof,
+                hex""
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(params.bidderPk, bidHash);
@@ -747,7 +749,8 @@ contract OracleTest is Test {
                     txnHash,
                     revertingTxHashes,
                     hex"",
-                    zkproof
+                    zkproof,
+                    hex""
                 )
             );
     }
@@ -824,7 +827,8 @@ contract OracleTest is Test {
                 txnHash,
                 revertingTxHashes,
                 bidSignature,
-                zkproof
+                zkproof,
+                hex""
             )
         );
         vm.stopPrank();

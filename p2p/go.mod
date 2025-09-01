@@ -199,5 +199,6 @@ require (
 
 replace (
 	github.com/primev/mev-commit/contracts-abi => ../contracts-abi
+	github.com/primev/mev-commit/p2p => ../p2p
 	github.com/primev/mev-commit/x => ../x
 )

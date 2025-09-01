@@ -21,6 +21,7 @@ import (
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -199,6 +200,15 @@ func (s *Service) SendBid(
 		bid.SlashAmount = "0"
 	}
 
+	var optBuf []byte
+	if bid.BidOptions != nil {
+		optBuf, err = proto.Marshal(bid.BidOptions)
+		if err != nil {
+			s.logger.Error("marshaling bid options", "error", err)
+			return status.Errorf(codes.InvalidArgument, "marshaling bid options: %v", err)
+		}
+	}
+
 	respC, err := s.sender.SendBid(
 		ctx,
 		&preconfirmationv1.Bid{
@@ -210,6 +220,7 @@ func (s *Service) SendBid(
 			DecayEndTimestamp:   bid.DecayEndTimestamp,
 			RevertingTxHashes:   strings.Join(stripPrefix(bid.RevertingTxHashes), ","),
 			RawTransactions:     bid.RawTransactions,
+			BidOptions:          optBuf,
 		},
 	)
 	if err != nil {

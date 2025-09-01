@@ -213,6 +213,11 @@
             "name": "zkProof",
             "type": "uint256[]",
             "internalType": "uint256[]"
+          },
+          {
+            "name": "bidOptions",
+            "type": "bytes",
+            "internalType": "bytes"
           }
         ]
       }
@@ -306,6 +311,11 @@
             "name": "revertingTxHashes",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "bidOptions",
+            "type": "bytes",
+            "internalType": "bytes"
           }
         ]
       }
@@ -385,6 +395,11 @@
             "name": "revertingTxHashes",
             "type": "string",
             "internalType": "string"
+          },
+          {
+            "name": "bidOptions",
+            "type": "bytes",
+            "internalType": "bytes"
           }
         ]
       }
@@ -670,6 +685,11 @@
             "name": "zkProof",
             "type": "uint256[]",
             "internalType": "uint256[]"
+          },
+          {
+            "name": "bidOptions",
+            "type": "bytes",
+            "internalType": "bytes"
           }
         ]
       }
@@ -758,6 +778,11 @@
         "name": "revertingTxHashes",
         "type": "string",
         "internalType": "string"
+      },
+      {
+        "name": "bidOptions",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "stateMutability": "view"
@@ -1102,6 +1127,11 @@
             "name": "zkProof",
             "type": "uint256[]",
             "internalType": "uint256[]"
+          },
+          {
+            "name": "bidOptions",
+            "type": "bytes",
+            "internalType": "bytes"
           }
         ]
       }
@@ -1341,6 +1371,12 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      },
+      {
+        "name": "bidOptions",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
       }
     ],
     "anonymous": false
