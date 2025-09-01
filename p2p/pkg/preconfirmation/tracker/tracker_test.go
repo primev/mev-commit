@@ -200,6 +200,7 @@ func TestTracker(t *testing.T) {
 		RevertingTxHashes:   commitments[4].Bid.RevertingTxHashes,
 		CommitmentDigest:    common.BytesToHash(commitments[4].Digest),
 		DispatchTimestamp:   uint64(1),
+		BidOptions:          []byte("dummy options"),
 	})
 
 	if err != nil {
@@ -630,13 +631,6 @@ func TestOtherProviderWonBlockNotification(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	doneChan := tracker.Start(ctx)
-	defer func() {
-		cancel()
-		select {
-		case <-doneChan:
-		case <-time.After(2 * time.Second):
-		}
-	}()
 
 	winnerProvider := common.HexToAddress("0x1111")
 	loserProvider := common.HexToAddress("0x2222")
@@ -706,6 +700,9 @@ func TestOtherProviderWonBlockNotification(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for TopicOtherProviderWonBlock notification")
 	}
+
+	cancel()
+	<-doneChan
 }
 
 type openedCommitment struct {
@@ -828,6 +825,7 @@ func publishOpenedCommitment(
 		c.RevertingTxHashes,
 		c.CommitmentDigest,
 		c.DispatchTimestamp,
+		c.BidOptions,
 	)
 	if err != nil {
 		return err
