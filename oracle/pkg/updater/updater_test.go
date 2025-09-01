@@ -1007,7 +1007,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if c.BlockNumber == 8 {
+		if i < 8 {
 			// no winner
 			continue
 		}
@@ -1580,7 +1580,6 @@ func TestBidOptions(t *testing.T) {
 				blockNum: 5,
 				winner: updater.Winner{
 					Winner: builderAddr.Bytes(),
-					Window: 1,
 				},
 			},
 		},
@@ -1698,9 +1697,6 @@ func TestBidOptions(t *testing.T) {
 			}
 			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
-			}
-			if settlement.window != 1 {
-				t.Fatal("wrong window")
 			}
 		}
 	}

@@ -631,13 +631,6 @@ func TestOtherProviderWonBlockNotification(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	doneChan := tracker.Start(ctx)
-	defer func() {
-		cancel()
-		select {
-		case <-doneChan:
-		case <-time.After(2 * time.Second):
-		}
-	}()
 
 	winnerProvider := common.HexToAddress("0x1111")
 	loserProvider := common.HexToAddress("0x2222")
@@ -707,6 +700,9 @@ func TestOtherProviderWonBlockNotification(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for TopicOtherProviderWonBlock notification")
 	}
+
+	cancel()
+	<-doneChan
 }
 
 type openedCommitment struct {

@@ -382,7 +382,6 @@ func (u *Updater) handleOpenedCommitment(
 			update,
 			SettlementTypeSlash,
 			residualPercentage,
-			winner.Window,
 		)
 	}
 
