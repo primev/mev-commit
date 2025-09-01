@@ -10,58 +10,6 @@ consumes:
 produces:
   - application/json
 paths:
-  /v1/bidder/auto_deposit/{amount}:
-    post:
-      summary: AutoDeposit
-      description: |-
-        AutoDeposit is called by the bidder node to add a recurring deposit in the bidder registry. The bidder
-        can specify the amount of ETH to be deposited in each window. The bidder can also specify the start window
-        number for the deposit. If the start window number is not specified, the current block number is used to
-        calculate the window number. If the block number is specified, the window number is calculated based on
-        the block number. Once it is enabled, the node will automatically deposit the specified amount in each window
-        as well as withdraw the deposit from the previous window.
-      operationId: Bidder_AutoDeposit
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1AutoDepositResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
-      parameters:
-        - name: amount
-          description: Amount of ETH to be deposited in wei.
-          in: path
-          required: true
-          type: string
-        - name: windowNumber
-          description: Optional window number for querying deposit. If not specified, the current block number is used.
-          in: query
-          required: false
-          type: string
-          format: uint64
-        - name: blockNumber
-          description: Optional block number for querying deposit. If specified, calculate window based on this block number.
-          in: query
-          required: false
-          type: string
-          format: uint64
-  /v1/bidder/auto_deposit_status:
-    get:
-      summary: AutoDepositStatus
-      description: AutoDepositStatus is called by the bidder node to get the status of the auto deposit.
-      operationId: Bidder_AutoDepositStatus
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1AutoDepositStatusResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/bid:
     post:
       summary: SendBid
@@ -89,28 +37,6 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/bidderapiv1Bid'
-  /v1/bidder/cancel_auto_deposit:
-    post:
-      summary: CancelAutoDeposit
-      description: |-
-        CancelAutoDeposit is called by the bidder node to cancel the auto deposit. The bidder can specify if it
-        wants to withdraw the deposit from the current deposited windows. If the withdraw flag is set to true, the API will
-        wait till we can withdraw the deposit from the latest deposited window.
-      operationId: Bidder_CancelAutoDeposit
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1CancelAutoDepositResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
-      parameters:
-        - name: withdraw
-          in: query
-          required: false
-          type: boolean
   /v1/bidder/claim_slashed_funds:
     post:
       summary: ClaimSlashedFunds
@@ -130,12 +56,7 @@ paths:
   /v1/bidder/deposit/{amount}:
     post:
       summary: Deposit
-      description: |-
-        Deposit is called by the bidder node to add deposit in the bidder registry. The bidder can deposit
-        funds in a particular window by specifying the window number. If the window number is not specified,
-        the current block number is used to calculate the window number. If the block number is specified,
-        the window number is calculated based on the block number. If AutoDeposit is enabled, the deposit
-        API returns error.
+      description: Deposit is called by the bidder node to add deposit in the bidder registry, specific to a provider.
       operationId: Bidder_Deposit
       responses:
         "200":
@@ -152,18 +73,100 @@ paths:
           in: path
           required: true
           type: string
-        - name: windowNumber
-          description: Optional window number for querying deposit. If not specified, the current block number is used.
+        - name: provider
+          description: Provider Ethereum address.
+          in: query
+          required: true
+          type: string
+  /v1/bidder/deposit_evenly:
+    post:
+      summary: DepositEvenly
+      description: DepositEvenly is called by the bidder node to deposit a total amount evenly across multiple providers.
+      operationId: Bidder_DepositEvenly
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1DepositEvenlyResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: totalAmount
+          description: Total amount of ETH to be deposited in wei.
           in: query
           required: false
           type: string
-          format: uint64
-        - name: blockNumber
-          description: Optional block number for querying deposit. If specified, calculate window based on this block number.
+          pattern: '[0-9]+'
+        - name: providers
+          description: Provider Ethereum addresses.
           in: query
           required: false
-          type: string
-          format: uint64
+          type: array
+          items:
+            type: string
+          collectionFormat: multi
+  /v1/bidder/deposit_manager_status:
+    get:
+      summary: DepositManagerStatus
+      description: |-
+        DepositManagerStatus is called by the bidder node to query whether the bidder
+        has enabled the deposit manager via eip 7702.
+      operationId: Bidder_DepositManagerStatus
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1DepositManagerStatusResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/bidder/disable_deposit_manager:
+    post:
+      summary: DisableDepositManager
+      description: "DisableDepositManager is called by the bidder node to disable the deposit manager \nby setting the bidder EOA's code to zero address."
+      operationId: Bidder_DisableDepositManager
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1DisableDepositManagerResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/bidder/enable_deposit_manager:
+    post:
+      summary: EnableDepositManager
+      description: EnableDepositManager is called by the bidder node to enable the deposit manager via eip 7702.
+      operationId: Bidder_EnableDepositManager
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1EnableDepositManagerResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/bidder/get_all_deposits:
+    get:
+      summary: GetAllDeposits
+      description: |-
+        GetAllDeposits is called by the bidder to get all its deposits in the bidder registry,
+        and the balance of the bidder EOA itself.
+      operationId: Bidder_GetAllDeposits
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1GetAllDepositsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/get_bid_info:
     get:
       summary: GetBidInfo
@@ -202,7 +205,7 @@ paths:
   /v1/bidder/get_deposit:
     get:
       summary: GetDeposit
-      description: GetDeposit is called by the bidder to get its deposit in the bidder registry.
+      description: GetDeposit is called by the bidder to get its deposit specific to a provider in the bidder registry.
       operationId: Bidder_GetDeposit
       responses:
         "200":
@@ -214,16 +217,80 @@ paths:
           schema:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
-        - name: windowNumber
-          description: Optional window number for querying deposits. If not specified, the current block number is used.
+        - name: provider
+          description: Provider Ethereum address.
           in: query
           required: false
           type: string
-          format: uint64
+  /v1/bidder/get_valid_providers:
+    get:
+      summary: GetValidProviders
+      description: |-
+        GetValidProviders is called by the bidder node to get a list of all valid providers.
+        Each provider returned by this RPC must:
+        - Be "registered" in the provider registry
+        - Have deposit >= minStake in provider registry
+        - Have no pending withdrawal request with provider registry
+        - Have at least one BLS key registered with provider registry
+      operationId: Bidder_GetValidProviders
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1GetValidProvidersResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/bidder/request_withdrawals:
+    post:
+      summary: RequestWithdrawals
+      description: RequestWithdrawals is called by the bidder node to request withdrawals from provider(s)
+      operationId: Bidder_RequestWithdrawals
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1RequestWithdrawalsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: body
+          description: Request withdrawals from provider(s).
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1RequestWithdrawalsRequest'
+  /v1/bidder/set_target_deposits:
+    post:
+      summary: SetTargetDeposits
+      description: |-
+        SetTargetDeposits is called by the bidder node to set target deposits per provider
+        within the deposit manager. During this call, the bidder node will also attempt to top-up
+        deposits for each new target deposit.
+      operationId: Bidder_SetTargetDeposits
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1SetTargetDepositsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: body
+          description: OverrideTargetDepositsRequest request.
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1SetTargetDepositsRequest'
   /v1/bidder/withdraw:
     post:
       summary: Withdraw
-      description: Withdraw is called by the bidder to withdraw deposit from the bidder registry.
+      description: Withdraw is called by the bidder to withdraw their deposit to a provider.
       operationId: Bidder_Withdraw
       responses:
         "200":
@@ -235,33 +302,12 @@ paths:
           schema:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
-        - name: windowNumber
-          description: Optional window number for withdrawing deposits. If not specified, the last window number is used.
-          in: query
-          required: false
-          type: string
-          format: uint64
-  /v1/bidder/withdraw_from_windows:
-    post:
-      summary: WithdrawFromWindows
-      description: WithdrawFromWindows is called by the bidder node to withdraw funds from multiple windows.
-      operationId: Bidder_WithdrawFromWindows
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1WithdrawFromWindowsResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
-      parameters:
         - name: body
-          description: Withdraw deposit from the bidder registry.
+          description: Withdraw deposits from provider(s).
           in: body
           required: true
           schema:
-            $ref: '#/definitions/v1WithdrawFromWindowsRequest'
+            $ref: '#/definitions/v1WithdrawRequest'
 definitions:
   GetBidInfoResponseBidInfo:
     type: object
@@ -343,27 +389,6 @@ definitions:
       refund:
         type: string
         description: Refund amount in wei for the commitment, if applicable.
-  bidderapiv1AutoDeposit:
-    type: object
-    properties:
-      depositedAmount:
-        type: string
-        description: Deposited amount of ETH in wei.
-      windowNumber:
-        type: string
-        format: uint64
-        description: Window number for the deposit.
-      isCurrent:
-        type: boolean
-        description: Indicates if the window is the current window.
-      startBlockNumber:
-        type: string
-        format: uint64
-        description: The initial L1 block number for the window.
-      endBlockNumber:
-        type: string
-        format: uint64
-        description: The final L1 block number for the window.
   bidderapiv1Bid:
     type: object
     example:
@@ -493,68 +518,76 @@ definitions:
       '@type':
         type: string
     additionalProperties: {}
-  v1AutoDepositResponse:
+  v1DepositEvenlyResponse:
     type: object
-    example:
-      amount_per_window: "1000000000000000000"
-      start_window_number: "1"
     properties:
-      startWindowNumber:
-        type: string
-        format: uint64
-      amountPerWindow:
-        type: string
-    description: Response on AutoDeposit request.
-    title: AutoDeposit response
-  v1AutoDepositStatusResponse:
-    type: object
-    example:
-      isAutodepositEnabled: true
-      window_balances:
-        - depositedAmount: "1000000000000000000"
-          window_number: 1
-        - depositedAmount: "1000000000000000000"
-          window_number: 2
-        - depositedAmount: "1000000000000000000"
-          window_number: 3
-    properties:
-      windowBalances:
-        type: array
-        items:
-          type: object
-          $ref: '#/definitions/bidderapiv1AutoDeposit'
-      isAutodepositEnabled:
-        type: boolean
-    description: AutoDeposit status from the bidder registry.
-    title: AutoDeposit status response
-  v1CancelAutoDepositResponse:
-    type: object
-    example:
-      window_numbers:
-        - 1
-        - 2
-        - 3
-    properties:
-      windowNumbers:
+      providers:
         type: array
         items:
           type: string
-          format: uint64
-    description: CancelAutoDeposit deposit from the bidder registry.
-    title: CancelAutoDeposit response
+      amounts:
+        type: array
+        items:
+          type: string
+    description: Deposits some amount of ETH evenly across multiple providers.
+    title: Deposit evenly response
+  v1DepositInfo:
+    type: object
+    properties:
+      provider:
+        type: string
+      amount:
+        type: string
+  v1DepositManagerStatusResponse:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      targetDeposits:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1TargetDeposit'
+    description: DepositManagerStatus response.
+    title: DepositManagerStatus response
   v1DepositResponse:
     type: object
     example:
       amount: "1000000000000000000"
-      window_number: 1
+      provider: "0x0000000000000000000000000000000000000000"
     properties:
       amount:
         type: string
-      windowNumber:
+      provider:
         type: string
-        format: uint64
-    description: Deposit for bidder in the bidder registry for a particular window.
+    description: Deposit for bidder in the bidder registry for a particular provider.
     title: Deposit response
+  v1DisableDepositManagerResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+    description: DisableDepositManager response.
+    title: DisableDepositManager response
+  v1EnableDepositManagerResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+    description: EnableDepositManager response.
+    title: EnableDepositManager response
+  v1GetAllDepositsResponse:
+    type: object
+    properties:
+      deposits:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1DepositInfo'
+      bidderBalance:
+        type: string
+    description: GetAllDeposits response.
+    title: GetAllDeposits response
   v1GetBidInfoResponse:
     type: object
     properties:
@@ -564,52 +597,99 @@ definitions:
           type: object
           $ref: '#/definitions/GetBidInfoResponseBlockBidInfo'
         description: List of block bid info containing bids and their commitments.
-  v1WithdrawFromWindowsRequest:
+  v1GetValidProvidersResponse:
     type: object
-    example:
-      window_numbers:
-        - 1
-        - 2
-        - 3
     properties:
-      windowNumbers:
+      validProviders:
         type: array
         items:
           type: string
-          format: uint64
-        description: Window numbers for withdrawing deposits.
-    description: Withdraw deposit from the bidder registry.
-    title: Withdraw from multiple windows request
-    required:
-      - windowNumbers
-  v1WithdrawFromWindowsResponse:
+    description: GetValidProviders response.
+    title: GetValidProviders response
+  v1RequestWithdrawalsRequest:
+    type: object
+    properties:
+      providers:
+        type: array
+        items:
+          type: string
+        description: Provider Ethereum addresses.
+    description: Request withdrawals from provider(s).
+    title: RequestWithdrawals request
+  v1RequestWithdrawalsResponse:
     type: object
     example:
-      withdraw_responses:
-        - amount: "1000000000000000000"
-          window_number: 1
-        - amount: "1000000000000000000"
-          window_number: 2
-        - amount: "1000000000000000000"
-          window_number: 3
+      amounts:
+        - "1000000000000000000"
+      providers:
+        - "0x0000000000000000000000000000000000000000"
     properties:
-      withdrawResponses:
+      providers:
+        type: array
+        items:
+          type: string
+      amounts:
+        type: array
+        items:
+          type: string
+    description: Request withdrawals from provider(s).
+    title: RequestWithdrawals response
+  v1SetTargetDepositsRequest:
+    type: object
+    properties:
+      targetDeposits:
         type: array
         items:
           type: object
-          $ref: '#/definitions/v1WithdrawResponse'
-    description: Withdrawn deposit from the bidder registry.
-    title: Withdraw from multiple windows response
+          $ref: '#/definitions/v1TargetDeposit'
+    description: OverrideTargetDepositsRequest request.
+    title: OverrideTargetDepositsRequest request
+  v1SetTargetDepositsResponse:
+    type: object
+    properties:
+      successfullySetDeposits:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1TargetDeposit'
+      successfullyToppedUpProviders:
+        type: array
+        items:
+          type: string
+    description: OverrideTargetDepositsResponse response.
+    title: OverrideTargetDepositsResponse response
+  v1TargetDeposit:
+    type: object
+    properties:
+      provider:
+        type: string
+      targetDeposit:
+        type: string
+  v1WithdrawRequest:
+    type: object
+    properties:
+      providers:
+        type: array
+        items:
+          type: string
+        description: Provider Ethereum addresses.
+    description: Withdraw deposits from provider(s).
+    title: Withdraw request
   v1WithdrawResponse:
     type: object
     example:
-      amount: "1000000000000000000"
-      window_number: 1
+      amounts:
+        - "1000000000000000000"
+      providers:
+        - "0x0000000000000000000000000000000000000000"
     properties:
-      amount:
-        type: string
-      windowNumber:
-        type: string
-        format: uint64
+      amounts:
+        type: array
+        items:
+          type: string
+      providers:
+        type: array
+        items:
+          type: string
     description: Withdrawn deposit from the bidder registry.
     title: Withdraw response

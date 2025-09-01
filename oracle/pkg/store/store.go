@@ -33,8 +33,7 @@ CREATE TABLE IF NOT EXISTS settlements (
 	chainhash TEXT,
 	nonce BIGINT,
 	settled BOOLEAN,
-	decay_percentage BIGINT,
-	settlement_window BIGINT
+	decay_percentage BIGINT
 );`
 
 var encryptedCommitmentsTable = `
@@ -49,8 +48,7 @@ CREATE TABLE IF NOT EXISTS encrypted_commitments (
 var winnersTable = `
 CREATE TABLE IF NOT EXISTS winners (
 	block_number BIGINT PRIMARY KEY,
-	builder_address TEXT,
-	settlement_window BIGINT
+	builder_address TEXT
 );`
 
 var transactionsTable = `
@@ -97,14 +95,13 @@ func (s *Store) RegisterWinner(
 	ctx context.Context,
 	blockNum int64,
 	winner []byte,
-	window int64,
 ) error {
-	insertStr := "INSERT INTO winners (block_number, builder_address, settlement_window) VALUES ($1, $2, $3)"
+	insertStr := "INSERT INTO winners (block_number, builder_address) VALUES ($1, $2)"
 
 	// Convert winner to base64 string for storage
 	winnerBase64 := base64.StdEncoding.EncodeToString(winner)
 
-	_, err := s.db.ExecContext(ctx, insertStr, blockNum, winnerBase64, window)
+	_, err := s.db.ExecContext(ctx, insertStr, blockNum, winnerBase64)
 	if err != nil {
 		return err
 	}
@@ -119,9 +116,9 @@ func (s *Store) GetWinner(
 	var winnerBase64 string
 	err := s.db.QueryRowContext(
 		ctx,
-		"SELECT builder_address, settlement_window FROM winners WHERE block_number = $1",
+		"SELECT builder_address FROM winners WHERE block_number = $1",
 		blockNum,
-	).Scan(&winnerBase64, &winner.Window)
+	).Scan(&winnerBase64)
 	if err != nil {
 		return winner, err
 	}
@@ -207,7 +204,6 @@ func (s *Store) AddSettlement(
 	bidID []byte,
 	settlementType updater.SettlementType,
 	decayPercentage int64,
-	window int64,
 	postingTxnHash []byte,
 	postingTxnNonce uint64,
 ) error {
@@ -223,7 +219,6 @@ func (s *Store) AddSettlement(
 		"chainhash",
 		"nonce",
 		"decay_percentage",
-		"settlement_window",
 	}
 
 	// Convert byte slices to base64 strings for storage
@@ -244,7 +239,6 @@ func (s *Store) AddSettlement(
 		postingTxnHashBase64,
 		postingTxnNonce,
 		decayPercentage,
-		window,
 	}
 	placeholder := make([]string, len(values))
 	for i := range columns {

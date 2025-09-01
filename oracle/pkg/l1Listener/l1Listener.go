@@ -31,7 +31,7 @@ type L1Recorder interface {
 }
 
 type WinnerRegister interface {
-	RegisterWinner(ctx context.Context, blockNum int64, winner []byte, window int64) error
+	RegisterWinner(ctx context.Context, blockNum int64, winner []byte) error
 	LastWinnerBlock() (int64, error)
 }
 
@@ -101,13 +101,11 @@ func (l *L1Listener) Start(ctx context.Context) <-chan struct{} {
 				"new L1 block event",
 				"block", update.BlockNumber,
 				"winner", update.Winner.String(),
-				"window", update.Window,
 			)
 			err := l.winnerRegister.RegisterWinner(
 				ctx,
 				update.BlockNumber.Int64(),
 				update.Winner.Bytes(),
-				update.Window.Int64(),
 			)
 			if err != nil {
 				l.logger.Error(

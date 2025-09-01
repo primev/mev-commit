@@ -7,8 +7,6 @@ abstract contract BlockTrackerStorage {
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
     
-    uint256 public currentWindow;
-
     // Mapping from block number to the winner's address
     mapping(uint256 => address) public blockWinners;
 
