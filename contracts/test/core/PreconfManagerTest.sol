@@ -1135,8 +1135,6 @@ contract PreconfManagerTest is Test {
         );
     }
 
-<<<<<<< HEAD
-=======
     function test_BidOptionsAffectsBidHash() public view {
         //empty options
         IPreconfManager.OpenCommitmentParams memory a = IPreconfManager.OpenCommitmentParams({
@@ -1168,7 +1166,7 @@ contract PreconfManagerTest is Test {
 
         // Fund & deposit so open path won’t fail on accounting.
         vm.deal(bidder, 5 ether);
-        depositForBidder(bidder, _testCommitmentAliceBob.blockNumber);
+        bidderRegistry.depositAsBidder{value: 2 ether}(committer);
 
         // Build a commitment with bidOptions = 0x01 and compute fresh sigs.
         TestCommitment memory C = _testCommitmentAliceBob;
@@ -1262,7 +1260,7 @@ contract PreconfManagerTest is Test {
 
         // Prepare funds + store unopened + declare winner
         vm.deal(bidder, 5 ether);
-        depositForBidder(bidder, C.blockNumber);
+        bidderRegistry.depositAsBidder{value: 2 ether}(committer);
         // Make committer valid (same flow your helper uses)
         vm.deal(committer, 11 ether);
         vm.startPrank(committer);
@@ -1344,19 +1342,6 @@ contract PreconfManagerTest is Test {
         assertEq(stored.bidOptions, opts, "bidOptions bytes should be persisted unchanged");
     }
 
-    function depositForBidder(
-        address bidder,
-        uint64 blockNumber
-    ) internal returns (uint256) {
-        vm.prank(bidder);
-        uint256 depositWindow = WindowFromBlockNumber.getWindowFromBlockNumber(
-            blockNumber
-        );
-        bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
-        return depositWindow;
-    }
-
->>>>>>> ff5667be (small contract change, test fixes + additional tests)
     function storeFirstCommitment(
         address committer,
         TestCommitment memory testCommitment
