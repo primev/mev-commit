@@ -244,6 +244,7 @@ func (s *Service) SendBid(
 			DecayEndTimestamp:    b.DecayEndTimestamp,
 			DispatchTimestamp:    resp.DispatchTimestamp,
 			RevertingTxHashes:    strings.Split(b.RevertingTxHashes, ","),
+			BidOptions:           bid.BidOptions,
 		})
 		if err != nil {
 			s.logger.Error("sending preConfirmation", "error", err)
