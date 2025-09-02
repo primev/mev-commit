@@ -686,9 +686,9 @@ func main() {
 				}
 			} else {
 				contractAddresses = []common.Address{
-					common.HexToAddress(config.HoleskyContracts.VanillaRegistry),
-					common.HexToAddress(config.HoleskyContracts.MevCommitAVS),
-					common.HexToAddress(config.HoleskyContracts.MevCommitMiddleware),
+					common.HexToAddress(config.HoodiContracts.VanillaRegistry),
+					common.HexToAddress(config.HoodiContracts.MevCommitAVS),
+					common.HexToAddress(config.HoodiContracts.MevCommitMiddleware),
 				}
 			}
 			pub.AddContracts(contractAddresses...)
@@ -902,7 +902,7 @@ func main() {
 							if c.Bool(optionMainnet.Name) {
 								routerAddr = common.HexToAddress(config.EthereumContracts.ValidatorOptInRouter)
 							} else {
-								routerAddr = common.HexToAddress(config.HoleskyContracts.ValidatorOptInRouter)
+								routerAddr = common.HexToAddress(config.HoodiContracts.ValidatorOptInRouter)
 							}
 							routerCaller, err := validatoroptinrouter.NewValidatoroptinrouterCaller(routerAddr, ethClient)
 							if err != nil {
