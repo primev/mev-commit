@@ -39,6 +39,6 @@ var DefaultsL1Contracts = map[string]L1Contracts{
 		ValidatorOptInRouter: EthereumContracts.ValidatorOptInRouter,
 	},
 	TestnetChainID.String(): {
-		ValidatorOptInRouter: HoleskyContracts.ValidatorOptInRouter,
+		ValidatorOptInRouter: HoodiContracts.ValidatorOptInRouter,
 	},
 }

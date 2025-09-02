@@ -40,7 +40,7 @@ var (
 		Name:    "l1-rpc-url",
 		Usage:   "URL of the L1 RPC",
 		EnvVars: []string{"BIDDER_CLI_L1_RPC_URL"},
-		Value:   "https://ethereum-holesky-rpc.publicnode.com",
+		Value:   "https://ethereum-hoodi-rpc.publicnode.com",
 	}
 	optionVerbose = &cli.BoolFlag{
 		Name:    "verbose",
