@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -227,6 +229,34 @@ func (o *orchestrator) Close() error {
 	return errs
 }
 
+func (o *orchestrator) setupBidderDeposits() error {
+	perProviderAmount := new(big.Int)
+	perProviderAmount.SetString("1000000000000000000", 10) // 1 ETH
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if len(o.providers) == 0 || len(o.bidders) == 0 {
+		return nil
+	}
+	providerAddrs := make([]string, 0, len(o.providers))
+	for _, p := range o.providers {
+		providerAddrs = append(providerAddrs, p.EthAddress())
+	}
+	total := new(big.Int).Mul(perProviderAmount, big.NewInt(int64(len(providerAddrs))))
+
+	for _, b := range o.bidders {
+		_, err := b.BidderAPI().DepositEvenly(ctx, &bidderapiv1.DepositEvenlyRequest{
+			Providers:   providerAddrs,
+			TotalAmount: total.String(),
+		})
+		if err != nil {
+			o.logger.Error("failed bidder deposit", "bidder", b.EthAddress(), "error", err)
+			return fmt.Errorf("deposit for bidder %s: %w", b.EthAddress(), err)
+		}
+	}
+	return nil
+}
+
 func createNodes[T any](logger *slog.Logger, rpcAddrs []string) ([]T, error) {
 	nodes := make([]T, 0, len(rpcAddrs))
 	for _, rpcAddr := range rpcAddrs {
@@ -297,7 +327,7 @@ func NewOrchestrator(opts Options) (Orchestrator, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := evtPublisher.Start(ctx, contractAddrs...)
 
-	return &orchestrator{
+	orc := &orchestrator{
 		providers:  providers,
 		bidders:    bidders,
 		bootnodes:  bootnodes,
@@ -306,7 +336,12 @@ func NewOrchestrator(opts Options) (Orchestrator, error) {
 		logger:     opts.Logger,
 		pubCancel:  cancel,
 		pubStopped: stopped,
-	}, nil
+	}
+
+	if err := orc.setupBidderDeposits(); err != nil {
+		return nil, err
+	}
+	return orc, nil
 }
 
 func getContractABIs(opts Options) (map[common.Address]*abi.ABI, error) {

@@ -200,6 +200,7 @@ func TestTracker(t *testing.T) {
 		RevertingTxHashes:   commitments[4].Bid.RevertingTxHashes,
 		CommitmentDigest:    common.BytesToHash(commitments[4].Digest),
 		DispatchTimestamp:   uint64(1),
+		BidOptions:          []byte("dummy options"),
 	})
 
 	if err != nil {
@@ -210,7 +211,6 @@ func TestTracker(t *testing.T) {
 		publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
 			BlockNumber: big.NewInt(int64(i)),
 			Winner:      winnerProvider,
-			Window:      big.NewInt(1),
 		})
 	}
 
@@ -271,12 +271,10 @@ func TestTracker(t *testing.T) {
 	publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
 		BlockNumber: big.NewInt(6),
 		Winner:      winnerProvider,
-		Window:      big.NewInt(1),
 	})
 	publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
 		BlockNumber: big.NewInt(7),
 		Winner:      winnerProvider,
-		Window:      big.NewInt(1),
 	})
 
 	opened = []*store.Commitment{
@@ -360,7 +358,6 @@ func TestTracker(t *testing.T) {
 				evtMgr,
 				&brABI,
 				bidderregistry.BidderregistryFundsRewarded{
-					Window:           big.NewInt(int64(c.Bid.BlockNumber)),
 					Amount:           big.NewInt(900),
 					CommitmentDigest: common.BytesToHash(c.Digest),
 					Bidder:           common.HexToAddress("0x1234"),
@@ -386,11 +383,11 @@ func TestTracker(t *testing.T) {
 			err = publishReturn(
 				evtMgr,
 				&brABI,
-				bidderregistry.BidderregistryFundsRetrieved{
-					Window:           big.NewInt(int64(c.Bid.BlockNumber)),
+				bidderregistry.BidderregistryFundsUnlocked{
 					Amount:           big.NewInt(900),
 					CommitmentDigest: common.BytesToHash(c.Digest),
 					Bidder:           common.HexToAddress("0x1234"),
+					Provider:         common.HexToAddress("0x1234"),
 				},
 			)
 			if err != nil {
@@ -447,7 +444,6 @@ func TestTracker(t *testing.T) {
 	publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
 		BlockNumber: big.NewInt(10012),
 		Winner:      winnerProvider,
-		Window:      big.NewInt(1001),
 	})
 
 	start = time.Now()
@@ -567,6 +563,145 @@ func TestTrackerIgnoreOldBlocks(t *testing.T) {
 
 	cancel()
 
+	<-doneChan
+}
+
+func TestOtherProviderWonBlockNotification(t *testing.T) {
+	t.Parallel()
+
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+	brABI, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+	orABI, err := abi.JSON(strings.NewReader(oracle.OracleABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	evtMgr := events.NewListener(
+		util.NewTestLogger(os.Stdout),
+		&btABI,
+		&pcABI,
+		&brABI,
+		&orABI,
+	)
+
+	st := store.New(inmemstorage.New())
+
+	contract := &testPreconfContract{
+		openedCommitments: make(chan openedCommitment, 1),
+	}
+
+	watcher := &mockWatcher{}
+	notifier := &mockNotifier{
+		evt: make(chan *notifications.Notification, 1),
+	}
+
+	sk, pk, err := crypto.GenerateKeyPairBN254()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tracker := preconftracker.NewTracker(
+		big.NewInt(5),
+		p2p.PeerTypeProvider,
+		common.HexToAddress("0x1234"),
+		evtMgr,
+		st,
+		contract,
+		watcher,
+		notifier,
+		pk,
+		sk,
+		func(context.Context) (*bind.TransactOpts, error) {
+			return &bind.TransactOpts{
+				From: common.HexToAddress("0x1234"),
+			}, nil
+		},
+		util.NewTestLogger(os.Stdout),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	doneChan := tracker.Start(ctx)
+
+	winnerProvider := common.HexToAddress("0x1111")
+	loserProvider := common.HexToAddress("0x2222")
+	bidderAddr := common.HexToAddress("0x3333")
+
+	digest := common.HexToHash("0xabc")
+	cmt := &store.Commitment{
+		EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+			Commitment: digest.Bytes(),
+			Signature:  []byte("sig"),
+		},
+		PreConfirmation: &preconfpb.PreConfirmation{
+			Bid: &preconfpb.Bid{
+				TxHash:              common.HexToHash("0xdeadbeef").String(),
+				BidAmount:           "100",
+				SlashAmount:         "0",
+				BlockNumber:         1,
+				DecayStartTimestamp: 1,
+				DecayEndTimestamp:   2,
+				Digest:              digest.Bytes(),
+				Signature:           []byte("bidsig"),
+			},
+			Digest:          digest.Bytes(),
+			Signature:       []byte("pcs"),
+			ProviderAddress: loserProvider.Bytes(),
+			SharedSecret:    []byte("shared"),
+		},
+		BidderAddress: &bidderAddr,
+		BidAmount:     big.NewInt(100),
+	}
+
+	if err := tracker.TrackCommitment(context.Background(), cmt, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := publishUnopenedCommitment(evtMgr, &pcABI, preconf.PreconfmanagerUnopenedCommitmentStored{
+		Committer:           loserProvider,
+		CommitmentIndex:     common.HexToHash("0x01"),
+		CommitmentDigest:    digest,
+		CommitmentSignature: cmt.EncryptedPreConfirmation.Signature,
+		DispatchTimestamp:   uint64(1),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	cmt.CommitmentIndex = common.HexToHash("0x01").Bytes()
+
+	publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
+		BlockNumber: big.NewInt(1),
+		Winner:      winnerProvider, // Different than commitment provider
+	})
+
+	select {
+	case n := <-notifier.evt:
+		if n.Topic() != notifications.TopicOtherProviderWonBlock {
+			t.Fatalf("expected topic %s, got %s", notifications.TopicOtherProviderWonBlock, n.Topic())
+		}
+		val := n.Value()
+		if val == nil {
+			t.Fatal("expected non-nil notification payload")
+		}
+		if got, ok := val["bidder"].(string); !ok || got != common.Bytes2Hex(bidderAddr[:]) {
+			t.Fatalf("expected bidder %s, got %v", common.Bytes2Hex(bidderAddr[:]), val["bidder"])
+		}
+		if got, ok := val["bidAmount"].(string); !ok || got != "100" {
+			t.Fatalf("expected bidAmount 100, got %v", val["bidAmount"])
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for TopicOtherProviderWonBlock notification")
+	}
+
+	cancel()
 	<-doneChan
 }
 
@@ -690,6 +825,7 @@ func publishOpenedCommitment(
 		c.RevertingTxHashes,
 		c.CommitmentDigest,
 		c.DispatchTimestamp,
+		c.BidOptions,
 	)
 	if err != nil {
 		return err
@@ -724,7 +860,6 @@ func publishNewWinner(
 			event.ID,                        // The first topic is the hash of the event signature
 			common.BigToHash(w.BlockNumber), // The next topics are the indexed event parameters
 			common.HexToHash(w.Winner.Hex()),
-			common.BigToHash(w.Window),
 		},
 		// Non-indexed parameters are stored in the Data field
 		Data: nil,
@@ -768,7 +903,6 @@ func publishReward(
 ) error {
 	event := brABI.Events["FundsRewarded"]
 	buf, err := event.Inputs.NonIndexed().Pack(
-		r.Window,
 		r.Amount,
 	)
 	if err != nil {
@@ -793,9 +927,9 @@ func publishReward(
 func publishReturn(
 	evtMgr events.EventManager,
 	brABI *abi.ABI,
-	r bidderregistry.BidderregistryFundsRetrieved,
+	r bidderregistry.BidderregistryFundsUnlocked,
 ) error {
-	event := brABI.Events["FundsRetrieved"]
+	event := brABI.Events["FundsUnlocked"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		r.Amount,
 	)
@@ -809,7 +943,7 @@ func publishReturn(
 			event.ID, // The first topic is the hash of the event signature
 			r.CommitmentDigest,
 			common.HexToHash(r.Bidder.Hex()),
-			common.BigToHash(r.Window),
+			common.HexToHash(r.Provider.Hex()),
 		},
 		Data: buf,
 	}

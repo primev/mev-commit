@@ -35,67 +35,102 @@ service Bidder {
 
   // Deposit
   //
-  // Deposit is called by the bidder node to add deposit in the bidder registry. The bidder can deposit
-  // funds in a particular window by specifying the window number. If the window number is not specified,
-  // the current block number is used to calculate the window number. If the block number is specified,
-  // the window number is calculated based on the block number. If AutoDeposit is enabled, the deposit
-  // API returns error.
+  // Deposit is called by the bidder node to add deposit in the bidder registry, specific to a provider.
   rpc Deposit(DepositRequest) returns (DepositResponse) {
     option (google.api.http) = {post: "/v1/bidder/deposit/{amount}"};
   }
 
-  // AutoDeposit
+  // DepositEvenly
   //
-  // AutoDeposit is called by the bidder node to add a recurring deposit in the bidder registry. The bidder
-  // can specify the amount of ETH to be deposited in each window. The bidder can also specify the start window
-  // number for the deposit. If the start window number is not specified, the current block number is used to
-  // calculate the window number. If the block number is specified, the window number is calculated based on
-  // the block number. Once it is enabled, the node will automatically deposit the specified amount in each window
-  // as well as withdraw the deposit from the previous window.
-  rpc AutoDeposit(DepositRequest) returns (AutoDepositResponse) {
-    option (google.api.http) = {post: "/v1/bidder/auto_deposit/{amount}"};
+  // DepositEvenly is called by the bidder node to deposit a total amount evenly across multiple providers.
+  rpc DepositEvenly(DepositEvenlyRequest) returns (DepositEvenlyResponse) {
+    option (google.api.http) = {post: "/v1/bidder/deposit_evenly"};
   }
 
-  // CancelAutoDeposit
+  // EnableDepositManager
   //
-  // CancelAutoDeposit is called by the bidder node to cancel the auto deposit. The bidder can specify if it
-  // wants to withdraw the deposit from the current deposited windows. If the withdraw flag is set to true, the API will
-  // wait till we can withdraw the deposit from the latest deposited window.
-  rpc CancelAutoDeposit(CancelAutoDepositRequest) returns (CancelAutoDepositResponse) {
-    option (google.api.http) = {post: "/v1/bidder/cancel_auto_deposit"};
+  // EnableDepositManager is called by the bidder node to enable the deposit manager via eip 7702.
+  rpc EnableDepositManager(EnableDepositManagerRequest) returns (EnableDepositManagerResponse) {
+    option (google.api.http) = {post: "/v1/bidder/enable_deposit_manager"};
   }
 
-  // AutoDepositStatus
+  // DisableDepositManager
   //
-  // AutoDepositStatus is called by the bidder node to get the status of the auto deposit.
-  rpc AutoDepositStatus(EmptyMessage) returns (AutoDepositStatusResponse) {
-    option (google.api.http) = {get: "/v1/bidder/auto_deposit_status"};
+  // DisableDepositManager is called by the bidder node to disable the deposit manager 
+  // by setting the bidder EOA's code to zero address.
+  rpc DisableDepositManager(DisableDepositManagerRequest) returns (DisableDepositManagerResponse) {
+    option (google.api.http) = {post: "/v1/bidder/disable_deposit_manager"};
   }
 
-  // WithdrawFromWindows
+  // SetTargetDeposits
   //
-  // WithdrawFromWindows is called by the bidder node to withdraw funds from multiple windows.
-  rpc WithdrawFromWindows(WithdrawFromWindowsRequest) returns (WithdrawFromWindowsResponse) {
+  // SetTargetDeposits is called by the bidder node to set target deposits per provider
+  // within the deposit manager. During this call, the bidder node will also attempt to top-up
+  // deposits for each new target deposit.
+  rpc SetTargetDeposits(SetTargetDepositsRequest) returns (SetTargetDepositsResponse) {
     option (google.api.http) = {
-      post: "/v1/bidder/withdraw_from_windows"
+      post: "/v1/bidder/set_target_deposits"
       body: "*"
     };
   }
 
+  // DepositManagerStatus
+  //
+  // DepositManagerStatus is called by the bidder node to query whether the bidder
+  // has enabled the deposit manager via eip 7702.
+  rpc DepositManagerStatus(DepositManagerStatusRequest) returns (DepositManagerStatusResponse) {
+    option (google.api.http) = {get: "/v1/bidder/deposit_manager_status"};
+  }
+
+  // RequestWithdrawals
+  //
+  // RequestWithdrawals is called by the bidder node to request withdrawals from provider(s)
+  rpc RequestWithdrawals(RequestWithdrawalsRequest) returns (RequestWithdrawalsResponse) {
+    option (google.api.http) = {
+      post: "/v1/bidder/request_withdrawals"
+      body: "*"
+    };
+  }
+
+  // GetValidProviders
+  //
+  // GetValidProviders is called by the bidder node to get a list of all valid providers.
+  // Each provider returned by this RPC must:
+  // - Be "registered" in the provider registry
+  // - Have deposit >= minStake in provider registry
+  // - Have no pending withdrawal request with provider registry
+  // - Have at least one BLS key registered with provider registry
+  rpc GetValidProviders(GetValidProvidersRequest) returns (GetValidProvidersResponse) {
+    option (google.api.http) = {get: "/v1/bidder/get_valid_providers"};
+  }
+
   // GetDeposit
   //
-  // GetDeposit is called by the bidder to get its deposit in the bidder registry.
+  // GetDeposit is called by the bidder to get its deposit specific to a provider in the bidder registry.
   rpc GetDeposit(GetDepositRequest) returns (DepositResponse) {
     option (google.api.http) = {
       get: "/v1/bidder/get_deposit"
     };
   }
+
+  // GetAllDeposits
+  //
+  // GetAllDeposits is called by the bidder to get all its deposits in the bidder registry,
+  // and the balance of the bidder EOA itself.
+  rpc GetAllDeposits(GetAllDepositsRequest) returns (GetAllDepositsResponse) {
+    option (google.api.http) = {get: "/v1/bidder/get_all_deposits"};
+  }
+
   // Withdraw
   //
-  // Withdraw is called by the bidder to withdraw deposit from the bidder registry.
+  // Withdraw is called by the bidder to withdraw their deposit to a provider.
   rpc Withdraw(WithdrawRequest) returns (WithdrawResponse) {
-    option (google.api.http) = {post: "/v1/bidder/withdraw"};
+    option (google.api.http) = {
+      post: "/v1/bidder/withdraw"
+      body: "*"
+    };
   }
+
   // GetBidInfo
   //
   // GetBidInfo is called by the bidder to get the bid information. If block number is not specified,
@@ -103,6 +138,7 @@ service Bidder {
   rpc GetBidInfo(GetBidInfoRequest) returns (GetBidInfoResponse) {
     option (google.api.http) = {get: "/v1/bidder/get_bid_info"};
   }
+
   // ClaimSlashedFunds
   //
   // ClaimSlashedFunds is called by the bidder to claim slashed funds from the provider. The response
@@ -116,8 +152,8 @@ message DepositRequest {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
       title: "Deposit request"
-      description: "Deposit for bids to be issued by the bidder in wei."
-      required: ["amount"]
+      description: "Deposit for bids to be issued by the bidder in wei, specific to a provider."
+      required: ["amount", "provider"]
     }
   };
   string amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
@@ -129,128 +165,228 @@ message DepositRequest {
       message: "amount must be a valid integer.",
       expression: "this.matches('^[1-9][0-9]*$')"
   }];
-  google.protobuf.UInt64Value window_number = 2 [
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-      description: "Optional window number for querying deposit. If not specified, the current block number is used.",
-      example: "1"
-    }, (buf.validate.field).cel = {
-      id: "window_number",
-      message: "window_number must be a positive integer if specified.",
-      expression: "this == null || (this > 0)"
-    }];
-  google.protobuf.UInt64Value block_number = 3 [
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-      description: "Optional block number for querying deposit. If specified, calculate window based on this block number.",
-      example: "123456"
-    }, (buf.validate.field).cel = {
-      id: "block_number",
-      message: "block_number must be a positive integer if specified.",
-      expression: "this == null || (this > 0)"
-    }];
+  string provider = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Provider Ethereum address.",
+    example: "\"0x0000000000000000000000000000000000000000\""
+  }, (buf.validate.field).cel = {
+      id: "provider",
+      message: "provider must be a valid Ethereum address.",
+      expression: "this.matches('^(0x)?[a-fA-F0-9]{40}$')"
+  }];
 };
 
 message DepositResponse {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
       title: "Deposit response"
-      description: "Deposit for bidder in the bidder registry for a particular window."
+      description: "Deposit for bidder in the bidder registry for a particular provider."
     }
-    example: "{\"amount\": \"1000000000000000000\", \"window_number\": 1}"
+    example: "{\"amount\": \"1000000000000000000\", \"provider\": \"0x0000000000000000000000000000000000000000\"}"
   };
   string amount = 1;
-  google.protobuf.UInt64Value window_number = 2;
+  string provider = 2;
 };
 
-message AutoDepositResponse {
+message DepositEvenlyRequest {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
-      title: "AutoDeposit response"
-      description: "Response on AutoDeposit request."
+      title: "Deposit evenly request"
+      description: "Deposits some amount of ETH evenly across multiple providers."
     }
-    example: "{\"start_window_number\": \"1\", \"amount_per_window\": \"1000000000000000000\"}"
   };
-  google.protobuf.UInt64Value start_window_number = 1;
-  string amount_per_window = 2;
-};
+  string total_amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Total amount of ETH to be deposited in wei.",
+    pattern: "[0-9]+",
+    example: "1000000000000000000"
+  }, (buf.validate.field).cel = {
+      id: "total_amount",
+      message: "total_amount must be a valid integer.",
+      expression: "this.matches('^[1-9][0-9]*$')"
+  }];
+  repeated string providers = 2 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = { description: "Provider Ethereum addresses." },
+    (buf.validate.field).cel = {
+      id: "providers",
+      message: "providers must be a valid array of Ethereum addresses.",
+      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{40}$'))"
+  }];
+}
 
-message AutoDepositStatusResponse {
+message DepositEvenlyResponse {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
-      title: "AutoDeposit status response"
-      description: "AutoDeposit status from the bidder registry."
+      title: "Deposit evenly response"
+      description: "Deposits some amount of ETH evenly across multiple providers."
     }
-    example: "{\"window_balances\": [{\"depositedAmount\": \"1000000000000000000\", \"window_number\": 1}, {\"depositedAmount\": \"1000000000000000000\", \"window_number\": 2}, {\"depositedAmount\": \"1000000000000000000\", \"window_number\": 3}], \"isAutodepositEnabled\": true}"
   };
-  repeated AutoDeposit window_balances = 1;
-  bool is_autodeposit_enabled = 2;
-};
+  repeated string providers = 1;
+  repeated string amounts = 2;
+}
 
-message CancelAutoDepositRequest {
+message EnableDepositManagerRequest {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
-      title: "CancelAutoDeposit request"
-      description: "Request to cancel AutoDeposit."
+      title: "EnableDepositManager request"
+      description: "EnableDepositManager request."
     }
   };
-  bool withdraw = 1;
-};
+}
 
-message CancelAutoDepositResponse {
+message EnableDepositManagerResponse {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
-      title: "CancelAutoDeposit response"
-      description: "CancelAutoDeposit deposit from the bidder registry."
+      title: "EnableDepositManager response"
+      description: "EnableDepositManager response."
     }
-    example: "{\"window_numbers\": [1, 2, 3]}"
   };
-  repeated google.protobuf.UInt64Value window_numbers = 1;
-};
+  bool success = 1;
+}
 
-message AutoDeposit {
-  string depositedAmount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Deposited amount of ETH in wei."
-  }];
-  google.protobuf.UInt64Value window_number = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Window number for the deposit."
-  }];
-  bool is_current = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Indicates if the window is the current window."
-  }];
-  google.protobuf.UInt64Value start_block_number = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "The initial L1 block number for the window."
-  }];
-  google.protobuf.UInt64Value end_block_number = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "The final L1 block number for the window."
-  }];
+message DisableDepositManagerRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "DisableDepositManager request"
+      description: "DisableDepositManager request."
+    }
+  };
+}
+
+message DisableDepositManagerResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "DisableDepositManager response"
+      description: "DisableDepositManager response."
+    }
+  };
+  bool success = 1;
+}
+
+message TargetDeposit {
+  string provider = 1;
+  string target_deposit = 2;
+}
+
+message SetTargetDepositsRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "OverrideTargetDepositsRequest request"
+      description: "OverrideTargetDepositsRequest request."
+    }
+  };
+  repeated TargetDeposit target_deposits = 1;
+}
+
+message SetTargetDepositsResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "OverrideTargetDepositsResponse response"
+      description: "OverrideTargetDepositsResponse response."
+    }
+  };
+  repeated TargetDeposit successfully_set_deposits = 1;
+  repeated string successfully_topped_up_providers = 2;
+}
+
+message DepositManagerStatusRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "DepositManagerStatus request"
+      description: "DepositManagerStatus request."
+    }
+  };
+}
+
+message DepositManagerStatusResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "DepositManagerStatus response"
+      description: "DepositManagerStatus response."
+    }
+  };
+  bool enabled = 1;
+  repeated TargetDeposit target_deposits = 2;
 }
 
 message EmptyMessage {};
 
 message GetDepositRequest {
-  google.protobuf.UInt64Value window_number = 1 [
+  string provider = 1 [
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-      description: "Optional window number for querying deposits. If not specified, the current block number is used."
+      description: "Provider Ethereum address."
     }, (buf.validate.field).cel = {
-      id: "window_number",
-      message: "window_number must be a positive integer if specified.",
-      expression: "this == null || (this > 0)"
+      id: "provider",
+      message: "provider must be a valid Ethereum address.",
+      expression: "this.matches('^(0x)?[a-fA-F0-9]{40}$')"
     }];
+}
+
+message GetAllDepositsRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "GetAllDeposits request"
+      description: "GetAllDeposits request."
+    }
+  };
+}
+
+message DepositInfo {
+  string provider = 1;
+  string amount = 2;
+}
+
+message GetAllDepositsResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "GetAllDeposits response"
+      description: "GetAllDeposits response."
+    }
+  };
+  repeated DepositInfo deposits = 1;
+  string bidder_balance = 2;
+}
+
+message RequestWithdrawalsRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "RequestWithdrawals request"
+      description: "Request withdrawals from provider(s)."
+    }
+  };
+  repeated string providers = 1 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = { description: "Provider Ethereum addresses." },
+    (buf.validate.field).cel = {
+      id: "providers",
+      message: "providers must be a valid array of Ethereum addresses.",
+      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{40}$'))"
+  }];
+}
+
+message RequestWithdrawalsResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "RequestWithdrawals response"
+      description: "Request withdrawals from provider(s)."
+      example: "{\"providers\": [\"0x0000000000000000000000000000000000000000\"], \"amounts\": [\"1000000000000000000\"]}"
+    }
+  };
+  repeated string providers = 1;
+  repeated string amounts = 2;
 }
 
 message WithdrawRequest {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
       title: "Withdraw request"
-      description: "Withdraw deposit from the bidder registry."
+      description: "Withdraw deposits from provider(s)."
     }
   };
-  google.protobuf.UInt64Value window_number = 1 [
+  repeated string providers = 1 [
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-      description: "Optional window number for withdrawing deposits. If not specified, the last window number is used."
+      description: "Provider Ethereum addresses."
     }, (buf.validate.field).cel = {
-      id: "window_number",
-      message: "window_number must be a positive integer if specified.",
-      expression: "this == null || (this > 0)"
+      id: "providers",
+      message: "providers must be a valid array of Ethereum addresses.",
+      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{40}$'))"
     }];
 };
 
@@ -260,41 +396,77 @@ message WithdrawResponse {
       title: "Withdraw response"
       description: "Withdrawn deposit from the bidder registry."
     }
-    example: "{\"amount\": \"1000000000000000000\", \"window_number\": 1 }"
+    example: "{\"amounts\": [\"1000000000000000000\"], \"providers\": [\"0x0000000000000000000000000000000000000000\"]}"
   };
-  string amount = 1;
-  google.protobuf.UInt64Value window_number = 2;
+  repeated string amounts = 1;
+  repeated string providers = 2;
 };
 
-message WithdrawFromWindowsRequest {
+message GetValidProvidersRequest {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
-      title: "Withdraw from multiple windows request"
-      description: "Withdraw deposit from the bidder registry."
-      required: ["window_numbers"]
+      title: "GetValidProviders request"
+      description: "GetValidProviders request."
     }
-    example: "{\"window_numbers\": [1, 2, 3]}"
   };
-  repeated google.protobuf.UInt64Value window_numbers = 1 [
-    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-      description: "Window numbers for withdrawing deposits."
-    }, (buf.validate.field).cel = {
-      id: "window_numbers",
-      message: "window_numbers must be a valid array of positive integers.",
-      expression: "this.all(r, r > 0) && size(this) > 0"
+}
+
+message GetValidProvidersResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "GetValidProviders response"
+      description: "GetValidProviders response."
+    }
+  };
+  repeated string valid_providers = 1;
+}
+
+message PositionConstraint {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Position Constraint"
+      description: "Constraint on the position of the transaction in the block."
+    }
+  };
+  enum Anchor {
+    ANCHOR_UNSPECIFIED = 0;
+    ANCHOR_TOP = 1; // Position is at the top of the block
+    ANCHOR_BOTTOM = 2; // Position is at the bottom of the block
+  }
+  enum Basis {
+    BASIS_UNSPECIFIED = 0;
+    BASIS_PERCENTILE = 1; // Position is a percentile of the block size
+    BASIS_ABSOLUTE = 2; // Position is an absolute position in the block
+    BASIS_GAS_PERCENTILE = 3; // Position is a percentile of the gas used in the block
+  }
+  Anchor anchor = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Anchor position of the transaction in the block."
+  }];
+  Basis basis = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Basis for the position constraint."
+  }];
+  int32 value = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Value of the position constraint. If anchor is TOP, this is the position from the top of the block. If anchor is BOTTOM, this is the position from the bottom of the block."
+  }];
+};
+
+message BidOption {
+  oneof opt {
+    PositionConstraint position_constraint = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Position constraint for the transaction in the block."
     }];
+  }
 };
 
-message WithdrawFromWindowsResponse {
-  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
-    json_schema: {
-      title: "Withdraw from multiple windows response"
-      description: "Withdrawn deposit from the bidder registry."
-    }
-    example: "{\"withdraw_responses\": [{\"amount\": \"1000000000000000000\", \"window_number\": 1 }, {\"amount\": \"1000000000000000000\", \"window_number\": 2 }, {\"amount\": \"1000000000000000000\", \"window_number\": 3 } ]}"
-  };
-  repeated WithdrawResponse withdraw_responses = 1;
-};
+message BidOptions {
+  repeated BidOption options = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "List of bid options for the transaction."
+  }, (buf.validate.field).cel = {
+      id: "options",
+      message: "options must be a valid array of bid options.",
+      expression: "this.all(r, r != null)"
+  }];
+}
 
 message Bid {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
@@ -364,6 +536,9 @@ message Bid {
       message: "slash_amount must be a valid integer.",
       expression: "this == '' || (this.matches('^[0-9]+$') && uint(this) >= 0)"
   }];
+  BidOptions bid_options = 9 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional bid options for the transaction."
+  }];
 };
 
 message Commitment {
@@ -412,6 +587,9 @@ message Commitment {
   }];
   string slash_amount = 13 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Amount of ETH that will be slashed from the provider if they fail to include the transaction."
+  }];
+  BidOptions bid_options = 14 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional bid options for the transaction."
   }];
 };
 
@@ -484,6 +662,9 @@ message GetBidInfoResponse {
       pattern: "[0-9]+"
     }];
     repeated CommitmentWithStatus commitments = 9;
+    BidOptions bid_options = 10 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Optional bid options for the transaction."
+    }];
   };
   message BlockBidInfo {
     int64 block_number = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
@@ -498,3 +679,4 @@ message GetBidInfoResponse {
     description: "List of block bid info containing bids and their commitments."
   }];
 };
+

@@ -53,8 +53,8 @@ var (
 		return fmt.Sprintf("settle/%s", cmtIdx)
 	}
 
-	fundsRetrievedKey = func(cmtDigest []byte) string {
-		return fmt.Sprintf("fr/%s", string(cmtDigest))
+	fundsUnlockedKey = func(cmtDigest []byte) string {
+		return fmt.Sprintf("fu/%s", string(cmtDigest))
 	}
 
 	fundsRewardedKey = func(cmtDigest []byte) string {
@@ -124,10 +124,10 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 			},
 		),
 		events.NewEventHandler(
-			"FundsRetrieved",
-			func(c *bidderregistry.BidderregistryFundsRetrieved) {
-				logger.Info("Retrieved funds", "digest", hex.EncodeToString(c.CommitmentDigest[:]))
-				store.Insert(fundsRetrievedKey(c.CommitmentDigest[:]), c)
+			"FundsUnlocked",
+			func(c *bidderregistry.BidderregistryFundsUnlocked) {
+				logger.Info("Unlocked funds", "digest", hex.EncodeToString(c.CommitmentDigest[:]))
+				store.Insert(fundsUnlockedKey(c.CommitmentDigest[:]), c)
 			},
 		),
 		events.NewEventHandler(
@@ -402,10 +402,10 @@ DONE:
 						logger.Error("Provider should be slashed", "entry", entry)
 						return fmt.Errorf("provider should be slashed")
 					}
-					_, ok := store.Get(fundsRetrievedKey(cmtDigest))
+					_, ok := store.Get(fundsUnlockedKey(cmtDigest))
 					if !ok {
-						logger.Error("Funds not retrieved", "entry", entry)
-						return fmt.Errorf("funds not retrieved")
+						logger.Error("Funds not unlocked", "entry", entry)
+						return fmt.Errorf("funds not unlocked")
 					}
 
 					bidderPortion := new(big.Int).Add(residualBidAmt, slashAmount)
@@ -471,6 +471,7 @@ func getRandomBid(
 
 	transactions := blk.(*types.Block).Transactions()
 	txCount := len(transactions)
+	start := rand.Intn(txCount)
 
 	switch txCount {
 	case 0:
@@ -478,7 +479,6 @@ func getRandomBid(
 	case 1:
 		// skip
 	default:
-		start := rand.Intn(txCount)
 		// we select a random number of transactions to bundle starting from the start index
 		// in that order
 		maxBundleLen := min(4, txCount-start)
@@ -532,22 +532,76 @@ func getRandomBid(
 	// slash amount between 10000 and 100000
 	slashAmount := 10_000 + rand.Intn(100_000)
 
+	var opts *bidderapiv1.BidOptions
+
 	if shouldSlash {
-		if len(txHashes) > 1 {
-			original := slices.Clone(txHashes)
-			for {
-				rand.Shuffle(len(txHashes), func(i, j int) {
-					txHashes[i], txHashes[j] = txHashes[j], txHashes[i]
-				})
-				if !reflect.DeepEqual(original, txHashes) {
-					break
+		usingOpts := rand.Intn(2) == 0
+		if usingOpts && (start > 1 || start+len(txHashes) < txCount-1) {
+			if start > 1 {
+				opts = &bidderapiv1.BidOptions{
+					Options: []*bidderapiv1.BidOption{
+						{
+							Opt: &bidderapiv1.BidOption_PositionConstraint{
+								PositionConstraint: &bidderapiv1.PositionConstraint{
+									Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
+									Basis:  bidderapiv1.PositionConstraint_BASIS_ABSOLUTE,
+									Value:  1,
+								},
+							},
+						},
+					},
+				}
+			} else {
+				opts = &bidderapiv1.BidOptions{
+					Options: []*bidderapiv1.BidOption{
+						{
+							Opt: &bidderapiv1.BidOption_PositionConstraint{
+								PositionConstraint: &bidderapiv1.PositionConstraint{
+									Anchor: bidderapiv1.PositionConstraint_ANCHOR_BOTTOM,
+									Basis:  bidderapiv1.PositionConstraint_BASIS_ABSOLUTE,
+									Value:  1,
+								},
+							},
+						},
+					},
 				}
 			}
 		} else {
-			// get random tx hash
-			randBytes := make([]byte, 32)
-			_, _ = crand.Read(randBytes)
-			txHashes[0] = strings.TrimPrefix(common.BytesToHash(randBytes).String(), "0x")
+			if len(txHashes) > 1 {
+				original := slices.Clone(txHashes)
+				for {
+					rand.Shuffle(len(txHashes), func(i, j int) {
+						txHashes[i], txHashes[j] = txHashes[j], txHashes[i]
+					})
+					if !reflect.DeepEqual(original, txHashes) {
+						break
+					}
+				}
+			} else {
+				// get random tx hash
+				randBytes := make([]byte, 32)
+				_, _ = crand.Read(randBytes)
+				txHashes[0] = strings.TrimPrefix(common.BytesToHash(randBytes).String(), "0x")
+			}
+		}
+	}
+
+	if !shouldSlash {
+		useOpts := rand.Intn(2) == 0
+		if useOpts {
+			opts = &bidderapiv1.BidOptions{
+				Options: []*bidderapiv1.BidOption{
+					{
+						Opt: &bidderapiv1.BidOption_PositionConstraint{
+							PositionConstraint: &bidderapiv1.PositionConstraint{
+								Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
+								Basis:  bidderapiv1.PositionConstraint_BASIS_ABSOLUTE,
+								Value:  int32(start),
+							},
+						},
+					},
+				},
+			}
 		}
 	}
 
@@ -559,6 +613,7 @@ func getRandomBid(
 			DecayStartTimestamp: time.Now().UnixMilli(),
 			DecayEndTimestamp:   time.Now().Add(5 * time.Second).UnixMilli(),
 			RevertingTxHashes:   revertingTxnHashes,
+			BidOptions:          opts,
 		},
 		Accept:      accept,
 		ShouldSlash: shouldSlash,
