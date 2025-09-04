@@ -171,6 +171,7 @@ message PositionConstraint {
     ANCHOR_UNSPECIFIED = 0;
     ANCHOR_TOP = 1; // Position is at the top of the block
     ANCHOR_BOTTOM = 2; // Position is at the bottom of the block
+    ANCHOR_SHUTTERISED = 3; // Position is at the top of the block and tx is shutter encrypted, tx_hash is the identity for tx
   }
   enum Basis {
     BASIS_UNSPECIFIED = 0;
@@ -262,7 +263,7 @@ message Bid {
       expression: "uint(this) > 0"
   }];
   repeated string reverting_tx_hashes = 7 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Optional array of tx hashes that are allowed to revert or be discarded."
+    description: "Optional array of ,  hashes that are allowed to revert or be discarded."
   }, (buf.validate.field).cel = {
       id: "reverting_tx_hashes",
       message: "reverting_tx_hashes must be an array of valid transaction hashes.",

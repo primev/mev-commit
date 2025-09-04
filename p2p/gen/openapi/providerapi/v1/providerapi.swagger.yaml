@@ -293,7 +293,7 @@ definitions:
         type: array
         items:
           type: string
-        description: Optional array of tx hashes that are allowed to revert or be discarded.
+        description: Optional array of ,  hashes that are allowed to revert or be discarded.
       rawTransactions:
         type: array
         items:
@@ -352,9 +352,11 @@ definitions:
     enum:
       - ANCHOR_TOP
       - ANCHOR_BOTTOM
+      - ANCHOR_SHUTTERISED
     title: |-
       - ANCHOR_TOP: Position is at the top of the block
        - ANCHOR_BOTTOM: Position is at the bottom of the block
+       - ANCHOR_SHUTTERISED: Position is at the top of the block and tx is shutter encrypted, tx_hash is the identity for tx
   providerapiv1PositionConstraintBasis:
     type: string
     enum:

@@ -151,13 +151,33 @@ func (s *Service) SendBid(
 		return status.Errorf(codes.InvalidArgument, "validating bid: %v", err)
 	}
 
+	var optBuf []byte
+	isShutterised := false
+	if bid.BidOptions != nil {
+		// Check if bid has position constraints with a valid anchor
+		if options := bid.GetBidOptions().GetOptions(); len(options) > 0 {
+			if posConstraint := options[0].GetPositionConstraint(); posConstraint != nil {
+				if anchor := posConstraint.GetAnchor(); anchor != bidderapiv1.PositionConstraint_ANCHOR_UNSPECIFIED {
+					isShutterised = anchor == bidderapiv1.PositionConstraint_ANCHOR_SHUTTERISED
+				}
+			}
+		} // shutterised tx bid can not contain other options, for shutterised tx, tx_hash is the identity for tx
+		optBuf, err = proto.Marshal(bid.BidOptions)
+		if err != nil {
+			s.logger.Error("marshaling bid options", "error", err)
+			return status.Errorf(codes.InvalidArgument, "marshaling bid options: %v", err)
+		}
+	}
+
 	switch {
 	case len(bid.TxHashes) == 0 && len(bid.RawTransactions) == 0:
 		s.logger.Error("empty bid", "bid", bid)
 		return status.Error(codes.InvalidArgument, "empty bid")
 	case len(bid.TxHashes) > 0 && len(bid.RawTransactions) > 0:
-		s.logger.Error("both txHashes and rawTransactions are provided", "bid", bid)
-		return status.Error(codes.InvalidArgument, "both txHashes and rawTransactions are provided")
+		if !isShutterised {
+			s.logger.Error("both txHashes and rawTransactions are provided", "bid", bid)
+			return status.Error(codes.InvalidArgument, "both txHashes and rawTransactions are provided")
+		}
 	}
 
 	// Helper function to strip "0x" prefix
@@ -175,38 +195,32 @@ func (s *Service) SendBid(
 	case len(bid.TxHashes) > 0:
 		txnsStr = strings.Join(stripPrefix(bid.TxHashes), ",")
 	case len(bid.RawTransactions) > 0:
-		strBuilder := new(strings.Builder)
-		for i, rawTx := range bid.RawTransactions {
-			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
-			if err != nil {
-				s.logger.Error("decoding raw transaction", "error", err)
-				return status.Errorf(codes.InvalidArgument, "decoding raw transaction: %v", err)
+		if !isShutterised {
+			strBuilder := new(strings.Builder)
+			for i, rawTx := range bid.RawTransactions {
+				rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
+				if err != nil {
+					s.logger.Error("decoding raw transaction", "error", err)
+					return status.Errorf(codes.InvalidArgument, "decoding raw transaction: %v", err)
+				}
+				txnObj := new(types.Transaction)
+				err = txnObj.UnmarshalBinary(rawTxnBytes)
+				if err != nil {
+					s.logger.Error("unmarshaling raw transaction", "error", err)
+					return status.Errorf(codes.InvalidArgument, "unmarshaling raw transaction: %v", err)
+				}
+				strBuilder.WriteString(strings.TrimPrefix(txnObj.Hash().Hex(), "0x"))
+				if i != len(bid.RawTransactions)-1 {
+					strBuilder.WriteString(",")
+
+				}
 			}
-			txnObj := new(types.Transaction)
-			err = txnObj.UnmarshalBinary(rawTxnBytes)
-			if err != nil {
-				s.logger.Error("unmarshaling raw transaction", "error", err)
-				return status.Errorf(codes.InvalidArgument, "unmarshaling raw transaction: %v", err)
-			}
-			strBuilder.WriteString(strings.TrimPrefix(txnObj.Hash().Hex(), "0x"))
-			if i != len(bid.RawTransactions)-1 {
-				strBuilder.WriteString(",")
-			}
+			txnsStr = strBuilder.String()
 		}
-		txnsStr = strBuilder.String()
 	}
 
 	if bid.SlashAmount == "" {
 		bid.SlashAmount = "0"
-	}
-
-	var optBuf []byte
-	if bid.BidOptions != nil {
-		optBuf, err = proto.Marshal(bid.BidOptions)
-		if err != nil {
-			s.logger.Error("marshaling bid options", "error", err)
-			return status.Errorf(codes.InvalidArgument, "marshaling bid options: %v", err)
-		}
 	}
 
 	respC, err := s.sender.SendBid(
