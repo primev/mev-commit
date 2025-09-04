@@ -8,6 +8,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	depositmanager "github.com/primev/mev-commit/contracts-abi/clients/DepositManager"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
@@ -26,6 +27,7 @@ type statHandler struct {
 	totalOpenedCommitments    uint64
 	totalRewards              uint64
 	totalSlashes              uint64
+	dmEventCounts             *lru.Cache[string, *DepositManagerEventCounts]
 	evtMgr                    events.EventManager
 	sub                       events.Subscription
 	unsub                     func()
@@ -74,11 +76,23 @@ type AggregateStats struct {
 	TotalSlashes              uint64 `json:"total_slashes"`
 }
 
+type DepositManagerEventCounts struct {
+	Bidder                     string `json:"bidder"`
+	DepositToppedUp            uint64 `json:"deposit_topped_up"`
+	TopUpReduced               uint64 `json:"top_up_reduced"`
+	CurrentDepositIsSufficient uint64 `json:"current_deposit_is_sufficient"`
+	CurrentBalanceAtOrBelowMin uint64 `json:"current_balance_at_or_below_min"`
+	TargetDepositDoesNotExist  uint64 `json:"target_deposit_does_not_exist"`
+	WithdrawalRequestExists    uint64 `json:"withdrawal_request_exists"`
+	TargetDepositSet           uint64 `json:"target_deposit_set"`
+}
+
 type DashboardOut struct {
-	Aggregate *AggregateStats     `json:"aggregate"`
-	Providers []*ProviderBalances `json:"providers"`
-	Blocks    []*BlockStats       `json:"blocks"`
-	Bidders   []*BidderDeposit    `json:"bidders"`
+	Aggregate *AggregateStats              `json:"aggregate"`
+	Providers []*ProviderBalances          `json:"providers"`
+	Blocks    []*BlockStats                `json:"blocks"`
+	Bidders   []*BidderDeposit             `json:"bidders"`
+	DMCounts  []*DepositManagerEventCounts `json:"deposit_manager_counts"`
 }
 
 func newStatHandler(evtMgr events.EventManager) (*statHandler, error) {
@@ -107,12 +121,18 @@ func newStatHandler(evtMgr events.EventManager) (*statHandler, error) {
 		return nil, err
 	}
 
+	dmEventCounts, err := lru.New[string, *DepositManagerEventCounts](10000)
+	if err != nil {
+		return nil, err
+	}
+
 	st := &statHandler{
 		blockStats:         blockStats,
 		providerStakes:     providerStakes,
 		bidderDeposits:     bidderDeposits,
 		commitments:        commitments,
 		commitmentsByBlock: commitmentsByBlock,
+		dmEventCounts:      dmEventCounts,
 		evtMgr:             evtMgr,
 	}
 
@@ -435,6 +455,105 @@ func (s *statHandler) configureDashboard() error {
 				}, existing)
 			},
 		),
+		events.NewEventHandler(
+			"DepositToppedUp",
+			func(upd *depositmanager.DepositmanagerDepositToppedUp) {
+				s.statMu.Lock()
+				defer s.statMu.Unlock()
+				b := upd.Raw.Address.Hex()
+				c, ok := s.dmEventCounts.Get(b)
+				if !ok {
+					c = &DepositManagerEventCounts{Bidder: b}
+				}
+				c.DepositToppedUp++
+				_ = s.dmEventCounts.Add(b, c)
+			},
+		),
+		events.NewEventHandler(
+			"TopUpReduced",
+			func(upd *depositmanager.DepositmanagerTopUpReduced) {
+				s.statMu.Lock()
+				defer s.statMu.Unlock()
+				b := upd.Raw.Address.Hex()
+				c, ok := s.dmEventCounts.Get(b)
+				if !ok {
+					c = &DepositManagerEventCounts{Bidder: b}
+				}
+				c.TopUpReduced++
+				_ = s.dmEventCounts.Add(b, c)
+			},
+		),
+		events.NewEventHandler(
+			"CurrentBalanceAtOrBelowMin",
+			func(upd *depositmanager.DepositmanagerCurrentBalanceAtOrBelowMin) {
+				s.statMu.Lock()
+				defer s.statMu.Unlock()
+				b := upd.Raw.Address.Hex()
+				c, ok := s.dmEventCounts.Get(b)
+				if !ok {
+					c = &DepositManagerEventCounts{Bidder: b}
+				}
+				c.CurrentBalanceAtOrBelowMin++
+				_ = s.dmEventCounts.Add(b, c)
+			},
+		),
+		events.NewEventHandler(
+			"CurrentDepositIsSufficient",
+			func(upd *depositmanager.DepositmanagerCurrentDepositIsSufficient) {
+				s.statMu.Lock()
+				defer s.statMu.Unlock()
+				b := upd.Raw.Address.Hex()
+				c, ok := s.dmEventCounts.Get(b)
+				if !ok {
+					c = &DepositManagerEventCounts{Bidder: b}
+				}
+				c.CurrentDepositIsSufficient++
+				_ = s.dmEventCounts.Add(b, c)
+			},
+		),
+		events.NewEventHandler(
+			"TargetDepositDoesNotExist",
+			func(upd *depositmanager.DepositmanagerTargetDepositDoesNotExist) {
+				s.statMu.Lock()
+				defer s.statMu.Unlock()
+				b := upd.Raw.Address.Hex()
+				c, ok := s.dmEventCounts.Get(b)
+				if !ok {
+					c = &DepositManagerEventCounts{Bidder: b}
+				}
+				c.TargetDepositDoesNotExist++
+				_ = s.dmEventCounts.Add(b, c)
+			},
+		),
+
+		events.NewEventHandler(
+			"WithdrawalRequestExists",
+			func(upd *depositmanager.DepositmanagerWithdrawalRequestExists) {
+				s.statMu.Lock()
+				defer s.statMu.Unlock()
+				b := upd.Raw.Address.Hex()
+				c, ok := s.dmEventCounts.Get(b)
+				if !ok {
+					c = &DepositManagerEventCounts{Bidder: b}
+				}
+				c.WithdrawalRequestExists++
+				_ = s.dmEventCounts.Add(b, c)
+			},
+		),
+		events.NewEventHandler(
+			"TargetDepositSet",
+			func(upd *depositmanager.DepositmanagerTargetDepositSet) {
+				s.statMu.Lock()
+				defer s.statMu.Unlock()
+				b := upd.Raw.Address.Hex()
+				c, ok := s.dmEventCounts.Get(b)
+				if !ok {
+					c = &DepositManagerEventCounts{Bidder: b}
+				}
+				c.TargetDepositSet++
+				_ = s.dmEventCounts.Add(b, c)
+			},
+		),
 	}
 
 	sub, err := s.evtMgr.Subscribe(handlers...)
@@ -474,12 +593,14 @@ func (s *statHandler) getDashboard(page, limit int) *DashboardOut {
 	providers := s.getProviders()
 	blocks := s.getBlocks(page, limit)
 	bidders := s.getBidders()
+	dmCounts := s.getDMCounts()
 
 	return &DashboardOut{
 		Aggregate: agg,
 		Providers: providers,
 		Blocks:    blocks,
 		Bidders:   bidders,
+		DMCounts:  dmCounts,
 	}
 }
 
@@ -500,6 +621,12 @@ func (s *statHandler) getBidders() []*BidderDeposit {
 		all = append(all, deposits...)
 	}
 	return all
+}
+
+func (s *statHandler) getDMCounts() []*DepositManagerEventCounts {
+	s.statMu.RLock()
+	defer s.statMu.RUnlock()
+	return s.dmEventCounts.Values()
 }
 
 func (s *statHandler) getBlockStats(block uint64) *BlockStats {
