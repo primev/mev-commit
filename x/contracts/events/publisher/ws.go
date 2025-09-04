@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"math/big"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -24,6 +26,10 @@ type wsPublisher struct {
 	logger        *slog.Logger
 	evmClient     WSEVMClient
 	subscriber    Subscriber
+
+	mu        sync.RWMutex
+	contracts []common.Address
+	updateCh  chan struct{}
 }
 
 func NewWSPublisher(progressStore ProgressStore, logger *slog.Logger, evmClient WSEVMClient, subscriber Subscriber) *wsPublisher {
@@ -32,16 +38,44 @@ func NewWSPublisher(progressStore ProgressStore, logger *slog.Logger, evmClient 
 		logger:        logger,
 		evmClient:     evmClient,
 		subscriber:    subscriber,
+		contracts:     make([]common.Address, 0),
+		updateCh:      make(chan struct{}, 1),
 	}
 }
 
-func (w *wsPublisher) Start(ctx context.Context, contracts ...common.Address) <-chan struct{} {
-	doneChan := make(chan struct{})
+func (w *wsPublisher) AddContracts(addr ...common.Address) {
+	w.mu.Lock()
+	added := false
+	for _, a := range addr {
+		if !slices.Contains(w.contracts, a) {
+			w.contracts = append(w.contracts, a)
+			added = true
+			w.logger.Info("ws: added contract address", "address", a.Hex())
+		}
+	}
+	w.mu.Unlock()
+	if added {
+		select {
+		case w.updateCh <- struct{}{}:
+		default:
+		}
+	}
+}
 
-	if len(contracts) == 0 {
-		w.logger.Error("no contracts to listen to")
-		close(doneChan)
-		return doneChan
+func (w *wsPublisher) getContracts() []common.Address {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	cp := make([]common.Address, len(w.contracts))
+	copy(cp, w.contracts)
+	return cp
+}
+
+func (w *wsPublisher) Start(ctx context.Context, contractAddr ...common.Address) <-chan struct{} {
+	doneChan := make(chan struct{})
+	w.AddContracts(contractAddr...)
+
+	if len(contractAddr) == 0 {
+		w.logger.Info("ws: starting with no contracts; waiting for addresses to be added")
 	}
 
 	go func() {
@@ -60,10 +94,22 @@ func (w *wsPublisher) Start(ctx context.Context, contracts ...common.Address) <-
 				return
 			}
 
+			addresses := w.getContracts()
+			if len(addresses) == 0 {
+				select {
+				case <-ctx.Done():
+					return
+				case <-w.updateCh:
+					continue
+				case <-time.After(500 * time.Millisecond):
+					continue
+				}
+			}
+
 			q := ethereum.FilterQuery{
 				FromBlock: big.NewInt(int64(lastBlock + 1)),
 				ToBlock:   nil,
-				Addresses: contracts,
+				Addresses: addresses,
 			}
 
 			logChan := make(chan types.Log)
@@ -82,6 +128,11 @@ func (w *wsPublisher) Start(ctx context.Context, contracts ...common.Address) <-
 				case <-ctx.Done():
 					sub.Unsubscribe()
 					return
+				case <-w.updateCh:
+					w.logger.Info("ws: contract set updated; resubscribing")
+					inactivityStart = time.Now()
+					sub.Unsubscribe()
+					break PROCESSING
 				case err := <-sub.Err():
 					// retry after 5 seconds
 					w.logger.Warn("subscription error", "error", err)
