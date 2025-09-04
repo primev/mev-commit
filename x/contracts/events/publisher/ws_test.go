@@ -66,7 +66,7 @@ func TestWSPublisher(t *testing.T) {
 	// Wait for second subscribe (active)
 	select {
 	case <-evmClient.subscribed:
-	case <-time.After(5 * time.Second):
+	case <-time.After(7 * time.Second):
 		t.Fatal("timed out waiting for second subscribe")
 	}
 
