@@ -113,8 +113,10 @@ func (w *wsPublisher) Start(ctx context.Context, contractAddr ...common.Address)
 			}
 
 			logChan := make(chan types.Log)
+
 			sub, err := w.evmClient.SubscribeFilterLogs(ctx, q, logChan)
 			if err != nil {
+				// retry after 5 seconds
 				w.logger.Warn("failed to subscribe to logs", "error", err)
 				time.Sleep(5 * time.Second)
 				continue
@@ -140,6 +142,7 @@ func (w *wsPublisher) Start(ctx context.Context, contractAddr ...common.Address)
 				case logMsg := <-logChan:
 					// process log
 					w.subscriber.PublishLogEvent(ctx, logMsg)
+
 					if logMsg.BlockNumber > lastBlock {
 						if err := w.progressStore.SetLastBlock(logMsg.BlockNumber); err != nil {
 							w.logger.Error("failed to set last block", "error", err)
