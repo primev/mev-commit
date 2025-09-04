@@ -55,13 +55,14 @@ type ProviderBalances struct {
 type BidderDeposit struct {
 	Bidder               string `json:"bidder"`
 	Provider             string `json:"provider"`
-	Amount               string `json:"amount"`
+	AvailableAmount      string `json:"available_amount"`
 	Refunds              string `json:"refunds"`
 	Settled              string `json:"settled"`
 	Withdrawn            string `json:"withdrawn"`
 	OpenCommitmentsCount uint64 `json:"open_commitments_count"`
 	ReturnsCount         uint64 `json:"returns_count"`
 	SettledCount         uint64 `json:"settled_count"`
+	DepositedCount       uint64 `json:"deposited_count"`
 }
 
 type depositKey struct {
@@ -379,17 +380,23 @@ func (s *statHandler) configureDashboard() error {
 					existing = make([]*BidderDeposit, 0)
 				}
 
+				updated := false
 				for _, b := range existing {
 					if b.Bidder == upd.Bidder.Hex() {
-						return
+						b.AvailableAmount = upd.NewAvailableAmount.String()
+						b.DepositedCount++
+						updated = true
+						break
 					}
 				}
-
-				existing = append(existing, &BidderDeposit{
-					Bidder:   upd.Bidder.Hex(),
-					Provider: upd.Provider.Hex(),
-					Amount:   upd.DepositedAmount.String(),
-				})
+				if !updated {
+					existing = append(existing, &BidderDeposit{
+						Bidder:          upd.Bidder.Hex(),
+						Provider:        upd.Provider.Hex(),
+						AvailableAmount: upd.NewAvailableAmount.String(),
+						DepositedCount:  1,
+					})
+				}
 				_ = s.bidderDeposits.Add(depositKey{
 					bidder:   upd.Bidder.Hex(),
 					provider: upd.Provider.Hex(),
@@ -445,6 +452,7 @@ func (s *statHandler) configureDashboard() error {
 				for idx, b := range existing {
 					if b.Bidder == upd.Bidder.Hex() {
 						existing[idx].Withdrawn = upd.AmountWithdrawn.String()
+						existing[idx].AvailableAmount = "0"
 						break
 					}
 				}
