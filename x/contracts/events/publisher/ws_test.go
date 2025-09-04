@@ -113,6 +113,92 @@ func TestWSPublisher(t *testing.T) {
 	}
 }
 
+func TestWSPublisher_AddContracts(t *testing.T) {
+	t.Parallel()
+
+	logger := util.NewTestLogger(io.Discard)
+
+	evmClient := &testWSEVMClient{
+		subscribed: make(chan struct{}, 10),
+	}
+	progressStore := &testStore{}
+	subscriber := &testSubscriber{
+		logs: make(chan types.Log),
+	}
+
+	p := publisher.NewWSPublisher(progressStore, logger, evmClient, subscriber)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	doneChan := p.Start(ctx)
+
+	// No contracts yet, no subscribe
+	select {
+	case <-evmClient.subscribed:
+		t.Fatal("unexpected subscribe before adding contracts")
+	case <-time.After(150 * time.Millisecond):
+	}
+
+	addr1 := common.HexToAddress("0x1")
+	addr2 := common.HexToAddress("0x2")
+
+	// Add first address, expect subscribe
+	p.AddContracts(addr1)
+	select {
+	case <-evmClient.subscribed:
+	case <-time.After(1 * time.Second):
+		t.Fatal("timed out waiting for initial subscribe after AddContracts(addr1)")
+	}
+
+	// Add duplicate, no resubscribe
+	p.AddContracts(addr1)
+	select {
+	case <-evmClient.subscribed:
+		t.Fatal("unexpected resubscribe on duplicate address")
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	// Add second address, expect resubscribe and both addrs present
+	p.AddContracts(addr2)
+	select {
+	case <-evmClient.subscribed:
+	case <-time.After(1 * time.Second):
+		t.Fatal("timed out waiting for resubscribe after AddContracts(addr2)")
+	}
+
+	addrs := evmClient.LastAddrs()
+	if len(addrs) != 2 {
+		t.Fatalf("expected 2 addresses, got %d: %v", len(addrs), addrs)
+	}
+	seen := map[string]bool{}
+	for _, a := range addrs {
+		seen[a.Hex()] = true
+	}
+	if !seen[addr1.Hex()] || !seen[addr2.Hex()] {
+		t.Fatalf("expected both addresses present; got %v", addrs)
+	}
+
+	cancel()
+	select {
+	case <-doneChan:
+	case <-time.After(1 * time.Second):
+		t.Fatal("timed out waiting for doneChan")
+	}
+
+	// Ensure current subscription was unsubscribed
+	sub := func() *testSubscription {
+		evmClient.mu.Lock()
+		defer evmClient.mu.Unlock()
+		return evmClient.sub
+	}()
+	select {
+	case <-sub.done:
+	case <-time.After(1 * time.Second):
+		t.Fatal("timed out waiting for subscription to be unsubscribed")
+	}
+}
+
 type testSubscription struct {
 	done chan struct{}
 	errC chan error
@@ -132,11 +218,13 @@ type testWSEVMClient struct {
 	logs       chan<- types.Log
 	sub        *testSubscription
 	errC       chan error
+	lastAddrs  []common.Address
 }
 
 func (c *testWSEVMClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, logs chan<- types.Log) (ethereum.Subscription, error) {
 	c.mu.Lock()
 	c.logs = logs
+	c.lastAddrs = append([]common.Address(nil), q.Addresses...)
 	var errCh chan error
 	if c.errC != nil {
 		errCh = c.errC
@@ -159,4 +247,12 @@ func (c *testWSEVMClient) SendLog(l types.Log) {
 	ch := c.logs
 	c.mu.Unlock()
 	ch <- l
+}
+
+func (c *testWSEVMClient) LastAddrs() []common.Address {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	cp := make([]common.Address, len(c.lastAddrs))
+	copy(cp, c.lastAddrs)
+	return cp
 }
