@@ -171,7 +171,6 @@ message PositionConstraint {
     ANCHOR_UNSPECIFIED = 0;
     ANCHOR_TOP = 1; // Position is at the top of the block
     ANCHOR_BOTTOM = 2; // Position is at the bottom of the block
-    ANCHOR_SHUTTERISED = 3; // Position is at the top of the block and tx is shutter encrypted, tx_hash is the identity for tx
   }
   enum Basis {
     BASIS_UNSPECIFIED = 0;
@@ -190,10 +189,20 @@ message PositionConstraint {
   }];
 };
 
+message ShutterisedBidOption {
+  string identity_prefix = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the identity of the transaction that the bidder wants to include in the block."
+    pattern: "[a-fA-F0-9]{64}"
+  }];
+};
+
 message BidOption {
   oneof opt {
     PositionConstraint position_constraint = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Position constraint for the transaction in the block."
+    }];
+    ShutterisedBidOption shutterised_bid_option = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Shutterised bid option for the transaction in the block."
     }];
   }
 };

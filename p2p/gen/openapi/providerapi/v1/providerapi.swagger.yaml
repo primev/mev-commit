@@ -319,6 +319,9 @@ definitions:
       positionConstraint:
         $ref: '#/definitions/providerapiv1PositionConstraint'
         description: Position constraint for the transaction in the block.
+      shutterisedBidOption:
+        $ref: '#/definitions/providerapiv1ShutterisedBidOption'
+        description: Shutterised bid option for the transaction in the block.
   providerapiv1BidOptions:
     type: object
     properties:
@@ -352,11 +355,9 @@ definitions:
     enum:
       - ANCHOR_TOP
       - ANCHOR_BOTTOM
-      - ANCHOR_SHUTTERISED
     title: |-
       - ANCHOR_TOP: Position is at the top of the block
        - ANCHOR_BOTTOM: Position is at the bottom of the block
-       - ANCHOR_SHUTTERISED: Position is at the top of the block and tx is shutter encrypted, tx_hash is the identity for tx
   providerapiv1PositionConstraintBasis:
     type: string
     enum:
@@ -367,6 +368,13 @@ definitions:
       - BASIS_PERCENTILE: Position is a percentile of the block size
        - BASIS_ABSOLUTE: Position is an absolute position in the block
        - BASIS_GAS_PERCENTILE: Position is a percentile of the gas used in the block
+  providerapiv1ShutterisedBidOption:
+    type: object
+    properties:
+      identityPrefix:
+        type: string
+        description: Hex string encoding of the identity of the transaction that the bidder wants to include in the block.
+        pattern: '[a-fA-F0-9]{64}'
   v1BidResponse:
     type: object
     example:
