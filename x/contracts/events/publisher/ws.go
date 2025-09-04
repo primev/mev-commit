@@ -116,7 +116,7 @@ func (w *wsPublisher) Start(ctx context.Context, contractAddr ...common.Address)
 			sub, err := w.evmClient.SubscribeFilterLogs(ctx, q, logChan)
 			if err != nil {
 				w.logger.Warn("failed to subscribe to logs", "error", err)
-				time.Sleep(2 * time.Second)
+				time.Sleep(5 * time.Second)
 				continue
 			}
 
@@ -132,11 +132,13 @@ func (w *wsPublisher) Start(ctx context.Context, contractAddr ...common.Address)
 					sub.Unsubscribe()
 					break PROCESSING
 				case err := <-sub.Err():
+					// retry after 5 seconds
 					w.logger.Warn("subscription error", "error", err)
 					inactivityStart = time.Now()
-					time.Sleep(2 * time.Second)
+					time.Sleep(5 * time.Second)
 					break PROCESSING
 				case logMsg := <-logChan:
+					// process log
 					w.subscriber.PublishLogEvent(ctx, logMsg)
 					if logMsg.BlockNumber > lastBlock {
 						if err := w.progressStore.SetLastBlock(logMsg.BlockNumber); err != nil {
