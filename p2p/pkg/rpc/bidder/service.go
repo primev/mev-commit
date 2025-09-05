@@ -177,6 +177,24 @@ func (s *Service) SendBid(
 	case len(bid.RawTransactions) > 0:
 		strBuilder := new(strings.Builder)
 		for i, rawTx := range bid.RawTransactions {
+			if bid.BidOptions != nil && len(bid.BidOptions.Options) > 0 {
+				if option := bid.BidOptions.Options[i]; option != nil {
+					switch option.GetOpt().(type) {
+					case *bidderapiv1.BidOption_ShutterisedBidOption:
+						c := option.GetShutterisedBidOption()
+						if c == nil || c.GetIdentityPrefix() == "" {
+							s.logger.Error("shutterised bid option identity prefix is nil", "option", option)
+							return status.Errorf(codes.InvalidArgument, "shutterised bid option identity prefix is nil")
+						}
+						strBuilder.WriteString(strings.TrimPrefix(c.GetIdentityPrefix(), "0x")) //txHash is used as identityPrefix for shutterised txs
+						if i != len(bid.RawTransactions)-1 {
+							strBuilder.WriteString(",")
+						}
+						continue
+					}
+				}
+			}
+
 			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
 			if err != nil {
 				s.logger.Error("decoding raw transaction", "error", err)
@@ -201,26 +219,11 @@ func (s *Service) SendBid(
 	}
 
 	var optBuf []byte
-	if opts := bid.GetBidOptions(); opts != nil {
-		optBuf, err = proto.Marshal(opts)
+	if bid.BidOptions != nil {
+		optBuf, err = proto.Marshal(bid.BidOptions)
 		if err != nil {
 			s.logger.Error("marshaling bid options", "error", err)
 			return status.Errorf(codes.InvalidArgument, "marshaling bid options: %v", err)
-		}
-		if options := opts.GetOptions(); len(options) > 0 {
-			for _, option := range options {
-				switch option.GetOpt().(type) {
-				case *bidderapiv1.BidOption_ShutterisedBidOption:
-					c := option.GetShutterisedBidOption()
-					if c == nil {
-						continue
-					}
-					if c.GetIdentityPrefix() == "" {
-						s.logger.Error("shutterised bid option identity prefix is nil", "option", option)
-						return status.Errorf(codes.InvalidArgument, "shutterised bid option identity prefix is nil")
-					}
-				}
-			}
 		}
 	}
 
