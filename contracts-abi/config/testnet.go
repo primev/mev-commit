@@ -2,7 +2,7 @@ package config
 
 import "math/big"
 
-var TestnetChainID = big.NewInt(560048)
+var TestnetChainID = big.NewInt(141414)
 
 var TestnetContracts = Contracts{
 	BidderRegistry:    "0xf960f272e6Cb64b2BDe29c2174ce6BEA998Aa067",
