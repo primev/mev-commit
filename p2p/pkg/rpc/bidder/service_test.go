@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -21,15 +20,12 @@ import (
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
-	autodepositorstore "github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
-	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 const (
@@ -84,121 +80,108 @@ func (s *testSender) SendBid(
 }
 
 type testRegistryContract struct {
-	deposit *big.Int
+	deposit   *big.Int
+	perAmount *big.Int
+	watcher   *testTxWatcher
 }
 
-func (t *testRegistryContract) DepositForWindow(opts *bind.TransactOpts, _ *big.Int) (*types.Transaction, error) {
-	t.deposit = opts.Value
+func (t *testRegistryContract) DepositAsBidder(opts *bind.TransactOpts, _ common.Address) (*types.Transaction, error) {
+	if opts != nil && opts.Value != nil {
+		t.perAmount = new(big.Int).Set(opts.Value)
+	}
+	if t.watcher != nil {
+		t.watcher.logs = 1
+	}
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
-func (t *testRegistryContract) DepositForWindows(opts *bind.TransactOpts, _ []*big.Int) (*types.Transaction, error) {
-	t.deposit = opts.Value
+func (t *testRegistryContract) DepositEvenlyAsBidder(opts *bind.TransactOpts, providers []common.Address) (*types.Transaction, error) {
+	if opts != nil && opts.Value != nil && len(providers) > 0 {
+		t.perAmount = new(big.Int).Div(new(big.Int).Set(opts.Value), big.NewInt(int64(len(providers))))
+	}
+	if t.watcher != nil {
+		t.watcher.logs = len(providers)
+	}
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
-func (t *testRegistryContract) WithdrawBidderAmountFromWindow(
-	opts *bind.TransactOpts,
-	address common.Address,
-	window *big.Int,
-) (*types.Transaction, error) {
-	return types.NewTransaction(2, common.Address{}, nil, 0, nil, nil), nil
+func (t *testRegistryContract) RequestWithdrawalsAsBidder(_ *bind.TransactOpts, providers []common.Address) (*types.Transaction, error) {
+	if t.watcher != nil {
+		t.watcher.logs = len(providers)
+	}
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
-func (t *testRegistryContract) GetDeposit(_ *bind.CallOpts, _ common.Address, _ *big.Int) (*big.Int, error) {
+func (t *testRegistryContract) WithdrawAsBidder(_ *bind.TransactOpts, providers []common.Address) (*types.Transaction, error) {
+	if t.watcher != nil {
+		t.watcher.logs = len(providers)
+	}
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
+func (t *testRegistryContract) GetDeposit(_ *bind.CallOpts, _ common.Address, _ common.Address) (*big.Int, error) {
 	return t.deposit, nil
 }
 
-func (t *testRegistryContract) ParseBidderRegistered(_ types.Log) (*bidderregistry.BidderregistryBidderRegistered, error) {
-	return &bidderregistry.BidderregistryBidderRegistered{
-		DepositedAmount: t.deposit,
-		WindowNumber:    big.NewInt(1),
+func (t *testRegistryContract) ParseBidderDeposited(_ types.Log) (*bidderregistry.BidderregistryBidderDeposited, error) {
+	amt := t.perAmount
+	if amt == nil {
+		amt = t.deposit
+	}
+	return &bidderregistry.BidderregistryBidderDeposited{
+		DepositedAmount: amt,
+		Bidder:          common.Address{},
+		Provider:        common.Address{},
+	}, nil
+}
+
+func (t *testRegistryContract) ParseWithdrawalRequested(_ types.Log) (*bidderregistry.BidderregistryWithdrawalRequested, error) {
+	amt := t.perAmount
+	if amt == nil {
+		amt = t.deposit
+	}
+	return &bidderregistry.BidderregistryWithdrawalRequested{
+		AvailableAmount: amt,
+		Provider:        common.Address{},
 	}, nil
 }
 
 func (t *testRegistryContract) ParseBidderWithdrawal(_ types.Log) (*bidderregistry.BidderregistryBidderWithdrawal, error) {
+	amt := t.perAmount
+	if amt == nil {
+		amt = t.deposit
+	}
 	return &bidderregistry.BidderregistryBidderWithdrawal{
-		Amount: t.deposit,
-		Window: big.NewInt(1),
+		AmountWithdrawn: amt,
+		Provider:        common.Address{},
 	}, nil
 }
 
-func (t *testRegistryContract) WithdrawFromWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
-}
-
-type testAutoDepositTracker struct {
-	mtx       sync.Mutex
-	deposits  map[uint64]bool
-	isWorking bool
-}
-
-func (t *testAutoDepositTracker) Start(ctx context.Context, startWindow, amount *big.Int) error {
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
-
-	t.isWorking = true
-	t.deposits[startWindow.Uint64()] = true
-	t.deposits[big.NewInt(0).Add(startWindow, big.NewInt(1)).Uint64()] = true
-	return nil
-}
-
-func (t *testAutoDepositTracker) IsWorking() bool {
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
-
-	return t.isWorking
-}
-
-func (t *testAutoDepositTracker) GetStatus() (map[uint64]bool, bool, *big.Int) {
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
-
-	return t.deposits, t.isWorking, big.NewInt(1)
-}
-
-func (t *testAutoDepositTracker) Stop() ([]*big.Int, error) {
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
-
-	t.isWorking = false
-	var windowNumbers []*big.Int
-	for k := range t.deposits {
-		windowNumbers = append(windowNumbers, big.NewInt(int64(k)))
-		delete(t.deposits, k)
-	}
-	return windowNumbers, nil
+func (t *testRegistryContract) FilterBidderDeposited(_ *bind.FilterOpts, _ []common.Address, _ []common.Address, _ []*big.Int) (*bidderregistry.BidderregistryBidderDepositedIterator, error) {
+	return nil, nil
 }
 
 type testTxWatcher struct {
-	nonce int
+	logs int
 }
 
 func (t *testTxWatcher) WaitForReceipt(_ context.Context, tx *types.Transaction) (*types.Receipt, error) {
-	t.nonce++
-	if tx.Nonce() != uint64(t.nonce) {
-		return nil, errors.New("nonce mismatch")
+	n := t.logs
+	if n <= 0 {
+		n = 1
+	}
+	logs := make([]*types.Log, n)
+	for i := 0; i < n; i++ {
+		logs[i] = &types.Log{
+			Address: common.Address{},
+			Topics:  []common.Hash{},
+			Data:    []byte{},
+		}
 	}
 	return &types.Receipt{
 		Status: 1,
-		Logs: []*types.Log{
-			{
-				Address: common.Address{},
-				Topics:  []common.Hash{},
-				Data:    []byte{},
-			},
-		},
+		Logs:   logs,
 	}, nil
-}
-
-type testBlockTrackerContract struct {
-	blockNumberToWinner map[uint64]common.Address
-	lastBlockNumber     uint64
-	blocksPerWindow     uint64
-}
-
-func (btc *testBlockTrackerContract) GetCurrentWindow() (*big.Int, error) {
-	return big.NewInt(int64(btc.lastBlockNumber / btc.blocksPerWindow)), nil
 }
 
 type testStore struct {
@@ -227,6 +210,14 @@ func (t *testProviderRegistry) ParseBidderWithdrawSlashedAmount(_log types.Log) 
 	}, nil
 }
 
+func (t *testProviderRegistry) FilterProviderRegistered(_ *bind.FilterOpts, _ []common.Address) (*providerregistry.ProviderregistryProviderRegisteredIterator, error) {
+	return nil, nil
+}
+
+func (t *testProviderRegistry) AreProvidersValid(_ *bind.CallOpts, _ []common.Address) ([]bool, error) {
+	return []bool{true}, nil
+}
+
 func (t *testStore) GetCommitments(blockNum int64) ([]*preconfstore.Commitment, error) {
 	cmts := make([]*preconfstore.Commitment, 0)
 	for _, c := range t.commitments {
@@ -235,6 +226,13 @@ func (t *testStore) GetCommitments(blockNum int64) ([]*preconfstore.Commitment, 
 		}
 	}
 	return cmts, nil
+}
+
+type testSetCodeHelper struct {
+}
+
+func (t *testSetCodeHelper) SetCode(ctx context.Context, opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
 func startServer(t *testing.T) bidderapiv1.BidderClient {
@@ -252,38 +250,36 @@ func startServerWithStore(t *testing.T, cs *testStore) bidderapiv1.BidderClient 
 	}
 
 	owner := common.HexToAddress("0x00001")
+	watcher := &testTxWatcher{}
 	registryContract := &testRegistryContract{
 		deposit: big.NewInt(1000000000000000000),
+		watcher: watcher,
 	}
 	providerRegistry := &testProviderRegistry{
 		claim: big.NewInt(1000000000000000000),
 	}
 	sender := &testSender{noOfPreconfs: 2}
-	blockTrackerContract := &testBlockTrackerContract{lastBlockNumber: blocksPerWindow + 1, blocksPerWindow: blocksPerWindow, blockNumberToWinner: make(map[uint64]common.Address)}
-	testAutoDepositTracker := &testAutoDepositTracker{deposits: make(map[uint64]bool)}
-	oracleWindowOffset := big.NewInt(1)
-	store := autodepositorstore.New(inmemstorage.New())
+	setCodeHelper := &testSetCodeHelper{}
 	srvImpl := bidderapi.NewService(
 		owner,
-		blockTrackerContract.blocksPerWindow,
 		sender,
 		registryContract,
-		blockTrackerContract,
 		providerRegistry,
 		validator,
-		&testTxWatcher{},
+		watcher,
 		func(ctx context.Context) (*bind.TransactOpts, error) {
 			return &bind.TransactOpts{
 				From:    owner,
 				Context: ctx,
 			}, nil
 		},
-		testAutoDepositTracker,
-		store,
 		cs,
-		oracleWindowOffset,
 		15*time.Second,
 		logger,
+		setCodeHelper,
+		nil,
+		nil,
+		common.HexToAddress("0x0000000000000000000000000000000000000000"),
 	)
 
 	baseServer := grpc.NewServer()
@@ -331,29 +327,42 @@ func TestDepositHandling(t *testing.T) {
 
 	t.Run("deposit", func(t *testing.T) {
 		type testCase struct {
-			amount string
-			err    string
+			amount   string
+			provider string
+			err      string
 		}
 
 		for _, tc := range []testCase{
 			{
-				amount: "",
-				err:    "amount must be a valid integer",
+				amount:   "",
+				provider: "0x9323e8B917ED544c26039A4D0Cccd8E3083e5647",
+				err:      "amount must be a valid integer",
 			},
 			{
-				amount: "0000000000000000000",
-				err:    "amount must be a valid integer",
+				amount:   "0000000000000000000",
+				provider: "0x9323e8B917ED544c26039A4D0Cccd8E3083e5647",
+				err:      "amount must be a valid integer",
 			},
 			{
-				amount: "asdf",
-				err:    "amount must be a valid integer",
+				amount:   "asdf",
+				provider: "0x9323e8B917ED544c26039A4D0Cccd8E3083e5647",
+				err:      "amount must be a valid integer",
 			},
 			{
-				amount: "1000000000000000000",
-				err:    "",
+				amount:   "1000000000000000000",
+				provider: "0x9323e8B917ED544c26039A4D0Cccd8E3083e5647",
+				err:      "",
+			},
+			{
+				amount:   "1000000000000000000",
+				provider: "string",
+				err:      "provider must be a valid Ethereum address",
 			},
 		} {
-			deposit, err := client.Deposit(context.Background(), &bidderapiv1.DepositRequest{Amount: tc.amount})
+			deposit, err := client.Deposit(context.Background(), &bidderapiv1.DepositRequest{
+				Amount:   tc.amount,
+				Provider: tc.provider,
+			})
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("expected error depositing")
@@ -370,7 +379,9 @@ func TestDepositHandling(t *testing.T) {
 	})
 
 	t.Run("get deposit", func(t *testing.T) {
-		deposit, err := client.GetDeposit(context.Background(), &bidderapiv1.GetDepositRequest{WindowNumber: wrapperspb.UInt64(1)})
+		deposit, err := client.GetDeposit(context.Background(), &bidderapiv1.GetDepositRequest{
+			Provider: "0x353ff5537cc2fe78C8632c41Bb848735C2982c45",
+		})
 		if err != nil {
 			t.Fatalf("error getting deposit: %v", err)
 		}
@@ -379,107 +390,65 @@ func TestDepositHandling(t *testing.T) {
 		}
 	})
 
+	t.Run("deposit evenly", func(t *testing.T) {
+		deposit, err := client.DepositEvenly(context.Background(), &bidderapiv1.DepositEvenlyRequest{
+			TotalAmount: "1000000000000000000",
+			Providers:   []string{"0x8F644015Aa59984BF849259375d9135A89a940e7", "0x353ff5537cc2fe78C8632c41Bb848735C2982c45"},
+		})
+		if err != nil {
+			t.Fatalf("error depositing evenly: %v", err)
+		}
+		if len(deposit.Providers) != 2 {
+			t.Fatalf("expected 2 providers, got %v", len(deposit.Providers))
+		}
+		if deposit.Amounts[0] != "500000000000000000" {
+			t.Fatalf("expected amount to be 500000000000000000, got %v", deposit.Amounts[0])
+		}
+		if deposit.Amounts[1] != "500000000000000000" {
+			t.Fatalf("expected amount to be 500000000000000000, got %v", deposit.Amounts[1])
+		}
+	})
+
+	t.Run("request withdrawals", func(t *testing.T) {
+		resp, err := client.RequestWithdrawals(context.Background(), &bidderapiv1.RequestWithdrawalsRequest{
+			Providers: []string{"0x8F644015Aa59984BF849259375d9135A89a940e7", "0x353ff5537cc2fe78C8632c41Bb848735C2982c45"},
+		})
+		if err != nil {
+			t.Fatalf("error requesting withdrawals: %v", err)
+		}
+		if len(resp.Providers) != 2 {
+			t.Fatalf("expected 2 providers, got %v", len(resp.Providers))
+		}
+		if len(resp.Amounts) != 2 {
+			t.Fatalf("expected 2 amounts, got %v", len(resp.Amounts))
+		}
+		if resp.Amounts[0] != "500000000000000000" {
+			t.Fatalf("expected amount to be 500000000000000000, got %v", resp.Amounts[0])
+		}
+		if resp.Amounts[1] != "500000000000000000" {
+			t.Fatalf("expected amount to be 500000000000000000, got %v", resp.Amounts[1])
+		}
+	})
+
 	t.Run("withdraw", func(t *testing.T) {
-		resp, err := client.Withdraw(context.Background(), &bidderapiv1.WithdrawRequest{WindowNumber: wrapperspb.UInt64(1)})
-		if err != nil {
-			t.Fatalf("error withdrawing: %v", err)
-		}
-
-		if resp.Amount != "1000000000000000000" {
-			t.Fatalf("expected amount to be 1000000000000000000, got %v", resp.Amount)
-		}
-
-		if resp.WindowNumber.Value != 1 {
-			t.Fatalf("expected window number to be 1, got %v", resp.WindowNumber)
-		}
-	})
-}
-
-func TestAutoDepositHandling(t *testing.T) {
-	t.Parallel()
-
-	client := startServer(t)
-
-	t.Run("autodeposit", func(t *testing.T) {
-		deposit, err := client.AutoDeposit(context.Background(), &bidderapiv1.DepositRequest{
-			Amount:       "1000000000000000000",
-			WindowNumber: wrapperspb.UInt64(1),
-		})
-		if err != nil {
-			t.Fatalf("error depositing: %v", err)
-		}
-		if deposit.StartWindowNumber.Value != 1 {
-			t.Fatalf("expected start window number to be 1, got %v", deposit.StartWindowNumber)
-		}
-		if deposit.AmountPerWindow != "1000000000000000000" {
-			t.Fatalf("expected amount per window to be 1000000000000000000, got %v", deposit.AmountPerWindow)
-		}
-	})
-
-	t.Run("get status", func(t *testing.T) {
-		status, err := client.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error getting deposit: %v", err)
-		}
-		if status.IsAutodepositEnabled != true {
-			t.Fatalf("expected is autodeposit enabled to be true, got %v", status.IsAutodepositEnabled)
-		}
-		if len(status.WindowBalances) != 2 {
-			t.Fatalf("expected 2 deposits, got %v", len(status.WindowBalances))
-		}
-		for _, v := range status.WindowBalances {
-			if v.WindowNumber.Value != 1 && v.WindowNumber.Value != 2 {
-				t.Fatalf("unexpected window number, got %v", v.WindowNumber)
-			}
-			if v.DepositedAmount != "1000000000000000000" {
-				t.Fatalf("expected amount to be 1000000000000000000, got %v", v)
-			}
-			if v.WindowNumber.Value == 1 && v.StartBlockNumber.Value != 1 && v.EndBlockNumber.Value != blocksPerWindow && !v.IsCurrent {
-				t.Fatalf("expected correct values for window 1, got %v", v)
-			}
-			if v.WindowNumber.Value == 2 && v.StartBlockNumber.Value != blocksPerWindow+1 && v.EndBlockNumber.Value != blocksPerWindow*2 && v.IsCurrent {
-				t.Fatalf("expected correct values for window 2, got %v", v)
-			}
-		}
-	})
-
-	t.Run("stop autodeposit", func(t *testing.T) {
-		resp, err := client.CancelAutoDeposit(context.Background(), &bidderapiv1.CancelAutoDepositRequest{
-			Withdraw: true,
-		})
-		if err != nil {
-			t.Fatalf("error stopping autodeposit: %v", err)
-		}
-		if len(resp.WindowNumbers) != 0 {
-			t.Fatalf("expected 0 window numbers, got %v", len(resp.WindowNumbers))
-		}
-	})
-
-	t.Run("stop no withdraw", func(t *testing.T) {
-		_, err := client.AutoDeposit(context.Background(), &bidderapiv1.DepositRequest{
-			WindowNumber: wrapperspb.UInt64(5),
-			Amount:       "1000000000000000000",
-		})
-		if err != nil {
-			t.Fatalf("error getting deposit: %v", err)
-		}
-
-		resp, err := client.CancelAutoDeposit(context.Background(), &bidderapiv1.CancelAutoDepositRequest{})
-		if err != nil {
-			t.Fatalf("error stopping autodeposit: %v", err)
-		}
-		if len(resp.WindowNumbers) != 2 {
-			t.Fatalf("expected 2 window numbers, got %v", len(resp.WindowNumbers))
-		}
-
-		windows := make([]*wrapperspb.UInt64Value, 2)
-		copy(windows, resp.WindowNumbers)
-
-		_, err = client.WithdrawFromWindows(context.Background(), &bidderapiv1.WithdrawFromWindowsRequest{
-			WindowNumbers: windows,
+		resp, err := client.Withdraw(context.Background(), &bidderapiv1.WithdrawRequest{
+			Providers: []string{"0x8F644015Aa59984BF849259375d9135A89a940e7", "0x353ff5537cc2fe78C8632c41Bb848735C2982c45"},
 		})
 		if err != nil {
 			t.Fatalf("error withdrawing: %v", err)
+		}
+
+		if len(resp.Providers) != 2 {
+			t.Fatalf("expected 2 providers, got %v", len(resp.Providers))
+		}
+		if len(resp.Amounts) != 2 {
+			t.Fatalf("expected 2 amounts, got %v", len(resp.Amounts))
+		}
+		if resp.Amounts[0] != "500000000000000000" {
+			t.Fatalf("expected amount to be 500000000000000000, got %v", resp.Amounts[0])
+		}
+		if resp.Amounts[1] != "500000000000000000" {
+			t.Fatalf("expected amount to be 500000000000000000, got %v", resp.Amounts[1])
 		}
 	})
 }

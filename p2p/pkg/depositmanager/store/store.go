@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -16,14 +17,11 @@ const (
 )
 
 var (
-	balanceKey = func(window *big.Int, bidder common.Address) string {
-		return fmt.Sprintf("%s%s/%s", balanceNS, window, bidder)
+	balanceKey = func(bidder common.Address) string {
+		return fmt.Sprintf("%s%s", balanceNS, bidder)
 	}
-	blockBalanceKey = func(window *big.Int, bidder common.Address, blockNumber int64) string {
-		return fmt.Sprintf("%s%s/%s/%d", balanceNS, window, bidder, blockNumber)
-	}
-	balancePrefix = func(window *big.Int) string {
-		return fmt.Sprintf("%s%s", balanceNS, window)
+	balancePrefix = func(bidder common.Address) string {
+		return fmt.Sprintf("%s%s", balanceNS, bidder)
 	}
 )
 
@@ -38,18 +36,18 @@ func New(st storage.Storage) *Store {
 	}
 }
 
-func (s *Store) SetBalance(bidder common.Address, windowNumber, depositedAmount *big.Int) error {
+func (s *Store) SetBalance(bidder common.Address, depositedAmount *big.Int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.st.Put(balanceKey(windowNumber, bidder), depositedAmount.Bytes())
+	return s.st.Put(balanceKey(bidder), depositedAmount.Bytes())
 }
 
-func (s *Store) GetBalance(bidder common.Address, windowNumber *big.Int) (*big.Int, error) {
+func (s *Store) GetBalance(bidder common.Address) (*big.Int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	val, err := s.st.Get(balanceKey(windowNumber, bidder))
+	val, err := s.st.Get(balanceKey(bidder))
 	switch {
 	case errors.Is(err, storage.ErrKeyNotFound):
 		return nil, nil
@@ -60,107 +58,37 @@ func (s *Store) GetBalance(bidder common.Address, windowNumber *big.Int) (*big.I
 	return new(big.Int).SetBytes(val), nil
 }
 
-func (s *Store) ClearBalances(windowNumber *big.Int) ([]*big.Int, error) {
-	if windowNumber == nil || windowNumber.Cmp(big.NewInt(0)) == -1 {
-		return nil, nil
-	}
-
-	s.mu.RLock()
-	windows := make([]*big.Int, 0)
-	err := s.st.WalkPrefix(balanceNS, func(key string, _ []byte) bool {
-		parts := strings.Split(key, "/")
-		if len(parts) != 3 {
-			return false
-		}
-		w, ok := new(big.Int).SetString(parts[1], 10)
-		if !ok {
-			return false
-		}
-		switch w.Cmp(windowNumber) {
-		case -1:
-			windows = append(windows, w)
-		case 0:
-			windows = append(windows, w)
-			return true
-		}
-		return false
-	})
-	s.mu.RUnlock()
-	if err != nil {
-		return nil, err
-	}
-
+func (s *Store) DeleteBalance(bidder common.Address) error {
 	s.mu.Lock()
-	for _, w := range windows {
-		err := s.st.DeletePrefix(balancePrefix(w))
-		if err != nil {
-			s.mu.Unlock()
-			return nil, err
-		}
-	}
-	s.mu.Unlock()
-
-	return windows, nil
+	defer s.mu.Unlock()
+	return s.st.Delete(balanceKey(bidder))
 }
 
-func (s *Store) GetBalanceForBlock(
+func (s *Store) RefundBalanceIfExists(
 	bidder common.Address,
-	window *big.Int,
-	blockNumber int64,
-) (*big.Int, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	val, err := s.st.Get(blockBalanceKey(window, bidder, blockNumber))
-	switch {
-	case errors.Is(err, storage.ErrKeyNotFound):
-		return nil, nil
-	case err != nil:
-		return nil, err
-	}
-
-	return new(big.Int).SetBytes(val), nil
-}
-
-func (s *Store) SetBalanceForBlock(
-	bidder common.Address,
-	window *big.Int,
 	amount *big.Int,
-	blockNumber int64,
 ) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.st.Put(blockBalanceKey(window, bidder, blockNumber), amount.Bytes())
-}
-
-func (s *Store) RefundBalanceForBlock(
-	bidder common.Address,
-	window *big.Int,
-	amount *big.Int,
-	blockNumber int64,
-) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	val, err := s.st.Get(blockBalanceKey(window, bidder, blockNumber))
+	val, err := s.st.Get(balanceKey(bidder))
 	switch {
 	case errors.Is(err, storage.ErrKeyNotFound):
-		return s.st.Put(blockBalanceKey(window, bidder, blockNumber), amount.Bytes())
+		return status.Errorf(codes.FailedPrecondition, "balance not found, no refund needed")
 	case err != nil:
 		return err
 	}
 
 	newAmount := new(big.Int).Add(new(big.Int).SetBytes(val), amount)
-	return s.st.Put(blockBalanceKey(window, bidder, blockNumber), newAmount.Bytes())
+	return s.st.Put(balanceKey(bidder), newAmount.Bytes())
 }
 
-func (s *Store) BalanceEntries(windowNumber *big.Int) (int, error) {
+func (s *Store) BalanceEntries(bidder common.Address) (int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	entries := 0
-	prefix := balancePrefix(windowNumber)
+	prefix := balancePrefix(bidder)
 	err := s.st.WalkPrefix(prefix, func(key string, val []byte) bool {
 		entries++
 		return false

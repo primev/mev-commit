@@ -1,6 +1,10 @@
+genesis:
+  accountGeneration:
+    enabled: false
+  url: "https://storage.googleapis.com/devnet-artifacts/devnet-genesis/genesis.json"
 
 erigon:
-  networkId: 141414
+  networkId: 10025
   datadir: "/data/erigon"
   ports:
     http: 8545
@@ -23,12 +27,12 @@ erigon:
       enabled: true
       addr: "0.0.0.0"
   zeroFeeTxList:
-    - "0x00"  # Orcale Keystore
-    - "0x00"  # Contracts Deployer Keystore
-    - "0x00"  # Bridge Relayer Keystore
+    - "0x421657a89f467ac04c542e46645a7752e199b5e6"  # Contracts Deployer Keystore
+    - "0x1c533735c11dd317bc816629f86e00f479d097a3"  # Orcale Keystore
+    #- "0x929f3b326ea399cb953c18854733d6b894b9e819"  # Bridge Relayer Keystore
   pruneMode: "archive"
   nodiscover: true
-  # Additional flags to pass to erigon
+  # Additional arguments to pass to erigon
   extraArgs: []
   # Example:
   # extraArgs:
@@ -37,7 +41,7 @@ erigon:
 
 snode:
   instanceId: "snode1"
-  priorityFeeRecipient: "0x00"
+  priorityFeeRecipient: "0xcEc94aeB187321262BA8Ae5BB0A9D79EAd56da92"
   ports:
     api: 9090
     health: 8080
@@ -50,25 +54,22 @@ snode:
 
 
 jwt:
-  token: ""
-
-genesis:
-  url: ""
+  token: "32c2902cc88b19b1c775ffef7e67673f296beb2e610f93230b40e5ef822ae9d4"
 
 
 image:
   erigon:
-    repository: 
-    tag:
+    repository: primev/primev
+    tag: erigon-snode-v3.0.7-ms-patch
     pullPolicy: IfNotPresent
   snode:
-    repository: 
-    tag:
+    repository: primev/primev
+    tag: amd64-erigon-v3.0.7-simplify-cl
     pullPolicy: IfNotPresent
 
 storage:
-  size: 500Gi
-  storageClassName:
+  size: 100Gi
+  storageClassName: premium-rwo #erigon-hyperdisk-extreme (for testnet)
   accessMode: ReadWriteOnce
 
 security:
@@ -84,31 +85,32 @@ terminationGracePeriodSeconds: 60
 resources:
   erigon:
     requests:
-      cpu: "48"
-      memory: "128Gi"
+      cpu: "100m"
+      memory: "500Mi"
     limits:
-      cpu: "52"
-      memory: "152Gi"
+      cpu: "6000m"
+      memory: "16Gi"
   snode:
     requests:
-      cpu: "8"
-      memory: "48Gi"
+      cpu: "100m"
+      memory: "100Mi"
     limits:
-      cpu: "12"
-      memory: "64Gi"
+      cpu: "6000m"
+      memory: "16Gi"
 
 # Init container resources
 initContainerResources:
   requests:
-    cpu: "500m"
-    memory: "500Mi"
+    cpu: "50m"
+    memory: "100Mi"
   limits:
     cpu: "1000m"
     memory: "1Gi"
 
+
 service:
   erigon:
-    type: ClusterIP
+    type: LoadBalancer
     ports:
       http: 8545
       ws: 8546
@@ -132,8 +134,8 @@ service:
     #   app: snode
     #   component: consensus-layer
 
-nodeSelector:
-   workload-type: erigon
+#nodeSelector:
+#   workload-type: erigon
 
 
 tolerations: []
@@ -189,6 +191,11 @@ topologySpreadConstraints: []
 #         app.kubernetes.io/name: erigon-snode
 
 
+# podDisruptionBudget:
+#   enabled: false
+#   minAvailable: 1
+#   maxUnavailable: 1
+
 # Additional labels for StatefulSet
 additionalLabels: {}
 # Example:
@@ -198,41 +205,6 @@ additionalLabels: {}
 #   version: v1.0.0
 
 ingress:
-  enabled: true
-  className: ""
-  
-  # RPC Configuration
-  rpc:
-    host:
-    path: /
-    pathType: Prefix
-    annotations:
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-      nginx.ingress.kubernetes.io/proxy-body-size: "0"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "1200"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "1200"
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
-  
-  # WebSocket Configuration  
-  websocket:
-    host:
-    path: /
-    pathType: Prefix
-    annotations:
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-      nginx.ingress.kubernetes.io/proxy-body-size: "0"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
-      # WebSocket specific annotations
-      nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-      nginx.ingress.kubernetes.io/proxy-set-headers: |
-        Connection "upgrade"
-        Upgrade $http_upgrade
-  
-  
-  tls:
-    secretName:
+  enabled: false
+
 

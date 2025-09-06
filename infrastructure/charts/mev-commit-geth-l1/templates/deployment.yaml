@@ -1,0 +1,221 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "geth-l1.fullname" . }}
+  labels:
+    {{- include "geth-l1.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "geth-l1.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "geth-l1.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: geth
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.geth.ports.http }}
+              protocol: TCP
+            - name: ws
+              containerPort: {{ .Values.geth.ports.ws }}
+              protocol: TCP
+            - name: p2p
+              containerPort: {{ .Values.geth.ports.p2p }}
+              protocol: TCP
+          command: ["geth"]
+          args:
+            {{- if .Values.geth.dev.enabled }}
+            - --dev
+            - --dev.period={{ .Values.geth.dev.period }}
+            {{- end }}
+            - --datadir={{ .Values.geth.dataDir }}
+            - --http
+            - --http.addr=0.0.0.0
+            - --http.port={{ .Values.geth.ports.http }}
+            - --http.api={{ .Values.geth.rpc.apis }}
+            - --http.corsdomain={{ .Values.geth.rpc.cors }}
+            - --http.vhosts={{ .Values.geth.rpc.vhosts }}
+            - --ws
+            - --ws.addr=0.0.0.0
+            - --ws.port={{ .Values.geth.ports.ws }}
+            - --ws.api={{ .Values.geth.rpc.apis }}
+            - --ws.origins={{ .Values.geth.rpc.wsOrigins }}
+            - --networkid={{ .Values.geth.networkId }}
+            - --verbosity={{ .Values.geth.logging.verbosity }}
+            {{- if .Values.geth.allowInsecureUnlock }}
+            - --allow-insecure-unlock
+            {{- end }}
+            {{- if .Values.geth.passwordFile.enabled }}
+            - --password=/etc/geth/password.txt
+            {{- end }}
+            {{- range .Values.geth.extraArgs }}
+            - {{ . }}
+            {{- end }}
+          volumeMounts:
+            - name: geth-data
+              mountPath: {{ .Values.geth.dataDir }}
+            {{- if .Values.geth.passwordFile.enabled }}
+            - name: password-file
+              mountPath: /etc/geth
+              readOnly: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+        {{- if .Values.funding.enabled }}
+        - name: funding-sidecar
+          image: "{{ .Values.funding.image.repository }}:{{ .Values.funding.image.tag }}"
+          imagePullPolicy: {{ .Values.funding.image.pullPolicy }}
+          securityContext:
+            runAsUser: 0  # Run as root to access keystore
+            runAsGroup: 0
+          env:
+            - name: FOUNDRY_DISABLE_NIGHTLY_WARNING
+              value: "true"
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              set -e
+              echo "Starting funding sidecar..."
+              
+              # Wait for Geth RPC to be ready using cast rpc (no curl needed)
+              echo "Waiting for Geth RPC to be available..."
+              ATTEMPTS=0
+              until cast rpc eth_blockNumber --rpc-url http://localhost:{{ .Values.geth.ports.http }} >/dev/null 2>&1; do
+                ATTEMPTS=$((ATTEMPTS + 1))
+                echo "Attempt $ATTEMPTS: Geth RPC not ready, waiting 1 second..."
+                
+                if [ $ATTEMPTS -gt 60 ]; then
+                  echo "Giving up after 60 attempts (1 minute)"
+                  exit 1
+                fi
+                sleep 1
+              done
+              echo "Geth RPC is ready!"
+              echo "Geth RPC is ready!"
+              
+              # Wait for keystore directory and files to be created
+              echo "Waiting for keystore to be generated..."
+              KEYSTORE_DIR="{{ .Values.geth.dataDir }}/keystore"
+              
+              # Wait up to 5 minutes for keystore to appear
+              TIMEOUT=300
+              ELAPSED=0
+              while [ ! -d "$KEYSTORE_DIR" ] || [ -z "$(ls -A $KEYSTORE_DIR 2>/dev/null)" ]; do
+                if [ $ELAPSED -ge $TIMEOUT ]; then
+                  echo "Timeout waiting for keystore generation"
+                  exit 1
+                fi
+                echo "Keystore not found or empty, waiting 1 second... ($ELAPSED/$TIMEOUT)"
+                sleep 1
+                ELAPSED=$((ELAPSED + 1))
+              done
+              
+              # Find the keystore file (should be only one in dev mode)
+              KEYSTORE_FILE=$(ls $KEYSTORE_DIR | head -1)
+              if [ -z "$KEYSTORE_FILE" ]; then
+                echo "No keystore file found"
+                exit 1
+              fi
+              
+              echo "Found keystore file: $KEYSTORE_FILE"
+              KEYSTORE_PATH="$KEYSTORE_DIR/$KEYSTORE_FILE"
+              
+              # Get the funding address from keystore
+              FUNDING_ADDRESS=$(cast wallet address --keystore "$KEYSTORE_PATH" --password="{{ .Values.funding.keystore.password }}")
+              echo "Funding from address: $FUNDING_ADDRESS"
+              
+              # Check if funding address has sufficient balance
+              BALANCE=$(cast balance $FUNDING_ADDRESS --rpc-url http://127.0.0.1:{{ .Values.geth.ports.http }})
+              echo "Funding address balance: $BALANCE wei"
+              
+              # Get initial nonce
+              BASE_NONCE=$(cast nonce $FUNDING_ADDRESS --rpc-url http://localhost:{{ .Values.geth.ports.http }})
+              echo "Starting nonce: $BASE_NONCE"
+              
+              # Fund each address
+              {{- range $index, $address := .Values.funding.addresses }}
+              echo "Funding address {{ $index }}: {{ $address }}"
+              
+              # Check current balance of target address
+              TARGET_BALANCE=$(cast balance {{ $address }} --rpc-url http://localhost:{{ $.Values.geth.ports.http }})
+              echo "Current balance of {{ $address }}: $TARGET_BALANCE wei"
+              
+              # Send funding transaction
+              TX_HASH=$(cast send {{ $address }} \
+                --value {{ $.Values.funding.amount }} \
+                --gas-price {{ $.Values.funding.gasPrice }} \
+                --nonce $((BASE_NONCE + {{ $index }})) \
+                --keystore "$KEYSTORE_PATH" \
+                --password="{{ $.Values.funding.keystore.password }}" \
+                --rpc-url http://localhost:{{ $.Values.geth.ports.http }})
+              
+              if [ $? -eq 0 ]; then
+                echo "✓ Successfully funded {{ $address }} - TX: $TX_HASH"
+              else
+                echo "✗ Failed to fund {{ $address }}"
+              fi
+              
+              # Wait a bit between transactions
+              sleep 2
+              {{- end }}
+              
+              echo "Funding process completed successfully!"
+              
+              # Keep the sidecar running (optional - you can remove this if you want it to exit)
+              echo "Funding sidecar will keep running..."
+              while true; do
+                sleep 3600  # Sleep for 1 hour
+              done
+          volumeMounts:
+            - name: geth-data
+              mountPath: {{ .Values.geth.dataDir }}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+        {{- end }}
+
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: geth-data
+          persistentVolumeClaim:
+            claimName: {{ include "geth-l1.fullname" . }}
+        {{- else }}
+        - name: geth-data
+          emptyDir: {}
+        {{- end }}
+        {{- if .Values.geth.passwordFile.enabled }}
+        - name: password-file
+          secret:
+            secretName: {{ include "geth-l1.fullname" . }}-password
+        {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

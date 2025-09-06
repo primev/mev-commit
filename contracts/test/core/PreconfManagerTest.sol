@@ -8,9 +8,9 @@ import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {IProviderRegistry} from "../../contracts/interfaces/IProviderRegistry.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
+import {DepositManager} from "../../contracts/core/DepositManager.sol";
 
 contract PreconfManagerTest is Test {
     struct TestCommitment {
@@ -27,6 +27,7 @@ contract PreconfManagerTest is Test {
         bytes commitmentSignature;
         uint64 dispatchTimestamp;
         uint256[] zkProof;
+        bytes bidOptions;
     }
 
     TestCommitment internal _testCommitmentAliceBob;
@@ -54,6 +55,7 @@ contract PreconfManagerTest is Test {
         hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
     uint256 public withdrawalDelay;
     uint256 public protocolFeePayoutPeriodBlocks;
+    uint256 public bidderWithdrawalPeriodMs;
     uint256[] zkProof;
     address public oracleContract;
 
@@ -89,14 +91,33 @@ contract PreconfManagerTest is Test {
             hex"aeed5b345d04360c6ad52d4fb4fce32eec8a552f87686afb39ceea04f9fd1a782b180e4eef5e02af77015292840c541e2681c8e165b44be1d8276aba7211bde21b",
             hex"a0b508b09c6942d73b8feb4feb308ea0b753e14e32cff231f75348f25feb07b02b97743c4c9c493825ec6730e2bc24a513d09a2996a20beac2013f134c047cd71b",
             15,
-            zkProof
+            zkProof,
+            hex""
         );
+
+        // _testCommitmentAliceBob = TestCommitment(
+        //     2,
+        //     0,
+        //     2,
+        //     "0xkartik",
+        //     "0xkartik",
+        //     10,
+        //     20,
+        //     0x8d1f669e1d55329ba0dc133fba063c06c8ae146b8e815732f9951930c807ff7f,
+        //     0x87d7e787de6386cba19d3d5680a8feaa5378c46f1c5e13c622ffcdb354485d23,
+        //     hex"aeed5b345d04360c6ad52d4fb4fce32eec8a552f87686afb39ceea04f9fd1a782b180e4eef5e02af77015292840c541e2681c8e165b44be1d8276aba7211bde21b",
+        //     hex"a0b508b09c6942d73b8feb4feb308ea0b753e14e32cff231f75348f25feb07b02b97743c4c9c493825ec6730e2bc24a513d09a2996a20beac2013f134c047cd71b",
+        //     15,
+        //     zkProof,
+        //     hex""
+        // );
 
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         withdrawalDelay = 24 hours; // 24 hours
         protocolFeePayoutPeriodBlocks = 100;
+        bidderWithdrawalPeriodMs = 10000;
         oracleContract = address(0x6793);
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
@@ -133,7 +154,8 @@ contract PreconfManagerTest is Test {
                     feePercent,
                     address(this),
                     address(blockTracker),
-                    protocolFeePayoutPeriodBlocks
+                    protocolFeePayoutPeriodBlocks,
+                    bidderWithdrawalPeriodMs
                 )
             )
         );
@@ -155,9 +177,53 @@ contract PreconfManagerTest is Test {
         );
         preconfManager = PreconfManager(payable(preconfStoreProxy));
 
+        uint256 depositManagerMinBalance = 0.01 ether;
+        DepositManager depositManager = new DepositManager(address(bidderRegistry), depositManagerMinBalance);
+        bidderRegistry.setDepositManagerImpl(address(depositManager));
+
         // Sets fake block timestamp
         vm.warp(500);
         bidderRegistry.setPreconfManager(address(preconfManager));
+
+        provider = vm.addr(10);
+        {
+            // Recompute only the derived fields to match the new EIP-712 (with bidOptions)
+            (address bidder,   uint256 bidderPk)     = makeAddrAndKey("alice");
+            (address committer,uint256 committerPk)  = makeAddrAndKey("bob");
+
+            IPreconfManager.OpenCommitmentParams memory p = IPreconfManager.OpenCommitmentParams({
+                unopenedCommitmentIndex: bytes32(0),
+                bidAmt:                  _testCommitmentAliceBob.bidAmt,
+                slashAmt:                _testCommitmentAliceBob.slashAmt,
+                blockNumber:             _testCommitmentAliceBob.blockNumber,
+                decayStartTimeStamp:     _testCommitmentAliceBob.decayStartTimestamp,
+                decayEndTimeStamp:       _testCommitmentAliceBob.decayEndTimestamp,
+                txnHash:                 _testCommitmentAliceBob.txnHash,
+                revertingTxHashes:       _testCommitmentAliceBob.revertingTxHashes,
+                bidSignature:            hex"",                         // set after signing
+                zkProof:                 _testCommitmentAliceBob.zkProof,
+                bidOptions:              _testCommitmentAliceBob.bidOptions // hex""
+            });
+
+            // 1) New bid hash (now includes bidOptions as the last field)
+            bytes32 bidHash = preconfManager.getBidHash(p);
+
+            // 2) Bidder signs bidHash
+            bytes memory bidSig = signHash(bidderPk, bidHash);
+            p.bidSignature = bidSig;
+
+            // 3) Commitment digest over bidHash + bidder signature + shared key (zkProof)
+            bytes32 preConfHash = preconfManager.getPreConfHash(bidHash, bidSig, p.zkProof);
+
+            // 4) Provider signs commitment digest
+            bytes memory commSig = signHash(committerPk, preConfHash);
+
+            // Write back ONLY the derived fields; all other fixture fields stay as-is
+            _testCommitmentAliceBob.bidDigest            = bidHash;
+            _testCommitmentAliceBob.bidSignature         = bidSig;
+            _testCommitmentAliceBob.commitmentDigest     = preConfHash;
+            _testCommitmentAliceBob.commitmentSignature  = commSig;
+        }
     }
 
     function test_GetBidHash1() public {
@@ -189,7 +255,8 @@ contract PreconfManagerTest is Test {
                 testCommitment.txnHash,
                 testCommitment.revertingTxHashes,
                 hex"",
-                testCommitment.zkProof
+                testCommitment.zkProof,
+                hex""
             )
         );
 
@@ -370,7 +437,8 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.txnHash,
                 _testCommitmentAliceBob.revertingTxHashes,
                 hex"",
-                _testCommitmentAliceBob.zkProof
+                _testCommitmentAliceBob.zkProof,
+                hex""
             )
         );
         assertEq(bidHash, _testCommitmentAliceBob.bidDigest);
@@ -390,7 +458,8 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.txnHash,
                 _testCommitmentAliceBob.revertingTxHashes,
                 hex"",
-                _testCommitmentAliceBob.zkProof
+                _testCommitmentAliceBob.zkProof,
+                hex""
             )
         );
 
@@ -414,13 +483,13 @@ contract PreconfManagerTest is Test {
     }
 
     function test_StoreCommitment() public {
+        (address committer, ) = makeAddrAndKey("bob");
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
         vm.prank(bidder);
-        bidderRegistry.depositForWindow{value: 2 ether}(1);
+        bidderRegistry.depositAsBidder{value: 2 ether}(committer);
 
         verifyCommitmentNotUsed(_testCommitmentAliceBob);
-        (address committer, ) = makeAddrAndKey("bob");
 
         // Step 2: Store the commitment
         bytes32 unopenedIndex = storeCommitment(
@@ -435,10 +504,11 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp,
             _testCommitmentAliceBob.slashAmt,
-            _testCommitmentAliceBob.zkProof
+            _testCommitmentAliceBob.zkProof,
+            _testCommitmentAliceBob.bidOptions
         );
 
-        // Step 3: Move to the next window
+        // Step 3: Record the block
         blockTracker.recordL1Block(2, validBLSPubkey2);
 
         // Step 4: Open the commitment
@@ -453,7 +523,8 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.decayEndTimestamp,
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.slashAmt,
-            _testCommitmentAliceBob.zkProof
+            _testCommitmentAliceBob.zkProof,
+            _testCommitmentAliceBob.bidOptions
         );
 
         // Step 5: Verify the stored commitment
@@ -487,7 +558,8 @@ contract PreconfManagerTest is Test {
                 c.txnHash,
                 c.revertingTxHashes,
                 hex"",
-                c.zkProof
+                c.zkProof,
+                hex""
             )
         );
 
@@ -497,7 +569,7 @@ contract PreconfManagerTest is Test {
             c.zkProof
         );
 
-        (, bool isSettled, , , , , , , , , , , ) = preconfManager
+        (, bool isSettled, , , , , , , , , , , , ) = preconfManager
             .openedCommitments(preConfHash);
 
         assertEq(isSettled, false);
@@ -516,7 +588,8 @@ contract PreconfManagerTest is Test {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp,
         uint256 slashAmt,
-        uint256[] memory zkproof
+        uint256[] memory zkproof,
+        bytes memory bidOptions
     ) public returns (bytes32) {
         bytes32 bidHash = preconfManager.getBidHash(
             IPreconfManager.OpenCommitmentParams(
@@ -529,7 +602,8 @@ contract PreconfManagerTest is Test {
                 txnHash,
                 revertingTxHashes,
                 hex"",
-                zkproof
+                zkproof,
+                hex""
             )
         );
 
@@ -568,7 +642,8 @@ contract PreconfManagerTest is Test {
         uint64 decayEndTimestamp,
         bytes memory bidSignature,
         uint256 slashAmt,
-        uint256[] memory zkproof
+        uint256[] memory zkproof,
+        bytes memory bidOptions
     ) public returns (bytes32) {
         vm.prank(msgSender);
         bytes32 commitmentIndex = preconfManager.openCommitment(
@@ -582,7 +657,8 @@ contract PreconfManagerTest is Test {
                 txnHash,
                 revertingTxHashes,
                 bidSignature,
-                zkproof
+                zkproof,
+                hex""
             )
         );
 
@@ -651,11 +727,8 @@ contract PreconfManagerTest is Test {
     function test_GetCommitment() public {
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
-        uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(
-            _testCommitmentAliceBob.blockNumber
-        );
         vm.prank(bidder);
-        bidderRegistry.depositForWindow{value: 2 ether}(window);
+        bidderRegistry.depositAsBidder{value: 2 ether}(provider);
         // Step 1: Verify that the commitment has not been used before
         verifyCommitmentNotUsed(_testCommitmentAliceBob);
         // Step 2: Store the commitment
@@ -672,7 +745,8 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp,
             _testCommitmentAliceBob.slashAmt,
-            _testCommitmentAliceBob.zkProof
+            _testCommitmentAliceBob.zkProof,
+            _testCommitmentAliceBob.bidOptions
         );
         PreconfManager.UnopenedCommitment
             memory storedCommitment = preconfManager.getUnopenedCommitment(
@@ -692,12 +766,11 @@ contract PreconfManagerTest is Test {
     function test_InitiateSlash() public {
         // Assuming you have a stored commitment
         {
+            (address committer, ) = makeAddrAndKey("bob");
             (address bidder, ) = makeAddrAndKey("alice");
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            uint256 depositWindow = WindowFromBlockNumber
-                .getWindowFromBlockNumber(_testCommitmentAliceBob.blockNumber);
-            bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
+            bidderRegistry.depositAsBidder{value: 2 ether}(committer);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(_testCommitmentAliceBob);
@@ -709,10 +782,9 @@ contract PreconfManagerTest is Test {
             );
 
             // Verify that the commitment has not been set before
-            (, bool isSettled, , , , , , , , , , , ) = preconfManager
+            (, bool isSettled, , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
-            (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 unopenedIndex = storeCommitment(
                 committer,
@@ -726,7 +798,8 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.slashAmt,
-                _testCommitmentAliceBob.zkProof
+                _testCommitmentAliceBob.zkProof,
+                _testCommitmentAliceBob.bidOptions
             );
             providerRegistry.setPreconfManager(address(preconfManager));
             uint256 blockNumber = 2;
@@ -743,20 +816,21 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.slashAmt,
-                _testCommitmentAliceBob.zkProof
+                _testCommitmentAliceBob.zkProof,
+                _testCommitmentAliceBob.bidOptions
             );
             uint256 oneHundredPercent = providerRegistry.ONE_HUNDRED_PERCENT();
 
             vm.prank(oracleContract);
             preconfManager.initiateSlash(index, oneHundredPercent);
 
-            (, isSettled, , , , , , , , , , , ) = preconfManager
+            (, isSettled, , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);
             // Verify that the commitment has been deleted
             assert(isSettled == true);
 
             assertEq(
-                bidderRegistry.lockedFunds(bidder, depositWindow),
+                bidderRegistry.getDeposit(bidder, committer),
                 2 ether - _testCommitmentAliceBob.bidAmt
             );
             assertEq(bidderRegistry.providerAmount(committer), 0 ether);
@@ -771,12 +845,11 @@ contract PreconfManagerTest is Test {
     function test_InitiateReward() public {
         // Assuming you have a stored commitment
         {
+            (address committer, ) = makeAddrAndKey("bob");
             (address bidder, ) = makeAddrAndKey("alice");
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            uint256 depositWindow = WindowFromBlockNumber
-                .getWindowFromBlockNumber(_testCommitmentAliceBob.blockNumber);
-            bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
+            bidderRegistry.depositAsBidder{value: 2 ether}(committer);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(_testCommitmentAliceBob);
@@ -787,10 +860,9 @@ contract PreconfManagerTest is Test {
             );
 
             // Verify that the commitment has not been used before
-            (, bool isSettled, , , , , , , , , , , ) = preconfManager
+            (, bool isSettled, , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
-            (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 unopenedIndex = storeCommitment(
                 committer,
@@ -804,7 +876,8 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.slashAmt,
-                _testCommitmentAliceBob.zkProof
+                _testCommitmentAliceBob.zkProof,
+                _testCommitmentAliceBob.bidOptions
             );
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
@@ -822,18 +895,19 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.slashAmt,
-                _testCommitmentAliceBob.zkProof
+                _testCommitmentAliceBob.zkProof,
+                _testCommitmentAliceBob.bidOptions
             );
             vm.prank(oracleContract);
             preconfManager.initiateReward(index, 100);
 
-            (, isSettled, , , , , , , , , , , ) = preconfManager
+            (, isSettled, , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isSettled == true);
             // commitmentDigest value is internal to contract and not asserted
             assertEq(
-                bidderRegistry.lockedFunds(bidder, depositWindow),
+                bidderRegistry.getDeposit(bidder, committer),
                 2 ether - _testCommitmentAliceBob.bidAmt
             );
         }
@@ -842,12 +916,11 @@ contract PreconfManagerTest is Test {
     function test_InitiateRewardFullyDecayed() public {
         // Assuming you have a stored commitment
         {
+            (address committer, ) = makeAddrAndKey("bob");
             (address bidder, ) = makeAddrAndKey("alice");
-            uint256 depositWindow = WindowFromBlockNumber
-                .getWindowFromBlockNumber(_testCommitmentAliceBob.blockNumber);
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
+            bidderRegistry.depositAsBidder{value: 2 ether}(committer);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(_testCommitmentAliceBob);
@@ -858,10 +931,9 @@ contract PreconfManagerTest is Test {
             );
 
             // Verify that the commitment has not been used before
-            (, bool isSettled, , , , , , , , , , , ) = preconfManager
+            (, bool isSettled, , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
-            (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 unopenedIndex = storeCommitment(
                 committer,
@@ -875,7 +947,8 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.slashAmt,
-                _testCommitmentAliceBob.zkProof
+                _testCommitmentAliceBob.zkProof,
+                _testCommitmentAliceBob.bidOptions
             );
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
@@ -893,20 +966,20 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.slashAmt,
-                _testCommitmentAliceBob.zkProof
+                _testCommitmentAliceBob.zkProof,
+                _testCommitmentAliceBob.bidOptions
             );
-            uint256 window = blockTracker.getCurrentWindow();
             vm.prank(oracleContract);
             preconfManager.initiateReward(index, 0);
 
-            (, isSettled, , , , , , , , , , , ) = preconfManager
+            (, isSettled, , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isSettled == true);
             // commitmentDigest value is internal to contract and not asserted
 
             assertEq(
-                bidderRegistry.lockedFunds(bidder, window),
+                bidderRegistry.getDeposit(bidder, committer),
                 2 ether - _testCommitmentAliceBob.bidAmt
             );
             assertEq(bidderRegistry.providerAmount(committer), 0 ether);
@@ -993,7 +1066,7 @@ contract PreconfManagerTest is Test {
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
 
-        depositForBidder(bidder, testCommitment.blockNumber);
+        bidderRegistry.depositAsBidder{value: 2 ether}(provider);
 
         (address committer, uint256 committerPk) = makeAddrAndKey("bob");
         vm.deal(committer, 11 ether);
@@ -1054,23 +1127,219 @@ contract PreconfManagerTest is Test {
                 testCommitment2.decayStartTimestamp,
                 testCommitment2.decayEndTimestamp,
                 testCommitment2.txnHash,
-                testCommitment2.revertingTxHashes,
+                testCommitment2.revertingTxHashes,    
                 testCommitment2.bidSignature,
-                testCommitment2.zkProof
+                testCommitment2.zkProof,
+                testCommitment2.bidOptions
             )
         );
     }
 
-    function depositForBidder(
-        address bidder,
-        uint64 blockNumber
-    ) internal returns (uint256) {
-        vm.prank(bidder);
-        uint256 depositWindow = WindowFromBlockNumber.getWindowFromBlockNumber(
-            blockNumber
+    function test_BidOptionsAffectsBidHash() public view {
+        //empty options
+        IPreconfManager.OpenCommitmentParams memory a = IPreconfManager.OpenCommitmentParams({
+            unopenedCommitmentIndex: bytes32(0),
+            bidAmt:                  _testCommitmentAliceBob.bidAmt,
+            slashAmt:                _testCommitmentAliceBob.slashAmt,
+            blockNumber:             _testCommitmentAliceBob.blockNumber,
+            decayStartTimeStamp:     _testCommitmentAliceBob.decayStartTimestamp,
+            decayEndTimeStamp:       _testCommitmentAliceBob.decayEndTimestamp,
+            txnHash:                 _testCommitmentAliceBob.txnHash,
+            revertingTxHashes:       _testCommitmentAliceBob.revertingTxHashes,
+            bidSignature:            hex"", // ignored by getBidHash
+            zkProof:                 _testCommitmentAliceBob.zkProof,
+            bidOptions:              hex""
+        });
+        bytes32 hA = preconfManager.getBidHash(a);
+
+        //same params but non-empty options
+        IPreconfManager.OpenCommitmentParams memory b = a;
+        b.bidOptions = hex"01";
+        bytes32 hB = preconfManager.getBidHash(b);
+
+        assertTrue(hA != hB, "bidOptions must change the bid hash");
+    }
+
+    function test_OpenCommitmentRevertsOnTamperedBidOptions() public {
+        (address bidder,   uint256 bidderPk)    = makeAddrAndKey("alice");
+        (address committer,uint256 committerPk) = makeAddrAndKey("bob");
+
+        // Fund & deposit so open path won’t fail on accounting.
+        vm.deal(bidder, 5 ether);
+        bidderRegistry.depositAsBidder{value: 2 ether}(committer);
+
+        // Build a commitment with bidOptions = 0x01 and compute fresh sigs.
+        TestCommitment memory C = _testCommitmentAliceBob;
+        C.bidOptions = hex"01";
+
+        // Compute bidHash/signs using current contract (same flow as setUp did)
+        IPreconfManager.OpenCommitmentParams memory p = IPreconfManager.OpenCommitmentParams({
+            unopenedCommitmentIndex: bytes32(0),
+            bidAmt:                  C.bidAmt,
+            slashAmt:                C.slashAmt,
+            blockNumber:             C.blockNumber,
+            decayStartTimeStamp:     C.decayStartTimestamp,
+            decayEndTimeStamp:       C.decayEndTimestamp,
+            txnHash:                 C.txnHash,
+            revertingTxHashes:       C.revertingTxHashes,
+            bidSignature:            hex"",
+            zkProof:                 C.zkProof,
+            bidOptions:              C.bidOptions
+        });
+        bytes32 bidHash = preconfManager.getBidHash(p);
+        C.bidSignature  = signHash(bidderPk, bidHash);
+        bytes32 preConfHash = preconfManager.getPreConfHash(bidHash, C.bidSignature, C.zkProof);
+        C.commitmentSignature = signHash(committerPk, preConfHash);
+        C.commitmentDigest    = preConfHash;
+        C.bidDigest           = bidHash;
+
+        // Register & stake the committer so the call can succeed
+        vm.deal(committer, 11 ether);
+        vm.startPrank(committer);
+        providerRegistry.registerAndStake{value: 10 ether}();
+        for (uint256 i = 0; i < validMultiBLSPubkeys.length; i++) {
+            providerRegistry.addVerifiedBLSKey(validMultiBLSPubkeys[i], dummyBLSSignature);
+        }
+
+        // Use the precomputed digest/signature from THIS test (preConfHash/ C.commitmentSignature)
+        bytes32 unopenedIdx = preconfManager.storeUnopenedCommitment(
+            preConfHash,                // exactly the digest you signed above
+            C.commitmentSignature,      // signed by committerPk
+            C.dispatchTimestamp
         );
-        bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
-        return depositWindow;
+        vm.stopPrank();
+
+        // Make committer the block winner
+        blockTracker.recordL1Block(C.blockNumber, validBLSPubkey);
+
+        // Try to open with tampered options (0x02) -> must revert (digest/signature mismatch)
+        vm.expectRevert();
+        openCommitment(
+            bidder,
+            unopenedIdx,
+            C.bidAmt,
+            C.blockNumber,
+            C.txnHash,
+            C.revertingTxHashes,
+            C.decayStartTimestamp,
+            C.decayEndTimestamp,
+            C.bidSignature,
+            C.slashAmt,
+            C.zkProof,
+            hex"02" // <-- different from committed 0x01
+        );
+    }
+
+    function test_OpenedCommitment_PersistsBidOptions() public {
+        (address bidder,   uint256 bidderPk)    = makeAddrAndKey("alice");
+        (address committer,uint256 committerPk) = makeAddrAndKey("bob");
+
+        bytes memory opts = hex"c0ffee";
+
+        // Build a commitment with those options and compute fresh sigs.
+        TestCommitment memory C = _testCommitmentAliceBob;
+        C.bidOptions = opts;
+
+        IPreconfManager.OpenCommitmentParams memory p = IPreconfManager.OpenCommitmentParams({
+            unopenedCommitmentIndex: bytes32(0),
+            bidAmt:                  C.bidAmt,
+            slashAmt:                C.slashAmt,
+            blockNumber:             C.blockNumber,
+            decayStartTimeStamp:     C.decayStartTimestamp,
+            decayEndTimeStamp:       C.decayEndTimestamp,
+            txnHash:                 C.txnHash,
+            revertingTxHashes:       C.revertingTxHashes,
+            bidSignature:            hex"",
+            zkProof:                 C.zkProof,
+            bidOptions:              C.bidOptions
+        });
+        bytes32 bidHash = preconfManager.getBidHash(p);
+        C.bidSignature  = signHash(bidderPk, bidHash);
+        bytes32 preConfHash = preconfManager.getPreConfHash(bidHash, C.bidSignature, C.zkProof);
+        C.commitmentSignature = signHash(committerPk, preConfHash);
+
+        // Prepare funds + store unopened + declare winner
+        vm.deal(bidder, 5 ether);
+        bidderRegistry.depositAsBidder{value: 2 ether}(committer);
+        // Make committer valid (same flow your helper uses)
+        vm.deal(committer, 11 ether);
+        vm.startPrank(committer);
+        providerRegistry.registerAndStake{value: 10 ether}();
+        for (uint256 i = 0; i < validMultiBLSPubkeys.length; i++) {
+            providerRegistry.addVerifiedBLSKey(validMultiBLSPubkeys[i], dummyBLSSignature);
+        }
+        vm.stopPrank();
+
+        // Build params exactly like the contract will see them at open
+        IPreconfManager.OpenCommitmentParams memory pForStore = IPreconfManager.OpenCommitmentParams({
+            unopenedCommitmentIndex: bytes32(0),
+            bidAmt:                  C.bidAmt,
+            slashAmt:                C.slashAmt,
+            blockNumber:             C.blockNumber,
+            decayStartTimeStamp:     C.decayStartTimestamp,
+            decayEndTimeStamp:       C.decayEndTimestamp,
+            txnHash:                 C.txnHash,
+            revertingTxHashes:       C.revertingTxHashes,
+            bidSignature:            hex"", // set below after signing
+            zkProof:                 C.zkProof,
+            bidOptions:              C.bidOptions              // <- important
+        });
+
+        // Recompute the SAME bidHash the contract will compute
+        bytes32 bidHashForStore = preconfManager.getBidHash(pForStore);
+
+        // Ensure the bidder signature matches THIS bidHash (re-sign here to be safe)
+        bytes memory bidSigForStore = signHash(bidderPk, bidHashForStore);
+        pForStore.bidSignature = bidSigForStore;
+
+        // Now compute the commitment digest EXACTLY like the contract
+        bytes32 preConfHashForStore = preconfManager.getPreConfHash(
+            bidHashForStore,
+            bidSigForStore,
+            pForStore.zkProof
+        );
+
+        // Sign the digest with the committer key
+        bytes memory commSigForStore = signHash(committerPk, preConfHashForStore);
+
+        // Finally store the unopened commitment FROM the committer
+        vm.startPrank(committer);
+        bytes32 unopenedIdx = preconfManager.storeUnopenedCommitment(
+            preConfHashForStore,
+            commSigForStore,
+            C.dispatchTimestamp
+        );
+        vm.stopPrank();
+
+        // Keep C in sync for the open step that follows
+        C.bidSignature       = bidSigForStore;
+        C.commitmentSignature= commSigForStore;
+        C.bidDigest          = bidHashForStore;
+        C.commitmentDigest   = preConfHashForStore;
+        blockTracker.recordL1Block(C.blockNumber, validBLSPubkey);
+
+        // Open with the same options
+        IPreconfManager.OpenCommitmentParams memory pOpen = IPreconfManager.OpenCommitmentParams({
+            unopenedCommitmentIndex: unopenedIdx,
+            bidAmt:                  pForStore.bidAmt,
+            slashAmt:                pForStore.slashAmt,
+            blockNumber:             pForStore.blockNumber,
+            decayStartTimeStamp:     pForStore.decayStartTimeStamp,
+            decayEndTimeStamp:       pForStore.decayEndTimeStamp,
+            txnHash:                 pForStore.txnHash,
+            revertingTxHashes:       pForStore.revertingTxHashes,
+            bidSignature:            pForStore.bidSignature,
+            zkProof:                 pForStore.zkProof,
+            bidOptions:              pForStore.bidOptions
+        });
+
+        // Call from an authorized sender (winner or bidder). Bidder is simplest.
+        vm.prank(bidder);
+        bytes32 idx = preconfManager.openCommitment(pOpen);
+
+        // Read back and assert the bytes persisted
+        PreconfManager.OpenedCommitment memory stored = preconfManager.getCommitment(idx);
+        assertEq(stored.bidOptions, opts, "bidOptions bytes should be persisted unchanged");
     }
 
     function storeFirstCommitment(
@@ -1090,7 +1359,8 @@ contract PreconfManagerTest is Test {
                 testCommitment.commitmentSignature,
                 testCommitment.dispatchTimestamp,
                 testCommitment.slashAmt,
-                testCommitment.zkProof
+                testCommitment.zkProof,
+                testCommitment.bidOptions
             );
     }
 
@@ -1111,7 +1381,8 @@ contract PreconfManagerTest is Test {
                 testCommitment.decayEndTimestamp,
                 testCommitment.bidSignature,
                 testCommitment.slashAmt,
-                testCommitment.zkProof
+                testCommitment.zkProof,
+                testCommitment.bidOptions
             );
     }
 
@@ -1140,7 +1411,8 @@ contract PreconfManagerTest is Test {
                 testCommitment2.txnHash,
                 testCommitment2.revertingTxHashes,
                 hex"",
-                testCommitment2.zkProof
+                testCommitment2.zkProof,
+                hex""
             )
         );
 
@@ -1183,5 +1455,31 @@ contract PreconfManagerTest is Test {
     ) internal pure returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
         return abi.encodePacked(r, s, v);
+    }
+
+    function makeParams(
+        string memory txnHash,
+        string memory revTxs,
+        uint256 bidAmt,
+        uint256 slashAmt,
+        uint64 blockNumber,
+        uint64 t0,
+        uint64 t1,
+        uint256[] memory zk,
+        bytes memory bidOptions
+    ) internal pure returns (IPreconfManager.OpenCommitmentParams memory p) {
+        p = IPreconfManager.OpenCommitmentParams({
+            unopenedCommitmentIndex: bytes32(0),
+            bidAmt: bidAmt,
+            slashAmt: slashAmt,
+            blockNumber: blockNumber,
+            decayStartTimeStamp: t0,
+            decayEndTimeStamp: t1,
+            txnHash: txnHash,
+            revertingTxHashes: revTxs,
+            bidSignature: hex"",
+            zkProof: zk,
+            bidOptions: bidOptions
+        });
     }
 }

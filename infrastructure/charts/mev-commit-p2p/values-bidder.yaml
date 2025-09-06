@@ -1,0 +1,82 @@
+# Override values specific to bidder deployment
+
+global:
+  # TLS configuration - disabled for bidder
+  tls:
+    disabled: false
+    selfSigned: true
+
+  contracts:
+    bidderRegistry: "0x00000000000000000000000000000000000000"
+    blockTracker: "0x00000000000000000000000000000000000000"
+    # oracle: "0x00000000000000000000000000000000000000"
+    preconfStore: "0x00000000000000000000000000000000000000"
+    providerRegistry: "0x00000000000000000000000000000000000000"
+
+
+  # RPC endpoints
+  rpc:
+    settlementEndpoint: ""
+    settlementWsEndpoint: ""
+    l1Endpoint: "" # mock L1
+ 
+node:
+  type: "bidder"
+  replicas: 1
+
+  ports:
+    http: 13723
+    p2p: 13722
+    rpc: 13724
+
+  service:
+    type: ClusterIP
+    annotations: {}
+
+  defaultKeystorePassword: "CXBMf4xEDO0I"
+  defaultP2PSecret: ""
+
+  bootnodeConnectionString: "/ip4/109.94.98.75/tcp/13522/p2p/16Uiu2HAmBEYHm37swRU5aphvX7AXxtpFE6kGCkWvgBoRML4FtmyW"
+  resources:
+    limits:
+      cpu: 6000m
+      memory: 12Gi
+    requests:
+      cpu: 280m
+      memory: 10Mi
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+
+  podSecurityContext:
+    fsGroup: 0
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podAnnotations: {}
+  imagePullSecrets: []
+
+# Bidder-specific configuration
+bidder:
+  bidTimeout: "60s"
+
+  autodeposit:
+    enabled: false
+    amount: ""  # leave empty or set to a value like "0.01"
+
+  providerWhitelist: ""  # comma-separated addresses, e.g. "0xabc...,0xdef..."
+
+keystore:
+  path: "/keystore"
+  downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore4/UTC--2025-06-24T18-20-45.876172000Z--cede115ffaa36313bde4e3dcf1fc50869b308791"
+  retries: 3
+
+#nodeSelector:
+#  workload-type: general

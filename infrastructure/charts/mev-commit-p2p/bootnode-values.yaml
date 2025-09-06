@@ -1,0 +1,89 @@
+# Override values specific to bidder deployment
+
+# Global overrides for bidder
+global:
+  # TLS configuration - disabled for bidder
+  tls:
+    disabled: false
+    selfSigned: true
+
+  contracts:
+    bidderRegistry: "0x00000000000000000000000000000000000000"
+    blockTracker: "0x00000000000000000000000000000000000000"
+    # oracle: "0x00000000000000000000000000000000000000"
+    preconfStore: "0x00000000000000000000000000000000000000"
+    providerRegistry: "0x00000000000000000000000000000000000000"
+
+
+  # RPC endpoints
+  rpc:
+    settlementEndpoint: ""
+    settlementWsEndpoint: ""
+    l1Endpoint: "" # mock L1
+
+
+node:
+  type: "bootnode"
+  replicas: 1
+
+  ports:
+    http: 13723
+    p2p: 13522
+    rpc: 13724
+
+  service:
+    type: LoadBalancer
+    annotations: {}
+  
+  # Use the actual passwords as default values
+  defaultKeystorePassword: "CXBMf4xEDO0I"
+  defaultP2PSecret: "mev-commit-bidder-secret"
+  
+  resources:
+    limits:
+      cpu: 6000m
+      memory: 12Gi
+    requests:
+      cpu: 280m
+      memory: 1Gi
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+
+  podSecurityContext:
+    fsGroup: 0
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  imagePullSecrets: []
+
+# Bidder-specific configuration
+bidder:
+  bidTimeout: "60s"
+  autodeposit:
+    enabled: false
+    amount: ""
+  providerWhitelist: ""
+
+# Keystore configuration - KEEP AWS SM for keystore files
+keystore:
+  path: "/keystore"
+  downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore3/UTC--2025-06-24T18-20-45.217640000Z--b3de169055dc89aa8c5f03fdf07621bd371888e3"
+  
+  # AWS Secrets Manager keystore (still enabled for keystore files)
+  awsEnabled: false  # Keep AWS SM for keystore files only
+  awsSecretKey: "testenv/testnet/mev-commit"
+  refreshInterval: "12h"
+  properties:
+    keystore: "bootnode1_keystore"
+    keystoreFilename: "bootnode1_keystore_filename"
+
+#nodeSelector:
+#  workload-type: general

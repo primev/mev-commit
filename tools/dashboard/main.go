@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	depositmanager "github.com/primev/mev-commit/contracts-abi/clients/DepositManager"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
@@ -192,7 +193,21 @@ func main() {
 				evtMgr,
 			)
 
-			statHdlr, err := newStatHandler(evtMgr, 10)
+			dynSub, err := evtMgr.Subscribe(
+				events.NewEventHandler(
+					"BidderDeposited",
+					func(upd *bidderregistry.BidderregistryBidderDeposited) {
+						// Register deposited bidder as a contract in case it has enabled deposit manager
+						pb.AddContracts(upd.Bidder)
+					},
+				),
+			)
+			if err != nil {
+				return err
+			}
+			defer dynSub.Unsubscribe()
+
+			statHdlr, err := newStatHandler(evtMgr)
 			if err != nil {
 				return err
 			}
@@ -303,43 +318,6 @@ func registerRoutes(mux *http.ServeMux, statHdlr *statHandler) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	mux.HandleFunc("GET /windows", func(w http.ResponseWriter, r *http.Request) {
-		page, limit := parsePagination(r)
-
-		dout := statHdlr.getWindows(page, limit)
-		if dout == nil {
-			http.Error(w, "no data", http.StatusNotFound)
-			return
-		}
-
-		if err := json.NewEncoder(w).Encode(dout); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-
-		w.WriteHeader(http.StatusOK)
-	})
-
-	mux.HandleFunc("GET /window/{window}", func(w http.ResponseWriter, r *http.Request) {
-		windowStr := r.PathValue("window")
-		window, err := strconv.Atoi(windowStr)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		dout := statHdlr.getWindowStat(uint64(window))
-		if dout == nil {
-			http.Error(w, "no data", http.StatusNotFound)
-			return
-		}
-
-		if err := json.NewEncoder(w).Encode(dout); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-
-		w.WriteHeader(http.StatusOK)
-	})
-
 	mux.HandleFunc("GET /blocks", func(w http.ResponseWriter, r *http.Request) {
 		page, limit := parsePagination(r)
 
@@ -392,28 +370,7 @@ func registerRoutes(mux *http.ServeMux, statHdlr *statHandler) {
 	})
 
 	mux.HandleFunc("GET /bidders", func(w http.ResponseWriter, r *http.Request) {
-		dout := statHdlr.getCurrentBidders()
-		if dout == nil {
-			http.Error(w, "no data", http.StatusNotFound)
-			return
-		}
-
-		if err := json.NewEncoder(w).Encode(dout); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-
-		w.WriteHeader(http.StatusOK)
-	})
-
-	mux.HandleFunc("GET /bidders/{window}", func(w http.ResponseWriter, r *http.Request) {
-		windowStr := r.PathValue("window")
-		window, err := strconv.Atoi(windowStr)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		dout := statHdlr.getBidders(window)
+		dout := statHdlr.getBidders()
 		if dout == nil {
 			http.Error(w, "no data", http.StatusNotFound)
 			return
@@ -445,6 +402,15 @@ func registerRoutes(mux *http.ServeMux, statHdlr *statHandler) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	})
+
+	mux.HandleFunc("GET /dmcounts", func(w http.ResponseWriter, r *http.Request) {
+		dout := struct {
+			DMCounts []*DepositManagerEventCounts `json:"deposit_manager_counts"`
+		}{
+			DMCounts: statHdlr.getDMCounts(),
+		}
+		_ = json.NewEncoder(w).Encode(dout)
 	})
 }
 
@@ -495,11 +461,17 @@ func getContractABIs() ([]*abi.ABI, error) {
 		return nil, err
 	}
 
+	dmABI, err := abi.JSON(strings.NewReader(depositmanager.DepositmanagerABI))
+	if err != nil {
+		return nil, err
+	}
+
 	return []*abi.ABI{
 		&btABI,
 		&pcABI,
 		&bidderRegistry,
 		&providerRegistry,
 		&orABI,
+		&dmABI,
 	}, nil
 }

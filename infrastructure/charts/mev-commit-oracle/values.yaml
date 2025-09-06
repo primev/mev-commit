@@ -1,0 +1,98 @@
+nameOverride: "erigon-oracle"
+fullnameOverride: "erigon-oracle"
+
+# Deployment settings
+replicaCount: 1
+
+image:
+  repository: primev/primev
+  pullPolicy: Always
+  tag: ""
+
+# Pod annotations for monitoring
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+# Resource allocation
+resources:
+  limits:
+    cpu: 4000m
+    memory: 12Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+# Oracle configuration - matching your existing setup
+oracle:
+  logLevel: "info"
+  logFormat: "json"
+  logTags: "env:production,service:mev-oracle"
+  httpPort: 8080
+  gasLimit: "3000000"
+  gasTipCap: "100000000"  # 0.1 gwei
+  gasFeeCap: "120000000"  # 0.12 gwei
+  laggerdMode: 12
+  authToken: "4af6db58d4c783d76f5af8e8ad806f9c4960c5323793b48632e042a9693770a8"
+
+# Network configuration
+network:
+  l1RpcUrls:
+    - "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
+  settlementRpcHttp: "http://35.227.95.89:8545"
+  settlementRpcWs: "ws://35.227.95.89:8546"
+  relayUrls:
+    - "http://erigon-mev-commit-relay-emulator-mev-commit-emulator.default.svc.cluster.local:8080"
+
+# Contract addresses - matching your existing deployment
+contracts:
+  bidderRegistry: "0xD91baDBc6017FC9307c120F75594de02d91197b1"
+  blockTracker: "0x7B1037E6d4104Ff4586F17468A5BBaE399ff3eC1"
+  oracle: "0x71F4F1bbE4F5c6b992D9B88dE75E55516bB8CEaf"
+  preconf: "0xA3fC4897E0a8C1762dcE1Da0d218590354b7dCbd" 
+  providerRegistry: "0x9c281A0f040DeA51037f88693340Cd5F5354dEB5"
+
+# KEYSTORE CONFIGURATION - URL DOWNLOAD MODE (like your existing setup)
+keystore:
+  path: "/keystore"
+  
+  # URL download mode (awsEnabled: false)
+  awsEnabled: false  # Using URL download like your existing setup
+  downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore2/UTC--2025-06-24T18-20-44.554617000Z--1c533735c11dd317bc816629f86e00f479d097a3"
+  retries: 3
+  defaultPassword: "CXBMf4xEDO0I"  # Your existing keystore password
+  
+  # Storage configuration
+  persistentVolumeClaim: erigon-mev-commit-oracle
+  size: 10Mi
+  storageClassName: "standard"
+  
+  # AWS configuration (not used when awsEnabled: false)
+  refreshInterval: "12h"
+  awsSecretKey: "testenv/testnet/mev-commit"
+  properties:
+    keystore: "oracle_keystore"
+    keystoreFilename: "oracle_keystore_filename"
+    keystorePassword: "oracle_keystore_password"
+
+# External PostgreSQL configuration - matching your existing setup
+postgresql:
+  database: mev_oracle
+  host: oracle-devnet-postgresql.default.svc.cluster.local
+  password: mev_oracle_password
+  port: 5432
+  username: mev_oracle
+
+# Global configuration - DISABLED for URL download mode
+global:
+  externalSecrets:
+    enabled: false  # Disabled since we're using URL download
+    secretStore: "aws-cluster-secret-store"
+    secretStoreKind: "ClusterSecretStore"

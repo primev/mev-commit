@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}-scripts
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+data:
+  {{- if .Values.genesis.accountGeneration.enabled }}
+  generate-account.sh: |-
+    {{- .Files.Get "scripts/generate-account.sh" | nindent 4 }}
+  create-genesis.sh: |-
+    {{- .Files.Get "scripts/create-genesis.sh" | nindent 4 }}
+  {{- else }}
+  download-genesis.sh: |-
+    {{- .Files.Get "scripts/download-genesis.sh" | nindent 4 }}
+  {{- end }}
+  init-erigon.sh: |-
+    {{- .Files.Get "scripts/init-erigon.sh" | nindent 4 }}

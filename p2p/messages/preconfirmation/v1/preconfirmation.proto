@@ -14,6 +14,7 @@ message Bid {
   string reverting_tx_hashes = 9;
   repeated string raw_transactions = 10;
   string slash_amount = 11;
+  bytes bid_options = 12;
 };
 
 message EncryptedBid {

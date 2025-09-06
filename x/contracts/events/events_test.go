@@ -19,27 +19,32 @@ import (
 func TestEventHandler(t *testing.T) {
 	t.Parallel()
 
-	b := bidderregistry.BidderregistryBidderRegistered{
-		Bidder:          common.HexToAddress("0xabcd"),
-		DepositedAmount: big.NewInt(1000),
-		WindowNumber:    big.NewInt(1),
+	b := bidderregistry.BidderregistryBidderDeposited{
+		Bidder:             common.HexToAddress("0xabcd"),
+		Provider:           common.HexToAddress("0x1234"),
+		DepositedAmount:    big.NewInt(1000),
+		NewAvailableAmount: big.NewInt(1000),
 	}
 
 	errC := make(chan error, 1)
 
 	evtHdlr := NewEventHandler(
-		"BidderRegistered",
-		func(ev *bidderregistry.BidderregistryBidderRegistered) {
+		"BidderDeposited",
+		func(ev *bidderregistry.BidderregistryBidderDeposited) {
 			if ev.Bidder.Hex() != b.Bidder.Hex() {
 				errC <- fmt.Errorf("expected bidder %s, got %s", b.Bidder.Hex(), ev.Bidder.Hex())
+				return
+			}
+			if ev.Provider.Hex() != b.Provider.Hex() {
+				errC <- fmt.Errorf("expected provider %s, got %s", b.Provider.Hex(), ev.Provider.Hex())
 				return
 			}
 			if ev.DepositedAmount.Cmp(b.DepositedAmount) != 0 {
 				errC <- fmt.Errorf("expected prepaid amount %d, got %d", b.DepositedAmount, ev.DepositedAmount)
 				return
 			}
-			if ev.WindowNumber.Cmp(b.WindowNumber) != 0 {
-				errC <- fmt.Errorf("expected window number %d, got %d", b.WindowNumber, ev.WindowNumber)
+			if ev.NewAvailableAmount.Cmp(b.NewAvailableAmount) != 0 {
+				errC <- fmt.Errorf("expected new available amount %d, got %d", b.NewAvailableAmount, ev.NewAvailableAmount)
 				return
 			}
 			close(errC)
@@ -51,26 +56,26 @@ func TestEventHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	event := bidderABI.Events["BidderRegistered"]
+	event := bidderABI.Events["BidderDeposited"]
 
 	evtHdlr.setTopicAndContract(event.ID, &bidderABI)
 
-	buf, err := event.Inputs.NonIndexed().Pack()
+	buf, err := event.Inputs.NonIndexed().Pack(b.NewAvailableAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	bidder := common.HexToHash(b.Bidder.Hex())
+	provider := common.HexToHash(b.Provider.Hex())
 	depositedAmount := common.BigToHash(b.DepositedAmount)
-	windowNumber := common.BigToHash(b.WindowNumber)
 
 	// Creating a Log object
 	testLog := types.Log{
 		Topics: []common.Hash{
 			event.ID, // The first topic is the hash of the event signature
 			bidder,   // The next topics are the indexed event parameters
+			provider,
 			depositedAmount,
-			windowNumber,
 		},
 		Data: buf,
 	}
@@ -93,16 +98,18 @@ func TestEventHandler(t *testing.T) {
 func TestEventManager(t *testing.T) {
 	t.Parallel()
 
-	bidders := []bidderregistry.BidderregistryBidderRegistered{
+	bidders := []bidderregistry.BidderregistryBidderDeposited{
 		{
-			Bidder:          common.HexToAddress("0xabcd"),
-			DepositedAmount: big.NewInt(1000),
-			WindowNumber:    big.NewInt(1),
+			Bidder:             common.HexToAddress("0xabcd"),
+			Provider:           common.HexToAddress("0x1234"),
+			DepositedAmount:    big.NewInt(1000),
+			NewAvailableAmount: big.NewInt(1000),
 		},
 		{
-			Bidder:          common.HexToAddress("0xcdef"),
-			DepositedAmount: big.NewInt(2000),
-			WindowNumber:    big.NewInt(2),
+			Bidder:             common.HexToAddress("0xcdef"),
+			Provider:           common.HexToAddress("0x5678"),
+			DepositedAmount:    big.NewInt(2000),
+			NewAvailableAmount: big.NewInt(2000),
 		},
 	}
 
@@ -113,8 +120,8 @@ func TestEventManager(t *testing.T) {
 	errC := make(chan error, 1)
 
 	evtHdlr := NewEventHandler(
-		"BidderRegistered",
-		func(ev *bidderregistry.BidderregistryBidderRegistered) {
+		"BidderDeposited",
+		func(ev *bidderregistry.BidderregistryBidderDeposited) {
 			if count >= len(bidders) {
 				errC <- fmt.Errorf("unexpected event")
 				return
@@ -123,12 +130,16 @@ func TestEventManager(t *testing.T) {
 				errC <- fmt.Errorf("expected bidder %s, got %s", bidders[count].Bidder.Hex(), ev.Bidder.Hex())
 				return
 			}
+			if ev.Provider.Hex() != bidders[count].Provider.Hex() {
+				errC <- fmt.Errorf("expected provider %s, got %s", bidders[count].Provider.Hex(), ev.Provider.Hex())
+				return
+			}
 			if ev.DepositedAmount.Cmp(bidders[count].DepositedAmount) != 0 {
 				errC <- fmt.Errorf("expected prepaid amount %d, got %d", bidders[count].DepositedAmount, ev.DepositedAmount)
 				return
 			}
-			if ev.WindowNumber.Cmp(bidders[count].WindowNumber) != 0 {
-				errC <- fmt.Errorf("expected window number %d, got %d", bidders[count].WindowNumber, ev.WindowNumber)
+			if ev.NewAvailableAmount.Cmp(bidders[count].NewAvailableAmount) != 0 {
+				errC <- fmt.Errorf("expected new available amount %d, got %d", bidders[count].NewAvailableAmount, ev.NewAvailableAmount)
 				return
 			}
 			count++
@@ -141,12 +152,12 @@ func TestEventManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data1, err := bidderABI.Events["BidderRegistered"].Inputs.NonIndexed().Pack()
+	data1, err := bidderABI.Events["BidderDeposited"].Inputs.NonIndexed().Pack(bidders[0].NewAvailableAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data2, err := bidderABI.Events["BidderRegistered"].Inputs.NonIndexed().Pack()
+	data2, err := bidderABI.Events["BidderDeposited"].Inputs.NonIndexed().Pack(bidders[1].NewAvailableAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,27 +165,27 @@ func TestEventManager(t *testing.T) {
 	logs := []types.Log{
 		{
 			Topics: []common.Hash{
-				bidderABI.Events["BidderRegistered"].ID,
+				bidderABI.Events["BidderDeposited"].ID,
 				common.HexToHash(bidders[0].Bidder.Hex()),
+				common.HexToHash(bidders[0].Provider.Hex()),
 				common.BigToHash(bidders[0].DepositedAmount),
-				common.BigToHash(bidders[0].WindowNumber),
 			},
 			Data:        data1,
 			BlockNumber: 1,
 		},
 		{
 			Topics: []common.Hash{
-				bidderABI.Events["BidderRegistered"].ID,
+				bidderABI.Events["BidderDeposited"].ID,
 				common.HexToHash(bidders[1].Bidder.Hex()),
+				common.HexToHash(bidders[1].Provider.Hex()),
 				common.BigToHash(bidders[1].DepositedAmount),
-				common.BigToHash(bidders[1].WindowNumber),
 			},
 			Data:        data2,
 			BlockNumber: 2,
 		},
 		{
 			Topics: []common.Hash{
-				bidderABI.Events["BidderRegistered"].ID,
+				bidderABI.Events["BidderDeposited"].ID,
 				common.HexToHash("test"),
 				common.BigToHash(big.NewInt(3000)),
 			},

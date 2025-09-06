@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
@@ -19,7 +18,6 @@ import (
 type blockWinner struct {
 	BlockNumber int64
 	Winner      []byte
-	Window      int64
 }
 
 type testSettlement struct {
@@ -33,6 +31,7 @@ type testSettlement struct {
 	DecayPercentage int64
 	ChainHash       []byte
 	Nonce           uint64
+	Options         []byte
 }
 
 func TestStore(t *testing.T) {
@@ -88,12 +87,10 @@ func TestStore(t *testing.T) {
 
 	winners := []blockWinner{
 		{
-			Window:      1,
 			Winner:      common.HexToAddress("0x01").Bytes(),
 			BlockNumber: 1,
 		},
 		{
-			Window:      2,
 			Winner:      common.HexToAddress("0x02").Bytes(),
 			BlockNumber: 2,
 		},
@@ -110,6 +107,7 @@ func TestStore(t *testing.T) {
 			Type:          updater.SettlementTypeReward,
 			ChainHash:     common.HexToHash("0x01").Bytes(),
 			Nonce:         1,
+			Options:       []byte("dummy options"),
 		},
 		{
 			CommitmentIdx: []byte{2},
@@ -121,6 +119,7 @@ func TestStore(t *testing.T) {
 			Type:          updater.SettlementTypeSlash,
 			ChainHash:     common.HexToHash("0x02").Bytes(),
 			Nonce:         2,
+			Options:       []byte("dummy options"),
 		},
 		{
 			CommitmentIdx: []byte{3},
@@ -132,6 +131,7 @@ func TestStore(t *testing.T) {
 			Type:          updater.SettlementTypeReward,
 			ChainHash:     common.HexToHash("0x03").Bytes(),
 			Nonce:         3,
+			Options:       []byte("dummy options"),
 		},
 		{
 			CommitmentIdx: []byte{4},
@@ -143,6 +143,7 @@ func TestStore(t *testing.T) {
 			Type:          updater.SettlementTypeSlash,
 			ChainHash:     common.HexToHash("0x04").Bytes(),
 			Nonce:         4,
+			Options:       []byte("dummy options"),
 		},
 		{
 			CommitmentIdx: []byte{5},
@@ -154,6 +155,7 @@ func TestStore(t *testing.T) {
 			Type:          updater.SettlementTypeReward,
 			ChainHash:     common.HexToHash("0x05").Bytes(),
 			Nonce:         5,
+			Options:       []byte("dummy options"),
 		},
 		{
 			CommitmentIdx: []byte{6},
@@ -165,6 +167,7 @@ func TestStore(t *testing.T) {
 			Type:          updater.SettlementTypeSlash,
 			ChainHash:     common.HexToHash("0x06").Bytes(),
 			Nonce:         6,
+			Options:       []byte("dummy options"),
 		},
 	}
 
@@ -183,7 +186,7 @@ func TestStore(t *testing.T) {
 		}
 
 		for _, winner := range winners {
-			err = st.RegisterWinner(context.Background(), winner.BlockNumber, winner.Winner, winner.Window)
+			err = st.RegisterWinner(context.Background(), winner.BlockNumber, winner.Winner)
 			if err != nil {
 				t.Fatalf("Failed to register winner: %s", err)
 			}
@@ -221,35 +224,13 @@ func TestStore(t *testing.T) {
 		}
 	})
 
-	t.Run("AddEncryptedCommitment", func(t *testing.T) {
-		st, err := store.NewStore(db)
-		if err != nil {
-			t.Fatalf("Failed to create store: %s", err)
-		}
-
-		for _, settlement := range settlements {
-			err = st.AddEncryptedCommitment(
-				context.Background(),
-				settlement.CommitmentIdx,
-				settlement.Builder,
-				[]byte("hash"),
-				[]byte("signature"),
-				uint64(time.Now().Unix()),
-			)
-			if err != nil {
-				t.Fatalf("Failed to add encrypted commitment: %s", err)
-			}
-		}
-	})
-
 	t.Run("AddSettlement", func(t *testing.T) {
 		st, err := store.NewStore(db)
 		if err != nil {
 			t.Fatalf("Failed to create store: %s", err)
 		}
 
-		for i, settlement := range settlements {
-			window := int64(i/3) + 1
+		for _, settlement := range settlements {
 			err = st.AddSettlement(
 				context.Background(),
 				settlement.CommitmentIdx,
@@ -260,9 +241,9 @@ func TestStore(t *testing.T) {
 				settlement.BidID,
 				settlement.Type,
 				settlement.DecayPercentage,
-				window,
 				settlement.ChainHash,
 				settlement.Nonce,
+				settlement.Options,
 			)
 			if err != nil {
 				t.Fatalf("Failed to add settlement: %s", err)
@@ -297,37 +278,6 @@ func TestStore(t *testing.T) {
 			}
 			if !settled {
 				t.Fatalf("Expected settlement to be settled")
-			}
-		}
-	})
-
-	t.Run("Settlement", func(t *testing.T) {
-		st, err := store.NewStore(db)
-		if err != nil {
-			t.Fatalf("Failed to create store: %s", err)
-		}
-
-		for _, settlement := range settlements {
-			s, err := st.Settlement(context.Background(), settlement.CommitmentIdx)
-			if err != nil {
-				t.Fatalf("Failed to get settlement: %s", err)
-			}
-
-			opt := cmp.Comparer(func(x, y *big.Int) bool {
-				return x.Cmp(y) == 0
-			})
-
-			if diff := cmp.Diff(s, updater.Settlement{
-				CommitmentIdx:   settlement.CommitmentIdx,
-				TxHash:          settlement.TxHash,
-				BlockNum:        settlement.BlockNum,
-				Builder:         settlement.Builder,
-				Amount:          settlement.Amount,
-				BidID:           settlement.BidID,
-				Type:            settlement.Type,
-				DecayPercentage: settlement.DecayPercentage,
-			}, opt); diff != "" {
-				t.Fatalf("Unexpected settlement: (-want +have):\n%s", diff)
 			}
 		}
 	})
