@@ -129,7 +129,7 @@ func (s *Service) ProcessBid(
 		if err := proto.Unmarshal(bid.BidOptions, bidderOpts); err != nil {
 			return nil, fmt.Errorf("unmarshalling bid options: %w", err)
 		}
-		opts := new(providerapiv1.BidOptions)
+		opts = new(providerapiv1.BidOptions)
 		for _, bOpt := range bidderOpts.Options {
 			switch {
 			case bOpt.GetPositionConstraint() != nil:
