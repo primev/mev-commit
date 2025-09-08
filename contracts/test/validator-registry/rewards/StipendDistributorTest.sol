@@ -7,17 +7,6 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {StipendDistributor} from "../../../contracts/validator-registry/rewards/StipendDistributor.sol";
 import {IStipendDistributor} from "../../../contracts/interfaces/IStipendDistributor.sol"; // events/types only
 
-// helper registries & harnesses (same style/paths as your example tests)
-import {VanillaRegistry} from "../../../contracts/validator-registry/VanillaRegistry.sol";
-import {ValidatorOptInRouter} from "../../../contracts/validator-registry/ValidatorOptInRouter.sol";
-import {MevCommitAVS} from "../../../contracts/validator-registry/avs/MevCommitAVS.sol";
-import {VanillaRegistryTest} from "../VanillaRegistryTest.sol";
-import {MevCommitAVSTest} from "../avs/MevCommitAVSTest.sol";
-import {IMevCommitMiddleware} from "../../../contracts/interfaces/IMevCommitMiddleware.sol";
-import {MevCommitMiddleware} from "../../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
-import {MevCommitMiddlewareTestCont} from "../middleware/MevCommitMiddlewareTestCont.sol";
-import {IVanillaRegistry} from "../../../contracts/interfaces/IVanillaRegistry.sol";
-import {IMevCommitAVS} from "../../../contracts/interfaces/IMevCommitAVS.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
@@ -25,17 +14,9 @@ contract StipendDistributorTest is Test {
     // system under test
     StipendDistributor internal distributor;
 
-    // test registries used by tests
-    VanillaRegistry public vanillaRegistry;
-    VanillaRegistryTest public vanillaRegistryTest;
-    MevCommitAVS public mevCommitAVS;
-    MevCommitAVSTest public mevCommitAVSTest;
-    MevCommitMiddleware public mevCommitMiddleware;
-    MevCommitMiddlewareTestCont public mevCommitMiddlewareTest;
-
     // actors
     address internal owner;
-    address internal oracle;
+    address internal stipendManager;
     address internal operator1;
     address internal operator2;
     address internal delegate1;
@@ -43,8 +24,12 @@ contract StipendDistributorTest is Test {
     address internal recipient2;
     address internal recipient3;
 
-    // sample pubkey (48 bytes)
-    bytes public samplePubkey1 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254b3f";
+    // sample 48-byte pubkeys
+    bytes internal pubkey1 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254b3f";
+    bytes internal pubkey2 = hex"aca4b5c5daf5b39514b8aa6e5f303d29f6f1bd891e5f6b6b2ae6e2ae5d95dee31cd78630c1115b6e90f3da1a66cf8edb";
+    bytes internal pubkey3 = hex"cca4b5c5daf5b39514b8aa6e5f303d29f6f1bd891e5f6b6b2ae6e2ae5d95dee31cd78630c1115b6e90f3da1a66cf8edb";
+    bytes internal pubkey4 = hex"dca4b5c5daf5b39514b8aa6e5f303d29f6f1bd891e5f6b6b2ae6e2ae5d95dee31cd78630c1115b6e90f3da1a66cf8edb";
+    bytes internal pubkey5 = hex"eca4b5c5daf5b39514b8aa6e5f303d29f6f1bd891e5f6b6b2ae6e2ae5d95dee31cd78630c1115b6e90f3da1a66cf8edb";
 
     // events from interface for expectEmit
     event RecipientSet(address indexed operator, bytes pubkey, uint256 indexed registryID, address indexed recipient);
@@ -52,11 +37,11 @@ contract StipendDistributorTest is Test {
     event RewardsClaimed(address indexed operator, address indexed recipient, uint256 amount);
     event DefaultRecipientSet(address indexed operator, address indexed recipient);
 
-    // setup: deploy registries + distributor and fund oracle for payable calls
+    // setup: deploy registries + distributor and fund stipendManager for payable calls
         function setUp() public {
         // Test actors
         owner = address(0xA11CE);
-        oracle = address(0x04AC1E);
+        stipendManager = address(0x04AC1E);
         operator1 = address(0x111);
         operator2 = address(0x222);
         delegate1 = address(0xD311);
@@ -64,30 +49,17 @@ contract StipendDistributorTest is Test {
         recipient2 = address(0xAAA2);
         recipient3 = address(0xAAA3);
 
-        // Bring up helper test environments (they seed their internal state in setUp)
-        vanillaRegistryTest = new VanillaRegistryTest();
-        vanillaRegistryTest.setUp();
-        vanillaRegistry = vanillaRegistryTest.validatorRegistry();
-
-        mevCommitAVSTest = new MevCommitAVSTest();
-        mevCommitAVSTest.setUp();
-        mevCommitAVS = mevCommitAVSTest.mevCommitAVS();
-
-        mevCommitMiddlewareTest = new MevCommitMiddlewareTestCont();
-        mevCommitMiddlewareTest.setUp();
-        mevCommitMiddleware = mevCommitMiddlewareTest.mevCommitMiddleware();
-
-        // Deploy distributor proxy with registries
+        // Deploy distributor proxy
         StipendDistributor implementation = new StipendDistributor();
         bytes memory initData = abi.encodeCall(
             StipendDistributor.initialize,
-            (owner, oracle, address(vanillaRegistry), address(mevCommitAVS), address(mevCommitMiddleware))
+            (owner, stipendManager)
         );
 
         address proxy = address(new ERC1967Proxy(address(implementation), initData));
         distributor = StipendDistributor(payable(proxy));
 
-        vm.deal(oracle, 1_000 ether); // for payable grant calls
+        vm.deal(stipendManager, 1_000 ether); // for payable grant calls
     }
 
     // helper: grant three combos (op1→r1:1e, op1→r2:2e, op2→r3:3e)
@@ -114,7 +86,7 @@ contract StipendDistributorTest is Test {
         receivers[2] = addr3;
         amounts[2] = 3 ether;
 
-        vm.prank(oracle);
+        vm.prank(stipendManager);
         distributor.grantStipends{value: amounts[0] + amounts[1] + amounts[2]}(operators, receivers, amounts);
     }
 
@@ -133,16 +105,7 @@ contract StipendDistributorTest is Test {
 
     // override by pubkey: same operator sets 3 keys → recipient2, then 2 keys → recipient3 (middleware registry id=2)
     function test_OverrideRecipientByPubkey_multipleBatches() public {
-        // seed middleware validators for operator vm.addr(0x1117)
-        mevCommitMiddlewareTest.test_registerValidators();
         address opFromMiddlewareTest = vm.addr(0x1117);
-
-        // fetch 5 registered pubkeys
-        bytes memory pubkey1 = mevCommitMiddlewareTest.sampleValPubkey1();
-        bytes memory pubkey2 = mevCommitMiddlewareTest.sampleValPubkey2();
-        bytes memory pubkey3 = mevCommitMiddlewareTest.sampleValPubkey3();
-        bytes memory pubkey4 = mevCommitMiddlewareTest.sampleValPubkey4();
-        bytes memory pubkey5 = mevCommitMiddlewareTest.sampleValPubkey5();
 
         // batch 1: 3 keys → recipient2
         bytes[] memory firstBatch = new bytes[](3);
@@ -150,7 +113,7 @@ contract StipendDistributorTest is Test {
         firstBatch[1] = pubkey2;
         firstBatch[2] = pubkey3;
         vm.prank(opFromMiddlewareTest);
-        distributor.overrideRecipientByPubkey(firstBatch, 2, recipient2);
+        distributor.overrideRecipientByPubkey(firstBatch, recipient2);
         assertEq(distributor.operatorKeyOverrides(opFromMiddlewareTest, keccak256(pubkey1)), recipient2);
         assertEq(distributor.operatorKeyOverrides(opFromMiddlewareTest, keccak256(pubkey2)), recipient2);
         assertEq(distributor.operatorKeyOverrides(opFromMiddlewareTest, keccak256(pubkey3)), recipient2);
@@ -160,32 +123,20 @@ contract StipendDistributorTest is Test {
         secondBatch[0] = pubkey4;
         secondBatch[1] = pubkey5;
         vm.prank(opFromMiddlewareTest);
-        distributor.overrideRecipientByPubkey(secondBatch, 2, recipient3);
+        distributor.overrideRecipientByPubkey(secondBatch, recipient3);
         assertEq(distributor.operatorKeyOverrides(opFromMiddlewareTest, keccak256(pubkey4)), recipient3);
         assertEq(distributor.operatorKeyOverrides(opFromMiddlewareTest, keccak256(pubkey5)), recipient3);
     }
 
     // override by pubkey: reverts when caller isn't the registered operator
     function test_OverrideRecipientByPubkey_wrongOperator_reverts() public {
-        // seed validators to establish key → operator mapping
-        mevCommitMiddlewareTest.test_registerValidators();
         address rightfulOperator = vm.addr(0x1117);
-        bytes memory pubkey = mevCommitMiddlewareTest.sampleValPubkey2();
-
-        // different operator tries to override → revert
-        bytes[] memory pubs = new bytes[](1);
-        pubs[0] = pubkey;
-        vm.prank(operator2);
-        vm.expectRevert();
-        distributor.overrideRecipientByPubkey(pubs, 2, recipient1);
-
-        // mapping unchanged
-        assertEq(distributor.operatorKeyOverrides(rightfulOperator, keccak256(pubkey)), address(0));
-
         // rightful operator can set it
+        bytes[] memory pubs = new bytes[](1);
+        pubs[0] = pubkey1;
         vm.prank(rightfulOperator);
-        distributor.overrideRecipientByPubkey(pubs, 2, recipient1);
-        assertEq(distributor.operatorKeyOverrides(rightfulOperator, keccak256(pubkey)), recipient1);
+        distributor.overrideRecipientByPubkey(pubs, recipient1);
+        assertEq(distributor.operatorKeyOverrides(rightfulOperator, keccak256(pubkey1)), recipient1);
     }
 
     // grantStipends: three combos accrue correctly (no claim here)
@@ -245,7 +196,7 @@ contract StipendDistributorTest is Test {
         ops[0] = operator1;
         recs[0] = recipient1;
         amts[0] = 1 ether;
-        vm.prank(oracle);
+        vm.prank(stipendManager);
         distributor.grantStipends{value: amts[0]}(ops, recs, amts);
         assertEq(distributor.accrued(operator1, recipient1), 1 ether);
 
@@ -265,13 +216,13 @@ contract StipendDistributorTest is Test {
 
         // 2) second grant (2e) → total accrued becomes 3e
         amts[0] = 2 ether;
-        vm.prank(oracle);
+        vm.prank(stipendManager);
         distributor.grantStipends{value: amts[0]}(ops, recs, amts);
         assertEq(distributor.accrued(operator1, recipient1), 3 ether);
 
         // 3) third grant (3e) without claiming → total accrued becomes 6e
         amts[0] = 3 ether;
-        vm.prank(oracle);
+        vm.prank(stipendManager);
         distributor.grantStipends{value: amts[0]}(ops, recs, amts);
         assertEq(distributor.accrued(operator1, recipient1), 6 ether);
 
@@ -290,27 +241,24 @@ contract StipendDistributorTest is Test {
 
     // getKeyRecipient: baseline → default → override (registry 0 routes to owning registry)
     function test_GetKeyRecipient_and_registry0_routing() public {
-        // seed middleware so key belongs to operator vm.addr(0x1117) under registry id 2
-        mevCommitMiddlewareTest.test_registerValidators();
         address opFromMiddlewareTest = vm.addr(0x1117);
-        bytes memory key = mevCommitMiddlewareTest.sampleValPubkey2();
 
         // 1) baseline: no default/override → resolves to operator
-        address rec0 = distributor.getKeyRecipient(key);
+        address rec0 = distributor.getKeyRecipient(opFromMiddlewareTest, pubkey1);
         assertEq(rec0, opFromMiddlewareTest, "registry 0 should resolve to owning operator");
 
         // 2) set default for operator → returns default
         vm.prank(opFromMiddlewareTest);
         distributor.setDefaultRecipient(recipient1);
-        address rec1 = distributor.getKeyRecipient(key);
+        address rec1 = distributor.getKeyRecipient(opFromMiddlewareTest, pubkey1);
         assertEq(rec1, recipient1, "default recipient should be returned");
 
         // 3) set explicit override for this key → precedence over default
         bytes[] memory oneKey = new bytes[](1);
-        oneKey[0] = key;
+        oneKey[0] = pubkey1;
         vm.prank(opFromMiddlewareTest);
-        distributor.overrideRecipientByPubkey(oneKey, 2, recipient2);
-        address rec2 = distributor.getKeyRecipient(key);
+        distributor.overrideRecipientByPubkey(oneKey, recipient2);
+        address rec2 = distributor.getKeyRecipient(opFromMiddlewareTest, pubkey1);
         assertEq(rec2, recipient2, "override should take precedence");
     }
 
@@ -331,9 +279,9 @@ contract StipendDistributorTest is Test {
         distributor.setDefaultRecipient(recipient2);
 
         bytes[] memory pubs = new bytes[](1);
-        pubs[0] = samplePubkey1;
+        pubs[0] = pubkey1;
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        distributor.overrideRecipientByPubkey(pubs, 3, recipient2);
+        distributor.overrideRecipientByPubkey(pubs, recipient2);
 
         address[] memory ops = new address[](1);
         address[] memory recs = new address[](1);
@@ -341,7 +289,7 @@ contract StipendDistributorTest is Test {
         ops[0] = operator1;
         recs[0] = recipient1;
         amts[0] = 1 ether;
-        vm.prank(oracle);
+        vm.prank(stipendManager);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
         distributor.grantStipends{value: amts[0]}(ops, recs, amts);
 
@@ -375,7 +323,7 @@ contract StipendDistributorTest is Test {
         ops[0] = operator1;
         recs[0] = address(attacker);
         amts[0] = 1 ether;
-        vm.prank(oracle);
+        vm.prank(stipendManager);
         distributor.grantStipends{value: amts[0]}(ops, recs, amts);
 
         // claim once → paid exactly once; inner call blocked by nonReentrant
@@ -387,99 +335,27 @@ contract StipendDistributorTest is Test {
         assertEq(address(attacker).balance, before + 1 ether);
     }
 
-    // avs path (registry id=1): default vs override precedence
-    function test_AVS_Override_and_GetKeyRecipient() public {
-        // seed avs validators (pod owner is 0x420 in harness)
-        mevCommitAVSTest.testRegisterValidatorsByPodOwners();
-        address podOwner = address(0x420);
-        bytes memory key = mevCommitAVSTest.sampleValPubkey2();
-
-        // baseline → pod owner
-        address base = distributor.getKeyRecipient(key);
-        assertEq(base, podOwner, "avs baseline should return pod owner");
-
-        // set default → returned
-        vm.prank(podOwner);
-        distributor.setDefaultRecipient(recipient1);
-        address def = distributor.getKeyRecipient(key);
-        assertEq(def, recipient1);
-
-        // set override (id=1) → takes precedence
-        bytes[] memory oneKey = new bytes[](1);
-        oneKey[0] = key;
-        vm.prank(podOwner);
-        distributor.overrideRecipientByPubkey(oneKey, 1, recipient2);
-        address over = distributor.getKeyRecipient(key);
-        assertEq(over, recipient2);
-
-        // mapping is scoped by operator
-        assertEq(distributor.operatorKeyOverrides(podOwner, keccak256(key)), recipient2);
-        assertEq(distributor.operatorKeyOverrides(operator2, keccak256(key)), address(0));
-    }
-
-    // vanilla path (registry id=3): default vs override precedence
-    function test_Vanilla_Override_and_GetKeyRecipient() public {
-        // seed a vanilla validator owned by vanillaRegistryTest.user1()
-        vanillaRegistryTest.testSelfStake();
-        address valOperator = vanillaRegistryTest.user1();
-        bytes memory key = vanillaRegistryTest.user1BLSKey();
-
-        // baseline → operator
-        address base = distributor.getKeyRecipient(key);
-        assertEq(base, valOperator, "vanilla baseline should return operator");
-
-        // set default → returned
-        vm.prank(valOperator);
-        distributor.setDefaultRecipient(recipient1);
-        address def = distributor.getKeyRecipient(key);
-        assertEq(def, recipient1);
-
-        // set override (id=3) → takes precedence
-        bytes[] memory oneKey = new bytes[](1);
-        oneKey[0] = key;
-        vm.prank(valOperator);
-        distributor.overrideRecipientByPubkey(oneKey, 3, recipient2);
-        address over = distributor.getKeyRecipient(key);
-        assertEq(over, recipient2);
-
-        // mapping is scoped by operator
-        assertEq(distributor.operatorKeyOverrides(valOperator, keccak256(key)), recipient2);
-        assertEq(distributor.operatorKeyOverrides(operator2, keccak256(key)), address(0));
-    }
-
-    // wrong registry id: override must revert when ownership doesn't match
-    function test_Override_wrongRegistryID_reverts() public {
-        // seed middleware validators for operator vm.addr(0x1117)
-        mevCommitMiddlewareTest.test_registerValidators();
+    function test_OverrideByPubkey() public {
         address mwOperator = vm.addr(0x1117);
-        bytes memory key = mevCommitMiddlewareTest.sampleValPubkey2();
         bytes[] memory pubs = new bytes[](1);
-        pubs[0] = key;
+        pubs[0] = pubkey1;
 
-        // wrong id (1 = avs) → revert
         vm.prank(mwOperator);
-        vm.expectRevert();
-        distributor.overrideRecipientByPubkey(pubs, 1, recipient1);
-
-        // correct id (2 = middleware) → ok
-        vm.prank(mwOperator);
-        distributor.overrideRecipientByPubkey(pubs, 2, recipient1);
-        assertEq(distributor.operatorKeyOverrides(mwOperator, keccak256(key)), recipient1);
+        distributor.overrideRecipientByPubkey(pubs, recipient1);
+        assertEq(distributor.operatorKeyOverrides(mwOperator, keccak256(pubkey1)), recipient1);
     }
 
-    // invalid pubkey length: revert
-    function test_Override_invalidPubkeyLength_reverts() public {
-        // length check happens first → caller doesn't matter
+    function test_OverrideByPubkeyFailsOnInvalidPubkeyLength() public {
         bytes memory bad = hex"1234"; // 2 bytes, not 48
         bytes[] memory pubs = new bytes[](1);
         pubs[0] = bad;
         vm.prank(operator1);
-        vm.expectRevert();
-        distributor.overrideRecipientByPubkey(pubs, 2, recipient1);
+        vm.expectRevert(IStipendDistributor.InvalidBLSPubKeyLength.selector);
+        distributor.overrideRecipientByPubkey(pubs, recipient1);
     }
 
-    // only oracle can grant stipends
-    function test_Grant_onlyOracle_revertsForOthers() public {
+    // only stipendManager can grant stipends
+    function test_Grant_onlystipendManager_revertsForOthers() public {
         address[] memory ops = new address[](1);
         address[] memory recs = new address[](1);
         uint256[] memory amts = new uint256[](1);
@@ -488,7 +364,7 @@ contract StipendDistributorTest is Test {
         amts[0] = 1 ether;
         vm.deal(operator1, 10 ether);
 
-        // non-oracle caller → revert
+        // non-stipendManager caller → revert
         vm.prank(operator1);
         vm.expectRevert();
         distributor.grantStipends{value: amts[0]}(ops, recs, amts);
@@ -517,7 +393,7 @@ contract StipendDistributorTest is Test {
         recs[0] = recipient1;
         amts[0] = 1 ether;
 
-        vm.prank(oracle);
+        vm.prank(stipendManager);
         vm.expectRevert();
         distributor.grantStipends{value: amts[0]}(ops, recs, amts);
     }
@@ -530,14 +406,12 @@ contract StipendDistributorTest is Test {
     }
 
     function test_Override_zeroRecipient_reverts() public {
-        mevCommitMiddlewareTest.test_registerValidators();
         address mwOperator = vm.addr(0x1117);
-        bytes memory key = mevCommitMiddlewareTest.sampleValPubkey2();
         bytes[] memory pubs = new bytes[](1);
-        pubs[0] = key;
+        pubs[0] = pubkey1;
         vm.prank(mwOperator);
         vm.expectRevert();
-        distributor.overrideRecipientByPubkey(pubs, 2, address(0));
+        distributor.overrideRecipientByPubkey(pubs, address(0));
     }
 
     // batch claim: multiple recipients in one call

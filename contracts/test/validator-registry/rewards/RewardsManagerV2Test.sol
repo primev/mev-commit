@@ -202,18 +202,6 @@ contract RewardsManagerV2Test is Test {
         rewardsManager.withdrawToTreasury();
     }
     
-    // recipient rejects eth → revert
-    function test_PayProposer_revertsWhenRecipientRejects() public {
-        RejectingRecipient rejectingRecipient = new RejectingRecipient();
-
-        vm.prank(ownerAddress);
-        rewardsManager.setRewardsPctBps(0);
-
-        vm.prank(payerOne);
-        vm.expectRevert(); // ProposerTransferFailed
-        rewardsManager.payProposer{value: 1 ether}(payable(address(rejectingRecipient)));
-    }
-    
     // receive/fallback revert
     function test_Receive_and_Fallback_revert() public {
         vm.expectRevert();

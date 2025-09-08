@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.26;
+pragma solidity 0.8.26;
 
 
 interface IRewardsManagerV2 {
-    /// @dev Config mode: 0=unset, 1=primaryOnly (100% to feeRecipient), 2=withSecondary (secBps to `secondary`)
-    
 
     error RewardsPctTooHigh();
     error TreasuryIsZero();
@@ -15,7 +13,6 @@ interface IRewardsManagerV2 {
  
 
     /// @notice Builders/relays call this to route EL rewards *through* this contract.
-    /// If no config / not opted in / operator changed, pays 100% to `feeRecipient`.
     function payProposer(address payable feeRecipient) external payable;
 
     function withdrawToTreasury() external;

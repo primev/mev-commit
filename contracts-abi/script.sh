@@ -48,6 +48,10 @@ extract_and_save_abi "$BASE_DIR/out/RewardManager.sol/RewardManager.json" "$ABI_
 
 extract_and_save_abi "$BASE_DIR/out/DepositManager.sol/DepositManager.json" "$ABI_DIR/DepositManager.abi"
 
+extract_and_save_abi "$BASE_DIR/out/StipendDistributor.sol/StipendDistributor.json" "$ABI_DIR/StipendDistributor.abi"
+
+extract_and_save_abi "$BASE_DIR/out/RewardsManagerV2.sol/RewardsManagerV2.json" "$ABI_DIR/RewardsManagerV2.abi"
+
 echo "ABI files extracted successfully."
 
 GO_CODE_BASE_DIR="./clients"
@@ -114,6 +118,10 @@ generate_go_code "$ABI_DIR/vault.abi" "Vault" "vault"
 generate_go_code "$ABI_DIR/RewardManager.abi" "RewardManager" "rewardmanager"
 
 generate_go_code "$ABI_DIR/DepositManager.abi" "DepositManager" "depositmanager"
+
+generate_go_code "$ABI_DIR/StipendDistributor.abi" "StipendDistributor" "stipenddistributor"
+
+generate_go_code "$ABI_DIR/RewardsManagerV2.abi" "RewardsManagerV2" "rewardsmanagerv2"
 
 echo "External ABI downloaded and processed successfully."
 

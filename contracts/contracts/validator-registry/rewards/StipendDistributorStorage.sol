@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-import {VanillaRegistryStorage} from "../VanillaRegistryStorage.sol";
-import {MevCommitAVSStorage} from "../avs/MevCommitAVSStorage.sol";
-import {MevCommitMiddlewareStorage} from "../middleware/MevCommitMiddlewareStorage.sol";
-
 /// @title StipendDistributorStorage
 /// @notice Storage layout for StipendDistributor
 abstract contract StipendDistributorStorage {
     /// @dev Address authorized to grant stipends.
-    address public oracle;
+    address public stipendManager;
 
     /// @dev Default recipient per operator (used when no pubkey-specific override exists).
     mapping(address operator => address recipient) public defaultRecipient;
@@ -23,11 +19,7 @@ abstract contract StipendDistributorStorage {
 
     /// @dev Operator → recipient → delegate → isAuthorized
     mapping(address operator => mapping(address recipient => mapping(address delegate => bool))) public claimDelegate;
-
-    MevCommitAVSStorage internal _mevCommitAVS;
-    MevCommitMiddlewareStorage internal _mevCommitMiddleware;
-    VanillaRegistryStorage internal _vanillaRegistry;
-
+    
     // === Storage gap for future upgrades ===
     uint256[40] private __gap;
 }

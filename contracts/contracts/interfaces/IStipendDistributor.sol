@@ -1,4 +1,3 @@
-// Suggested filename: contracts/interfaces/IStipendDistributor.sol
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
@@ -9,9 +8,9 @@ interface IStipendDistributor {
     // =========================
     // ERRORS
     // =========================
-    error NotOwnerOrOracle();
+    error NotOwnerOrStipendManager();
     error ZeroAddress();
-    error InvalidBLSPubKeyLength(uint256 expectedLength, uint256 actualLength);
+    error InvalidBLSPubKeyLength();
     error InvalidRecipient();
     error InvalidOperator();
     error InvalidClaimDelegate();
@@ -24,7 +23,7 @@ interface IStipendDistributor {
     // EVENTS
     // =========================
     /// @dev Emitted when the oracle address is updated.
-    event OracleSet(address indexed oracle);
+    event StipendManagerSet(address indexed stipendManager);
 
     /// @dev Emitted when stipends are granted.
     event StipendsGranted(address indexed operator, address indexed recipient, uint256 amount);
@@ -33,7 +32,7 @@ interface IStipendDistributor {
     event RewardsClaimed(address indexed operator, address indexed recipient, uint256 amount);
 
     /// @dev Emitted when a recipient mapping is overridden for a specific pubkey.
-    event RecipientSet(address indexed operator, bytes pubkey, uint256 indexed registryID, address indexed recipient);
+    event RecipientSet(address indexed operator, bytes pubkey, address indexed recipient);
 
     /// @dev Emitted when an operator sets/updates their default recipient.
     event DefaultRecipientSet(address indexed operator, address indexed recipient);
@@ -44,18 +43,12 @@ interface IStipendDistributor {
     /// @dev Emitted when accrued rewards are migrated from one recipient to another for an operator.
     event RewardsMigrated(address indexed from, address indexed to, uint256 amount);
 
-    /// @dev Emitted when a registry is set.
-    event VanillaRegistrySet(address indexed vanillaRegistry);
-    event MevCommitAVSSet(address indexed mevCommitAVS);
-    event MevCommitMiddlewareSet(address indexed mevCommitMiddleware);
-
-
     // =========================
     // EXTERNALS
     // =========================
 
     /// @notice Initialize the proxy.
-    function initialize(address owner, address oracle, address vanillaRegistry, address mevCommitAVS, address mevCommitMiddleware) external;
+    function initialize(address owner, address stipendManager) external;
 
 
     function grantStipends(
@@ -74,7 +67,7 @@ interface IStipendDistributor {
 
 
     /// @notice Override recipient for a list of BLS pubkeys in a registry.
-    function overrideRecipientByPubkey(bytes[] calldata pubkeys, uint256 registryID, address recipient) external;
+    function overrideRecipientByPubkey(bytes[] calldata pubkeys, address recipient) external;
 
 
     /// @notice Set the caller's default recipient for any non-overridden keys.
@@ -95,9 +88,8 @@ interface IStipendDistributor {
 
 
     /// @notice Admin setters.
-    function setOracle(address _oracle) external;
-    function setVanillaRegistry(address vanillaRegistry) external;
-    function setMevCommitAVS(address mevCommitAVS) external;
-    function setMevCommitMiddleware(address mevCommitMiddleware) external;
+    function setStipendManager(address _stipendManager) external;
+    function getKeyRecipient(address operator, bytes calldata pubkey) external view returns (address);
+    function getPendingRewards(address operator, address recipient) external view returns (uint256);
 
 }
