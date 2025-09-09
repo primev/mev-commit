@@ -404,6 +404,11 @@
   },
   {
     "type": "error",
+    "name": "OnlyOwnerOrTreasury",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {

@@ -142,25 +142,6 @@
   },
   {
     "type": "function",
-    "name": "defaultRecipient",
-    "inputs": [
-      {
-        "name": "operator",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "recipient",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getKeyRecipient",
     "inputs": [
       {
@@ -212,19 +193,26 @@
     "name": "grantStipends",
     "inputs": [
       {
-        "name": "operators",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "recipients",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "amounts",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "name": "stipends",
+        "type": "tuple[]",
+        "internalType": "struct IStipendDistributor.Stipend[]",
+        "components": [
+          {
+            "name": "operator",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "recipient",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
       }
     ],
     "outputs": [],
@@ -265,6 +253,25 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "operatorGlobalOverride",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -399,7 +406,7 @@
   },
   {
     "type": "function",
-    "name": "setDefaultRecipient",
+    "name": "setOperatorGlobalOverride",
     "inputs": [
       {
         "name": "recipient",
@@ -507,7 +514,20 @@
   },
   {
     "type": "event",
-    "name": "DefaultRecipientSet",
+    "name": "Initialized",
+    "inputs": [
+      {
+        "name": "version",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OperatorGlobalOverrideSet",
     "inputs": [
       {
         "name": "operator",
@@ -520,19 +540,6 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "Initialized",
-    "inputs": [
-      {
-        "name": "version",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
       }
     ],
     "anonymous": false
