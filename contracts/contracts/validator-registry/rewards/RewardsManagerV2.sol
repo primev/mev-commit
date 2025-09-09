@@ -20,13 +20,13 @@ contract RewardsManagerV2 is
 {
     uint256 constant _BPS_DENOMINATOR = 10_000;
 
-    constructor() {
-        _disableInitializers();
-    }
-
     modifier onlyOwnerOrTreasury() {
         require(msg.sender == owner() || msg.sender == treasury, OnlyOwnerOrTreasury());
         _;
+    }
+
+    constructor() {
+        _disableInitializers();
     }
 
     // -------- Receive/Fallback (explicitly disabled) --------
