@@ -12,7 +12,6 @@ import {Errors} from "../../utils/Errors.sol";
 contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     Ownable2StepUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
-
     modifier onlyOwnerOrStipendManager() {
         require(msg.sender == stipendManager || msg.sender == owner(), NotOwnerOrStipendManager());
         _;
@@ -46,15 +45,12 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     }
 
     /// @dev Grant stipends to multiple (operator, recipient) pairs.
-    /// @param operators Array of operator addresses.
-    /// @param recipients Array of recipient addresses of the corresponding operator.
-    /// @param amounts Array of stipend amounts.
-    function grantStipends(address[] calldata operators, address[] calldata recipients, uint256[] calldata amounts) external payable nonReentrant whenNotPaused onlyOwnerOrStipendManager {
-        uint256 len = operators.length;
-        require(len == amounts.length && len == recipients.length, LengthMismatch());
+    /// @param stipends Array of stipends.
+    function grantStipends(Stipend[] calldata stipends) external payable nonReentrant whenNotPaused onlyOwnerOrStipendManager {
+        uint256 len = stipends.length;
         for (uint256 i = 0; i < len; ++i) {
-            accrued[operators[i]][recipients[i]] += amounts[i];
-            emit StipendsGranted(operators[i], recipients[i], amounts[i]);
+            accrued[stipends[i].operator][stipends[i].recipient] += stipends[i].amount;
+            emit StipendsGranted(stipends[i].operator, stipends[i].recipient, stipends[i].amount);
         }
     }
 
@@ -75,7 +71,6 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
 
     /// @notice Allows an operator to set the recipient for a list of pubkeys.
     /// @dev If operator is no longer valid at the time of stipend distribution, the recipient will not receive the stipend.
-    ///      If the key has a new operator that has not updated the key's recipient, the new operator will receive the stipend.
     /// @param pubkeys List of pubkeys to set the recipient for.
     /// @param recipient Recipient to set for the pubkeys.
     function overrideRecipientByPubkey(bytes[] calldata pubkeys, address recipient) external whenNotPaused nonReentrant {
@@ -93,10 +88,10 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     /// @dev Allows an operator to set a default recipient for all non-overridden keys.
     ///      If a recipient is set for a specific key, it will override the default recipient.
     /// @param recipient Default recipient to set for all non-overridden keys of the operator.
-    function setDefaultRecipient(address recipient) external whenNotPaused nonReentrant {
+    function setOperatorGlobalOverride(address recipient) external whenNotPaused nonReentrant {
         require(recipient != address(0), ZeroAddress());
-        defaultRecipient[msg.sender] = recipient;
-        emit DefaultRecipientSet(msg.sender, recipient);
+        operatorGlobalOverride[msg.sender] = recipient;
+        emit OperatorGlobalOverrideSet(msg.sender, recipient);
     }
 
     /// @dev Allows an operator to set a delegate to claim rewards for one of their recipients.
@@ -130,8 +125,6 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
         _setStipendManager(_stipendManager);
     }
 
-    // --- Getters ---
- 
     // Retreives the recipient for an operator's registered key
     function getKeyRecipient(address operator, bytes calldata pubkey) external view returns (address) {
         require(pubkey.length == 48, InvalidBLSPubKeyLength());
@@ -141,7 +134,7 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
             return operatorKeyOverrides[operator][pkHash];
         }
         // If no key override, return the default recipient
-        address defaultOverride = defaultRecipient[operator];
+        address defaultOverride = operatorGlobalOverride[operator];
         if (defaultOverride != address(0)) {
             return defaultOverride;
         }
@@ -152,7 +145,6 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     function getPendingRewards(address operator, address recipient) public view returns (uint256) {
         return accrued[operator][recipient] - claimed[operator][recipient];
     }
-
 
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
@@ -178,6 +170,7 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     }
 
     function _setStipendManager(address _stipendManager) internal {
+        require(_stipendManager != address(0), ZeroAddress());
         stipendManager = _stipendManager;
         emit StipendManagerSet(_stipendManager);
     }

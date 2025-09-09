@@ -176,23 +176,14 @@ contract RewardsManagerV2Test is Test {
     // withdraw to treasury only owner
     function test_WithdrawToTreasury_onlyOwner() public {
         vm.prank(payerOne);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, payerOne));
+        vm.expectRevert(abi.encodeWithSelector(IRewardsManagerV2.OnlyOwnerOrTreasury.selector));
         rewardsManager.withdrawToTreasury();
     }
 
-    function test_WithdrawToTreasury_revertsIfTreasuryZero() public {
-        vm.prank(ownerAddress);
-        rewardsManager.setTreasury(payable(address(0)));
-
-        vm.prank(ownerAddress);
-        rewardsManager.setRewardsPctBps(1000);
-
-        vm.prank(payerOne);
-        rewardsManager.payProposer{value: 1 ether}(payable(feeRecipientOne));
-
+    function test_setTreasury_revertsIfTreasuryZero() public {
         vm.prank(ownerAddress);
         vm.expectRevert(IRewardsManagerV2.TreasuryIsZero.selector);
-        rewardsManager.withdrawToTreasury();
+        rewardsManager.setTreasury(payable(address(0)));
     }
 
     // revert when no funds to withdraw

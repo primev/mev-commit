@@ -8,7 +8,7 @@ abstract contract StipendDistributorStorage {
     address public stipendManager;
 
     /// @dev Default recipient per operator (used when no pubkey-specific override exists).
-    mapping(address operator => address recipient) public defaultRecipient;
+    mapping(address operator => address recipient) public operatorGlobalOverride;
 
     /// @dev Recipient override by BLS pubkey hash (keccak256(pubkey)).
     mapping(address operator => mapping(bytes32 keyhash => address recipient)) public operatorKeyOverrides;
@@ -19,7 +19,7 @@ abstract contract StipendDistributorStorage {
 
     /// @dev Operator → recipient → delegate → isAuthorized
     mapping(address operator => mapping(address recipient => mapping(address delegate => bool))) public claimDelegate;
-    
+
     // === Storage gap for future upgrades ===
     uint256[40] private __gap;
 }

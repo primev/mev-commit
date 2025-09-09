@@ -35,7 +35,7 @@ contract StipendDistributorTest is Test {
     event RecipientSet(address indexed operator, bytes pubkey, uint256 indexed registryID, address indexed recipient);
     event StipendsGranted(address indexed operator, address indexed recipient, uint256 amount);
     event RewardsClaimed(address indexed operator, address indexed recipient, uint256 amount);
-    event DefaultRecipientSet(address indexed operator, address indexed recipient);
+    event OperatorGlobalOverrideSet(address indexed operator, address indexed recipient);
 
     // setup: deploy registries + distributor and fund stipendManager for payable calls
         function setUp() public {
@@ -70,37 +70,35 @@ contract StipendDistributorTest is Test {
         address op1,
         address op2
     ) internal {
-        address[] memory operators = new address[](3);
-        address[] memory receivers = new address[](3);
-        uint256[] memory amounts = new uint256[](3);
+        IStipendDistributor.Stipend[] memory stipends = new IStipendDistributor.Stipend[](3);
 
-        operators[0] = op1;
-        receivers[0] = addr1;
-        amounts[0] = 1 ether;
+        stipends[0].operator = op1;
+        stipends[0].recipient = addr1;
+        stipends[0].amount = 1 ether;
 
-        operators[1] = op1;
-        receivers[1] = addr2;
-        amounts[1] = 2 ether;
+        stipends[1].operator = op1;
+        stipends[1].recipient = addr2;
+        stipends[1].amount = 2 ether;
 
-        operators[2] = op2;
-        receivers[2] = addr3;
-        amounts[2] = 3 ether;
+        stipends[2].operator = op2;
+        stipends[2].recipient = addr3;
+        stipends[2].amount = 3 ether;
 
         vm.prank(stipendManager);
-        distributor.grantStipends{value: amounts[0] + amounts[1] + amounts[2]}(operators, receivers, amounts);
+        distributor.grantStipends{value: stipends[0].amount + stipends[1].amount + stipends[2].amount}(stipends);
     }
 
     // default recipient: set and read mapping
-    function test_SetDefaultRecipient_setsMapping() public {
+    function test_SetOperatorGlobalOverride_setsMapping() public {
         // starts empty
-        assertEq(distributor.defaultRecipient(operator1), address(0));
+        assertEq(distributor.operatorGlobalOverride(operator1), address(0));
 
         // operator sets default
         vm.prank(operator1);
-        distributor.setDefaultRecipient(recipient1);
+        distributor.setOperatorGlobalOverride(recipient1);
 
         // mapping reflects default
-        assertEq(distributor.defaultRecipient(operator1), recipient1);
+        assertEq(distributor.operatorGlobalOverride(operator1), recipient1);
     }
 
     // override by pubkey: same operator sets 3 keys → recipient2, then 2 keys → recipient3 (middleware registry id=2)
@@ -190,14 +188,12 @@ contract StipendDistributorTest is Test {
     // pending rewards: increments on grant, clears on claim, and stacks across grants
     function test_PendingRewards_increment_and_clear() public {
         // 1) first grant (1e) to operator1→recipient1
-        address[] memory ops = new address[](1);
-        address[] memory recs = new address[](1);
-        uint256[] memory amts = new uint256[](1);
-        ops[0] = operator1;
-        recs[0] = recipient1;
-        amts[0] = 1 ether;
+        IStipendDistributor.Stipend[] memory stipends = new IStipendDistributor.Stipend[](1);
+        stipends[0].operator = operator1;
+        stipends[0].recipient = recipient1;
+        stipends[0].amount = 1 ether;
         vm.prank(stipendManager);
-        distributor.grantStipends{value: amts[0]}(ops, recs, amts);
+        distributor.grantStipends{value: stipends[0].amount}(stipends);
         assertEq(distributor.accrued(operator1, recipient1), 1 ether);
 
         // claim pays 1e
@@ -215,15 +211,15 @@ contract StipendDistributorTest is Test {
         assertEq(recipient1.balance, before);
 
         // 2) second grant (2e) → total accrued becomes 3e
-        amts[0] = 2 ether;
+        stipends[0].amount = 2 ether;
         vm.prank(stipendManager);
-        distributor.grantStipends{value: amts[0]}(ops, recs, amts);
+        distributor.grantStipends{value: stipends[0].amount}(stipends);
         assertEq(distributor.accrued(operator1, recipient1), 3 ether);
 
         // 3) third grant (3e) without claiming → total accrued becomes 6e
-        amts[0] = 3 ether;
+        stipends[0].amount = 3 ether;
         vm.prank(stipendManager);
-        distributor.grantStipends{value: amts[0]}(ops, recs, amts);
+        distributor.grantStipends{value: stipends[0].amount}(stipends);
         assertEq(distributor.accrued(operator1, recipient1), 6 ether);
 
         // claim now pays 5e (the unclaimed 2e + 3e)
@@ -249,7 +245,7 @@ contract StipendDistributorTest is Test {
 
         // 2) set default for operator → returns default
         vm.prank(opFromMiddlewareTest);
-        distributor.setDefaultRecipient(recipient1);
+        distributor.setOperatorGlobalOverride(recipient1);
         address rec1 = distributor.getKeyRecipient(opFromMiddlewareTest, pubkey1);
         assertEq(rec1, recipient1, "default recipient should be returned");
 
@@ -266,7 +262,7 @@ contract StipendDistributorTest is Test {
     function test_Pause_allPausableFunctions() public {
         // works unpaused
         vm.prank(operator1);
-        distributor.setDefaultRecipient(recipient1);
+        distributor.setOperatorGlobalOverride(recipient1);
 
         // pause as owner
         vm.prank(owner);
@@ -276,22 +272,20 @@ contract StipendDistributorTest is Test {
         // pausable funcs revert when paused
         vm.prank(operator1);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        distributor.setDefaultRecipient(recipient2);
+        distributor.setOperatorGlobalOverride(recipient2);
 
         bytes[] memory pubs = new bytes[](1);
         pubs[0] = pubkey1;
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
         distributor.overrideRecipientByPubkey(pubs, recipient2);
 
-        address[] memory ops = new address[](1);
-        address[] memory recs = new address[](1);
-        uint256[] memory amts = new uint256[](1);
-        ops[0] = operator1;
-        recs[0] = recipient1;
-        amts[0] = 1 ether;
+        IStipendDistributor.Stipend[] memory stipends = new IStipendDistributor.Stipend[](1);
+        stipends[0].operator = operator1;
+        stipends[0].recipient = recipient1;
+        stipends[0].amount = 1 ether;
         vm.prank(stipendManager);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        distributor.grantStipends{value: amts[0]}(ops, recs, amts);
+        distributor.grantStipends{value: stipends[0].amount}(stipends);
 
         address payable[] memory list = new address payable[](1);
         list[0] = payable(recipient1);
@@ -310,21 +304,19 @@ contract StipendDistributorTest is Test {
         vm.prank(owner);
         distributor.unpause();
         vm.prank(operator1);
-        distributor.setDefaultRecipient(recipient2);
+        distributor.setOperatorGlobalOverride(recipient2);
     }
 
     // reentrancy: malicious recipient can't reenter claimRewards
     function test_ReentrancyGuard_onClaimRewards() public {
         // grant to a recipient that tries to reenter
         ReenteringRecipient attacker = new ReenteringRecipient();
-        address[] memory ops = new address[](1);
-        address[] memory recs = new address[](1);
-        uint256[] memory amts = new uint256[](1);
-        ops[0] = operator1;
-        recs[0] = address(attacker);
-        amts[0] = 1 ether;
+        IStipendDistributor.Stipend[] memory stipends = new IStipendDistributor.Stipend[](1);
+        stipends[0].operator = operator1;
+        stipends[0].recipient = address(attacker);
+        stipends[0].amount = 1 ether;
         vm.prank(stipendManager);
-        distributor.grantStipends{value: amts[0]}(ops, recs, amts);
+        distributor.grantStipends{value: stipends[0].amount}(stipends);
 
         // claim once → paid exactly once; inner call blocked by nonReentrant
         address payable[] memory list = new address payable[](1);
@@ -356,18 +348,16 @@ contract StipendDistributorTest is Test {
 
     // only stipendManager can grant stipends
     function test_Grant_onlystipendManager_revertsForOthers() public {
-        address[] memory ops = new address[](1);
-        address[] memory recs = new address[](1);
-        uint256[] memory amts = new uint256[](1);
-        ops[0] = operator1;
-        recs[0] = recipient1;
-        amts[0] = 1 ether;
+        IStipendDistributor.Stipend[] memory stipends = new IStipendDistributor.Stipend[](1);
+        stipends[0].operator = operator1;
+        stipends[0].recipient = recipient1;
+        stipends[0].amount = 1 ether;
         vm.deal(operator1, 10 ether);
 
         // non-stipendManager caller → revert
         vm.prank(operator1);
         vm.expectRevert();
-        distributor.grantStipends{value: amts[0]}(ops, recs, amts);
+        distributor.grantStipends{value: stipends[0].amount}(stipends);
     }
 
     // wrong operator can't claim another operator's recipients
@@ -383,26 +373,11 @@ contract StipendDistributorTest is Test {
         assertEq(recipient2.balance, before);
     }
 
-    // grantStipends: arrays length mismatch reverts
-    function test_Grant_arraysLengthMismatch_reverts() public {
-        address[] memory ops = new address[](2);
-        address[] memory recs = new address[](1);
-        uint256[] memory amts = new uint256[](1);
-        ops[0] = operator1;
-        ops[1] = operator2;
-        recs[0] = recipient1;
-        amts[0] = 1 ether;
-
-        vm.prank(stipendManager);
-        vm.expectRevert();
-        distributor.grantStipends{value: amts[0]}(ops, recs, amts);
-    }
-
     // zero-address guards
-    function test_SetDefaultRecipient_zero_reverts() public {
+    function test_SetOperatorGlobalOverride_zero_reverts() public {
         vm.prank(operator1);
         vm.expectRevert();
-        distributor.setDefaultRecipient(address(0));
+            distributor.setOperatorGlobalOverride(address(0));
     }
 
     function test_Override_zeroRecipient_reverts() public {

@@ -10,8 +10,6 @@ import {IRewardsManagerV2} from "../../interfaces/IRewardsManagerV2.sol";
 import {RewardsManagerV2Storage} from "./RewardsManagerV2Storage.sol";
 import {Errors} from "../../utils/Errors.sol";
 
-
-
 contract RewardsManagerV2 is 
     Initializable, 
     Ownable2StepUpgradeable, 
@@ -62,8 +60,6 @@ contract RewardsManagerV2 is
         }
     }
 
-    // -------- Owner Functions--------
-
     function withdrawToTreasury() external onlyOwnerOrTreasury {
         require(toTreasury > 0, NoFundsToWithdraw());
         uint256 treasuryAmt = toTreasury;
@@ -80,18 +76,16 @@ contract RewardsManagerV2 is
         _setTreasury(treasury);
     }
     
-    // -------- Internal --------
-
     function _setTreasury(address payable _treasury) internal {
-        require(treasury != address(0), TreasuryIsZero());
+        require(_treasury != address(0), TreasuryIsZero());
         treasury = _treasury;
-        emit TreasurySet(treasury);
+        emit TreasurySet(_treasury);
     }
 
     function _setRewardsPctBps(uint256 _rewardsPctBps) internal {
         require (_rewardsPctBps <= 2500, RewardsPctTooHigh());
         rewardsPctBps = _rewardsPctBps;
-        emit RewardsPctBpsSet(rewardsPctBps);
+        emit RewardsPctBpsSet(_rewardsPctBps);
     }
 
     // solhint-disable-next-line no-empty-blocks

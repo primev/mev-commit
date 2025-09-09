@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 
 interface IRewardsManagerV2 {
     // -------- Events --------
-
     /// @notice Emitted for each proposer payment routed by this contract
     event ProposerPaid(
         address indexed feeRecipient,
@@ -24,8 +23,6 @@ interface IRewardsManagerV2 {
     error TreasuryIsZero();
     error NoFundsToWithdraw();
     error ProposerTransferFailed(address feeRecipient, uint256 amount);
-
- 
 
     /// @notice Builders/relays call this to route EL rewards *through* this contract.
     function payProposer(address payable feeRecipient) external payable;
