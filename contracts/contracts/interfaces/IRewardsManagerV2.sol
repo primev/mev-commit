@@ -3,27 +3,6 @@ pragma solidity 0.8.26;
 
 
 interface IRewardsManagerV2 {
-
-    error RewardsPctTooHigh();
-    error TreasuryIsZero();
-    error NoFundsToWithdraw();
-    error ProposerTransferFailed(address feeRecipient, uint256 amount);
-
-    // -------- Views --------
- 
-
-    /// @notice Builders/relays call this to route EL rewards *through* this contract.
-    function payProposer(address payable feeRecipient) external payable;
-
-    function withdrawToTreasury() external;
-
-    function setRewardsPctBps(uint256 rewardsPctBps) external;
-
-    function setTreasury(address payable treasury) external;
-    
-    // -------- Admin --------
-    function initialize(address initialOwner, uint256 rewardsPctBps, address payable treasury) external;
-
     // -------- Events --------
 
     /// @notice Emitted for each proposer payment routed by this contract
@@ -38,6 +17,26 @@ interface IRewardsManagerV2 {
     event RewardsPctBpsSet(uint256 indexed rewardsPctBps);
     /// @notice Emitted when the treasury is set
     event TreasurySet(address indexed treasury);
+
+    // -------- Errors --------
+    error RewardsPctTooHigh();
+    error TreasuryIsZero();
+    error NoFundsToWithdraw();
+    error ProposerTransferFailed(address feeRecipient, uint256 amount);
+
+ 
+
+    /// @notice Builders/relays call this to route EL rewards *through* this contract.
+    function payProposer(address payable feeRecipient) external payable;
+
+    function withdrawToTreasury() external;
+
+    function setRewardsPctBps(uint256 rewardsPctBps) external;
+
+    function setTreasury(address payable treasury) external;
+    
+    // -------- Admin --------
+    function initialize(address initialOwner, uint256 rewardsPctBps, address payable treasury) external;
 
 
 

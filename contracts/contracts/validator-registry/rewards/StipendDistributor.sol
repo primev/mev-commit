@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-import {IRewardManager} from "../../interfaces/IRewardManager.sol";
-import {RewardManagerStorage} from "./RewardManagerStorage.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -82,7 +80,8 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     /// @param recipient Recipient to set for the pubkeys.
     function overrideRecipientByPubkey(bytes[] calldata pubkeys, address recipient) external whenNotPaused nonReentrant {
         require(recipient != address(0), ZeroAddress());
-        for (uint256 i = 0; i < pubkeys.length; ++i) {
+        uint256 len = pubkeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubkey = pubkeys[i];
             require(pubkey.length == 48, InvalidBLSPubKeyLength());
             bytes32 pkHash = keccak256(pubkey);

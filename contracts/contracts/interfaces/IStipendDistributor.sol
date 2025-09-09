@@ -5,19 +5,6 @@ pragma solidity 0.8.26;
 /// @title IStipendDistributor
 /// @notice Interface for stipend distribution and claims.
 interface IStipendDistributor {
-    // =========================
-    // ERRORS
-    // =========================
-    error NotOwnerOrStipendManager();
-    error ZeroAddress();
-    error InvalidBLSPubKeyLength();
-    error InvalidRecipient();
-    error InvalidOperator();
-    error InvalidClaimDelegate();
-    error LengthMismatch();
-    error NoClaimableRewards(address recipient);
-    error RewardsTransferFailed(address recipient);
-
 
     // =========================
     // EVENTS
@@ -42,6 +29,20 @@ interface IStipendDistributor {
 
     /// @dev Emitted when accrued rewards are migrated from one recipient to another for an operator.
     event RewardsMigrated(address indexed from, address indexed to, uint256 amount);
+
+
+        // =========================
+    // ERRORS
+    // =========================
+    error NotOwnerOrStipendManager();
+    error ZeroAddress();
+    error InvalidBLSPubKeyLength();
+    error InvalidRecipient();
+    error InvalidOperator();
+    error InvalidClaimDelegate();
+    error LengthMismatch();
+    error NoClaimableRewards(address recipient);
+    error RewardsTransferFailed(address recipient);
 
     // =========================
     // EXTERNALS

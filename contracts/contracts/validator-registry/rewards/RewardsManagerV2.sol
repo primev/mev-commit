@@ -20,11 +20,15 @@ contract RewardsManagerV2 is
     IRewardsManagerV2, 
     UUPSUpgradeable 
 {
-    uint256 constant BPS_DENOMINATOR = 10_000;
+    uint256 constant _BPS_DENOMINATOR = 10_000;
 
     constructor() {
         _disableInitializers();
     }
+
+    // -------- Receive/Fallback (explicitly disabled) --------
+    receive() external payable { revert Errors.InvalidReceive(); }
+    fallback() external payable { revert Errors.InvalidFallback(); }
 
     // -------- Initializer --------
     function initialize(address initialOwner, uint256 rewardsPctBps, address payable treasury) external initializer override {
@@ -44,7 +48,7 @@ contract RewardsManagerV2 is
             require(success, ProposerTransferFailed(feeRecipient, totalAmt)); //revert if transfer fails
             emit ProposerPaid(feeRecipient, totalAmt, 0);
         } else {
-            uint256 amtForRewards = totalAmt * bps / BPS_DENOMINATOR;
+            uint256 amtForRewards = totalAmt * bps / _BPS_DENOMINATOR;
             uint256 proposerAmt = totalAmt - amtForRewards;
             toTreasury += amtForRewards;
             (bool success, ) = feeRecipient.call{value: proposerAmt}("");
@@ -71,7 +75,7 @@ contract RewardsManagerV2 is
     function setTreasury(address payable treasury) external onlyOwner {
         _setTreasury(treasury);
     }
-
+    
     // -------- Internal --------
 
     function _setTreasury(address payable _treasury) internal {
@@ -87,8 +91,4 @@ contract RewardsManagerV2 is
 
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
-
-    // -------- Receive/Fallback (explicitly disabled) --------
-    receive() external payable { revert Errors.InvalidReceive(); }
-    fallback() external payable { revert Errors.InvalidFallback(); }
 }
