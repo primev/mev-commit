@@ -50,8 +50,8 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     /// @param recipients Array of recipient addresses of the corresponding operator.
     /// @param amounts Array of stipend amounts.
     function grantStipends(address[] calldata operators, address[] calldata recipients, uint256[] calldata amounts) external payable nonReentrant whenNotPaused onlyOwnerOrStipendManager {
-        require(operators.length == amounts.length && operators.length == recipients.length, LengthMismatch());
         uint256 len = operators.length;
+        require(len == amounts.length && len == recipients.length, LengthMismatch());
         for (uint256 i = 0; i < len; ++i) {
             accrued[operators[i]][recipients[i]] += amounts[i];
             emit StipendsGranted(operators[i], recipients[i], amounts[i]);

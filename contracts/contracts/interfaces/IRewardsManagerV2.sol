@@ -19,6 +19,7 @@ interface IRewardsManagerV2 {
     event TreasurySet(address indexed treasury);
 
     // -------- Errors --------
+    error OnlyOwnerOrTreasury();
     error RewardsPctTooHigh();
     error TreasuryIsZero();
     error NoFundsToWithdraw();

@@ -26,6 +26,11 @@ contract RewardsManagerV2 is
         _disableInitializers();
     }
 
+    modifier onlyOwnerOrTreasury() {
+        require(msg.sender == owner() || msg.sender == treasury, OnlyOwnerOrTreasury());
+        _;
+    }
+
     // -------- Receive/Fallback (explicitly disabled) --------
     receive() external payable { revert Errors.InvalidReceive(); }
     fallback() external payable { revert Errors.InvalidFallback(); }
@@ -59,8 +64,7 @@ contract RewardsManagerV2 is
 
     // -------- Owner Functions--------
 
-    function withdrawToTreasury() external nonReentrant onlyOwner {
-        require(treasury != address(0), TreasuryIsZero());
+    function withdrawToTreasury() external onlyOwnerOrTreasury {
         require(toTreasury > 0, NoFundsToWithdraw());
         uint256 treasuryAmt = toTreasury;
         toTreasury = 0;
@@ -79,6 +83,7 @@ contract RewardsManagerV2 is
     // -------- Internal --------
 
     function _setTreasury(address payable _treasury) internal {
+        require(treasury != address(0), TreasuryIsZero());
         treasury = _treasury;
         emit TreasurySet(treasury);
     }
