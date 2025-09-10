@@ -17,3 +17,11 @@ func (f *Follower) SyncFromSharedDB(ctx context.Context) error {
 func (f *Follower) LastSignalledBlock() uint64 {
 	return f.lastSignalledBlock
 }
+
+func (f *Follower) SetLastSignalledBlock(block uint64) {
+	f.lastSignalledBlock = block
+}
+
+func (f *Follower) QueryPayloadsFromSharedDB(ctx context.Context) {
+	f.queryPayloadsFromSharedDB(ctx)
+}

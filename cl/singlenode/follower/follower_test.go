@@ -323,6 +323,61 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 	}
 }
 
-// TODO: test threshold
+func TestFollower_queryPayloadsFromSharedDB(t *testing.T) {
+	t.Parallel()
+
+	lastSignalledBlock := uint64(100)
+	numCalls := 0
+	payloadRepo := &mockPayloadDB{
+		GetPayloadByHeightFunc: func(ctx context.Context, height uint64) (*types.PayloadInfo, error) {
+			numCalls++
+			if numCalls > 50 { // Simulate catching up to latest block after 50 calls
+				if numCalls == 60 {
+					// 60th call returns a payload again
+					return &types.PayloadInfo{BlockHeight: lastSignalledBlock + 51}, nil
+				}
+				return nil, sql.ErrNoRows
+			}
+			return &types.PayloadInfo{BlockHeight: lastSignalledBlock + uint64(numCalls)}, nil
+		},
+	}
+
+	syncBatchSize := uint64(20)
+	caughtUpThreshold := uint64(10)
+	logger := util.NewTestLogger(io.Discard)
+	st := follower.NewStore(logger, inmemstorage.New())
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	follower.SetLastSignalledBlock(lastSignalledBlock)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		follower.QueryPayloadsFromSharedDB(ctx)
+	}()
+
+	// All 51 payloads should be received in little time
+	received := 0
+	payloadCh := follower.PayloadCh()
+	deadline := time.Now().Add(time.Second)
+	for received < 51 {
+		select {
+		case p := <-payloadCh:
+			received++
+			if p == (types.PayloadInfo{}) {
+				t.Fatalf("received zero payload at %d", p.BlockHeight)
+			}
+			if p.BlockHeight != lastSignalledBlock+uint64(received) {
+				t.Fatalf("expected payload height %d, got %d", lastSignalledBlock+uint64(received), p.BlockHeight)
+			}
+		case <-time.After(time.Until(deadline)):
+			t.Fatalf("timeout waiting for payload")
+		case <-ctx.Done():
+		}
+	}
+}
 
 // TODO: Simulate new chain with Start() func where sql.ErrNoRows is returned a couple times, then first row in DB has block 1.
