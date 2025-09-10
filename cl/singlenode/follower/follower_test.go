@@ -63,7 +63,10 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	st.SetLastProcessed(lastProcessed)
+	err = st.SetLastProcessed(lastProcessed)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	errCh := make(chan error, 1)
 
@@ -269,7 +272,10 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	st.SetLastProcessed(lastProcessed)
+	err = st.SetLastProcessed(lastProcessed)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	errCh := make(chan error, 1)
 
