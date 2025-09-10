@@ -167,6 +167,12 @@ func (f *Follower) getLatestHeightWithBackoff(ctx context.Context) (uint64, erro
 
 func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		payload, err := f.sharedDB.GetPayloadByHeight(lctx, f.lastSignalledBlock+1)
 		cancel()
