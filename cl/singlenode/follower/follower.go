@@ -173,32 +173,37 @@ func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
 
 		if err != nil {
 			if err == sql.ErrNoRows {
-				time.Sleep(time.Millisecond) // New payload will likely be available within milliseconds
+				f.sleepRespectingContext(ctx, time.Millisecond) // New payload will likely be available within milliseconds
 				continue
 			}
 			f.logger.Error("Failed to fetch next payload by height with unexpected error", "height", f.lastSignalledBlock+1, "error", err)
-			time.Sleep(defaultBackoff)
+			f.sleepRespectingContext(ctx, defaultBackoff)
 			continue
 		}
 
 		if payload == nil {
 			f.logger.Error("Received nil payload from valid query")
-			time.Sleep(defaultBackoff)
+			f.sleepRespectingContext(ctx, defaultBackoff)
 			continue
 		}
 
 		select {
-		case <-ctx.Done():
-			return
 		case f.payloadCh <- *payload:
 			f.logger.Debug("Sent payload to channel", "height", f.lastSignalledBlock+1)
 			f.lastSignalledBlock = payload.BlockHeight
-
 		default:
 			f.logger.Error("Payload channel buffer is full", "height", f.lastSignalledBlock+1)
-			time.Sleep(defaultBackoff)
+			f.sleepRespectingContext(ctx, defaultBackoff)
 			continue
 		}
+	}
+}
+
+func (f *Follower) sleepRespectingContext(ctx context.Context, duration time.Duration) {
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(duration):
 	}
 }
 

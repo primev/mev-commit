@@ -386,4 +386,72 @@ func TestFollower_queryPayloadsFromSharedDB(t *testing.T) {
 	}
 }
 
-// TODO: Simulate new chain with Start() func where sql.ErrNoRows is returned a couple times, then first row in DB has block 1.
+func TestFollower_Start_SimulateNewChain(t *testing.T) {
+	t.Parallel()
+
+	logger := util.NewTestLogger(io.Discard)
+
+	getLatestCalls := 0
+	getByHeightCalls := 0
+
+	payloadRepo := &mockPayloadDB{
+		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
+			getLatestCalls++
+			if getLatestCalls <= 3 {
+				return nil, sql.ErrNoRows
+			}
+			h := uint64(1)
+			return &h, nil
+		},
+		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
+			t.Fatalf("GetPayloadsSince should not be called, got sinceHeight=%d limit=%d", sinceHeight, limit)
+			return nil, nil
+		},
+		GetPayloadByHeightFunc: func(ctx context.Context, height uint64) (*types.PayloadInfo, error) {
+			getByHeightCalls++
+			if getByHeightCalls > 10 {
+				return nil, sql.ErrNoRows
+			}
+			return &types.PayloadInfo{BlockHeight: uint64(getByHeightCalls)}, nil
+		},
+	}
+
+	syncBatchSize := uint64(100)
+	caughtUpThreshold := uint64(5)
+	st := follower.NewStore(logger, inmemstorage.New())
+
+	f, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := f.Start(ctx)
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		lp, err := st.GetLastProcessed()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lp >= 10 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timeout waiting for first block to be processed")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if f.LastSignalledBlock() != 10 {
+		t.Fatalf("expected last signalled block to be 10, got %d", f.LastSignalledBlock())
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for follower to stop")
+	}
+}
