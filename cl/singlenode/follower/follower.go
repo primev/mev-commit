@@ -12,12 +12,13 @@ import (
 )
 
 type Follower struct {
-	logger            *slog.Logger
-	sharedDB          payloadDB
-	syncBatchSize     uint64
-	caughtUpThreshold uint64
-	store             *Store
-	payloadCh         chan *types.PayloadInfo
+	logger             *slog.Logger
+	sharedDB           payloadDB
+	syncBatchSize      uint64
+	caughtUpThreshold  uint64
+	store              *Store
+	payloadCh          chan types.PayloadInfo
+	lastSignalledBlock uint64 // Last block num signalled through payloadCh
 }
 
 const (
@@ -56,7 +57,7 @@ func NewFollower(
 		syncBatchSize:     syncBatchSize,
 		caughtUpThreshold: caughtUpThreshold,
 		store:             store,
-		payloadCh:         make(chan *types.PayloadInfo, payloadBufferSize),
+		payloadCh:         make(chan types.PayloadInfo, payloadBufferSize),
 	}, nil
 }
 
@@ -91,13 +92,15 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (f *Follower) syncFromSharedDB(ctx context.Context) error {
-	lastProcessedBlock, err := f.store.GetLastProcessed()
+	var err error
+	// lastSignalledBlock is only set from disk here
+	f.lastSignalledBlock, err = f.store.GetLastProcessed()
 	if err != nil {
 		return err
 	}
-	lastSignalledBlock := lastProcessedBlock
 
 	for {
+		f.logger.Debug("Syncing from shared DB", "lastSignalledBlock", f.lastSignalledBlock)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -109,17 +112,17 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 			return err
 		}
 
-		blocksRemaining := targetBlock - lastSignalledBlock
+		blocksRemaining := targetBlock - f.lastSignalledBlock
 
 		if blocksRemaining <= f.caughtUpThreshold {
-			f.logger.Info("Sync complete", "last_processed", lastProcessedBlock, "target", targetBlock)
+			f.logger.Info("Sync complete")
 			return nil
 		}
 
 		limit := min(f.syncBatchSize, blocksRemaining)
 
 		innerCtx, innerCancel := context.WithTimeout(ctx, 10*time.Second)
-		payloads, err := f.sharedDB.GetPayloadsSince(innerCtx, lastProcessedBlock+1, int(limit)) // TODO: confirm no off-by-one issue
+		payloads, err := f.sharedDB.GetPayloadsSince(innerCtx, f.lastSignalledBlock+1, int(limit))
 		innerCancel()
 		if err != nil {
 			return err
@@ -128,18 +131,18 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 			return errors.New("no payloads returned from valid query")
 		}
 
-		for _, p := range payloads {
-			f.payloadCh <- &p // Non-blocking up to payloadBufferSize
-			lastSignalledBlock = p.BlockHeight
+		for i := range payloads {
+			p := payloads[i]
+			f.payloadCh <- p // Non-blocking up to payloadBufferSize
+			f.lastSignalledBlock = p.BlockHeight
 		}
 	}
 }
 
 func (f *Follower) getLatestHeightWithBackoff(ctx context.Context) (uint64, error) {
 	const maxRetries = 10
-	const base = 5 * time.Second
 	for attempt := range maxRetries {
-		lctx, cancel := context.WithTimeout(ctx, base)
+		lctx, cancel := context.WithTimeout(ctx, time.Second)
 		latest, err := f.sharedDB.GetLatestHeight(lctx)
 		cancel()
 		if err == nil {
@@ -152,7 +155,7 @@ func (f *Follower) getLatestHeightWithBackoff(ctx context.Context) (uint64, erro
 			return 0, err
 		}
 
-		backoff := base * time.Duration(attempt+1)
+		backoff := defaultBackoff * time.Duration(attempt+1)
 		select {
 		case <-ctx.Done():
 			return 0, ctx.Err()
@@ -164,15 +167,8 @@ func (f *Follower) getLatestHeightWithBackoff(ctx context.Context) (uint64, erro
 
 func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
 	for {
-		lastProcessed, err := f.store.GetLastProcessed()
-		if err != nil {
-			f.logger.Error("Failed to read last processed height", "error", err)
-			time.Sleep(defaultBackoff)
-			continue
-		}
-
 		lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		payload, err := f.sharedDB.GetPayloadByHeight(lctx, lastProcessed+1)
+		payload, err := f.sharedDB.GetPayloadByHeight(lctx, f.lastSignalledBlock+1)
 		cancel()
 
 		if err != nil {
@@ -180,7 +176,7 @@ func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
 				time.Sleep(time.Millisecond) // New payload will likely be available within milliseconds
 				continue
 			}
-			f.logger.Error("Failed to fetch next payload by height with unexpected error", "height", lastProcessed+1, "error", err)
+			f.logger.Error("Failed to fetch next payload by height with unexpected error", "height", f.lastSignalledBlock+1, "error", err)
 			time.Sleep(defaultBackoff)
 			continue
 		}
@@ -194,10 +190,12 @@ func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case f.payloadCh <- payload:
-			f.logger.Debug("Sent payload to channel", "height", lastProcessed+1)
+		case f.payloadCh <- *payload:
+			f.logger.Debug("Sent payload to channel", "height", f.lastSignalledBlock+1)
+			f.lastSignalledBlock = payload.BlockHeight
+
 		default:
-			f.logger.Error("Payload channel buffer is full", "height", lastProcessed+1)
+			f.logger.Error("Payload channel buffer is full", "height", f.lastSignalledBlock+1)
 			time.Sleep(defaultBackoff)
 			continue
 		}
@@ -227,7 +225,7 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 
 // TODO: Or w.r.t above could the engine api just handle 1-2 duplicate calls and gracefully continue? Need to confirm.
 
-func (f *Follower) handlePayload(ctx context.Context, payload *types.PayloadInfo) error {
+func (f *Follower) handlePayload(ctx context.Context, payload types.PayloadInfo) error {
 	// TODO: Apply the payload to follower's EL via Engine API in later steps.
 	f.logger.Info("Processing payload",
 		"payload_id", payload.PayloadID,
