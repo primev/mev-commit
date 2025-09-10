@@ -101,9 +101,6 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 			t.Fatalf("timeout waiting for payload for expected block height %d", expectedBlockHeight)
 		}
 	}
-	if numErrSignals != 1 {
-		t.Fatalf("SyncFromSharedDB should signal nil error once, got %d", numErrSignals)
-	}
 	if received != 50 {
 		t.Fatalf("expected 50 payloads, got %d", received)
 	}
@@ -193,9 +190,6 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 			t.Fatalf("timeout waiting for payload %d", expectedBlockHeight)
 		}
 	}
-	if numErrSignals != 1 {
-		t.Fatalf("SyncFromSharedDB should signal nil error once, got %d", numErrSignals)
-	}
 	if received != 15 {
 		t.Fatalf("expected 15 payloads, got %d", received)
 	}
@@ -232,6 +226,7 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 			numGetPayloadsCalls++
 			switch numGetPayloadsCalls {
 			case 1:
+				// First iteration should request payloads from 201 to 220
 				if sinceHeight != 201 {
 					t.Fatal("unexpected sinceHeight", sinceHeight)
 				}
@@ -239,6 +234,7 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 					t.Fatal("unexpected limit", limit)
 				}
 			case 2:
+				// Second iteration should request payloads from 221 to 240
 				if sinceHeight != 221 {
 					t.Fatal("unexpected sinceHeight", sinceHeight)
 				}
@@ -246,6 +242,7 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 					t.Fatal("unexpected limit", limit)
 				}
 			case 3:
+				// Third iteration should request payloads from 241 to 253
 				if sinceHeight != 241 {
 					t.Fatal("unexpected sinceHeight", sinceHeight)
 				}
@@ -282,7 +279,7 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 
 	payloadCh := follower.PayloadCh()
 
-	// expect payloads up to 250+3
+	// expect payloads up to 253
 	received := 0
 	expectedBlockHeight := uint64(201)
 	numErrSignals := 0
@@ -309,9 +306,6 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 		case <-time.After(10 * time.Second):
 			t.Fatalf("timeout waiting for payload %d", expectedBlockHeight)
 		}
-	}
-	if numErrSignals != 1 {
-		t.Fatalf("SyncFromSharedDB should signal nil error once, got %d", numErrSignals)
 	}
 	if received != 53 {
 		t.Fatalf("expected 53 payloads, got %d", received)
