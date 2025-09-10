@@ -62,7 +62,6 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(follower)
 
 	st.SetLastProcessed(lastProcessed)
 
@@ -104,6 +103,9 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 	}
 	if numErrSignals != 1 {
 		t.Fatalf("SyncFromSharedDB should signal nil error once, got %d", numErrSignals)
+	}
+	if received != 50 {
+		t.Fatalf("expected 50 payloads, got %d", received)
 	}
 
 	// No more than 50
@@ -194,6 +196,9 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 	if numErrSignals != 1 {
 		t.Fatalf("SyncFromSharedDB should signal nil error once, got %d", numErrSignals)
 	}
+	if received != 15 {
+		t.Fatalf("expected 15 payloads, got %d", received)
+	}
 
 	// No more than 15
 	select {
@@ -207,11 +212,123 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 	}
 }
 
-// TODO: test with two for loop iterations to test last processed vs last signalled block
+func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
+	t.Parallel()
 
-// TODO: test syncFromSharedDB leading into steady state with sql.ErrNoRows returned a couple times.
-// When it does come online.. test from block 1, simulating new chain.
+	lastProcessed := uint64(200)
+	latest := uint64(250)
 
-// TODO: test where channel becomes full and the sync thread blocks.. testing "// Non-blocking up to payloadBufferSize"
+	logger := util.NewTestLogger(io.Discard)
+
+	numGetLatestHeightCalls := 0
+	numGetPayloadsCalls := 0
+	payloadRepo := &mockPayloadDB{
+		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
+			numGetLatestHeightCalls++
+			toReturn := latest + uint64(numGetLatestHeightCalls)
+			return &toReturn, nil
+		},
+		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
+			numGetPayloadsCalls++
+			switch numGetPayloadsCalls {
+			case 1:
+				if sinceHeight != 201 {
+					t.Fatal("unexpected sinceHeight", sinceHeight)
+				}
+				if limit != 20 {
+					t.Fatal("unexpected limit", limit)
+				}
+			case 2:
+				if sinceHeight != 221 {
+					t.Fatal("unexpected sinceHeight", sinceHeight)
+				}
+				if limit != 20 {
+					t.Fatal("unexpected limit", limit)
+				}
+			case 3:
+				if sinceHeight != 241 {
+					t.Fatal("unexpected sinceHeight", sinceHeight)
+				}
+				if limit != 13 {
+					t.Fatal("unexpected limit", limit)
+				}
+			default:
+				t.Fatal("unexpected numGetPayloadsCalls", numGetPayloadsCalls)
+				return nil, nil
+			}
+			toReturn := []types.PayloadInfo{}
+			for i := sinceHeight; i < sinceHeight+uint64(limit); i++ {
+				toReturn = append(toReturn, types.PayloadInfo{BlockHeight: i})
+			}
+			return toReturn, nil
+		},
+	}
+	syncBatchSize := uint64(20)
+	caughtUpThreshold := uint64(10)
+	st := follower.NewStore(logger, inmemstorage.New())
+
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	st.SetLastProcessed(lastProcessed)
+
+	errCh := make(chan error, 1)
+
+	go func() {
+		errCh <- follower.SyncFromSharedDB(context.Background())
+	}()
+
+	payloadCh := follower.PayloadCh()
+
+	// expect payloads up to 250+3
+	received := 0
+	expectedBlockHeight := uint64(201)
+	numErrSignals := 0
+	for received < 53 {
+		select {
+		case err := <-errCh:
+			if err != nil {
+				t.Fatalf("follower failed, exiting: %v", err)
+			}
+			if numErrSignals > 1 {
+				t.Fatalf("SyncFromSharedDB should only signal nil error once")
+			}
+			numErrSignals++
+			continue
+		case p := <-payloadCh:
+			if p == (types.PayloadInfo{}) {
+				t.Fatalf("received zero payload at %d", expectedBlockHeight)
+			}
+			if p.BlockHeight != expectedBlockHeight {
+				t.Fatalf("expected payload height %d, got %d", expectedBlockHeight, p.BlockHeight)
+			}
+			expectedBlockHeight++
+			received++
+		case <-time.After(10 * time.Second):
+			t.Fatalf("timeout waiting for payload %d", expectedBlockHeight)
+		}
+	}
+	if numErrSignals != 1 {
+		t.Fatalf("SyncFromSharedDB should signal nil error once, got %d", numErrSignals)
+	}
+	if received != 53 {
+		t.Fatalf("expected 53 payloads, got %d", received)
+	}
+
+	// No more than 53
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("follower failed, exiting: %v", err)
+		}
+	case <-payloadCh:
+		t.Fatal("received unexpected payload")
+	case <-time.After(1 * time.Second):
+	}
+}
 
 // TODO: test threshold
+
+// TODO: Simulate new chain with Start() func where sql.ErrNoRows is returned a couple times, then first row in DB has block 1.
