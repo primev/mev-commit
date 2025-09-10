@@ -15,13 +15,21 @@ func (f *Follower) SyncFromSharedDB(ctx context.Context) error {
 }
 
 func (f *Follower) LastSignalledBlock() uint64 {
-	return f.lastSignalledBlock
+	return f.lastSignalledBlock.Load()
 }
 
 func (f *Follower) SetLastSignalledBlock(block uint64) {
-	f.lastSignalledBlock = block
+	f.lastSignalledBlock.Store(block)
 }
 
 func (f *Follower) QueryPayloadsFromSharedDB(ctx context.Context) {
 	f.queryPayloadsFromSharedDB(ctx)
+}
+
+func (f *Follower) GetLastProcessed(ctx context.Context) (uint64, error) {
+	return f.getLastProcessed(ctx)
+}
+
+func (f *Follower) SetLastProcessed(ctx context.Context, height uint64) error {
+	return f.setLastProcessed(ctx, height)
 }

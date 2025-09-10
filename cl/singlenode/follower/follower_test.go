@@ -63,7 +63,7 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = st.SetLastProcessed(lastProcessed)
+	err = follower.SetLastProcessed(context.Background(), lastProcessed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +272,7 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = st.SetLastProcessed(lastProcessed)
+	err = follower.SetLastProcessed(context.Background(), lastProcessed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -420,18 +420,18 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 	caughtUpThreshold := uint64(5)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	f, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	done := f.Start(ctx)
+	done := follower.Start(ctx)
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		lp, err := st.GetLastProcessed()
+		lp, err := follower.GetLastProcessed(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -444,8 +444,8 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if f.LastSignalledBlock() != 10 {
-		t.Fatalf("expected last signalled block to be 10, got %d", f.LastSignalledBlock())
+	if follower.LastSignalledBlock() != 10 {
+		t.Fatalf("expected last signalled block to be 10, got %d", follower.LastSignalledBlock())
 	}
 
 	cancel()
@@ -487,21 +487,21 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 	caughtUpThreshold := uint64(10)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	if err := st.SetLastProcessed(lastProcessed); err != nil {
-		t.Fatal(err)
-	}
-
-	f, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	if err := follower.SetLastProcessed(context.Background(), lastProcessed); err != nil {
+		t.Fatal(err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
-	done := f.Start(ctx)
+	done := follower.Start(ctx)
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		lp, err := st.GetLastProcessed()
+		lp, err := follower.GetLastProcessed(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -514,8 +514,8 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if f.LastSignalledBlock() != 700 {
-		t.Fatalf("expected last signalled to be %d, got %d", 700, f.LastSignalledBlock())
+	if follower.LastSignalledBlock() != 700 {
+		t.Fatalf("expected last signalled to be %d, got %d", 700, follower.LastSignalledBlock())
 	}
 
 	cancel()

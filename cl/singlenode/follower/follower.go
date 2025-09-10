@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/primev/mev-commit/cl/types"
@@ -17,8 +19,9 @@ type Follower struct {
 	syncBatchSize      uint64
 	caughtUpThreshold  uint64
 	store              *Store
+	storeMu            sync.RWMutex
 	payloadCh          chan types.PayloadInfo
-	lastSignalledBlock uint64 // Last block num signalled through payloadCh
+	lastSignalledBlock atomic.Uint64 // Last block num signalled through payloadCh
 }
 
 const (
@@ -94,13 +97,13 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 	var err error
 	// lastSignalledBlock is only set from disk here
-	f.lastSignalledBlock, err = f.store.GetLastProcessed()
+	lastProcessed, err := f.getLastProcessed(ctx)
 	if err != nil {
 		return err
 	}
+	f.lastSignalledBlock.Store(lastProcessed)
 
 	for {
-		f.logger.Debug("Syncing from shared DB", "lastSignalledBlock", f.lastSignalledBlock)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -112,7 +115,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 			return err
 		}
 
-		blocksRemaining := targetBlock - f.lastSignalledBlock
+		blocksRemaining := targetBlock - f.lastSignalledBlock.Load()
 
 		if blocksRemaining <= f.caughtUpThreshold {
 			f.logger.Info("Sync complete")
@@ -122,7 +125,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 		limit := min(f.syncBatchSize, blocksRemaining)
 
 		innerCtx, innerCancel := context.WithTimeout(ctx, 10*time.Second)
-		payloads, err := f.sharedDB.GetPayloadsSince(innerCtx, f.lastSignalledBlock+1, int(limit))
+		payloads, err := f.sharedDB.GetPayloadsSince(innerCtx, f.lastSignalledBlock.Load()+1, int(limit))
 		innerCancel()
 		if err != nil {
 			return err
@@ -134,7 +137,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 		for i := range payloads {
 			p := payloads[i]
 			f.payloadCh <- p // Non-blocking up to payloadBufferSize
-			f.lastSignalledBlock = p.BlockHeight
+			f.lastSignalledBlock.Store(p.BlockHeight)
 		}
 	}
 }
@@ -174,7 +177,7 @@ func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
 		}
 
 		lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		payload, err := f.sharedDB.GetPayloadByHeight(lctx, f.lastSignalledBlock+1)
+		payload, err := f.sharedDB.GetPayloadByHeight(lctx, f.lastSignalledBlock.Load()+1)
 		cancel()
 
 		if err != nil {
@@ -182,7 +185,7 @@ func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
 				f.sleepRespectingContext(ctx, time.Millisecond) // New payload will likely be available within milliseconds
 				continue
 			}
-			f.logger.Error("Failed to fetch next payload by height with unexpected error", "height", f.lastSignalledBlock+1, "error", err)
+			f.logger.Error("Failed to fetch next payload by height with unexpected error", "height", f.lastSignalledBlock.Load()+1, "error", err)
 			f.sleepRespectingContext(ctx, defaultBackoff)
 			continue
 		}
@@ -195,10 +198,10 @@ func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
 
 		select {
 		case f.payloadCh <- *payload:
-			f.logger.Debug("Sent payload to channel", "height", f.lastSignalledBlock+1)
-			f.lastSignalledBlock = payload.BlockHeight
+			f.logger.Debug("Sent payload to channel", "height", payload.BlockHeight)
+			f.lastSignalledBlock.Store(payload.BlockHeight)
 		default:
-			f.logger.Error("Payload channel buffer is full", "height", f.lastSignalledBlock+1)
+			f.logger.Error("Payload channel buffer is full", "height", payload.BlockHeight)
 			f.sleepRespectingContext(ctx, defaultBackoff)
 			continue
 		}
@@ -223,7 +226,7 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 				f.logger.Error("Failed to process payload", "height", p.BlockHeight, "error", err)
 				continue
 			}
-			if err := f.store.SetLastProcessed(p.BlockHeight); err != nil {
+			if err := f.setLastProcessed(ctx, p.BlockHeight); err != nil {
 				f.logger.Error("Failed to persist last processed height", "height", p.BlockHeight, "error", err)
 				continue
 			}
@@ -243,4 +246,16 @@ func (f *Follower) handlePayload(ctx context.Context, payload types.PayloadInfo)
 		"block_height", payload.BlockHeight,
 	)
 	return nil
+}
+
+func (f *Follower) getLastProcessed(ctx context.Context) (uint64, error) {
+	f.storeMu.RLock()
+	defer f.storeMu.RUnlock()
+	return f.store.GetLastProcessed()
+}
+
+func (f *Follower) setLastProcessed(ctx context.Context, height uint64) error {
+	f.storeMu.Lock()
+	defer f.storeMu.Unlock()
+	return f.store.SetLastProcessed(height)
 }
