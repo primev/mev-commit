@@ -455,3 +455,73 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 		t.Fatal("timeout waiting for follower to stop")
 	}
 }
+
+func TestFollower_Start_SyncExistingChain(t *testing.T) {
+	t.Parallel()
+
+	logger := util.NewTestLogger(io.Discard)
+
+	lastProcessed := uint64(450)
+	latest := uint64(700)
+
+	payloadRepo := &mockPayloadDB{
+		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
+			return &latest, nil
+		},
+		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
+			toReturn := make([]types.PayloadInfo, 0, limit)
+			for i := uint64(0); i < uint64(limit); i++ {
+				toReturn = append(toReturn, types.PayloadInfo{BlockHeight: sinceHeight + i})
+			}
+			return toReturn, nil
+		},
+		GetPayloadByHeightFunc: func(ctx context.Context, height uint64) (*types.PayloadInfo, error) {
+			if height > latest {
+				return nil, sql.ErrNoRows
+			}
+			return &types.PayloadInfo{BlockHeight: height}, nil
+		},
+	}
+
+	syncBatchSize := uint64(20)
+	caughtUpThreshold := uint64(10)
+	st := follower.NewStore(logger, inmemstorage.New())
+
+	if err := st.SetLastProcessed(lastProcessed); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := f.Start(ctx)
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		lp, err := st.GetLastProcessed()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lp >= 700 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timeout waiting for sync + steady-state; last processed: %d", lp)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if f.LastSignalledBlock() != 700 {
+		t.Fatalf("expected last signalled to be %d, got %d", 700, f.LastSignalledBlock())
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for follower to stop")
+	}
+}
