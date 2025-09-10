@@ -98,7 +98,6 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 		default:
 		}
 
-		// TODO: confirm this will always return valid nonzero payload
 		latestPayload, err := f.getLatestPayloadWithBackoff(ctx)
 		if err != nil {
 			return err
@@ -133,17 +132,14 @@ func (f *Follower) getLatestPayloadWithBackoff(ctx context.Context) (*types.Payl
 	const maxRetries = 10
 	const base = 5 * time.Second
 	for attempt := range maxRetries {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
 		lctx, cancel := context.WithTimeout(ctx, base)
 		latest, err := f.sharedDB.GetLatestPayload(lctx)
 		cancel()
 		if err == nil {
-			return latest, nil
+			if latest != nil {
+				return latest, nil
+			}
+			return nil, errors.New("nil payload returned")
 		}
 		if err != sql.ErrNoRows {
 			return nil, err
