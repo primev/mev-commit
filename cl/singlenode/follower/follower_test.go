@@ -142,9 +142,6 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 			}
 			return toReturn, nil
 		},
-		GetPayloadByHeightFunc: func(ctx context.Context, height uint64) (*types.PayloadInfo, error) {
-			return nil, nil
-		},
 	}
 	syncBatchSize := uint64(100)
 	caughtUpThreshold := uint64(5)
