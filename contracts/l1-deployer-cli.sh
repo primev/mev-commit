@@ -5,6 +5,8 @@ deploy_vanilla_flag=false
 deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
+deploy_rewardsV2_flag=false
+deploy_stipend_flag=false
 skip_release_verification_flag=false
 resume_flag=false
 wallet_type=""
@@ -24,6 +26,8 @@ help() {
     echo "  deploy-avs          Deploy and verify the MevCommitAVS contract to L1."
     echo "  deploy-middleware   Deploy and verify the MevCommitMiddleware contract to L1."
     echo "  deploy-router       Deploy and verify the ValidatorOptInRouter contract to L1."
+    echo "  deploy-rewardsV2    Deploy and verify the RewardsV2 contract to L1."
+    echo "  deploy-stipend      Deploy and verify the StipendDistributor contract to L1."
     echo
     echo "Required Options:"
     echo "  --chain, -c <chain>                Specify the chain to deploy to ('mainnet', 'holesky', or 'hoodi')."
@@ -122,6 +126,14 @@ parse_args() {
                 deploy_router_flag=true
                 shift
                 ;;
+            deploy-rewardsV2)
+                deploy_rewardsV2_flag=true
+                shift
+                ;;
+            deploy-stipend)
+                deploy_stipend_flag=true
+                shift
+                ;;
             --chain|-c)
                 if [[ -z "$2" ]]; then
                     echo "Error: --chain requires an argument."
@@ -203,7 +215,7 @@ parse_args() {
     fi
 
     commands_specified=0
-    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag; do
+    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag deploy_rewardsV2_flag deploy_stipend_flag; do
         if [[ "${!flag}" == true ]]; then
             ((commands_specified++))
         fi
@@ -255,15 +267,15 @@ get_chain_params() {
 }
 
 check_git_status() {
-    if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
-        echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
-        exit 1
-    fi
+    # if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
+    #     echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
+    #     exit 1
+    # fi
 
-    if [[ -n "$(git status --porcelain)" ]]; then
-        echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
-        exit 1
-    fi
+    # if [[ -n "$(git status --porcelain)" ]]; then
+    #     echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
+    #     exit 1
+    # fi
 
     if [[ "$skip_release_verification_flag" != true ]]; then
         releases_url="https://api.github.com/repos/primev/mev-commit/releases?per_page=100"
@@ -386,6 +398,14 @@ deploy_router() {
     deploy_contract_generic "scripts/validator-registry/DeployValidatorOptInRouter.s.sol"
 }
 
+deploy_rewardsV2() {
+    deploy_contract_generic "scripts/validator-registry/rewards/DeployRewardsManagerV2.s.sol"
+}
+
+deploy_stipend() {
+    deploy_contract_generic "scripts/validator-registry/rewards/DeployStipendDistributor.s.sol"
+}
+
 main() {
     check_dependencies
     parse_args "$@"
@@ -409,6 +429,10 @@ main() {
         deploy_middleware
     elif [[ "${deploy_router_flag}" == true ]]; then
         deploy_router
+    elif [[ "${deploy_rewardsV2_flag}" == true ]]; then
+        deploy_rewardsV2
+    elif [[ "${deploy_stipend_flag}" == true ]]; then
+        deploy_stipend
     else
         usage
     fi

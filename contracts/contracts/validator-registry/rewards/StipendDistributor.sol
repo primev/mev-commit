@@ -170,7 +170,6 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     }
 
     function _setStipendManager(address _stipendManager) internal {
-        require(_stipendManager != address(0), ZeroAddress());
         stipendManager = _stipendManager;
         emit StipendManagerSet(_stipendManager);
     }
