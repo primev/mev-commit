@@ -74,22 +74,32 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 
 	payloadCh := follower.PayloadCh()
 
-	// expect all 50 payload signals to be sent
-	for i := 501; i <= 550; i++ {
+	// expect 50 payloads
+	received := 0
+	expectedBlockHeight := uint64(501)
+	numErrSignals := 0
+	for received < 50 {
 		select {
 		case err := <-errCh:
 			if err != nil {
 				t.Fatalf("follower failed, exiting: %v", err)
 			}
+			if numErrSignals > 1 {
+				t.Fatalf("SyncFromSharedDB should only signal nil error once")
+			}
+			numErrSignals++
+			continue
 		case p := <-payloadCh:
 			if p == (types.PayloadInfo{}) {
-				t.Fatalf("received nil payload at %d", i)
+				t.Fatalf("received zero payload for expected block height %d", expectedBlockHeight)
 			}
-			if p.BlockHeight != uint64(i) {
-				t.Fatalf("expected payload height %d, got %d", i, p.BlockHeight)
+			if p.BlockHeight != expectedBlockHeight {
+				t.Fatalf("expected payload height %d, got %d", expectedBlockHeight, p.BlockHeight)
 			}
+			expectedBlockHeight++
+			received++
 		case <-time.After(1 * time.Second):
-			t.Fatalf("timeout waiting for payload %d", i)
+			t.Fatalf("timeout waiting for payload for expected block height %d", expectedBlockHeight)
 		}
 	}
 
@@ -154,22 +164,43 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 	payloadCh := follower.PayloadCh()
 
 	// expect 15 payloads
-	for i := 1; i <= 15; i++ {
+	received := 0
+	expectedBlockHeight := uint64(1)
+	numErrSignals := 0
+	for received < 15 {
 		select {
 		case err := <-errCh:
 			if err != nil {
 				t.Fatalf("follower failed, exiting: %v", err)
 			}
+			if numErrSignals > 1 {
+				t.Fatalf("SyncFromSharedDB should only signal nil error once")
+			}
+			numErrSignals++
+			continue
 		case p := <-payloadCh:
 			if p == (types.PayloadInfo{}) {
-				t.Fatalf("received nil payload at %d", i)
+				t.Fatalf("received zero payload at %d", expectedBlockHeight)
 			}
-			if p.BlockHeight != uint64(i) {
-				t.Fatalf("expected payload height %d, got %d", i, p.BlockHeight)
+			if p.BlockHeight != expectedBlockHeight {
+				t.Fatalf("expected payload height %d, got %d", expectedBlockHeight, p.BlockHeight)
 			}
+			expectedBlockHeight++
+			received++
 		case <-time.After(10 * time.Second):
-			t.Fatalf("timeout waiting for payload %d", i)
+			t.Fatalf("timeout waiting for payload %d", expectedBlockHeight)
 		}
+	}
+
+	// No more than 15
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("follower failed, exiting: %v", err)
+		}
+	case <-payloadCh:
+		t.Fatal("received unexpected payload")
+	case <-time.After(1 * time.Second):
 	}
 }
 
