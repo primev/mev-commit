@@ -102,6 +102,9 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 			t.Fatalf("timeout waiting for payload for expected block height %d", expectedBlockHeight)
 		}
 	}
+	if numErrSignals != 1 {
+		t.Fatalf("SyncFromSharedDB should signal nil error once, got %d", numErrSignals)
+	}
 
 	// No more than 50
 	select {
@@ -187,6 +190,9 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 		case <-time.After(10 * time.Second):
 			t.Fatalf("timeout waiting for payload %d", expectedBlockHeight)
 		}
+	}
+	if numErrSignals != 1 {
+		t.Fatalf("SyncFromSharedDB should signal nil error once, got %d", numErrSignals)
 	}
 
 	// No more than 15
