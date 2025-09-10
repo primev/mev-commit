@@ -18,6 +18,7 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
@@ -170,6 +171,7 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     }
 
     function _setStipendManager(address _stipendManager) internal {
+        require(_stipendManager != address(0), ZeroAddress());
         stipendManager = _stipendManager;
         emit StipendManagerSet(_stipendManager);
     }

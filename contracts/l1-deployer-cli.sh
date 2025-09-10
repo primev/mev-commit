@@ -267,15 +267,15 @@ get_chain_params() {
 }
 
 check_git_status() {
-    # if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
-    #     echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
-    #     exit 1
-    # fi
+    if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
+        echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
+        exit 1
+    fi
 
-    # if [[ -n "$(git status --porcelain)" ]]; then
-    #     echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
-    #     exit 1
-    # fi
+    if [[ -n "$(git status --porcelain)" ]]; then
+        echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
+        exit 1
+    fi
 
     if [[ "$skip_release_verification_flag" != true ]]; then
         releases_url="https://api.github.com/repos/primev/mev-commit/releases?per_page=100"
