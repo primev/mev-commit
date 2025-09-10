@@ -13,9 +13,9 @@ import (
 
 type Follower struct {
 	logger            *slog.Logger
-	sharedDB          types.PayloadRepository
-	SyncBatchSize     uint64
-	CaughtUpThreshold uint64
+	sharedDB          payloadDB
+	syncBatchSize     uint64
+	caughtUpThreshold uint64
 	store             *Store
 	payloadCh         chan *types.PayloadInfo
 }
@@ -25,14 +25,20 @@ const (
 	defaultBackoff    = 200 * time.Millisecond
 )
 
+type payloadDB interface {
+	GetPayloadsSince(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error)
+	GetPayloadByHeight(ctx context.Context, height uint64) (*types.PayloadInfo, error)
+	GetLatestHeight(ctx context.Context) (*uint64, error)
+}
+
 func NewFollower(
 	logger *slog.Logger,
-	payloadRepo types.PayloadRepository,
+	sharedDB payloadDB,
 	syncBatchSize uint64,
 	caughtUpThreshold uint64,
 	store *Store,
 ) (*Follower, error) {
-	if payloadRepo == nil {
+	if sharedDB == nil {
 		return nil, errors.New("payload repository not provided")
 	}
 	if syncBatchSize == 0 {
@@ -46,9 +52,9 @@ func NewFollower(
 	}
 	return &Follower{
 		logger:            logger,
-		sharedDB:          payloadRepo,
-		SyncBatchSize:     syncBatchSize,
-		CaughtUpThreshold: caughtUpThreshold,
+		sharedDB:          sharedDB,
+		syncBatchSize:     syncBatchSize,
+		caughtUpThreshold: caughtUpThreshold,
 		store:             store,
 		payloadCh:         make(chan *types.PayloadInfo, payloadBufferSize),
 	}, nil
@@ -89,7 +95,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var targetBlock uint64
+	lastSignalledBlock := lastProcessedBlock
 
 	for {
 		select {
@@ -98,19 +104,19 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 		default:
 		}
 
-		latestPayload, err := f.getLatestPayloadWithBackoff(ctx)
+		targetBlock, err := f.getLatestHeightWithBackoff(ctx)
 		if err != nil {
 			return err
 		}
-		targetBlock = latestPayload.BlockHeight
 
-		// TODO: confirm no off-by-one issue
-		if targetBlock-lastProcessedBlock <= f.CaughtUpThreshold {
+		blocksRemaining := targetBlock - lastSignalledBlock
+
+		if blocksRemaining <= f.caughtUpThreshold {
 			f.logger.Info("Sync complete", "last_processed", lastProcessedBlock, "target", targetBlock)
 			return nil
 		}
 
-		limit := min(f.SyncBatchSize, targetBlock-lastProcessedBlock)
+		limit := min(f.syncBatchSize, blocksRemaining)
 
 		innerCtx, innerCancel := context.WithTimeout(ctx, 10*time.Second)
 		payloads, err := f.sharedDB.GetPayloadsSince(innerCtx, lastProcessedBlock+1, int(limit)) // TODO: confirm no off-by-one issue
@@ -123,36 +129,37 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 		}
 
 		for _, p := range payloads {
-			f.payloadCh <- &p
+			f.payloadCh <- &p // Non-blocking up to payloadBufferSize
+			lastSignalledBlock = p.BlockHeight
 		}
 	}
 }
 
-func (f *Follower) getLatestPayloadWithBackoff(ctx context.Context) (*types.PayloadInfo, error) {
+func (f *Follower) getLatestHeightWithBackoff(ctx context.Context) (uint64, error) {
 	const maxRetries = 10
 	const base = 5 * time.Second
 	for attempt := range maxRetries {
 		lctx, cancel := context.WithTimeout(ctx, base)
-		latest, err := f.sharedDB.GetLatestPayload(lctx)
+		latest, err := f.sharedDB.GetLatestHeight(lctx)
 		cancel()
 		if err == nil {
 			if latest != nil {
-				return latest, nil
+				return *latest, nil
 			}
-			return nil, errors.New("nil payload returned")
+			return 0, errors.New("nil height returned")
 		}
 		if err != sql.ErrNoRows {
-			return nil, err
+			return 0, err
 		}
 
 		backoff := base * time.Duration(attempt+1)
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return 0, ctx.Err()
 		case <-time.After(backoff):
 		}
 	}
-	return nil, errors.New("failed to get latest payload after retries")
+	return 0, errors.New("failed to get latest payload after retries")
 }
 
 func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
@@ -217,6 +224,8 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 
 // TODO: confirm nothing would be broken if the service crashes mid processing of a payload.
 // How does the node recover from this w.r.t engine api? Might need to save FSM state in additon to block number in kv store.
+
+// TODO: Or w.r.t above could the engine api just handle 1-2 duplicate calls and gracefully continue? Need to confirm.
 
 func (f *Follower) handlePayload(ctx context.Context, payload *types.PayloadInfo) error {
 	// TODO: Apply the payload to follower's EL via Engine API in later steps.
