@@ -257,6 +257,14 @@ func (m *mockTransferer) Transfer(ctx context.Context, to common.Address, chainI
 	return nil
 }
 
+type mockNotifier struct {
+	notifications []string
+}
+
+func (m *mockNotifier) NotifyTransactionStatus(txn *sender.Transaction, attempts int, start time.Time) {
+	m.notifications = append(m.notifications, txn.Hash().Hex())
+}
+
 func TestSender(t *testing.T) {
 	t.Parallel()
 
@@ -276,6 +284,7 @@ func TestSender(t *testing.T) {
 		bnOut: make(chan blockNoOp, 10),
 		bnErr: make(chan error, 1),
 	}
+	notifier := &mockNotifier{}
 
 	sndr, err := sender.NewTxSender(
 		st,
@@ -283,6 +292,7 @@ func TestSender(t *testing.T) {
 		testPricer,
 		blockTracker,
 		&mockTransferer{},
+		notifier,
 		big.NewInt(1), // Settlement chain ID
 		util.NewTestLogger(os.Stdout),
 	)
@@ -518,6 +528,10 @@ func TestSender(t *testing.T) {
 
 	cancel()
 	<-done
+
+	if len(notifier.notifications) != 2 {
+		t.Fatalf("expected 2 notifications, got %d", len(notifier.notifications))
+	}
 }
 
 func TestCancelTransaction(t *testing.T) {
@@ -546,6 +560,7 @@ func TestCancelTransaction(t *testing.T) {
 		testPricer,
 		blockTracker,
 		&mockTransferer{},
+		&mockNotifier{},
 		big.NewInt(1), // Settlement chain ID
 		util.NewTestLogger(os.Stdout),
 	)
