@@ -92,7 +92,11 @@ func (n *Notifier) SendMessage(ctx context.Context, message Message) error {
 			retErr = errors.Join(retErr, err)
 			continue
 		}
-		defer resp.Body.Close()
+		func() {
+			// Ensure the body is fully read and closed to allow connection reuse
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}()
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			body, _ := io.ReadAll(resp.Body)
