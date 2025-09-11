@@ -18,7 +18,6 @@ import (
 	"github.com/primev/mev-commit/cl/singlenode"
 	"github.com/primev/mev-commit/cl/singlenode/follower"
 	"github.com/primev/mev-commit/cl/singlenode/payloadstore"
-	pebblestorage "github.com/primev/mev-commit/p2p/pkg/storage/pebble"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
@@ -216,12 +215,6 @@ var (
 	})
 
 	// Follower node specific flags
-	followerDataDirFlag = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "data-dir",
-		Usage:   "Directory for follower node pebble database",
-		EnvVars: []string{"FOLLOWER_DATA_DIR"},
-		Value:   "",
-	})
 	syncBatchSizeFlag = altsrc.NewUint64Flag(&cli.Uint64Flag{
 		Name:    "sync-batch-size",
 		Usage:   "Number of payloads per request to the EL during sync",
@@ -259,7 +252,6 @@ func main() {
 		logTagsFlag,
 		healthAddrPortFlag,
 		postgresDSNFlag,
-		followerDataDirFlag,
 		syncBatchSizeFlag,
 	}
 
@@ -403,16 +395,6 @@ func startFollowerNode(c *cli.Context) error {
 	if syncBatchSize == 0 {
 		return fmt.Errorf("sync-batch-size is required")
 	}
-	dataDir := c.String(followerDataDirFlag.Name)
-	if dataDir == "" {
-		return fmt.Errorf("data-dir is required")
-	}
-	pebbleStore, err := pebblestorage.New(dataDir)
-	if err != nil {
-		return fmt.Errorf("failed to create storage: %w", err)
-	}
-	store := follower.NewStore(logger, pebbleStore)
-
 	ethClientURL := c.String(ethClientURLFlag.Name)
 	if ethClientURL == "" {
 		return fmt.Errorf("eth-client-url is required")
@@ -434,8 +416,7 @@ func startFollowerNode(c *cli.Context) error {
 	followerNode, err := follower.NewFollower(
 		logger,
 		repo,
-		100, // syncBatchSize
-		store,
+		syncBatchSize,
 		bb,
 	)
 	if err != nil {
@@ -443,10 +424,13 @@ func startFollowerNode(c *cli.Context) error {
 		return err
 	}
 
-	followerNode.Start(rootCtx)
-
-	<-rootCtx.Done()
-
-	logger.Info("Follower node shutdown completed.")
-	return nil
+	done := followerNode.Start(rootCtx)
+	select {
+	case <-done:
+		logger.Info("Follower node shutdown completed.")
+		return nil
+	case <-rootCtx.Done():
+		logger.Info("Follower node shutdown completed.")
+		return nil
+	}
 }
