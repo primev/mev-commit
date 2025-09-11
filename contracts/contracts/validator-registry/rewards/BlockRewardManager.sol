@@ -6,16 +6,16 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
-import {IRewardsManagerV2} from "../../interfaces/IRewardsManagerV2.sol";
-import {RewardsManagerV2Storage} from "./RewardsManagerV2Storage.sol";
+import {IBlockRewardManager} from "../../interfaces/IBlockRewardManager.sol";
+import {BlockRewardManagerStorage} from "./BlockRewardManagerStorage.sol";
 import {Errors} from "../../utils/Errors.sol";
 
-contract RewardsManagerV2 is 
+contract BlockRewardManager is 
     Initializable, 
     Ownable2StepUpgradeable, 
     ReentrancyGuardUpgradeable, 
-    RewardsManagerV2Storage, 
-    IRewardsManagerV2, 
+    BlockRewardManagerStorage, 
+    IBlockRewardManager, 
     UUPSUpgradeable 
 {
     uint256 constant _BPS_DENOMINATOR = 10_000;
@@ -35,7 +35,7 @@ contract RewardsManagerV2 is
     fallback() external payable { revert Errors.InvalidFallback(); }
 
     // -------- Initializer --------
-    function initialize(address initialOwner, uint256 rewardsPctBps, address payable treasury) external initializer override {
+    function initialize(address initialOwner, uint256 rewardsPctBps, address treasury) external initializer override {
         __Ownable_init(initialOwner);
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
@@ -73,13 +73,13 @@ contract RewardsManagerV2 is
         _setRewardsPctBps(rewardsPctBps);
     }
 
-    function setTreasury(address payable treasury) external onlyOwner {
+    function setTreasury(address treasury) external onlyOwner {
         _setTreasury(treasury);
     }
     
-    function _setTreasury(address payable _treasury) internal {
+    function _setTreasury(address _treasury) internal {
         require(_treasury != address(0), TreasuryIsZero());
-        treasury = _treasury;
+        treasury = payable(_treasury);
         emit TreasurySet(_treasury);
     }
 

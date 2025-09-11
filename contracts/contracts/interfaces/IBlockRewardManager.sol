@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 
-interface IRewardsManagerV2 {
+interface IBlockRewardManager {
     // -------- Events --------
     /// @notice Emitted for each proposer payment routed by this contract
     event ProposerPaid(
@@ -31,10 +31,10 @@ interface IRewardsManagerV2 {
 
     function setRewardsPctBps(uint256 rewardsPctBps) external;
 
-    function setTreasury(address payable treasury) external;
+    function setTreasury(address treasury) external;
     
     // -------- Admin --------
-    function initialize(address initialOwner, uint256 rewardsPctBps, address payable treasury) external;
+    function initialize(address initialOwner, uint256 rewardsPctBps, address treasury) external;
 
 
 

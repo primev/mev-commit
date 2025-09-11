@@ -5,7 +5,7 @@ deploy_vanilla_flag=false
 deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
-deploy_rewardsV2_flag=false
+deploy_rewards_flag=false
 deploy_stipend_flag=false
 skip_release_verification_flag=false
 resume_flag=false
@@ -26,7 +26,7 @@ help() {
     echo "  deploy-avs          Deploy and verify the MevCommitAVS contract to L1."
     echo "  deploy-middleware   Deploy and verify the MevCommitMiddleware contract to L1."
     echo "  deploy-router       Deploy and verify the ValidatorOptInRouter contract to L1."
-    echo "  deploy-rewardsV2    Deploy and verify the RewardsV2 contract to L1."
+    echo "  deploy-rewards      Deploy and verify the BlockRewardManager contract to L1."
     echo "  deploy-stipend      Deploy and verify the StipendDistributor contract to L1."
     echo
     echo "Required Options:"
@@ -126,8 +126,8 @@ parse_args() {
                 deploy_router_flag=true
                 shift
                 ;;
-            deploy-rewardsV2)
-                deploy_rewardsV2_flag=true
+            deploy-rewards)
+                deploy_rewards_flag=true
                 shift
                 ;;
             deploy-stipend)
@@ -215,7 +215,7 @@ parse_args() {
     fi
 
     commands_specified=0
-    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag deploy_rewardsV2_flag deploy_stipend_flag; do
+    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag deploy_rewards_flag deploy_stipend_flag; do
         if [[ "${!flag}" == true ]]; then
             ((commands_specified++))
         fi
@@ -398,8 +398,8 @@ deploy_router() {
     deploy_contract_generic "scripts/validator-registry/DeployValidatorOptInRouter.s.sol"
 }
 
-deploy_rewardsV2() {
-    deploy_contract_generic "scripts/validator-registry/rewards/DeployRewardsManagerV2.s.sol"
+deploy_rewards() {
+    deploy_contract_generic "scripts/validator-registry/rewards/DeployBlockRewardManager.s.sol"
 }
 
 deploy_stipend() {
@@ -429,8 +429,8 @@ main() {
         deploy_middleware
     elif [[ "${deploy_router_flag}" == true ]]; then
         deploy_router
-    elif [[ "${deploy_rewardsV2_flag}" == true ]]; then
-        deploy_rewardsV2
+    elif [[ "${deploy_rewards_flag}" == true ]]; then
+        deploy_rewards
     elif [[ "${deploy_stipend_flag}" == true ]]; then
         deploy_stipend
     else

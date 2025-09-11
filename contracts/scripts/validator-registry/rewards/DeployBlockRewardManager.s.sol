@@ -8,26 +8,26 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {RewardsManagerV2} from "../../../contracts/validator-registry/rewards/RewardsManagerV2.sol";
+import {BlockRewardManager} from "../../../contracts/validator-registry/rewards/BlockRewardManager.sol";
 import {MainnetConstants} from "../../MainnetConstants.sol";
 
 contract BaseDeploy is Script {
-    function deployRewardsManagerV2(
+    function deployBlockRewardManager(
         address owner,
         uint256 rewardsPctBps,
         address treasury
     ) public returns (address) {
-        console.log("Deploying RewardsManagerV2 on chain:", block.chainid);
+        console.log("Deploying BlockRewardManager on chain:", block.chainid);
         address proxy = Upgrades.deployUUPSProxy(
-            "RewardsManagerV2.sol",
+            "BlockRewardManager.sol",
             abi.encodeCall(
-                RewardsManagerV2.initialize,
+                BlockRewardManager.initialize,
                 (owner, rewardsPctBps, payable(treasury))
             )
         );
-        console.log("RewardsManagerV2 UUPS proxy deployed to:", address(proxy));
-        RewardsManagerV2 rewardsV2 = RewardsManagerV2(payable(proxy));
-        console.log("RewardsManagerV2 owner:", rewardsV2.owner());
+        console.log("BlockRewardManager UUPS proxy deployed to:", address(proxy));
+        BlockRewardManager rewardsV2 = BlockRewardManager(payable(proxy));
+        console.log("BlockRewardManager owner:", rewardsV2.owner());
         return proxy;
     }
 }
@@ -41,7 +41,7 @@ contract DeployMainnet is BaseDeploy {
         require(block.chainid == 1, "must deploy on mainnet");
         vm.startBroadcast();
 
-        deployRewardsManagerV2(
+        deployBlockRewardManager(
             OWNER,
             REWARDS_PCT_BPS,
             TREASURY
@@ -59,7 +59,7 @@ contract DeployHoodi is BaseDeploy {
         require(block.chainid == 560048, "must deploy on Hoodi");
 
         vm.startBroadcast();
-        deployRewardsManagerV2(
+        deployBlockRewardManager(
             OWNER,
             REWARDS_PCT_BPS,
             TREASURY

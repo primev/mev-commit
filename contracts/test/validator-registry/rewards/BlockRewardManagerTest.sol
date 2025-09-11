@@ -4,12 +4,12 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {RewardsManagerV2} from "../../../contracts/validator-registry/rewards/RewardsManagerV2.sol";
-import {IRewardsManagerV2} from "../../../contracts/interfaces/IRewardsManagerV2.sol";
+import {BlockRewardManager} from "../../../contracts/validator-registry/rewards/BlockRewardManager.sol";
+import {IBlockRewardManager} from "../../../contracts/interfaces/IBlockRewardManager.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract RewardsManagerV2Test is Test {
-    RewardsManagerV2 internal rewardsManager;
+contract BlockRewardManagerTest is Test {
+    BlockRewardManager internal rewardsManager;
 
     address internal ownerAddress;
     address payable internal treasuryAddress;
@@ -37,14 +37,14 @@ contract RewardsManagerV2Test is Test {
 
         uint256 initialRewardsPctBps = 1500; // 15%
 
-        RewardsManagerV2 implementation = new RewardsManagerV2();
+        BlockRewardManager implementation = new BlockRewardManager();
         bytes memory initData = abi.encodeCall(
-            RewardsManagerV2.initialize,
+            BlockRewardManager.initialize,
             (ownerAddress, initialRewardsPctBps, treasuryAddress)
         );
 
         address proxy = address(new ERC1967Proxy(address(implementation), initData));
-        rewardsManager = RewardsManagerV2(payable(proxy));
+        rewardsManager = BlockRewardManager(payable(proxy));
     }
     
     // initialize
@@ -90,7 +90,7 @@ contract RewardsManagerV2Test is Test {
         assertEq(bpsAfterUpdate, 2000);
 
         vm.prank(ownerAddress);
-        vm.expectRevert(IRewardsManagerV2.RewardsPctTooHigh.selector);
+        vm.expectRevert(IBlockRewardManager.RewardsPctTooHigh.selector);
         rewardsManager.setRewardsPctBps(2501);
 
         vm.prank(payerOne);
@@ -176,20 +176,20 @@ contract RewardsManagerV2Test is Test {
     // withdraw to treasury only owner
     function test_WithdrawToTreasury_onlyOwner() public {
         vm.prank(payerOne);
-        vm.expectRevert(abi.encodeWithSelector(IRewardsManagerV2.OnlyOwnerOrTreasury.selector));
+        vm.expectRevert(abi.encodeWithSelector(IBlockRewardManager.OnlyOwnerOrTreasury.selector));
         rewardsManager.withdrawToTreasury();
     }
 
     function test_setTreasury_revertsIfTreasuryZero() public {
         vm.prank(ownerAddress);
-        vm.expectRevert(IRewardsManagerV2.TreasuryIsZero.selector);
+        vm.expectRevert(IBlockRewardManager.TreasuryIsZero.selector);
         rewardsManager.setTreasury(payable(address(0)));
     }
 
     // revert when no funds to withdraw
     function test_WithdrawToTreasury_revertsIfNoFunds() public {
         vm.prank(ownerAddress);
-        vm.expectRevert(IRewardsManagerV2.NoFundsToWithdraw.selector);
+        vm.expectRevert(IBlockRewardManager.NoFundsToWithdraw.selector);
         rewardsManager.withdrawToTreasury();
     }
     
