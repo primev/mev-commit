@@ -3,12 +3,16 @@ package follower
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/primev/mev-commit/cl/blockbuilder"
+	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/types"
 	"golang.org/x/sync/errgroup"
 )
@@ -22,6 +26,7 @@ type Follower struct {
 	storeMu            sync.RWMutex
 	payloadCh          chan types.PayloadInfo
 	lastSignalledBlock atomic.Uint64 // Last block num signalled through payloadCh
+	bb                 *blockbuilder.BlockBuilder
 }
 
 const (
@@ -62,6 +67,19 @@ func NewFollower(
 		store:             store,
 		payloadCh:         make(chan types.PayloadInfo, payloadBufferSize),
 	}, nil
+}
+
+func (f *Follower) InitEngineAPI(ctx context.Context, ethAuthClientURL string, jwtSecret string) error {
+	jwtBytes, err := hex.DecodeString(jwtSecret)
+	if err != nil {
+		return fmt.Errorf("failed to decode JWT secret: %w", err)
+	}
+	engineClient, err := ethclient.NewAuthClient(ctx, ethAuthClientURL, jwtBytes)
+	if err != nil {
+		return fmt.Errorf("failed to create Ethereum engine client: %w", err)
+	}
+	f.bb = blockbuilder.NewMemberBlockBuilder(engineClient, f.logger.With("component", "BlockBuilder"))
+	return nil
 }
 
 func (f *Follower) Start(ctx context.Context) <-chan struct{} {
@@ -234,17 +252,11 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 	}
 }
 
-// TODO: confirm nothing would be broken if the service crashes mid processing of a payload.
-// How does the node recover from this w.r.t engine api? Might need to save FSM state in additon to block number in kv store.
-
-// TODO: Or w.r.t above could the engine api just handle 1-2 duplicate calls and gracefully continue? Need to confirm.
-
 func (f *Follower) handlePayload(ctx context.Context, payload types.PayloadInfo) error {
-	// TODO: Apply the payload to follower's EL via Engine API in later steps.
-	f.logger.Info("Processing payload",
-		"payload_id", payload.PayloadID,
-		"block_height", payload.BlockHeight,
-	)
+	if f.bb != nil {
+		return f.bb.FinalizeBlock(ctx, payload.PayloadID, payload.ExecutionPayload, "")
+	}
+	f.logger.Warn("Engine API has not been initialized, payload will not be applied")
 	return nil
 }
 
