@@ -4,10 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"log/slog"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/primev/mev-commit/cl/types"
@@ -15,14 +12,11 @@ import (
 )
 
 type Follower struct {
-	logger             *slog.Logger
-	sharedDB           payloadDB
-	syncBatchSize      uint64
-	store              *Store
-	storeMu            sync.RWMutex
-	payloadCh          chan types.PayloadInfo
-	lastSignalledBlock atomic.Uint64 // Last block num signalled through payloadCh
-	bb                 blockBuilder
+	logger        *slog.Logger
+	sharedDB      payloadDB
+	syncBatchSize uint64
+	payloadCh     chan types.PayloadInfo
+	bb            blockBuilder
 }
 
 const (
@@ -45,7 +39,6 @@ func NewFollower(
 	logger *slog.Logger,
 	sharedDB payloadDB,
 	syncBatchSize uint64,
-	store *Store,
 	bb blockBuilder,
 ) (*Follower, error) {
 	if sharedDB == nil {
@@ -58,7 +51,6 @@ func NewFollower(
 		logger:        logger,
 		sharedDB:      sharedDB,
 		syncBatchSize: syncBatchSize,
-		store:         store,
 		payloadCh:     make(chan types.PayloadInfo, payloadBufferSize),
 		bb:            bb,
 	}, nil
@@ -90,14 +82,14 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (f *Follower) syncFromSharedDB(ctx context.Context) {
-	var err error
-	// lastSignalledBlock is only set from disk here
-	lastProcessed, err := f.getLastProcessed(ctx)
-	if err != nil {
-		f.logger.Error("failed to get last processed block", "error", err)
-		return
+	if f.bb.GetExecutionHead() == nil {
+		if err := f.bb.SetExecutionHeadFromRPC(ctx); err != nil {
+			f.logger.Error("failed to set execution head from rpc", "error", err)
+			return
+		}
 	}
-	f.lastSignalledBlock.Store(lastProcessed)
+
+	lastSignalledBlock := f.bb.GetExecutionHead().BlockHeight
 
 	for {
 		select {
@@ -112,7 +104,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 			continue
 		}
 
-		blocksRemaining := targetBlock - f.lastSignalledBlock.Load()
+		blocksRemaining := targetBlock - lastSignalledBlock
 
 		if blocksRemaining == 0 {
 			f.sleepRespectingContext(ctx, time.Millisecond) // New payload will likely be available within milliseconds
@@ -122,7 +114,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 		limit := min(f.syncBatchSize, blocksRemaining)
 
 		innerCtx, innerCancel := context.WithTimeout(ctx, 10*time.Second)
-		payloads, err := f.sharedDB.GetPayloadsSince(innerCtx, f.lastSignalledBlock.Load()+1, int(limit))
+		payloads, err := f.sharedDB.GetPayloadsSince(innerCtx, lastSignalledBlock+1, int(limit))
 		innerCancel()
 		if err != nil {
 			f.logger.Error("failed to get payloads since", "error", err)
@@ -141,8 +133,8 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case f.payloadCh <- p:
+				lastSignalledBlock = p.BlockHeight
 			}
-			f.lastSignalledBlock.Store(p.BlockHeight)
 		}
 	}
 }
@@ -187,35 +179,10 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case p := <-f.payloadCh:
-			if err := f.handlePayload(ctx, p); err != nil {
+			if err := f.bb.FinalizeBlock(ctx, p.PayloadID, p.ExecutionPayload, ""); err != nil {
 				f.logger.Error("Failed to process payload", "height", p.BlockHeight, "error", err)
 				continue
 			}
-			if err := f.setLastProcessed(ctx, p.BlockHeight); err != nil {
-				f.logger.Error("Failed to persist last processed height", "height", p.BlockHeight, "error", err)
-				continue
-			}
 		}
 	}
-}
-
-func (f *Follower) handlePayload(ctx context.Context, payload types.PayloadInfo) error {
-	if f.bb.GetExecutionHead() == nil {
-		if err := f.bb.SetExecutionHeadFromRPC(ctx); err != nil {
-			return fmt.Errorf("failed to set execution head from rpc: %w", err)
-		}
-	}
-	return f.bb.FinalizeBlock(ctx, payload.PayloadID, payload.ExecutionPayload, "")
-}
-
-func (f *Follower) getLastProcessed(ctx context.Context) (uint64, error) {
-	f.storeMu.RLock()
-	defer f.storeMu.RUnlock()
-	return f.store.GetLastProcessed()
-}
-
-func (f *Follower) setLastProcessed(ctx context.Context, height uint64) error {
-	f.storeMu.Lock()
-	defer f.storeMu.Unlock()
-	return f.store.SetLastProcessed(height)
 }

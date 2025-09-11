@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/primev/mev-commit/cl/singlenode/follower"
 	"github.com/primev/mev-commit/cl/types"
-	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/x/util"
 )
 
@@ -28,13 +28,13 @@ func (m *mockPayloadDB) GetLatestHeight(ctx context.Context) (*uint64, error) {
 }
 
 type mockBlockBuilder struct {
-	GetExecutionHeadFunc        func() *types.ExecutionHead
+	executionHead               *types.ExecutionHead
 	SetExecutionHeadFromRPCFunc func(ctx context.Context) error
 	FinalizeBlockFunc           func(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error
 }
 
 func (m *mockBlockBuilder) GetExecutionHead() *types.ExecutionHead {
-	return m.GetExecutionHeadFunc()
+	return m.executionHead
 }
 
 func (m *mockBlockBuilder) SetExecutionHeadFromRPC(ctx context.Context) error {
@@ -45,11 +45,9 @@ func (m *mockBlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, exec
 	return m.FinalizeBlockFunc(ctx, payloadIDStr, executionPayloadStr, msgID)
 }
 
-func newNoopBlockBuilder() *mockBlockBuilder {
+func newMockBlockBuilder() *mockBlockBuilder {
 	return &mockBlockBuilder{
-		GetExecutionHeadFunc: func() *types.ExecutionHead {
-			return nil
-		},
+		executionHead: nil,
 		SetExecutionHeadFromRPCFunc: func(ctx context.Context) error {
 			return nil
 		},
@@ -82,16 +80,16 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 		},
 	}
 	syncBatchSize := uint64(100)
-	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
+	bb := newMockBlockBuilder()
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = follower.SetLastProcessed(context.Background(), lastProcessed)
-	if err != nil {
-		t.Fatal(err)
+	bb.SetExecutionHeadFromRPCFunc = func(ctx context.Context) error {
+		bb.executionHead = &types.ExecutionHead{BlockHeight: lastProcessed}
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -161,11 +159,16 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 		},
 	}
 	syncBatchSize := uint64(100)
-	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
+	bb := newMockBlockBuilder()
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	bb.SetExecutionHeadFromRPCFunc = func(ctx context.Context) error {
+		bb.executionHead = &types.ExecutionHead{BlockHeight: 0} // Only genesis block is available
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -265,16 +268,16 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 		},
 	}
 	syncBatchSize := uint64(20)
-	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
+	bb := newMockBlockBuilder()
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = follower.SetLastProcessed(context.Background(), lastProcessed)
-	if err != nil {
-		t.Fatal(err)
+	bb.SetExecutionHeadFromRPCFunc = func(ctx context.Context) error {
+		bb.executionHead = &types.ExecutionHead{BlockHeight: lastProcessed}
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -343,11 +346,21 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 	}
 
 	syncBatchSize := uint64(100)
-	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
+	bb := newMockBlockBuilder()
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	bb.SetExecutionHeadFromRPCFunc = func(ctx context.Context) error {
+		bb.executionHead = &types.ExecutionHead{BlockHeight: 0} // Only genesis block is available
+		return nil
+	}
+
+	bb.FinalizeBlockFunc = func(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {
+		bb.executionHead = &types.ExecutionHead{BlockHeight: 1}
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -356,11 +369,11 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		lp, err := follower.GetLastProcessed(context.Background())
-		if err != nil {
-			t.Fatal(err)
+		lp := bb.GetExecutionHead()
+		if lp == nil {
+			continue
 		}
-		if lp >= 1 {
+		if lp.BlockHeight >= 1 {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -369,8 +382,12 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if follower.LastSignalledBlock() != 1 {
-		t.Fatalf("expected last signalled block to be 1, got %d", follower.LastSignalledBlock())
+	finalExecutionHead := bb.GetExecutionHead()
+	if finalExecutionHead == nil {
+		t.Fatal("execution head is nil")
+	}
+	if finalExecutionHead.BlockHeight != 1 {
+		t.Fatalf("expected execution head block height to be 1, got %d", finalExecutionHead.BlockHeight)
 	}
 
 	cancel()
@@ -396,34 +413,50 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
 			toReturn := make([]types.PayloadInfo, 0, limit)
 			for i := uint64(0); i < uint64(limit); i++ {
-				toReturn = append(toReturn, types.PayloadInfo{BlockHeight: sinceHeight + i})
+				toReturn = append(toReturn, types.PayloadInfo{
+					BlockHeight: sinceHeight + i,
+					// Encode just the block height
+					ExecutionPayload: fmt.Sprintf("%d", sinceHeight+i),
+				})
 			}
 			return toReturn, nil
 		},
 	}
 
 	syncBatchSize := uint64(20)
-	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
+	bb := newMockBlockBuilder()
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := follower.SetLastProcessed(context.Background(), lastProcessed); err != nil {
-		t.Fatal(err)
+	bb.SetExecutionHeadFromRPCFunc = func(ctx context.Context) error {
+		bb.executionHead = &types.ExecutionHead{BlockHeight: lastProcessed}
+		return nil
+	}
+
+	bb.FinalizeBlockFunc = func(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {
+		// decode block num from executionPayloadStr
+		blockNum, err := strconv.ParseUint(executionPayloadStr, 10, 64)
+		if err != nil {
+			return err
+		}
+		bb.executionHead = &types.ExecutionHead{BlockHeight: blockNum}
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	done := follower.Start(ctx)
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		lp, err := follower.GetLastProcessed(context.Background())
-		if err != nil {
-			t.Fatal(err)
+		lp := bb.GetExecutionHead()
+		if lp == nil {
+			continue
 		}
-		if lp >= 700 {
+		if lp.BlockHeight >= 700 {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -432,8 +465,12 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if follower.LastSignalledBlock() != 700 {
-		t.Fatalf("expected last signalled to be %d, got %d", 700, follower.LastSignalledBlock())
+	finalExecutionHead := bb.GetExecutionHead()
+	if finalExecutionHead == nil {
+		t.Fatal("execution head is nil")
+	}
+	if finalExecutionHead.BlockHeight != 700 {
+		t.Fatalf("expected execution head block height to be 700, got %d", finalExecutionHead.BlockHeight)
 	}
 
 	cancel()
