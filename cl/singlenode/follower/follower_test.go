@@ -15,9 +15,8 @@ import (
 )
 
 type mockPayloadDB struct {
-	GetPayloadsSinceFunc   func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error)
-	GetLatestHeightFunc    func(ctx context.Context) (*uint64, error)
-	GetPayloadByHeightFunc func(ctx context.Context, height uint64) (*types.PayloadInfo, error)
+	GetPayloadsSinceFunc func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error)
+	GetLatestHeightFunc  func(ctx context.Context) (*uint64, error)
 }
 
 func (m *mockPayloadDB) GetPayloadsSince(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
@@ -26,10 +25,6 @@ func (m *mockPayloadDB) GetPayloadsSince(ctx context.Context, sinceHeight uint64
 
 func (m *mockPayloadDB) GetLatestHeight(ctx context.Context) (*uint64, error) {
 	return m.GetLatestHeightFunc(ctx)
-}
-
-func (m *mockPayloadDB) GetPayloadByHeight(ctx context.Context, height uint64) (*types.PayloadInfo, error) {
-	return m.GetPayloadByHeightFunc(ctx, height)
 }
 
 type mockBlockBuilder struct {
@@ -87,10 +82,9 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 		},
 	}
 	syncBatchSize := uint64(100)
-	caughtUpThreshold := uint64(5)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,10 +94,10 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	errCh := make(chan error, 1)
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
-		errCh <- follower.SyncFromSharedDB(context.Background())
+		follower.SyncFromSharedDB(ctx)
 	}()
 
 	payloadCh := follower.PayloadCh()
@@ -111,18 +105,8 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 	// expect 50 payloads
 	received := 0
 	expectedBlockHeight := uint64(501)
-	numErrSignals := 0
 	for received < 50 {
 		select {
-		case err := <-errCh:
-			if err != nil {
-				t.Fatalf("follower failed, exiting: %v", err)
-			}
-			if numErrSignals > 1 {
-				t.Fatalf("SyncFromSharedDB should only signal nil error once")
-			}
-			numErrSignals++
-			continue
 		case p := <-payloadCh:
 			if p == (types.PayloadInfo{}) {
 				t.Fatalf("received zero payload for expected block height %d", expectedBlockHeight)
@@ -142,10 +126,6 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 
 	// No more than 50
 	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("follower failed, exiting: %v", err)
-		}
 	case <-payloadCh:
 		t.Fatal("received unexpected payload")
 	case <-time.After(1 * time.Second):
@@ -181,18 +161,17 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 		},
 	}
 	syncBatchSize := uint64(100)
-	caughtUpThreshold := uint64(5)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	errCh := make(chan error, 1)
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
-		errCh <- follower.SyncFromSharedDB(context.Background())
+		follower.SyncFromSharedDB(ctx)
 	}()
 
 	payloadCh := follower.PayloadCh()
@@ -200,18 +179,8 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 	// expect 15 payloads
 	received := 0
 	expectedBlockHeight := uint64(1)
-	numErrSignals := 0
 	for received < 15 {
 		select {
-		case err := <-errCh:
-			if err != nil {
-				t.Fatalf("follower failed, exiting: %v", err)
-			}
-			if numErrSignals > 1 {
-				t.Fatalf("SyncFromSharedDB should only signal nil error once")
-			}
-			numErrSignals++
-			continue
 		case p := <-payloadCh:
 			if p == (types.PayloadInfo{}) {
 				t.Fatalf("received zero payload at %d", expectedBlockHeight)
@@ -231,10 +200,6 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 
 	// No more than 15
 	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("follower failed, exiting: %v", err)
-		}
 	case <-payloadCh:
 		t.Fatal("received unexpected payload")
 	case <-time.After(1 * time.Second):
@@ -254,6 +219,10 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 	payloadRepo := &mockPayloadDB{
 		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
 			numGetLatestHeightCalls++
+			if numGetLatestHeightCalls > 3 {
+				toReturn := uint64(253) // Simulate that DB has only been updated up to block 253
+				return &toReturn, nil
+			}
 			toReturn := latest + uint64(numGetLatestHeightCalls)
 			return &toReturn, nil
 		},
@@ -296,10 +265,9 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 		},
 	}
 	syncBatchSize := uint64(20)
-	caughtUpThreshold := uint64(10)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,10 +277,10 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	errCh := make(chan error, 1)
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
-		errCh <- follower.SyncFromSharedDB(context.Background())
+		follower.SyncFromSharedDB(ctx)
 	}()
 
 	payloadCh := follower.PayloadCh()
@@ -320,18 +288,8 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 	// expect payloads up to 253
 	received := 0
 	expectedBlockHeight := uint64(201)
-	numErrSignals := 0
 	for received < 53 {
 		select {
-		case err := <-errCh:
-			if err != nil {
-				t.Fatalf("follower failed, exiting: %v", err)
-			}
-			if numErrSignals > 1 {
-				t.Fatalf("SyncFromSharedDB should only signal nil error once")
-			}
-			numErrSignals++
-			continue
 		case p := <-payloadCh:
 			if p == (types.PayloadInfo{}) {
 				t.Fatalf("received zero payload at %d", expectedBlockHeight)
@@ -351,70 +309,9 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 
 	// No more than 53
 	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("follower failed, exiting: %v", err)
-		}
 	case <-payloadCh:
 		t.Fatal("received unexpected payload")
 	case <-time.After(1 * time.Second):
-	}
-}
-
-func TestFollower_queryPayloadsFromSharedDB(t *testing.T) {
-	t.Parallel()
-
-	lastSignalledBlock := uint64(100)
-	numCalls := 0
-	payloadRepo := &mockPayloadDB{
-		GetPayloadByHeightFunc: func(ctx context.Context, height uint64) (*types.PayloadInfo, error) {
-			numCalls++
-			if numCalls > 50 { // Simulate catching up to latest block after 50 calls
-				if numCalls == 60 {
-					// 60th call returns a payload again
-					return &types.PayloadInfo{BlockHeight: lastSignalledBlock + 51}, nil
-				}
-				return nil, sql.ErrNoRows
-			}
-			return &types.PayloadInfo{BlockHeight: lastSignalledBlock + uint64(numCalls)}, nil
-		},
-	}
-
-	syncBatchSize := uint64(20)
-	caughtUpThreshold := uint64(10)
-	logger := util.NewTestLogger(io.Discard)
-	st := follower.NewStore(logger, inmemstorage.New())
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	follower.SetLastSignalledBlock(lastSignalledBlock)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go func() {
-		follower.QueryPayloadsFromSharedDB(ctx)
-	}()
-
-	// All 51 payloads should be received in little time
-	received := 0
-	payloadCh := follower.PayloadCh()
-	deadline := time.Now().Add(time.Second)
-	for received < 51 {
-		select {
-		case p := <-payloadCh:
-			received++
-			if p == (types.PayloadInfo{}) {
-				t.Fatalf("received zero payload at %d", p.BlockHeight)
-			}
-			if p.BlockHeight != lastSignalledBlock+uint64(received) {
-				t.Fatalf("expected payload height %d, got %d", lastSignalledBlock+uint64(received), p.BlockHeight)
-			}
-		case <-time.After(time.Until(deadline)):
-			t.Fatalf("timeout waiting for payload")
-		case <-ctx.Done():
-		}
 	}
 }
 
@@ -424,7 +321,6 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 	logger := util.NewTestLogger(io.Discard)
 
 	getLatestCalls := 0
-	getByHeightCalls := 0
 
 	payloadRepo := &mockPayloadDB{
 		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
@@ -436,23 +332,20 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 			return &h, nil
 		},
 		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
-			t.Fatalf("GetPayloadsSince should not be called, got sinceHeight=%d limit=%d", sinceHeight, limit)
-			return nil, nil
-		},
-		GetPayloadByHeightFunc: func(ctx context.Context, height uint64) (*types.PayloadInfo, error) {
-			getByHeightCalls++
-			if getByHeightCalls > 10 {
-				return nil, sql.ErrNoRows
+			if sinceHeight != 1 {
+				t.Fatalf("unexpected sinceHeight %d", sinceHeight)
 			}
-			return &types.PayloadInfo{BlockHeight: uint64(getByHeightCalls)}, nil
+			if limit != 1 {
+				t.Fatalf("unexpected limit %d", limit)
+			}
+			return []types.PayloadInfo{{BlockHeight: 1}}, nil
 		},
 	}
 
 	syncBatchSize := uint64(100)
-	caughtUpThreshold := uint64(5)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +360,7 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if lp >= 10 {
+		if lp >= 1 {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -476,8 +369,8 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if follower.LastSignalledBlock() != 10 {
-		t.Fatalf("expected last signalled block to be 10, got %d", follower.LastSignalledBlock())
+	if follower.LastSignalledBlock() != 1 {
+		t.Fatalf("expected last signalled block to be 1, got %d", follower.LastSignalledBlock())
 	}
 
 	cancel()
@@ -507,19 +400,12 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 			}
 			return toReturn, nil
 		},
-		GetPayloadByHeightFunc: func(ctx context.Context, height uint64) (*types.PayloadInfo, error) {
-			if height > latest {
-				return nil, sql.ErrNoRows
-			}
-			return &types.PayloadInfo{BlockHeight: height}, nil
-		},
 	}
 
 	syncBatchSize := uint64(20)
-	caughtUpThreshold := uint64(10)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}

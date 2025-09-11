@@ -18,7 +18,6 @@ type Follower struct {
 	logger             *slog.Logger
 	sharedDB           payloadDB
 	syncBatchSize      uint64
-	caughtUpThreshold  uint64
 	store              *Store
 	storeMu            sync.RWMutex
 	payloadCh          chan types.PayloadInfo
@@ -33,7 +32,6 @@ const (
 
 type payloadDB interface {
 	GetPayloadsSince(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error)
-	GetPayloadByHeight(ctx context.Context, height uint64) (*types.PayloadInfo, error)
 	GetLatestHeight(ctx context.Context) (*uint64, error)
 }
 
@@ -47,7 +45,6 @@ func NewFollower(
 	logger *slog.Logger,
 	sharedDB payloadDB,
 	syncBatchSize uint64,
-	caughtUpThreshold uint64,
 	store *Store,
 	bb blockBuilder,
 ) (*Follower, error) {
@@ -57,20 +54,13 @@ func NewFollower(
 	if syncBatchSize == 0 {
 		return nil, errors.New("sync batch size must be greater than 0")
 	}
-	if caughtUpThreshold == 0 {
-		return nil, errors.New("caught up threshold must be greater than 0")
-	}
-	if caughtUpThreshold > syncBatchSize {
-		return nil, errors.New("caught up threshold must be less than sync batch size")
-	}
 	return &Follower{
-		logger:            logger,
-		sharedDB:          sharedDB,
-		syncBatchSize:     syncBatchSize,
-		caughtUpThreshold: caughtUpThreshold,
-		store:             store,
-		payloadCh:         make(chan types.PayloadInfo, payloadBufferSize),
-		bb:                bb,
+		logger:        logger,
+		sharedDB:      sharedDB,
+		syncBatchSize: syncBatchSize,
+		store:         store,
+		payloadCh:     make(chan types.PayloadInfo, payloadBufferSize),
+		bb:            bb,
 	}, nil
 }
 
@@ -84,13 +74,8 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 	})
 
 	eg.Go(func() error {
-		f.logger.Info("Starting initial sync from shared DB")
-		if err := f.syncFromSharedDB(egCtx); err != nil {
-			f.logger.Error("Failed during initial sync", "error", err)
-			return err
-		}
-		f.logger.Info("Entering steady-state querying of shared DB")
-		f.queryPayloadsFromSharedDB(egCtx)
+		f.logger.Info("Starting sync from shared DB")
+		f.syncFromSharedDB(egCtx)
 		return nil
 	})
 
@@ -104,32 +89,34 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func (f *Follower) syncFromSharedDB(ctx context.Context) error {
+func (f *Follower) syncFromSharedDB(ctx context.Context) {
 	var err error
 	// lastSignalledBlock is only set from disk here
 	lastProcessed, err := f.getLastProcessed(ctx)
 	if err != nil {
-		return err
+		f.logger.Error("failed to get last processed block", "error", err)
+		return
 	}
 	f.lastSignalledBlock.Store(lastProcessed)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		default:
 		}
 
 		targetBlock, err := f.getLatestHeightWithBackoff(ctx)
 		if err != nil {
-			return err
+			f.sleepRespectingContext(ctx, defaultBackoff)
+			continue
 		}
 
 		blocksRemaining := targetBlock - f.lastSignalledBlock.Load()
 
-		if blocksRemaining <= f.caughtUpThreshold {
-			f.logger.Info("Sync complete")
-			return nil
+		if blocksRemaining == 0 {
+			f.sleepRespectingContext(ctx, time.Millisecond) // New payload will likely be available within milliseconds
+			continue
 		}
 
 		limit := min(f.syncBatchSize, blocksRemaining)
@@ -138,15 +125,23 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 		payloads, err := f.sharedDB.GetPayloadsSince(innerCtx, f.lastSignalledBlock.Load()+1, int(limit))
 		innerCancel()
 		if err != nil {
-			return err
+			f.logger.Error("failed to get payloads since", "error", err)
+			f.sleepRespectingContext(ctx, defaultBackoff)
+			continue
 		}
 		if len(payloads) == 0 {
-			return errors.New("no payloads returned from valid query")
+			f.logger.Error("no payloads returned from valid query")
+			f.sleepRespectingContext(ctx, defaultBackoff)
+			continue
 		}
 
 		for i := range payloads {
 			p := payloads[i]
-			f.payloadCh <- p // Non-blocking up to payloadBufferSize
+			select {
+			case <-ctx.Done():
+				return
+			case f.payloadCh <- p:
+			}
 			f.lastSignalledBlock.Store(p.BlockHeight)
 		}
 	}
@@ -176,46 +171,6 @@ func (f *Follower) getLatestHeightWithBackoff(ctx context.Context) (uint64, erro
 		}
 	}
 	return 0, errors.New("failed to get latest payload after retries")
-}
-
-func (f *Follower) queryPayloadsFromSharedDB(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		payload, err := f.sharedDB.GetPayloadByHeight(lctx, f.lastSignalledBlock.Load()+1)
-		cancel()
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				f.sleepRespectingContext(ctx, time.Millisecond) // New payload will likely be available within milliseconds
-				continue
-			}
-			f.logger.Error("Failed to fetch next payload by height with unexpected error", "height", f.lastSignalledBlock.Load()+1, "error", err)
-			f.sleepRespectingContext(ctx, defaultBackoff)
-			continue
-		}
-
-		if payload == nil {
-			f.logger.Error("Received nil payload from valid query")
-			f.sleepRespectingContext(ctx, defaultBackoff)
-			continue
-		}
-
-		select {
-		case f.payloadCh <- *payload:
-			f.logger.Debug("Sent payload to channel", "height", payload.BlockHeight)
-			f.lastSignalledBlock.Store(payload.BlockHeight)
-		default:
-			f.logger.Error("Payload channel buffer is full", "height", payload.BlockHeight)
-			f.sleepRespectingContext(ctx, defaultBackoff)
-			continue
-		}
-	}
 }
 
 func (f *Follower) sleepRespectingContext(ctx context.Context, duration time.Duration) {

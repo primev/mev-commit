@@ -10,8 +10,8 @@ func (f *Follower) PayloadCh() <-chan types.PayloadInfo {
 	return f.payloadCh
 }
 
-func (f *Follower) SyncFromSharedDB(ctx context.Context) error {
-	return f.syncFromSharedDB(ctx)
+func (f *Follower) SyncFromSharedDB(ctx context.Context) {
+	f.syncFromSharedDB(ctx)
 }
 
 func (f *Follower) LastSignalledBlock() uint64 {
@@ -20,10 +20,6 @@ func (f *Follower) LastSignalledBlock() uint64 {
 
 func (f *Follower) SetLastSignalledBlock(block uint64) {
 	f.lastSignalledBlock.Store(block)
-}
-
-func (f *Follower) QueryPayloadsFromSharedDB(ctx context.Context) {
-	f.queryPayloadsFromSharedDB(ctx)
 }
 
 func (f *Follower) GetLastProcessed(ctx context.Context) (uint64, error) {

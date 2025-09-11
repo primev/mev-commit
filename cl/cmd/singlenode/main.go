@@ -228,12 +228,6 @@ var (
 		EnvVars: []string{"FOLLOWER_SYNC_BATCH_SIZE"},
 		Value:   100,
 	})
-	caughtUpThresholdFlag = altsrc.NewUint64Flag(&cli.Uint64Flag{
-		Name:    "caught-up-threshold",
-		Usage:   "Syncing is complete when the difference between the latest block and the last processed block is less than this threshold",
-		EnvVars: []string{"FOLLOWER_CAUGHT_UP_THRESHOLD"},
-		Value:   10,
-	})
 )
 
 func main() {
@@ -267,7 +261,6 @@ func main() {
 		postgresDSNFlag,
 		followerDataDirFlag,
 		syncBatchSizeFlag,
-		caughtUpThresholdFlag,
 	}
 
 	app := &cli.App{
@@ -410,10 +403,6 @@ func startFollowerNode(c *cli.Context) error {
 	if syncBatchSize == 0 {
 		return fmt.Errorf("sync-batch-size is required")
 	}
-	caughtUpThreshold := c.Uint64(caughtUpThresholdFlag.Name)
-	if caughtUpThreshold == 0 {
-		return fmt.Errorf("caught-up-threshold is required")
-	}
 	dataDir := c.String(followerDataDirFlag.Name)
 	if dataDir == "" {
 		return fmt.Errorf("data-dir is required")
@@ -446,7 +435,6 @@ func startFollowerNode(c *cli.Context) error {
 		logger,
 		repo,
 		100, // syncBatchSize
-		10,  // caughtUpThreshold
 		store,
 		bb,
 	)
