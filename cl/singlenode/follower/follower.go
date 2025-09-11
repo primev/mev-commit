@@ -19,8 +19,7 @@ type Follower struct {
 }
 
 const (
-	payloadBufferSize = 100
-	defaultBackoff    = 200 * time.Millisecond
+	defaultBackoff = 200 * time.Millisecond
 )
 
 type payloadDB interface {
@@ -50,7 +49,7 @@ func NewFollower(
 		logger:        logger,
 		sharedDB:      sharedDB,
 		syncBatchSize: syncBatchSize,
-		payloadCh:     make(chan types.PayloadInfo, payloadBufferSize),
+		payloadCh:     make(chan types.PayloadInfo),
 		bb:            bb,
 	}, nil
 }
