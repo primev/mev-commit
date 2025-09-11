@@ -44,6 +44,7 @@ interface IStipendDistributor {
     error LengthMismatch();
     error NoClaimableRewards(address recipient);
     error RewardsTransferFailed(address recipient);
+    error IncorrectPaymentAmount(uint256 received, uint256 expected);
 
     // -------- Externals --------
     /// @notice Initialize the proxy.

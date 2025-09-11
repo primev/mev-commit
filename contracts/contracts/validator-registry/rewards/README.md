@@ -12,14 +12,7 @@
 - `feeRecipient` must be the validator’s **execution-layer fee recipient** for the block you’re paying.
 - Payment is immediately forwarded to the fee recipient address. If a protocol fee is enabled, a small percentage of payment is reserved in the contract for mev-commit participant rewards. This fee will initially be switched off.
 
-## Usage examples
-
-**Foundry (cast):**
-```bash
-cast send <BLOCK_REWARD_MANAGER_ADDRESS> \
-  "payProposer(address)" <FEE_RECIPIENT> \
-  --value <wei> --private-key $PK
-```
+## Usage example
 
 **Solidity (from a builder integration):**
 ```solidity

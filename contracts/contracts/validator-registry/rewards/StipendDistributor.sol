@@ -49,10 +49,13 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     /// @param stipends Array of stipends.
     function grantStipends(Stipend[] calldata stipends) external payable nonReentrant whenNotPaused onlyOwnerOrStipendManager {
         uint256 len = stipends.length;
+        uint256 totalAmount = 0;
         for (uint256 i = 0; i < len; ++i) {
+            totalAmount += stipends[i].amount;
             accrued[stipends[i].operator][stipends[i].recipient] += stipends[i].amount;
             emit StipendsGranted(stipends[i].operator, stipends[i].recipient, stipends[i].amount);
         }
+        require(msg.value == totalAmount, IncorrectPaymentAmount(msg.value, totalAmount));
     }
 
     /// @notice Allows an operator to claim their rewards for specified recipients.
