@@ -8,23 +8,11 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 )
-
-func TestFormatRelayList(t *testing.T) {
-	if got := formatRelayList([]string{}); got != "None" {
-		t.Errorf("formatRelayList(empty) = %q; want \"None\"", got)
-	}
-	relays := []string{"relay1", "relay2"}
-	want := "- relay1\n- relay2\n"
-	if got := formatRelayList(relays); got != want {
-		t.Errorf("formatRelayList(%v) = %q; want %q", relays, got, want)
-	}
-}
 
 func TestFormatWeiToEth(t *testing.T) {
 	cases := []struct {
@@ -39,26 +27,6 @@ func TestFormatWeiToEth(t *testing.T) {
 		if got := formatWeiToEth(c.wei); got != c.want {
 			t.Errorf("formatWeiToEth(%v) = %q; want %q", c.wei, got, c.want)
 		}
-	}
-}
-
-func TestNewNotifier(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	n := NewNotifier([]string{}, logger)
-	if n.enabled {
-		t.Errorf("expected notifier disabled when webhookURLs are empty")
-	}
-	n2 := NewNotifier([]string{"http://example.com"}, logger)
-	if !n2.enabled {
-		t.Errorf("expected notifier enabled when webhookURLs provided")
-	}
-}
-
-func TestSendMessage_Disabled(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	n := NewNotifier([]string{}, logger)
-	if err := n.SendMessage(context.Background(), Message{Text: "hello"}); err != nil {
-		t.Errorf("SendMessage disabled = error %v; want nil", err)
 	}
 }
 
@@ -91,5 +59,4 @@ func TestSendMessage_NonOK(t *testing.T) {
 	n := NewNotifier([]string{server.URL}, logger)
 	err := n.SendMessage(context.Background(), Message{Text: "err"})
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "one or more notifications failed"))
 }

@@ -10,10 +10,12 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 )
 
 // Message represents a notification message structure
@@ -41,86 +43,69 @@ type Field struct {
 	Short bool   `json:"short"`
 }
 
+type txnInfo struct {
+	txn          *sender.Transaction
+	noOfAttempts int
+	start        time.Time
+}
+
 // Notifier sends notifications to multiple webhook endpoints
 type Notifier struct {
 	webhookURLs []string
 	client      *http.Client
 	logger      *slog.Logger
-	enabled     bool
+	queuedTxns  []txnInfo
+	queuedMu    sync.Mutex
 }
 
 // NewNotifier creates a new notifier instance
 func NewNotifier(webhookURLs []string, logger *slog.Logger) *Notifier {
-	enabled := len(webhookURLs) > 0
-
-	if !enabled {
-		logger.Warn("Notifications disabled - no webhook URLs provided")
-	} else {
-		logger.Info("Notifications enabled")
-	}
-
 	return &Notifier{
 		webhookURLs: webhookURLs,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		logger:  logger,
-		enabled: enabled,
+		logger: logger,
 	}
 }
 
 // SendMessage sends a message to all configured webhook endpoints
 func (n *Notifier) SendMessage(ctx context.Context, message Message) error {
-	if !n.enabled {
-		n.logger.Debug("Notification skipped (disabled)")
-		return nil
-	}
-
 	messageJSON, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	var errs []error
-	for _, webhookURL := range n.webhookURLs {
-		req, err := http.NewRequestWithContext(ctx, "POST", webhookURL, bytes.NewBuffer(messageJSON))
+	var retErr error
+	for _, url := range n.webhookURLs {
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(messageJSON))
 		if err != nil {
-			n.logger.Error("Failed to create request", "webhook", webhookURL, "error", err)
-			errs = append(errs, fmt.Errorf("create request (%s): %w", webhookURL, err))
+			n.logger.Error("Failed to create HTTP request", "url", url, "error", err)
+			retErr = errors.Join(retErr, err)
 			continue
 		}
-
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := n.client.Do(req)
 		if err != nil {
-			n.logger.Error("Failed to send notification", "webhook", webhookURL, "error", err)
-			errs = append(errs, fmt.Errorf("send notification (%s): %w", webhookURL, err))
+			n.logger.Error("Failed to send notification", "url", url, "error", err)
+			retErr = errors.Join(retErr, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			body, _ := io.ReadAll(resp.Body)
+			errMsg := fmt.Sprintf("non-2xx response: %d - %s", resp.StatusCode, string(body))
+			n.logger.Error("Failed to send notification", "url", url, "error", errMsg)
+			retErr = errors.Join(retErr, errors.New(errMsg))
 			continue
 		}
 
-		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-			n.logger.Error("Failed to read response body", "webhook", webhookURL, "error", err)
-			errs = append(errs, fmt.Errorf("read response body (%s): %w", webhookURL, err))
-		}
-
-		if err := resp.Body.Close(); err != nil {
-			n.logger.Error("Failed to close response body", "webhook", webhookURL, "error", err)
-			errs = append(errs, fmt.Errorf("close response body (%s): %w", webhookURL, err))
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			n.logger.Error("Notification API returned non-200 status code", "webhook", webhookURL, "status", resp.StatusCode)
-			errs = append(errs, fmt.Errorf("non-200 status (%s): %d", webhookURL, resp.StatusCode))
-			continue
-		}
-		n.logger.Debug("Notification sent successfully", "webhook", webhookURL)
+		n.logger.Info("Notification sent successfully", "url", url)
 	}
 
-	if len(errs) > 0 {
-		return fmt.Errorf("one or more notifications failed: %w", errors.Join(errs...))
-	}
-	return nil
+	return retErr
 }
 
 type BalanceGetter interface {
@@ -129,10 +114,9 @@ type BalanceGetter interface {
 
 func (n *Notifier) SetupLowBalanceNotification(
 	ctx context.Context,
-	chainDesc string,
+	desc string,
 	getter BalanceGetter,
 	account common.Address,
-	msg string,
 	thresholdEth float64,
 	checkInterval time.Duration,
 	alertCooldown time.Duration,
@@ -163,12 +147,12 @@ func (n *Notifier) SetupLowBalanceNotification(
 				balanceEthFloat, _ := balanceEth.Float64()
 				if balanceEthFloat < thresholdEth {
 					message := Message{
-						Text: "⚠️ Low Balance Alert",
+						Text: "🏦 Low Balance Alert",
 						Attachments: []Attachment{
 							{
 								Color:  "#ff0000",
-								Title:  fmt.Sprintf("The following accounts have low balances on %s chain:", chainDesc),
-								Text:   fmt.Sprintf("%s\n\nAccount: %s\nBalance: %s (Threshold: %.4f ETH)", msg, account, formatWeiToEth(balance), thresholdEth),
+								Title:  desc,
+								Text:   fmt.Sprintf("Account: %s\nBalance: %s (Threshold: %.4f ETH)", account, formatWeiToEth(balance), thresholdEth),
 								Footer: "Preconf RPC Monitor",
 								TS:     time.Now().Unix(),
 							},
@@ -188,16 +172,15 @@ func (n *Notifier) SetupLowBalanceNotification(
 
 func (n *Notifier) SendBidderFundedNotification(
 	ctx context.Context,
-	chainDesc string,
 	account common.Address,
 	amountWei *big.Int,
 ) error {
 	message := Message{
-		Text: "🎉 Bidder Funded Alert",
+		Text: "💵 Bidder Funded",
 		Attachments: []Attachment{
 			{
 				Color:  "#36a64f",
-				Title:  fmt.Sprintf("A bidder account has been funded on %s chain:", chainDesc),
+				Title:  "Bidder account was funded",
 				Text:   fmt.Sprintf("Account: %s\nAmount: %s", account, formatWeiToEth(amountWei)),
 				Footer: "Preconf RPC Monitor",
 				TS:     time.Now().Unix(),
@@ -205,6 +188,105 @@ func (n *Notifier) SendBidderFundedNotification(
 		},
 	}
 	return n.SendMessage(ctx, message)
+}
+
+func (n *Notifier) StartTransactionNotifier(
+	ctx context.Context,
+) <-chan struct{} {
+	done := make(chan struct{})
+	ticker := time.NewTicker(15 * time.Minute)
+
+	go func() {
+		defer close(done)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				n.logger.Info("Transaction notification routine stopping due to context cancellation")
+				return
+			case <-ticker.C:
+				n.queuedMu.Lock()
+				if len(n.queuedTxns) == 0 {
+					n.logger.Debug("No queued transactions to notify about")
+					n.queuedMu.Unlock()
+					continue
+				}
+				txnsToNotify := n.queuedTxns
+				n.queuedTxns = nil
+				n.queuedMu.Unlock()
+				// create markdown table with the txn info
+				text := ""
+				for _, txnInfo := range txnsToNotify {
+					duration := time.Since(txnInfo.start).Round(time.Second)
+					status := ""
+					switch txnInfo.txn.Status {
+					case sender.TxStatusPreConfirmed:
+						status = "⚡ Pre-Confirmed"
+					case sender.TxStatusConfirmed:
+						status = "✅ Confirmed"
+					case sender.TxStatusFailed:
+						status = "❌ Failed"
+						status = fmt.Sprintf("%s (Error: %s)", status, txnInfo.txn.Details)
+					default:
+						status = "❓ Unknown"
+					}
+					txType := ""
+					switch txnInfo.txn.Type {
+					case sender.TxTypeRegular:
+						txType = "💸 ETH Transaction"
+					case sender.TxTypeDeposit:
+						txType = "🏦 Deposit"
+					case sender.TxTypeInstantBridge:
+						txType = "🌉 Instant Bridge"
+					default:
+						txType = "❓ Unknown"
+					}
+					text += fmt.Sprintf(
+						"- Txn: %s | Sender: %s | Attempts: %d | Duration: %s | Type: %s | Status: %s\n",
+						txnInfo.txn.Hash().Hex()[:8],
+						txnInfo.txn.Sender.Hex()[:8],
+						txnInfo.noOfAttempts,
+						duration,
+						txType,
+						status,
+					)
+				}
+				message := Message{
+					Text: "🚀 Transaction Report",
+					Attachments: []Attachment{
+						{
+							Color:  "#FFA500",
+							Title:  "The following transactions were completed in the last 15 mins",
+							Text:   text,
+							Footer: "Preconf RPC Monitor",
+							TS:     time.Now().Unix(),
+						},
+					},
+				}
+				if err := n.SendMessage(ctx, message); err != nil {
+					n.logger.Error("Failed to send 15 minute transaction notification", "error", err)
+				}
+			}
+		}
+	}()
+
+	return done
+}
+
+func (n *Notifier) NotifyTransactionStatus(
+	txn *sender.Transaction,
+	noOfAttempts int,
+	start time.Time,
+) {
+	n.queuedMu.Lock()
+	defer n.queuedMu.Unlock()
+
+	n.queuedTxns = append(n.queuedTxns, txnInfo{
+		txn:          txn,
+		noOfAttempts: noOfAttempts,
+		start:        start,
+	})
 }
 
 func formatWeiToEth(wei *big.Int) string {

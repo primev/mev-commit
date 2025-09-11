@@ -155,10 +155,9 @@ func New(config *Config) (*Service, error) {
 
 	balanceNotifierDone := notifier.SetupLowBalanceNotification(
 		ctx,
-		"L1 Ethereum",
+		"RPC Operator AccountBalance Low",
 		l1RPCClient.RawClient(),
 		config.Signer.GetAddress(),
-		"RPC Operator account balance low",
 		3.0,
 		5*time.Minute,
 		15*time.Minute,
@@ -184,6 +183,10 @@ func New(config *Config) (*Service, error) {
 		settlementChainID,
 		notifier,
 	)
+
+	txnNotifierDone := notifier.StartTransactionNotifier(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("TransactionNotifier", txnNotifierDone))
+	s.closers = append(s.closers, channelCloser(txnNotifierDone))
 
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderFunder", bidderFunderDone))
 	s.closers = append(s.closers, channelCloser(bidderFunderDone))
@@ -233,6 +236,7 @@ func New(config *Config) (*Service, error) {
 		bidpricer,
 		blockTracker,
 		transferer,
+		notifier,
 		settlementChainID,
 		config.Logger.With("module", "txsender"),
 	)
@@ -366,7 +370,6 @@ func startBidderFunder(
 					logger.Info("successfully transferred funds to bidder account")
 					if err := notifier.SendBidderFundedNotification(
 						ctx,
-						"mev-commit chain",
 						bidderAccount,
 						settlementTopup,
 					); err != nil {
