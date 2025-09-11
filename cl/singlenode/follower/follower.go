@@ -3,7 +3,6 @@ package follower
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,8 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/primev/mev-commit/cl/blockbuilder"
-	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/types"
 	"golang.org/x/sync/errgroup"
 )
@@ -26,7 +23,7 @@ type Follower struct {
 	storeMu            sync.RWMutex
 	payloadCh          chan types.PayloadInfo
 	lastSignalledBlock atomic.Uint64 // Last block num signalled through payloadCh
-	bb                 *blockbuilder.BlockBuilder
+	bb                 blockBuilder
 }
 
 const (
@@ -40,12 +37,19 @@ type payloadDB interface {
 	GetLatestHeight(ctx context.Context) (*uint64, error)
 }
 
+type blockBuilder interface {
+	GetExecutionHead() *types.ExecutionHead
+	FinalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error
+	SetExecutionHeadFromRPC(ctx context.Context) error
+}
+
 func NewFollower(
 	logger *slog.Logger,
 	sharedDB payloadDB,
 	syncBatchSize uint64,
 	caughtUpThreshold uint64,
 	store *Store,
+	bb blockBuilder,
 ) (*Follower, error) {
 	if sharedDB == nil {
 		return nil, errors.New("payload repository not provided")
@@ -66,20 +70,8 @@ func NewFollower(
 		caughtUpThreshold: caughtUpThreshold,
 		store:             store,
 		payloadCh:         make(chan types.PayloadInfo, payloadBufferSize),
+		bb:                bb,
 	}, nil
-}
-
-func (f *Follower) InitEngineAPI(ctx context.Context, ethAuthClientURL string, jwtSecret string) error {
-	jwtBytes, err := hex.DecodeString(jwtSecret)
-	if err != nil {
-		return fmt.Errorf("failed to decode JWT secret: %w", err)
-	}
-	engineClient, err := ethclient.NewAuthClient(ctx, ethAuthClientURL, jwtBytes)
-	if err != nil {
-		return fmt.Errorf("failed to create Ethereum engine client: %w", err)
-	}
-	f.bb = blockbuilder.NewMemberBlockBuilder(engineClient, f.logger.With("component", "BlockBuilder"))
-	return nil
 }
 
 func (f *Follower) Start(ctx context.Context) <-chan struct{} {
@@ -253,11 +245,12 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 }
 
 func (f *Follower) handlePayload(ctx context.Context, payload types.PayloadInfo) error {
-	if f.bb != nil {
-		return f.bb.FinalizeBlock(ctx, payload.PayloadID, payload.ExecutionPayload, "")
+	if f.bb.GetExecutionHead() == nil {
+		if err := f.bb.SetExecutionHeadFromRPC(ctx); err != nil {
+			return fmt.Errorf("failed to set execution head from rpc: %w", err)
+		}
 	}
-	f.logger.Warn("Engine API has not been initialized, payload will not be applied")
-	return nil
+	return f.bb.FinalizeBlock(ctx, payload.PayloadID, payload.ExecutionPayload, "")
 }
 
 func (f *Follower) getLastProcessed(ctx context.Context) (uint64, error) {

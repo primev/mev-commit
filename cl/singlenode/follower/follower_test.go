@@ -32,6 +32,38 @@ func (m *mockPayloadDB) GetPayloadByHeight(ctx context.Context, height uint64) (
 	return m.GetPayloadByHeightFunc(ctx, height)
 }
 
+type mockBlockBuilder struct {
+	GetExecutionHeadFunc        func() *types.ExecutionHead
+	SetExecutionHeadFromRPCFunc func(ctx context.Context) error
+	FinalizeBlockFunc           func(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error
+}
+
+func (m *mockBlockBuilder) GetExecutionHead() *types.ExecutionHead {
+	return m.GetExecutionHeadFunc()
+}
+
+func (m *mockBlockBuilder) SetExecutionHeadFromRPC(ctx context.Context) error {
+	return m.SetExecutionHeadFromRPCFunc(ctx)
+}
+
+func (m *mockBlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {
+	return m.FinalizeBlockFunc(ctx, payloadIDStr, executionPayloadStr, msgID)
+}
+
+func newNoopBlockBuilder() *mockBlockBuilder {
+	return &mockBlockBuilder{
+		GetExecutionHeadFunc: func() *types.ExecutionHead {
+			return nil
+		},
+		SetExecutionHeadFromRPCFunc: func(ctx context.Context) error {
+			return nil
+		},
+		FinalizeBlockFunc: func(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {
+			return nil
+		},
+	}
+}
+
 func TestFollower_syncFromSharedDB(t *testing.T) {
 	t.Parallel()
 
@@ -58,7 +90,7 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 	caughtUpThreshold := uint64(5)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +184,7 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 	caughtUpThreshold := uint64(5)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +299,7 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 	caughtUpThreshold := uint64(10)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +384,7 @@ func TestFollower_queryPayloadsFromSharedDB(t *testing.T) {
 	caughtUpThreshold := uint64(10)
 	logger := util.NewTestLogger(io.Discard)
 	st := follower.NewStore(logger, inmemstorage.New())
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -420,7 +452,7 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 	caughtUpThreshold := uint64(5)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -487,7 +519,7 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 	caughtUpThreshold := uint64(10)
 	st := follower.NewStore(logger, inmemstorage.New())
 
-	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st)
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, caughtUpThreshold, st, newNoopBlockBuilder())
 	if err != nil {
 		t.Fatal(err)
 	}
