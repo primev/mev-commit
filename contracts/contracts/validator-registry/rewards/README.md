@@ -1,25 +1,81 @@
-# Reward Manager
+# Block Reward Manager
 
-The reward manager contract allows mev-commit providers (usually L1 block builders) to send mev-boost and/or mev-commit rewards to an L1 smart contract, instead of paying proposers directly. This design enables future use-cases of the mev-commit protocol.
+`BlockRewardManager` should be used by mev-commit providers (builders) to pay a validator’s **fee recipient**.
 
-To pay a proposer, the mev-commit provider calls `payProposer` with the reward set as msg.value. `payProposer` only accepts a validator's BLS pubkey as an argument. The reward contract will attempt to map a pubkey to it's associated reward receiver address, checking all three methods of validator opt-in to mev-commit. So long as the provided pubkey is valid and represents a validator who's currently opted-in to mev-commit, a valid receiver address will be found.
+## How it works
 
-## What is a receiver address?
+- To pay a proposer, call:
+  ```solidity
+  payProposer(address payable feeRecipient)
+  ```
+  (funds provided to function via msg.value)
+- `feeRecipient` must be the validator’s **execution-layer fee recipient** for the block you’re paying.
+- Payment is immediately forwarded to the fee recipient address. If a protocol fee is enabled, a small percentage of payment is reserved in the contract for mev-commit participant rewards. This fee will initially be switched off.
 
-* For vanilla opted-in valiators, the receiver is the address that originally called `stake`
-* For symbiotic opted-in validators, the receiver is the operator address
-* For eigenlayer opted-in validators, the receiver is the validator's Eigenpod owner
+## Usage examples
 
-## Overriding the receiver address
+**Foundry (cast):**
+```bash
+cast send <BLOCK_REWARD_MANAGER_ADDRESS> \
+  "payProposer(address)" <FEE_RECIPIENT> \
+  --value <wei> --private-key $PK
+```
 
-Receiver addresses have the ability to set an override address which will accumulate or be transferred rewards instead of the receiver address. Custom reward splitting logic can be implemented by the override address.
+**Solidity (from a builder integration):**
+```solidity
+IBlockRewardManager(brm).payProposer{value: reward}(feeRecipient);
+```
 
-It is assumed a receiver address and its override address are the same entity and/or fully trust one another. The ability to set an override address purely exists as a convenience, and for customization/flexibility. 
 
-## Auto Claim
 
-Receive addresses have the ability to enable and disable auto-claim. When auto-claim is enabled, rewards will automatically be transferred to the receiver or override address during `payProposer`. If an auto-claim transfer fails, the relevant receiver address may be blacklisted from auto-claim. Auto-claim can only be enabled and disabled by the receiver, NOT its override address.
+# Stipend Distributor — Overview
 
-## Manual Claim
+`StipendDistributor` pays periodic (e.g., weekly) stipends to operator-defined recipients based on validator-key participation. Operators map their validator BLS pubkeys to payout addresses (“recipients”) and may authorize delegates to claim on their behalf. For more details, see the [design doc](https://www.notion.so/primev/StipendDistributor-Design-2696865efd6f80b2a4f0e6b8fc3ab0c4).
 
-To manually claim rewards, call `claimRewards`. This will transfer all available rewards to the calling address. Note manual claims should be made by the override address if set. If no override address is set, the receiver claims rewards.
+## Setting recipients
+
+- **Global default (applies to all keys unless overridden):**
+  ```solidity
+  setOperatorGlobalOverride(address recipient)
+  ```
+  Sets a default recipient for the operator’s keys.
+
+- **Per-key override (takes precedence over the default):**
+  ```solidity
+  overrideRecipientByPubkey(bytes[] calldata pubkeys, address recipient)
+  ```
+  Assigns a specific recipient for one or more BLS pubkeys (48-byte).
+
+- **(Optional) Migrate unclaimed accruals between addresses:**
+  ```solidity
+  migrateExistingRewards(address from, address to)
+  ```
+  Moves **unclaimed** stipend accrued to `from` over to `to` for the calling operator.
+
+## Delegation (optional)
+
+- **Allow a delegate to claim for a given recipient:**
+  ```solidity
+  setClaimDelegate(address delegate, address recipient, bool status)
+  ```
+  When `status = true`, `delegate` can claim stipends for the `(operator → recipient)` pair; set `false` to revoke.
+
+## Rewards & claiming
+
+1. **Accrual:** Each distribution period (e.g., weekly), stipends are granted to `(operator, recipient)` pairs in proportion to validator-key participation recorded for that period.
+2. **Claim by operator (pull to recipients):**
+   ```solidity
+   claimRewards(address payable[] calldata recipients)
+   ```
+   Transfers accrued amounts for the listed `recipients` to those addresses.
+3. **Claim by delegate (on behalf of operator):**
+   ```solidity
+   claimOnbehalfOfOperator(address operator, address payable[] calldata recipients)
+   ```
+   Authorized delegates can trigger transfers for the specified `operator` to the listed `recipients`.
+
+## Typical flow
+
+1. Operator sets a **global default** recipient and (optionally) **per-key overrides**.
+2. Over each period, keys that participate accrue stipends to their mapped recipients.
+3. After the period, the **operator** or an **authorized delegate** calls the claim function to pay out recipients.
