@@ -2,7 +2,6 @@ package follower_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"strconv"
@@ -16,14 +15,14 @@ import (
 
 type mockPayloadDB struct {
 	GetPayloadsSinceFunc func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error)
-	GetLatestHeightFunc  func(ctx context.Context) (*uint64, error)
+	GetLatestHeightFunc  func(ctx context.Context) (uint64, error)
 }
 
 func (m *mockPayloadDB) GetPayloadsSince(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
 	return m.GetPayloadsSinceFunc(ctx, sinceHeight, limit)
 }
 
-func (m *mockPayloadDB) GetLatestHeight(ctx context.Context) (*uint64, error) {
+func (m *mockPayloadDB) GetLatestHeight(ctx context.Context) (uint64, error) {
 	return m.GetLatestHeightFunc(ctx)
 }
 
@@ -65,8 +64,8 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 
 	logger := util.NewTestLogger(io.Discard)
 	payloadRepo := &mockPayloadDB{
-		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
-			return &latest, nil
+		GetLatestHeightFunc: func(ctx context.Context) (uint64, error) {
+			return latest, nil
 		},
 		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
 			if sinceHeight != 501 {
@@ -136,13 +135,12 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 	attempts := 0
 	logger := util.NewTestLogger(io.Discard)
 	payloadRepo := &mockPayloadDB{
-		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
+		GetLatestHeightFunc: func(ctx context.Context) (uint64, error) {
 			if attempts < 3 {
 				attempts++
-				return nil, sql.ErrNoRows
+				return 0, nil
 			}
-			block15 := uint64(15)
-			return &block15, nil
+			return 15, nil
 		},
 		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
 			if sinceHeight != 1 {
@@ -220,14 +218,12 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 	numGetLatestHeightCalls := 0
 	numGetPayloadsCalls := 0
 	payloadRepo := &mockPayloadDB{
-		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
+		GetLatestHeightFunc: func(ctx context.Context) (uint64, error) {
 			numGetLatestHeightCalls++
 			if numGetLatestHeightCalls > 3 {
-				toReturn := uint64(253) // Simulate that DB has only been updated up to block 253
-				return &toReturn, nil
+				return 253, nil // Simulate that DB has only been updated up to block 253
 			}
-			toReturn := latest + uint64(numGetLatestHeightCalls)
-			return &toReturn, nil
+			return latest + uint64(numGetLatestHeightCalls), nil
 		},
 		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
 			numGetPayloadsCalls++
@@ -326,13 +322,12 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 	getLatestCalls := 0
 
 	payloadRepo := &mockPayloadDB{
-		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
+		GetLatestHeightFunc: func(ctx context.Context) (uint64, error) {
 			getLatestCalls++
 			if getLatestCalls <= 3 {
-				return nil, sql.ErrNoRows
+				return 0, nil
 			}
-			h := uint64(1)
-			return &h, nil
+			return 1, nil
 		},
 		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
 			if sinceHeight != 1 {
@@ -407,8 +402,8 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 	latest := uint64(700)
 
 	payloadRepo := &mockPayloadDB{
-		GetLatestHeightFunc: func(ctx context.Context) (*uint64, error) {
-			return &latest, nil
+		GetLatestHeightFunc: func(ctx context.Context) (uint64, error) {
+			return latest, nil
 		},
 		GetPayloadsSinceFunc: func(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
 			toReturn := make([]types.PayloadInfo, 0, limit)

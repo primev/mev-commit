@@ -2,7 +2,6 @@ package follower
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log/slog"
 	"time"
@@ -26,7 +25,7 @@ const (
 
 type payloadDB interface {
 	GetPayloadsSince(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error)
-	GetLatestHeight(ctx context.Context) (*uint64, error)
+	GetLatestHeight(ctx context.Context) (uint64, error)
 }
 
 type blockBuilder interface {
@@ -98,10 +97,17 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 		default:
 		}
 
-		targetBlock, err := f.getLatestHeightWithBackoff(ctx)
+		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		targetBlock, err := f.sharedDB.GetLatestHeight(cctx)
+		cancel()
 		if err != nil {
 			f.sleepRespectingContext(ctx, defaultBackoff)
 			continue
+		}
+
+		if lastSignalledBlock > targetBlock {
+			f.logger.Error("internal invariant has been broken. Follower EL is ahead of signer")
+			return
 		}
 
 		blocksRemaining := targetBlock - lastSignalledBlock
@@ -113,9 +119,9 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 
 		limit := min(f.syncBatchSize, blocksRemaining)
 
-		innerCtx, innerCancel := context.WithTimeout(ctx, 10*time.Second)
-		payloads, err := f.sharedDB.GetPayloadsSince(innerCtx, lastSignalledBlock+1, int(limit))
-		innerCancel()
+		cctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		payloads, err := f.sharedDB.GetPayloadsSince(cctx, lastSignalledBlock+1, int(limit))
+		cancel()
 		if err != nil {
 			f.logger.Error("failed to get payloads since", "error", err)
 			f.sleepRespectingContext(ctx, defaultBackoff)
@@ -137,32 +143,6 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 			}
 		}
 	}
-}
-
-func (f *Follower) getLatestHeightWithBackoff(ctx context.Context) (uint64, error) {
-	const maxRetries = 10
-	for attempt := range maxRetries {
-		lctx, cancel := context.WithTimeout(ctx, time.Second)
-		latest, err := f.sharedDB.GetLatestHeight(lctx)
-		cancel()
-		if err == nil {
-			if latest != nil {
-				return *latest, nil
-			}
-			return 0, errors.New("nil height returned")
-		}
-		if err != sql.ErrNoRows {
-			return 0, err
-		}
-
-		backoff := defaultBackoff * time.Duration(attempt+1)
-		select {
-		case <-ctx.Done():
-			return 0, ctx.Err()
-		case <-time.After(backoff):
-		}
-	}
-	return 0, errors.New("failed to get latest payload after retries")
 }
 
 func (f *Follower) sleepRespectingContext(ctx context.Context, duration time.Duration) {
