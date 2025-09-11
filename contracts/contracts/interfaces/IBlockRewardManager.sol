@@ -23,6 +23,7 @@ interface IBlockRewardManager {
     error TreasuryIsZero();
     error NoFundsToWithdraw();
     error ProposerTransferFailed(address feeRecipient, uint256 amount);
+    error TreasuryTransferFailed(address treasury, uint256 amount);
 
     /// @notice Builders/relays call this to route EL rewards *through* this contract.
     function payProposer(address payable feeRecipient) external payable;

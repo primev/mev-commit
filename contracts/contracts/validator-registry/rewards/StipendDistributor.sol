@@ -109,7 +109,8 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
         uint256 claimableAmt = accrued[msg.sender][from] - claimed[msg.sender][from];
         require(claimableAmt > 0, NoClaimableRewards(from));
         require(to != address(0), ZeroAddress());
-        claimed[msg.sender][from] += claimableAmt;
+        require(to != from, InvalidRecipient());
+        accrued[msg.sender][from] -= claimableAmt;
         accrued[msg.sender][to] += claimableAmt;
         emit RewardsMigrated(from, to, claimableAmt);
     }

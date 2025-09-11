@@ -65,7 +65,8 @@ contract BlockRewardManager is
         require(toTreasury > 0, NoFundsToWithdraw());
         uint256 treasuryAmt = toTreasury;
         toTreasury = 0;
-        treasury.call{value: treasuryAmt}(""); //Treasury will not revert
+        (bool success, ) = treasury.call{value: treasuryAmt}(""); //Treasury will not revert
+        require(success, TreasuryTransferFailed(treasury, treasuryAmt)); //revert if transfer fails
         emit TreasuryWithdrawn(treasuryAmt);
     }
 
