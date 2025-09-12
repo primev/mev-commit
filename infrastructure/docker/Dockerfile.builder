@@ -38,7 +38,8 @@ ARG TARGETS="./oracle/cmd \
              ./tools/relay-emulator \
              ./tools/validators-monitor \
              ./tools/points-service \
-             ./p2p/integrationtest/provider"
+             ./p2p/integrationtest/provider \
+             ./cl/cmd/singlenode"
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
@@ -50,6 +51,10 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
             name=$(basename "$(dirname "$path")"); \
         else \
             name=$bn; \
+        fi; \
+        # Special case for singlenode
+        if [ "$path" = "./cl/cmd/singlenode" ]; then \
+            name="snode"; \
         fi; \
         echo "→ building $path as /go/bin/$name"; \
         CGO_ENABLED=0 go build -o "/go/bin/$name" "$path"; \

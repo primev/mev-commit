@@ -1,0 +1,8 @@
+# syntax=docker/dockerfile:1.4
+FROM alpine:3.10
+
+COPY --from=builder_ctx /go/bin/snode /usr/local/bin/snode
+
+EXPOSE 8080 9090
+
+ENTRYPOINT ["snode"]
