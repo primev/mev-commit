@@ -164,6 +164,7 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 				f.logger.Error("Failed to process payload", "height", p.BlockHeight, "error", err)
 				continue
 			}
+			f.logger.Info("Successfully processed payload", "height", p.BlockHeight)
 		}
 	}
 }

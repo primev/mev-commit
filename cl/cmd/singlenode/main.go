@@ -411,7 +411,7 @@ func startFollowerNode(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create Ethereum engine client: %w", err)
 	}
-	bb := blockbuilder.NewMemberBlockBuilder(engineCL, logger)
+	bb := blockbuilder.NewMemberBlockBuilder(engineCL, logger.With("component", "BlockBuilder"))
 
 	followerNode, err := follower.NewFollower(
 		logger,
