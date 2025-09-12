@@ -44,7 +44,18 @@ func NewWSPublisher(progressStore ProgressStore, logger *slog.Logger, evmClient 
 }
 
 func (w *wsPublisher) AddContracts(addr ...common.Address) {
+	added := w.addContracts(addr...)
+	if added {
+		select {
+		case w.updateCh <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func (w *wsPublisher) addContracts(addr ...common.Address) bool {
 	w.mu.Lock()
+	defer w.mu.Unlock()
 	added := false
 	for _, a := range addr {
 		if !slices.Contains(w.contracts, a) {
@@ -53,13 +64,7 @@ func (w *wsPublisher) AddContracts(addr ...common.Address) {
 			w.logger.Info("ws: added contract address", "address", a.Hex())
 		}
 	}
-	w.mu.Unlock()
-	if added {
-		select {
-		case w.updateCh <- struct{}{}:
-		default:
-		}
-	}
+	return added
 }
 
 func (w *wsPublisher) getContracts() []common.Address {
@@ -72,7 +77,10 @@ func (w *wsPublisher) getContracts() []common.Address {
 
 func (w *wsPublisher) Start(ctx context.Context, contractAddr ...common.Address) <-chan struct{} {
 	doneChan := make(chan struct{})
-	w.AddContracts(contractAddr...)
+	added := w.addContracts(contractAddr...)
+	if !added {
+		w.logger.Warn("contracts were added before starting the publisher")
+	}
 
 	if len(contractAddr) == 0 {
 		w.logger.Info("ws: starting with no contracts; waiting for addresses to be added")
