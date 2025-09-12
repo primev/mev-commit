@@ -23,7 +23,9 @@ IBlockRewardManager(brm).payProposer{value: reward}(feeRecipient);
 
 # Stipend Distributor — Overview
 
-`StipendDistributor` pays periodic (e.g., weekly) stipends to operator-defined recipients based on validator-key participation. Operators map their validator BLS pubkeys to payout addresses (“recipients”) and may authorize delegates to claim on their behalf. For more details, see the [design doc](https://www.notion.so/primev/StipendDistributor-Design-2696865efd6f80b2a4f0e6b8fc3ab0c4).
+For futher details, see the [Stipend Distributor Design Doc](https://www.notion.so/primev/StipendDistributor-Design-2696865efd6f80b2a4f0e6b8fc3ab0c4).
+
+`StipendDistributor` pays periodic (e.g., weekly) stipends to operator-defined recipients based on validator-key participation. Operators map their validator BLS pubkeys to payout addresses (“recipients”) and may authorize delegates to claim on their behalf. 
 
 ## Setting recipients
 
@@ -55,7 +57,8 @@ IBlockRewardManager(brm).payProposer{value: reward}(feeRecipient);
 
 ## Rewards & claiming
 
-1. **Accrual:** Each distribution period (e.g., weekly), stipends are granted to `(operator, recipient)` pairs in proportion to validator-key participation recorded for that period.
+1. **Accrual:** StipendManager service monitors blocks won by mev-commit registered validators, resolves the operator’s recipient for the pubkey via `StipendDistributor.getKeyRecipient(operator, pubkey)`, and adds it to the operator/recipient pair’s cumulative stipend rewards (off chain). At the end of the week, the service grants a array of stipends to each operator-recipient combo, with each stipend representing the total stipend rewards earned by that operator/recipient pair. 
+
 2. **Claim by operator (pull to recipients):**
    ```solidity
    claimRewards(address payable[] calldata recipients)

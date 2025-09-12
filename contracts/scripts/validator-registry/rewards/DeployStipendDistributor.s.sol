@@ -33,16 +33,12 @@ contract BaseDeploy is Script {
 
 contract DeployMainnet is BaseDeploy {
     address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
-    address constant public STIPEND_MANAGER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    // address constant public STIPEND_MANAGER
 
     function run() external {
         require(block.chainid == 1, "must deploy on mainnet");
         vm.startBroadcast();
-
-        deployStipendDistributor(
-            OWNER,
-            STIPEND_MANAGER
-        );
+        //deploy call here
         vm.stopBroadcast();
     }
 }

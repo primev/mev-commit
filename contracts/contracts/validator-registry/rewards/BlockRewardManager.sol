@@ -47,6 +47,7 @@ contract BlockRewardManager is
     function payProposer(address payable feeRecipient) external payable {
         uint256 totalAmt = msg.value;
         uint256 bps = rewardsPctBps;
+        //two paths here for gas savings
         if (bps == 0) {
             (bool success, ) = feeRecipient.call{value: totalAmt}("");
             require(success, ProposerTransferFailed(feeRecipient, totalAmt)); //revert if transfer fails
