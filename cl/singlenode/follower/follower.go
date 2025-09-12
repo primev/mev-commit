@@ -87,9 +87,11 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 			f.logger.Error("failed to set execution head from rpc", "error", err)
 			return
 		}
+		f.logger.Debug("set execution head from rpc")
 	}
 
 	lastSignalledBlock := f.getExecutionHead().BlockHeight
+	f.logger.Debug("lastSignalledBlock set from execution head", "block height", lastSignalledBlock)
 
 	for {
 		select {
@@ -112,6 +114,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 		}
 
 		blocksRemaining := targetBlock - lastSignalledBlock
+		f.logger.Debug("blocksRemaining", "blocksRemaining", blocksRemaining)
 
 		if blocksRemaining == 0 {
 			f.sleepRespectingContext(ctx, time.Millisecond) // New payload will likely be available within milliseconds
@@ -133,6 +136,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 			f.sleepRespectingContext(ctx, defaultBackoff)
 			continue
 		}
+		f.logger.Debug("number of payloads returned", "number of payloads", len(payloads))
 
 		for i := range payloads {
 			p := payloads[i]
