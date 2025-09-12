@@ -114,12 +114,12 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 		}
 
 		blocksRemaining := targetBlock - lastSignalledBlock
-		f.logger.Debug("blocksRemaining", "blocksRemaining", blocksRemaining)
 
 		if blocksRemaining == 0 {
 			f.sleepRespectingContext(ctx, time.Millisecond) // New payload will likely be available within milliseconds
 			continue
 		}
+		f.logger.Debug("non-zero blocksRemaining", "blocksRemaining", blocksRemaining)
 
 		limit := min(f.syncBatchSize, blocksRemaining)
 
