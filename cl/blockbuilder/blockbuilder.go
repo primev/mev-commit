@@ -134,8 +134,6 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to set execution head from rpc: %w", err)
 		}
-	} else {
-		bb.logger.Debug("executionHead is not nil, using cached value")
 	}
 
 	mempoolStatus, err := bb.GetMempoolStatus(ctx)
@@ -144,17 +142,10 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	}
 
 	lastBlockTime := time.UnixMilli(int64(bb.executionHead.BlockTime))
-	bb.logger.Debug("lastBlockTime from execution head", "lastBlockTime", lastBlockTime)
 
 	if mempoolStatus.Pending == 0 {
 		timeSinceLastBlock := time.Since(lastBlockTime)
 		if timeSinceLastBlock < bb.buildEmptyBlocksDelay {
-			bb.logger.Debug(
-				"Leader: Skipping empty block",
-				"timeSinceLastBlock", timeSinceLastBlock,
-				"pendingTxes", mempoolStatus.Pending,
-				"queuedTxes", mempoolStatus.Queued,
-			)
 			return ErrEmptyBlock
 		}
 		bb.logger.Info(
