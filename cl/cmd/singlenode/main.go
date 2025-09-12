@@ -387,7 +387,7 @@ func startFollowerNode(c *cli.Context) error {
 	if postgresDSN == "" {
 		return fmt.Errorf("postgresDSN is required")
 	}
-	repo, err := payloadstore.NewPostgresRepository(rootCtx, postgresDSN, logger)
+	repo, err := payloadstore.NewPostgresFollower(rootCtx, postgresDSN, logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize payload repository: %w", err)
 	}
