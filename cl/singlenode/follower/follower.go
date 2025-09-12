@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/primev/mev-commit/cl/types"
@@ -15,6 +16,7 @@ type Follower struct {
 	sharedDB      payloadDB
 	syncBatchSize uint64
 	payloadCh     chan types.PayloadInfo
+	bbMutex       sync.RWMutex
 	bb            blockBuilder
 }
 
@@ -80,14 +82,14 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (f *Follower) syncFromSharedDB(ctx context.Context) {
-	if f.bb.GetExecutionHead() == nil {
-		if err := f.bb.SetExecutionHeadFromRPC(ctx); err != nil {
+	if f.GetExecutionHead() == nil {
+		if err := f.SetExecutionHeadFromRPC(ctx); err != nil {
 			f.logger.Error("failed to set execution head from rpc", "error", err)
 			return
 		}
 	}
 
-	lastSignalledBlock := f.bb.GetExecutionHead().BlockHeight
+	lastSignalledBlock := f.GetExecutionHead().BlockHeight
 
 	for {
 		select {
@@ -158,10 +160,28 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case p := <-f.payloadCh:
-			if err := f.bb.FinalizeBlock(ctx, p.PayloadID, p.ExecutionPayload, ""); err != nil {
+			if err := f.FinalizeBlock(ctx, p.PayloadID, p.ExecutionPayload, ""); err != nil {
 				f.logger.Error("Failed to process payload", "height", p.BlockHeight, "error", err)
 				continue
 			}
 		}
 	}
+}
+
+func (f *Follower) GetExecutionHead() *types.ExecutionHead {
+	f.bbMutex.RLock()
+	defer f.bbMutex.RUnlock()
+	return f.bb.GetExecutionHead()
+}
+
+func (f *Follower) SetExecutionHeadFromRPC(ctx context.Context) error {
+	f.bbMutex.Lock()
+	defer f.bbMutex.Unlock()
+	return f.bb.SetExecutionHeadFromRPC(ctx)
+}
+
+func (f *Follower) FinalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {
+	f.bbMutex.Lock()
+	defer f.bbMutex.Unlock()
+	return f.bb.FinalizeBlock(ctx, payloadIDStr, executionPayloadStr, msgID)
 }
