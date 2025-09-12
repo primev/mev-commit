@@ -286,7 +286,6 @@ func (app *SingleNodeApp) runLoop() {
 
 			if err != nil {
 				if errors.Is(err, blockbuilder.ErrEmptyBlock) {
-					app.logger.Debug("no pending transactions, will try again after timeout", "timeout", app.cfg.TxPoolPollingInterval)
 					time.Sleep(app.cfg.TxPoolPollingInterval)
 					continue
 				} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
