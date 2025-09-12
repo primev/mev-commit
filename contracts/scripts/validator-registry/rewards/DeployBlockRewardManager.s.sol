@@ -34,13 +34,18 @@ contract BaseDeploy is Script {
 
 contract DeployMainnet is BaseDeploy {
     address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
-    //address public TREASURY;
+    address constant public TREASURY = MainnetConstants.COMMITMENT_HOLDINGS_MULTISIG;
     uint256 constant public REWARDS_PCT_BPS = 0;
 
     function run() external {
         require(block.chainid == 1, "must deploy on mainnet");
         vm.startBroadcast();
-        //deploy call here
+
+        deployBlockRewardManager(
+            OWNER,
+            REWARDS_PCT_BPS,
+            TREASURY
+        );
         vm.stopBroadcast();
     }
 }
