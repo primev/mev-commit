@@ -91,10 +91,15 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 		return nil
 	}
 
+	errCh := make(chan error)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		follower.SyncFromSharedDB(ctx)
+		err := follower.SyncFromSharedDB(ctx)
+		if err != nil {
+			errCh <- err
+		}
 	}()
 
 	payloadCh := follower.PayloadCh()
@@ -123,6 +128,8 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 
 	// No more than 50
 	select {
+	case err := <-errCh:
+		t.Fatal(err)
 	case <-payloadCh:
 		t.Fatal("received unexpected payload")
 	case <-time.After(1 * time.Second):
@@ -169,10 +176,15 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 		return nil
 	}
 
+	errCh := make(chan error)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		follower.SyncFromSharedDB(ctx)
+		err := follower.SyncFromSharedDB(ctx)
+		if err != nil {
+			errCh <- err
+		}
 	}()
 
 	payloadCh := follower.PayloadCh()
@@ -201,6 +213,8 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 
 	// No more than 15
 	select {
+	case err := <-errCh:
+		t.Fatal(err)
 	case <-payloadCh:
 		t.Fatal("received unexpected payload")
 	case <-time.After(1 * time.Second):
@@ -276,10 +290,15 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 		return nil
 	}
 
+	errCh := make(chan error)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		follower.SyncFromSharedDB(ctx)
+		err := follower.SyncFromSharedDB(ctx)
+		if err != nil {
+			errCh <- err
+		}
 	}()
 
 	payloadCh := follower.PayloadCh()
@@ -308,6 +327,8 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 
 	// No more than 53
 	select {
+	case err := <-errCh:
+		t.Fatal(err)
 	case <-payloadCh:
 		t.Fatal("received unexpected payload")
 	case <-time.After(1 * time.Second):

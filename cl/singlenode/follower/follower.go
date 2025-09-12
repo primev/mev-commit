@@ -3,6 +3,7 @@ package follower
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -61,14 +62,12 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		f.handlePayloads(egCtx)
-		return nil
+		return f.handlePayloads(egCtx)
 	})
 
 	eg.Go(func() error {
 		f.logger.Info("Starting sync from shared DB")
-		f.syncFromSharedDB(egCtx)
-		return nil
+		return f.syncFromSharedDB(egCtx)
 	})
 
 	go func() {
@@ -81,11 +80,11 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func (f *Follower) syncFromSharedDB(ctx context.Context) {
+func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 	if f.getExecutionHead() == nil {
 		if err := f.setExecutionHeadFromRPC(ctx); err != nil {
 			f.logger.Error("failed to set execution head from rpc", "error", err)
-			return
+			return err
 		}
 		f.logger.Debug("set execution head from rpc")
 	}
@@ -96,7 +95,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		default:
 		}
 
@@ -109,8 +108,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 		}
 
 		if lastSignalledBlock > targetBlock {
-			f.logger.Error("internal invariant has been broken. Follower EL is ahead of signer")
-			return
+			return fmt.Errorf("internal invariant has been broken. Follower EL is ahead of signer")
 		}
 
 		blocksRemaining := targetBlock - lastSignalledBlock
@@ -142,7 +140,7 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) {
 			p := payloads[i]
 			select {
 			case <-ctx.Done():
-				return
+				return ctx.Err()
 			case f.payloadCh <- p:
 				lastSignalledBlock = p.BlockHeight
 			}
@@ -158,11 +156,11 @@ func (f *Follower) sleepRespectingContext(ctx context.Context, duration time.Dur
 	}
 }
 
-func (f *Follower) handlePayloads(ctx context.Context) {
+func (f *Follower) handlePayloads(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case p := <-f.payloadCh:
 			if err := f.finalizeBlock(ctx, p.PayloadID, p.ExecutionPayload, ""); err != nil {
 				f.logger.Error("Failed to process payload", "height", p.BlockHeight, "error", err)
