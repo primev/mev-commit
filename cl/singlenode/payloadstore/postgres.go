@@ -71,6 +71,25 @@ func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger)
 	return &PostgresRepository{db: db, logger: l}, nil
 }
 
+func NewPostgresFollower(ctx context.Context, dsn string, logger *slog.Logger) (*PostgresRepository, error) {
+	l := logger.With("component", "postgresFollower")
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
+	}
+
+	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("failed to ping postgres: %w", err)
+	}
+
+	l.Info("Connected to PostgreSQL")
+	return &PostgresRepository{db: db, logger: l}, nil
+}
+
 // SavePayload saves the payload information to the database.
 func (r *PostgresRepository) SavePayload(ctx context.Context, info *types.PayloadInfo) error {
 	query := `
@@ -257,6 +276,25 @@ func (r *PostgresRepository) GetLatestPayload(ctx context.Context) (*types.Paylo
 	)
 
 	return &payload, nil
+}
+
+func (r *PostgresRepository) GetLatestHeight(ctx context.Context) (uint64, error) {
+	query := `
+		SELECT MAX(block_height) FROM execution_payloads;
+	`
+	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var n sql.NullInt64
+	if err := r.db.QueryRowContext(queryCtx, query).Scan(&n); err != nil {
+		// MAX should never return sql.ErrNoRow, always bubble errors
+		return 0, err
+	}
+	if !n.Valid {
+		// Empty table -> new chain
+		return 0, nil
+	}
+	return uint64(n.Int64), nil
 }
 
 // Close closes the database connection.

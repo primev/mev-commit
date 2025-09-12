@@ -121,7 +121,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	if bb.executionHead == nil {
 		bb.logger.Info("executionHead is nil, it'll be set by RPC. CL is likely being restarted")
 		err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
-			innerErr := bb.setExecutionHeadFromRPC(ctx)
+			innerErr := bb.SetExecutionHeadFromRPC(ctx)
 			if innerErr != nil {
 				bb.logger.Warn(
 					"Failed to set execution head from rpc, retrying...",
@@ -493,7 +493,7 @@ func (bb *BlockBuilder) updateForkChoice(ctx context.Context, fcs engine.Forkcho
 	})
 }
 
-func (bb *BlockBuilder) setExecutionHeadFromRPC(ctx context.Context) error {
+func (bb *BlockBuilder) SetExecutionHeadFromRPC(ctx context.Context) error {
 	header, err := bb.engineCl.HeaderByNumber(ctx, nil) // nil for the latest block
 	if err != nil {
 		return fmt.Errorf("failed to get the latest block header: %w", err)
