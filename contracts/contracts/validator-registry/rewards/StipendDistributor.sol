@@ -59,13 +59,13 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     }
 
     /// @notice Allows an operator to claim their rewards for specified recipients.
-    function claimRewards(address payable[] calldata recipients) external whenNotPaused nonReentrant {
+    function claimRewards(address[] calldata recipients) external whenNotPaused nonReentrant {
         _claimRewards(msg.sender, recipients);
     }
 
     /// @notice Claims rewards accrued by an operator to a specific recipient. Must be authorized by the specified operator.
     /// @dev Caller must be an authorized delegate for every (operator → recipient) pair.
-    function claimOnbehalfOfOperator(address operator, address payable[] calldata recipients) external whenNotPaused nonReentrant {
+    function claimOnbehalfOfOperator(address operator, address[] calldata recipients) external whenNotPaused nonReentrant {
         uint256 len = recipients.length;
         for (uint256 i = 0; i < len; ++i) {
             require(claimDelegate[operator][recipients[i]][msg.sender], InvalidClaimDelegate());
@@ -106,15 +106,34 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
 
     /// @dev Allows an operator to migrate unclaimed recipient rewards to a different address.
     function migrateExistingRewards(address from, address to) external whenNotPaused nonReentrant {
-        uint256 claimableAmt = accrued[msg.sender][from] - claimed[msg.sender][from];
-        require(claimableAmt > 0, NoClaimableRewards(from));
+        uint256 claimableAmt = getPendingRewards(msg.sender, from);
+        require(claimableAmt > 0, NoClaimableRewards(msg.sender, from));
         require(to != address(0), ZeroAddress());
         require(to != from, InvalidRecipient());
         accrued[msg.sender][from] -= claimableAmt;
         accrued[msg.sender][to] += claimableAmt;
         emit RewardsMigrated(from, to, claimableAmt);
     }
-    
+
+    /// @dev Allows the owner to reclaim stipends that were incorrectly granted or unable to be claimed by an operator.
+    function reclaimGrantsToOwner(address[] calldata operators, address[] calldata recipients) external onlyOwner {
+        address _owner = owner();
+        uint256 toWithdraw = 0;
+        uint256 len = operators.length;
+        require(len == recipients.length, LengthMismatch());
+        for (uint256 i = 0; i < len; ++i) {
+            address operator = operators[i];
+            address recipient = recipients[i];
+            uint256 claimableAmt = getPendingRewards(operator, recipient);
+            accrued[operator][recipient] -= claimableAmt;
+            toWithdraw += claimableAmt;
+            emit StipendsReclaimed(operator, recipient, claimableAmt);
+        }
+        require(toWithdraw > 0, NoClaimableRewards(_owner, _owner));
+        (bool success, ) = payable(_owner).call{value: toWithdraw}("");
+        require(success, RewardsTransferFailed(_owner));
+    }
+
     /// @dev Enables the owner to pause the contract.
     function pause() external onlyOwner {
         _pause();
@@ -155,7 +174,7 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// @dev Allows a reward recipient to claim their rewards.
-    function _claimRewards(address operator, address payable[] calldata recipients) internal {
+    function _claimRewards(address operator, address[] calldata recipients) internal {
         require(operator != address(0), InvalidOperator());
         uint256 len = recipients.length;
         uint256[] memory claimAmounts = new uint256[](len);
@@ -167,7 +186,7 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
         for (uint256 i = 0; i < len; ++i) {
             address recipient = recipients[i];
             if (claimAmounts[i] > 0) {
-                (bool success, ) = recipient.call{value: claimAmounts[i]}("");
+                (bool success, ) = payable(recipient).call{value: claimAmounts[i]}("");
                 require(success, RewardsTransferFailed(recipient));
                 emit RewardsClaimed(operator, recipient, claimAmounts[i]);
             }

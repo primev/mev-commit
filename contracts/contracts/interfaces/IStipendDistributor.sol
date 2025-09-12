@@ -33,6 +33,8 @@ interface IStipendDistributor {
     /// @dev Emitted when accrued rewards are migrated from one recipient to another for an operator.
     event RewardsMigrated(address indexed from, address indexed to, uint256 amount);
 
+    /// @dev Emitted when accrued rewards are reclaimed by the owner.
+    event StipendsReclaimed(address indexed operator, address indexed recipient, uint256 amount);
 
     // -------- Errors --------
     error NotOwnerOrStipendManager();
@@ -42,7 +44,7 @@ interface IStipendDistributor {
     error InvalidOperator();
     error InvalidClaimDelegate();
     error LengthMismatch();
-    error NoClaimableRewards(address recipient);
+    error NoClaimableRewards(address operator, address recipient);
     error RewardsTransferFailed(address recipient);
     error IncorrectPaymentAmount(uint256 received, uint256 expected);
 
@@ -53,10 +55,10 @@ interface IStipendDistributor {
     function grantStipends(Stipend[] calldata stipends) external payable;
 
     /// @notice Claim rewards for the caller (as operator) to specific recipients.
-    function claimRewards(address payable[] calldata recipients) external;
+    function claimRewards(address[] calldata recipients) external;
 
     /// @notice Claim rewards on behalf of an operator to specific recipients (must be delegated).
-    function claimOnbehalfOfOperator(address operator, address payable[] calldata recipients) external;
+    function claimOnbehalfOfOperator(address operator, address[] calldata recipients) external;
 
     /// @notice Override recipient for a list of BLS pubkeys in a registry.
     function overrideRecipientByPubkey(bytes[] calldata pubkeys, address recipient) external;

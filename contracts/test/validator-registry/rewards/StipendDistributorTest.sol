@@ -36,6 +36,8 @@ contract StipendDistributorTest is Test {
     event StipendsGranted(address indexed operator, address indexed recipient, uint256 amount);
     event RewardsClaimed(address indexed operator, address indexed recipient, uint256 amount);
     event OperatorGlobalOverrideSet(address indexed operator, address indexed recipient);
+    event StipendsReclaimed(address indexed operator, address indexed recipient, uint256 amount);
+
 
     // setup: deploy registries + distributor and fund stipendManager for payable calls
         function setUp() public {
@@ -152,8 +154,8 @@ contract StipendDistributorTest is Test {
         _grantThreeCombos(recipient1, recipient2, recipient3, operator1, operator2);
 
         // operator1 claims 2e for recipient2
-        address payable[] memory toClaim = new address payable[](1);
-        toClaim[0] = payable(recipient2);
+        address[] memory toClaim = new address[](1);
+        toClaim[0] = recipient2;
         uint256 r2Before = recipient2.balance;
         vm.prank(operator1);
         distributor.claimRewards(toClaim);
@@ -164,8 +166,8 @@ contract StipendDistributorTest is Test {
         distributor.setClaimDelegate(delegate1, recipient1, true);
 
         // delegate claims 1e for recipient1
-        address payable[] memory one = new address payable[](1);
-        one[0] = payable(recipient1);
+        address[] memory one = new address[](1);
+        one[0] = recipient1;
         uint256 r1Before = recipient1.balance;
         vm.prank(delegate1);
         distributor.claimOnbehalfOfOperator(operator1, one);
@@ -176,8 +178,8 @@ contract StipendDistributorTest is Test {
     function test_ClaimOnBehalf_unauthorized_reverts() public {
         _grantThreeCombos(recipient1, recipient2, recipient3, operator1, operator2);
 
-        address payable[] memory ask = new address payable[](1);
-        ask[0] = payable(recipient3);
+        address[] memory ask = new address[](1);
+        ask[0] = recipient3;
 
         // operator2 tries to claim as if for operator1 → revert
         vm.expectRevert();
@@ -197,8 +199,8 @@ contract StipendDistributorTest is Test {
         assertEq(distributor.accrued(operator1, recipient1), 1 ether);
 
         // claim pays 1e
-        address payable[] memory list = new address payable[](1);
-        list[0] = payable(recipient1);
+        address[] memory list = new address[](1);
+        list[0] = recipient1;
         uint256 before = recipient1.balance;
         vm.prank(operator1);
         distributor.claimRewards(list);
@@ -287,8 +289,8 @@ contract StipendDistributorTest is Test {
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
         distributor.grantStipends{value: stipends[0].amount}(stipends);
 
-        address payable[] memory list = new address payable[](1);
-        list[0] = payable(recipient1);
+        address[] memory list = new address[](1);
+        list[0] = recipient1;
         vm.prank(operator1);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
         distributor.claimRewards(list);
@@ -319,8 +321,8 @@ contract StipendDistributorTest is Test {
         distributor.grantStipends{value: stipends[0].amount}(stipends);
 
         // claim once → paid exactly once; inner call blocked by nonReentrant
-        address payable[] memory list = new address payable[](1);
-        list[0] = payable(address(attacker));
+        address[] memory list = new address[](1);
+        list[0] = address(attacker);
         uint256 before = address(attacker).balance;
         vm.prank(operator1);
         distributor.claimRewards(list);
@@ -364,7 +366,7 @@ contract StipendDistributorTest is Test {
     function test_ClaimRewards_wrongOperator_reverts() public {
         _grantThreeCombos(recipient1, recipient2, recipient3, operator1, operator2);
 
-        address payable[] memory list = new address payable[](1);
+        address[] memory list = new address[](1);
         list[0] = payable(recipient2);
 
         uint256 before = recipient2.balance;
@@ -393,7 +395,7 @@ contract StipendDistributorTest is Test {
     function test_Claim_batchMultipleRecipients() public {
         _grantThreeCombos(recipient1, recipient2, recipient3, operator1, operator2);
 
-        address payable[] memory list = new address payable[](2);
+        address[] memory list = new address[](2);
         list[0] = payable(recipient1); // 1 ether
         list[1] = payable(recipient2); // 2 ether
 
@@ -406,7 +408,131 @@ contract StipendDistributorTest is Test {
         assertEq(recipient1.balance, r1Before + 1 ether);
         assertEq(recipient2.balance, r2Before + 2 ether);
     }
+
+    // Helper: grant arbitrary pairs in one go (prank as stipendManager and fund it)
+    function _grantPairs(address[] memory ops, address[] memory recs, uint256[] memory amts) internal {
+        uint256 len = ops.length;
+        assertEq(len, recs.length, "setup: length mismatch");
+        assertEq(len, amts.length, "setup: length mismatch");
+
+        IStipendDistributor.Stipend[] memory s = new IStipendDistributor.Stipend[](len);
+        uint256 total = 0;
+        for (uint256 i = 0; i < len; ++i) {
+            s[i] = IStipendDistributor.Stipend({ operator: ops[i], recipient: recs[i], amount: amts[i] });
+            total += amts[i];
+        }
+
+        vm.deal(stipendManager, stipendManager.balance + total);
+        vm.prank(stipendManager);
+        distributor.grantStipends{value: total}(s);
+    }
+
+    function test_reclaimGrantsToOwner() public {
+        address opA = makeAddr("opA");
+        address rcA = makeAddr("rcA");
+        address opB = makeAddr("opB");
+        address rcB = makeAddr("rcB");
+
+        address[] memory ops = new address[](2);
+        address[] memory recs = new address[](2);
+        uint256[] memory amts = new uint256[](2);
+        ops[0] = opA; recs[0] = rcA; amts[0] = 5 ether;
+        ops[1] = opB; recs[1] = rcB; amts[1] = 7 ether;
+
+        _grantPairs(ops, recs, amts);
+
+        address ownerAddr = distributor.owner();
+        uint256 ownerBefore = ownerAddr.balance;
+        uint256 contractBefore = address(distributor).balance;
+
+        // (optional) check events
+        vm.expectEmit(true, true, false, true);
+        emit StipendsReclaimed(opA, rcA, 5 ether);
+        vm.expectEmit(true, true, false, true);
+        emit StipendsReclaimed(opB, rcB, 7 ether);
+
+        vm.prank(ownerAddr);
+        distributor.reclaimGrantsToOwner(ops, recs);
+
+        assertEq(ownerAddr.balance, ownerBefore + 12 ether, "owner did not receive reclaimed ETH");
+        assertEq(address(distributor).balance, contractBefore - 12 ether, "contract balance mismatch");
+        assertEq(distributor.getPendingRewards(opA, rcA), 0, "pending not cleared for A");
+        assertEq(distributor.getPendingRewards(opB, rcB), 0, "pending not cleared for B");
+    }
+
+    function test_reclaimGrantsToOwner_RespectsClaimedAndReclaimsOnlyUnclaimed() public {
+        address operator = makeAddr("op");
+        address recipient = makeAddr("rc");
+        address ownerAddr = distributor.owner();
+
+        // ---------- setup: grant #1 (5 ether) ----------
+        IStipendDistributor.Stipend[] memory s1 = new IStipendDistributor.Stipend[](1);
+        s1[0] = IStipendDistributor.Stipend({operator: operator, recipient: recipient, amount: 5 ether});
+
+        vm.deal(ownerAddr, ownerAddr.balance + 5 ether);
+        vm.prank(ownerAddr);
+        distributor.grantStipends{value: 5 ether}(s1);
+
+        // operator fully claims grant #1
+        address[] memory recs = new address[](1);
+        recs[0] = recipient;
+        uint256 rcBefore = recipient.balance;
+        uint256 contractBeforeClaim = address(distributor).balance;
+
+        vm.prank(operator);
+        distributor.claimRewards(recs);
+
+        assertEq(recipient.balance, rcBefore + 5 ether, "recipient did not receive claim #1");
+        assertEq(address(distributor).balance, contractBeforeClaim - 5 ether, "contract balance mismatch after claim #1");
+        assertEq(distributor.getPendingRewards(operator, recipient), 0, "pending should be zero after claim #1");
+
+        // ---------- part A: reclaim when fully claimed -> revert & no payout ----------
+        uint256 ownerBeforeReclaimA = ownerAddr.balance;
+        uint256 contractBeforeReclaimA = address(distributor).balance;
+
+        address[] memory opsA = new address[](1);
+        address[] memory recsA = new address[](1);
+        opsA[0] = operator;
+        recsA[0] = recipient;
+
+        vm.prank(ownerAddr);
+        vm.expectRevert(abi.encodeWithSignature("NoClaimableRewards(address,address)", ownerAddr, ownerAddr));
+        distributor.reclaimGrantsToOwner(opsA, recsA);
+
+        // balances unchanged
+        assertEq(ownerAddr.balance, ownerBeforeReclaimA, "owner balance changed on failed reclaim");
+        assertEq(address(distributor).balance, contractBeforeReclaimA, "contract balance changed on failed reclaim");
+
+        // ---------- grant #2 (9 ether) ----------
+        IStipendDistributor.Stipend[] memory s2 = new IStipendDistributor.Stipend[](1);
+        s2[0] = IStipendDistributor.Stipend({operator: operator, recipient: recipient, amount: 9 ether});
+
+        vm.deal(ownerAddr, ownerAddr.balance + 9 ether);
+        vm.prank(ownerAddr);
+        distributor.grantStipends{value: 9 ether}(s2);
+
+        assertEq(distributor.getPendingRewards(operator, recipient), 9 ether, "pending should equal grant #2");
+
+        // ---------- part B: reclaim pulls only unclaimed (9 ether) ----------
+        uint256 ownerBeforeReclaimB = ownerAddr.balance;
+        uint256 contractBeforeReclaimB = address(distributor).balance;
+
+        address[] memory opsB = new address[](1);
+        address[] memory recsB = new address[](1);
+        opsB[0] = operator;
+        recsB[0] = recipient;
+
+        vm.prank(ownerAddr);
+        distributor.reclaimGrantsToOwner(opsB, recsB);
+
+        assertEq(ownerAddr.balance, ownerBeforeReclaimB + 9 ether, "owner did not receive only unclaimed amount");
+        assertEq(address(distributor).balance, contractBeforeReclaimB - 9 ether, "contract balance mismatch after reclaim");
+        assertEq(distributor.getPendingRewards(operator, recipient), 0, "pending should be zero after reclaim");
+    }
+
 }
+
+
 
 // recipient that attempts to re-enter claimRewards during payout
 contract ReenteringRecipient {

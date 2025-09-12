@@ -97,7 +97,7 @@
       {
         "name": "recipients",
         "type": "address[]",
-        "internalType": "address payable[]"
+        "internalType": "address[]"
       }
     ],
     "outputs": [],
@@ -110,7 +110,7 @@
       {
         "name": "recipients",
         "type": "address[]",
-        "internalType": "address payable[]"
+        "internalType": "address[]"
       }
     ],
     "outputs": [],
@@ -373,6 +373,24 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "reclaimGrantsToOwner",
+    "inputs": [
+      {
+        "name": "operators",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "recipients",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -710,6 +728,31 @@
   },
   {
     "type": "event",
+    "name": "StipendsReclaimed",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Unpaused",
     "inputs": [
       {
@@ -836,6 +879,11 @@
     "type": "error",
     "name": "NoClaimableRewards",
     "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
       {
         "name": "recipient",
         "type": "address",
