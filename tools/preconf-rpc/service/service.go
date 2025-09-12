@@ -55,6 +55,7 @@ type Config struct {
 	BridgeAddress          common.Address
 	SettlementThreshold    *big.Int
 	SettlementTopup        *big.Int
+	BidderTopup            *big.Int
 	HTTPPort               int
 	GasTipCap              *big.Int
 	GasFeeCap              *big.Int
@@ -178,7 +179,7 @@ func New(config *Config) (*Service, error) {
 		accountsync.NewAccountSync(bidderEOA, settlementClient),
 		transferer,
 		config.SettlementThreshold,
-		config.SettlementTopup,
+		config.BidderTopup,
 		settlementClient,
 		settlementChainID,
 		notifier,
