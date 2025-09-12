@@ -82,14 +82,14 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (f *Follower) syncFromSharedDB(ctx context.Context) {
-	if f.GetExecutionHead() == nil {
-		if err := f.SetExecutionHeadFromRPC(ctx); err != nil {
+	if f.getExecutionHead() == nil {
+		if err := f.setExecutionHeadFromRPC(ctx); err != nil {
 			f.logger.Error("failed to set execution head from rpc", "error", err)
 			return
 		}
 	}
 
-	lastSignalledBlock := f.GetExecutionHead().BlockHeight
+	lastSignalledBlock := f.getExecutionHead().BlockHeight
 
 	for {
 		select {
@@ -160,7 +160,7 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case p := <-f.payloadCh:
-			if err := f.FinalizeBlock(ctx, p.PayloadID, p.ExecutionPayload, ""); err != nil {
+			if err := f.finalizeBlock(ctx, p.PayloadID, p.ExecutionPayload, ""); err != nil {
 				f.logger.Error("Failed to process payload", "height", p.BlockHeight, "error", err)
 				continue
 			}
@@ -168,19 +168,19 @@ func (f *Follower) handlePayloads(ctx context.Context) {
 	}
 }
 
-func (f *Follower) GetExecutionHead() *types.ExecutionHead {
+func (f *Follower) getExecutionHead() *types.ExecutionHead {
 	f.bbMutex.RLock()
 	defer f.bbMutex.RUnlock()
 	return f.bb.GetExecutionHead()
 }
 
-func (f *Follower) SetExecutionHeadFromRPC(ctx context.Context) error {
+func (f *Follower) setExecutionHeadFromRPC(ctx context.Context) error {
 	f.bbMutex.Lock()
 	defer f.bbMutex.Unlock()
 	return f.bb.SetExecutionHeadFromRPC(ctx)
 }
 
-func (f *Follower) FinalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {
+func (f *Follower) finalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {
 	f.bbMutex.Lock()
 	defer f.bbMutex.Unlock()
 	return f.bb.FinalizeBlock(ctx, payloadIDStr, executionPayloadStr, msgID)

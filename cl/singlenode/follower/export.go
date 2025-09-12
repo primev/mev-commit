@@ -13,3 +13,7 @@ func (f *Follower) PayloadCh() <-chan types.PayloadInfo {
 func (f *Follower) SyncFromSharedDB(ctx context.Context) {
 	f.syncFromSharedDB(ctx)
 }
+
+func (f *Follower) GetExecutionHead() *types.ExecutionHead {
+	return f.getExecutionHead()
+}

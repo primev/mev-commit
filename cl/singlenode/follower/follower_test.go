@@ -364,7 +364,7 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		lp := bb.GetExecutionHead()
+		lp := follower.GetExecutionHead()
 		if lp == nil {
 			continue
 		}
@@ -377,7 +377,7 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	finalExecutionHead := bb.GetExecutionHead()
+	finalExecutionHead := follower.GetExecutionHead()
 	if finalExecutionHead == nil {
 		t.Fatal("execution head is nil")
 	}
@@ -447,7 +447,7 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		lp := bb.GetExecutionHead()
+		lp := follower.GetExecutionHead()
 		if lp == nil {
 			continue
 		}
@@ -460,7 +460,7 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	finalExecutionHead := bb.GetExecutionHead()
+	finalExecutionHead := follower.GetExecutionHead()
 	if finalExecutionHead == nil {
 		t.Fatal("execution head is nil")
 	}
