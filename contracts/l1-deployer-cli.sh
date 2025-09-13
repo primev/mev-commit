@@ -5,6 +5,8 @@ deploy_vanilla_flag=false
 deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
+deploy_block_rewards_flag=false
+deploy_reward_distributor_flag=false
 skip_release_verification_flag=false
 resume_flag=false
 wallet_type=""
@@ -24,6 +26,8 @@ help() {
     echo "  deploy-avs          Deploy and verify the MevCommitAVS contract to L1."
     echo "  deploy-middleware   Deploy and verify the MevCommitMiddleware contract to L1."
     echo "  deploy-router       Deploy and verify the ValidatorOptInRouter contract to L1."
+    echo "  deploy-block-rewards      Deploy and verify the BlockRewardManager contract to L1."
+    echo "  deploy-reward-distributor      Deploy and verify the RewardDistributor contract to L1."
     echo
     echo "Required Options:"
     echo "  --chain, -c <chain>                Specify the chain to deploy to ('mainnet', 'holesky', or 'hoodi')."
@@ -122,6 +126,14 @@ parse_args() {
                 deploy_router_flag=true
                 shift
                 ;;
+            deploy-block-rewards)
+                deploy_block_rewards_flag=true
+                shift
+                ;;
+            deploy-reward-distributor)
+                deploy_reward_distributor_flag=true
+                shift
+                ;;
             --chain|-c)
                 if [[ -z "$2" ]]; then
                     echo "Error: --chain requires an argument."
@@ -203,7 +215,7 @@ parse_args() {
     fi
 
     commands_specified=0
-    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag; do
+    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag deploy_block_rewards_flag deploy_reward_distributor_flag; do
         if [[ "${!flag}" == true ]]; then
             ((commands_specified++))
         fi
@@ -386,6 +398,14 @@ deploy_router() {
     deploy_contract_generic "scripts/validator-registry/DeployValidatorOptInRouter.s.sol"
 }
 
+deploy_block_rewards() {
+    deploy_contract_generic "scripts/validator-registry/rewards/DeployBlockRewardManager.s.sol"
+}
+
+deploy_reward_distributor() {
+    deploy_contract_generic "scripts/validator-registry/rewards/DeployRewardDistributor.s.sol"
+}
+
 main() {
     check_dependencies
     parse_args "$@"
@@ -409,6 +429,10 @@ main() {
         deploy_middleware
     elif [[ "${deploy_router_flag}" == true ]]; then
         deploy_router
+    elif [[ "${deploy_block_rewards_flag}" == true ]]; then
+        deploy_block_rewards
+    elif [[ "${deploy_reward_distributor_flag}" == true ]]; then
+        deploy_reward_distributor
     else
         usage
     fi
