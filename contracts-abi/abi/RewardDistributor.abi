@@ -34,30 +34,6 @@
   },
   {
     "type": "function",
-    "name": "accrued",
-    "inputs": [
-      {
-        "name": "operator",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "recipient",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "claimDelegate",
     "inputs": [
       {
@@ -98,6 +74,11 @@
         "name": "recipients",
         "type": "address[]",
         "internalType": "address[]"
+      },
+      {
+        "name": "tokenID",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -111,34 +92,15 @@
         "name": "recipients",
         "type": "address[]",
         "internalType": "address[]"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "claimed",
-    "inputs": [
-      {
-        "name": "operator",
-        "type": "address",
-        "internalType": "address"
       },
       {
-        "name": "recipient",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "amount",
+        "name": "tokenID",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -177,25 +139,30 @@
         "name": "recipient",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "tokenID",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint128",
+        "internalType": "uint128"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "grantStipends",
+    "name": "grantETHRewards",
     "inputs": [
       {
-        "name": "stipends",
+        "name": "rewardList",
         "type": "tuple[]",
-        "internalType": "struct IStipendDistributor.Stipend[]",
+        "internalType": "struct IRewardDistributor.Distribution[]",
         "components": [
           {
             "name": "operator",
@@ -209,10 +176,45 @@
           },
           {
             "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint128",
+            "internalType": "uint128"
           }
         ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "grantTokenRewards",
+    "inputs": [
+      {
+        "name": "rewardList",
+        "type": "tuple[]",
+        "internalType": "struct IRewardDistributor.Distribution[]",
+        "components": [
+          {
+            "name": "operator",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "recipient",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "amount",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      },
+      {
+        "name": "tokenID",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -223,12 +225,12 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "owner",
+        "name": "_owner",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "stipendManager",
+        "name": "_rewardManager",
         "type": "address",
         "internalType": "address"
       }
@@ -249,6 +251,11 @@
         "name": "to",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "tokenID",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -376,7 +383,7 @@
   },
   {
     "type": "function",
-    "name": "reclaimGrantsToOwner",
+    "name": "reclaimStipendsToOwner",
     "inputs": [
       {
         "name": "operators",
@@ -387,6 +394,11 @@
         "name": "recipients",
         "type": "address[]",
         "internalType": "address[]"
+      },
+      {
+        "name": "tokenID",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -398,6 +410,72 @@
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "rewardData",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tokenID",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "accrued",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "claimed",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "rewardManager",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "rewardTokens",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -437,10 +515,10 @@
   },
   {
     "type": "function",
-    "name": "setStipendManager",
+    "name": "setRewardManager",
     "inputs": [
       {
-        "name": "_stipendManager",
+        "name": "_rewardManager",
         "type": "address",
         "internalType": "address"
       }
@@ -450,16 +528,21 @@
   },
   {
     "type": "function",
-    "name": "stipendManager",
-    "inputs": [],
-    "outputs": [
+    "name": "setRewardToken",
+    "inputs": [
       {
-        "name": "",
+        "name": "_rewardToken",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_id",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -526,6 +609,56 @@
         "type": "bool",
         "indexed": false,
         "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ETHGranted",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ETHRewardsClaimed",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -640,24 +773,44 @@
   },
   {
     "type": "event",
-    "name": "RewardsClaimed",
+    "name": "RewardManagerSet",
     "inputs": [
       {
-        "name": "operator",
+        "name": "rewardManager",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RewardTokenSet",
+    "inputs": [
+      {
+        "name": "rewardToken",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "recipient",
-        "type": "address",
+        "name": "tokenID",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "address"
-      },
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RewardsBatchGranted",
+    "inputs": [
       {
         "name": "amount",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256"
       }
     ],
@@ -667,6 +820,18 @@
     "type": "event",
     "name": "RewardsMigrated",
     "inputs": [
+      {
+        "name": "tokenID",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
       {
         "name": "from",
         "type": "address",
@@ -681,30 +846,23 @@
       },
       {
         "name": "amount",
-        "type": "uint256",
+        "type": "uint128",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "uint128"
       }
     ],
     "anonymous": false
   },
   {
     "type": "event",
-    "name": "StipendManagerSet",
+    "name": "RewardsReclaimed",
     "inputs": [
       {
-        "name": "stipendManager",
-        "type": "address",
+        "name": "tokenID",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "StipendsGranted",
-    "inputs": [
+        "internalType": "uint256"
+      },
       {
         "name": "operator",
         "type": "address",
@@ -728,7 +886,7 @@
   },
   {
     "type": "event",
-    "name": "StipendsReclaimed",
+    "name": "TokenRewardsClaimed",
     "inputs": [
       {
         "name": "operator",
@@ -745,7 +903,32 @@
       {
         "name": "amount",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TokensGranted",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": true,
         "internalType": "uint256"
       }
     ],
@@ -872,6 +1055,16 @@
   },
   {
     "type": "error",
+    "name": "InvalidRewardToken",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidTokenID",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "LengthMismatch",
     "inputs": []
   },
@@ -898,7 +1091,7 @@
   },
   {
     "type": "error",
-    "name": "NotOwnerOrStipendManager",
+    "name": "NotOwnerOrRewardManager",
     "inputs": []
   },
   {

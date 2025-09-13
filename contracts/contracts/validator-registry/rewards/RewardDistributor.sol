@@ -5,15 +5,16 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {IStipendDistributor} from "../../interfaces/IStipendDistributor.sol";
-import {StipendDistributorStorage} from "./StipendDistributorStorage.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IRewardDistributor} from "../../interfaces/IRewardDistributor.sol";
+import {RewardDistributorStorage} from "./RewardDistributorStorage.sol";
 import {Errors} from "../../utils/Errors.sol";
 
-contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
+contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
     Ownable2StepUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
-    modifier onlyOwnerOrStipendManager() {
-        require(msg.sender == stipendManager || msg.sender == owner(), NotOwnerOrStipendManager());
+    modifier onlyOwnerOrRewardManager() {
+        require(msg.sender == rewardManager || msg.sender == owner(), NotOwnerOrRewardManager());
         _;
     }
 
@@ -35,42 +36,60 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
 
     /// @dev Initializes the RewardManager contract.
     function initialize(
-        address owner,
-        address stipendManager
+        address _owner,
+        address _rewardManager
     ) external initializer {
-        __Ownable_init(owner);
+        __Ownable_init(_owner);
         __ReentrancyGuard_init();
         __Pausable_init();
         __UUPSUpgradeable_init();
-        _setStipendManager(stipendManager);
+        _setRewardManager(_rewardManager);
     }
 
-    /// @dev Grant stipends to multiple (operator, recipient) pairs.
-    /// @param stipends Array of stipends.
-    function grantStipends(Stipend[] calldata stipends) external payable nonReentrant whenNotPaused onlyOwnerOrStipendManager {
-        uint256 len = stipends.length;
+    /// @param rewardList Array of ETH Distributions.
+    function grantETHRewards(Distribution[] calldata rewardList) external payable nonReentrant whenNotPaused onlyOwnerOrRewardManager {
+        uint256 len = rewardList.length;
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < len; ++i) {
-            totalAmount += stipends[i].amount;
-            accrued[stipends[i].operator][stipends[i].recipient] += stipends[i].amount;
-            emit StipendsGranted(stipends[i].operator, stipends[i].recipient, stipends[i].amount);
+            totalAmount += rewardList[i].amount;
+            rewardData[rewardList[i].operator][rewardList[i].recipient][0].accrued += rewardList[i].amount;
+            emit ETHGranted(rewardList[i].operator, rewardList[i].recipient, rewardList[i].amount);
         }
         require(msg.value == totalAmount, IncorrectPaymentAmount(msg.value, totalAmount));
     }
 
-    /// @notice Allows an operator to claim their rewards for specified recipients.
-    function claimRewards(address[] calldata recipients) external whenNotPaused nonReentrant {
-        _claimRewards(msg.sender, recipients);
+    /// @param rewardList Array of token Distributions.
+    function grantTokenRewards(Distribution[] calldata rewardList, uint256 tokenID) external payable nonReentrant whenNotPaused onlyOwnerOrRewardManager {
+        uint256 len = rewardList.length;
+        uint256 totalAmount = 0;
+        address rewardToken = rewardTokens[tokenID];
+        require(rewardToken != address(0), InvalidRewardToken());
+        for (uint256 i = 0; i < len; ++i) {
+            totalAmount += rewardList[i].amount;
+                rewardData[rewardList[i].operator][rewardList[i].recipient][tokenID].accrued += rewardList[i].amount;
+            emit TokensGranted(rewardList[i].operator, rewardList[i].recipient, rewardList[i].amount);
+        }
+        emit RewardsBatchGranted(totalAmount);
+        IERC20(rewardToken).transferFrom(msg.sender, address(this), totalAmount);
     }
 
-    /// @notice Claims rewards accrued by an operator to a specific recipient. Must be authorized by the specified operator.
-    /// @dev Caller must be an authorized delegate for every (operator → recipient) pair.
-    function claimOnbehalfOfOperator(address operator, address[] calldata recipients) external whenNotPaused nonReentrant {
+    /// @notice Claim rewards for the caller (as operator) to specific recipients.
+    /// @param recipients List of recipients to claim rewards for.
+    /// @param tokenID The ID of the token to claim rewards for.
+    function claimRewards(address[] calldata recipients, uint256 tokenID) external whenNotPaused nonReentrant {
+        _claimRewards(msg.sender, recipients, tokenID);
+    }
+
+    /// @notice Claim rewards on behalf of an operator to specific recipients (must be delegated).
+    /// @param operator Operator to claim rewards for.
+    /// @param recipients List of recipients to claim rewards for.
+    /// @param tokenID The ID of the token to claim rewards for.
+    function claimOnbehalfOfOperator(address operator, address[] calldata recipients, uint256 tokenID) external whenNotPaused nonReentrant {
         uint256 len = recipients.length;
         for (uint256 i = 0; i < len; ++i) {
             require(claimDelegate[operator][recipients[i]][msg.sender], InvalidClaimDelegate());
         }
-        _claimRewards(operator, recipients);
+        _claimRewards(operator, recipients, tokenID);
     }
 
     /// @notice Allows an operator to set the recipient for a list of pubkeys.
@@ -105,18 +124,19 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     }
 
     /// @dev Allows an operator to migrate unclaimed recipient rewards to a different address.
-    function migrateExistingRewards(address from, address to) external whenNotPaused nonReentrant {
-        uint256 claimableAmt = getPendingRewards(msg.sender, from);
+    /// @param tokenID The ID of the token to migrate rewards for.
+    function migrateExistingRewards(address from, address to, uint256 tokenID) external whenNotPaused nonReentrant {
+        uint128 claimableAmt = getPendingRewards(msg.sender, from, tokenID);
         require(claimableAmt > 0, NoClaimableRewards(msg.sender, from));
         require(to != address(0), ZeroAddress());
         require(to != from, InvalidRecipient());
-        accrued[msg.sender][from] -= claimableAmt;
-        accrued[msg.sender][to] += claimableAmt;
-        emit RewardsMigrated(from, to, claimableAmt);
+        rewardData[msg.sender][from][tokenID].accrued -= claimableAmt;
+        rewardData[msg.sender][to][tokenID].accrued += claimableAmt;
+        emit RewardsMigrated(tokenID, msg.sender, from, to, claimableAmt);
     }
 
     /// @dev Allows the owner to reclaim stipends that were incorrectly granted or unable to be claimed by an operator.
-    function reclaimGrantsToOwner(address[] calldata operators, address[] calldata recipients) external onlyOwner {
+    function reclaimStipendsToOwner(address[] calldata operators, address[] calldata recipients, uint256 tokenID) external onlyOwner {
         address _owner = owner();
         uint256 toWithdraw = 0;
         uint256 len = operators.length;
@@ -124,14 +144,13 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
         for (uint256 i = 0; i < len; ++i) {
             address operator = operators[i];
             address recipient = recipients[i];
-            uint256 claimableAmt = getPendingRewards(operator, recipient);
-            accrued[operator][recipient] -= claimableAmt;
+            uint128 claimableAmt = getPendingRewards(operator, recipient, tokenID);
+            rewardData[operator][recipient][tokenID].accrued -= claimableAmt;
             toWithdraw += claimableAmt;
-            emit StipendsReclaimed(operator, recipient, claimableAmt);
+            emit RewardsReclaimed(tokenID, operator, recipient, claimableAmt);
         }
         require(toWithdraw > 0, NoClaimableRewards(_owner, _owner));
-        (bool success, ) = payable(_owner).call{value: toWithdraw}("");
-        require(success, RewardsTransferFailed(_owner));
+        _transferFunds(_owner, _owner, toWithdraw, tokenID);
     }
 
     /// @dev Enables the owner to pause the contract.
@@ -145,8 +164,13 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
     }
 
     /// @dev Allows the owner to set the stipend manager address.
-    function setStipendManager(address _stipendManager) external onlyOwner {
-        _setStipendManager(_stipendManager);
+    function setRewardManager(address _rewardManager) external onlyOwner {
+        _setRewardManager(_rewardManager);
+    }
+
+    /// @dev Allows the owner to set a reward token address for a given id.
+    function setRewardToken(address _rewardToken, uint256 _id) external onlyOwner {
+        _setRewardToken(_rewardToken, _id);
     }
 
     // Retreives the recipient for an operator's registered key
@@ -166,36 +190,53 @@ contract StipendDistributor is IStipendDistributor, StipendDistributorStorage,
         return operator;
     }
 
-    function getPendingRewards(address operator, address recipient) public view returns (uint256) {
-        return accrued[operator][recipient] - claimed[operator][recipient];
+    function getPendingRewards(address operator, address recipient, uint256 tokenID) public view returns (uint128) {
+        return rewardData[operator][recipient][tokenID].accrued - rewardData[operator][recipient][tokenID].claimed;
     }
 
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// @dev Allows a reward recipient to claim their rewards.
-    function _claimRewards(address operator, address[] calldata recipients) internal {
+    function _claimRewards(address operator, address[] calldata recipients, uint256 tokenID) internal {
         require(operator != address(0), InvalidOperator());
+        require(tokenID == 0 || rewardTokens[tokenID] != address(0), InvalidRewardToken());
         uint256 len = recipients.length;
-        uint256[] memory claimAmounts = new uint256[](len);
+        uint128[] memory claimAmounts = new uint128[](len);
         for (uint256 i = 0; i < len; ++i) {
             address recipient = recipients[i];
-            claimAmounts[i] = getPendingRewards(operator, recipient);
-            claimed[operator][recipient] += claimAmounts[i];
+            claimAmounts[i] = getPendingRewards(operator, recipient, tokenID);
+            rewardData[operator][recipient][tokenID].claimed += claimAmounts[i];
         }
         for (uint256 i = 0; i < len; ++i) {
             address recipient = recipients[i];
             if (claimAmounts[i] > 0) {
-                (bool success, ) = payable(recipient).call{value: claimAmounts[i]}("");
-                require(success, RewardsTransferFailed(recipient));
-                emit RewardsClaimed(operator, recipient, claimAmounts[i]);
+                _transferFunds(operator, recipient, claimAmounts[i], tokenID);
             }
         }
     }
 
-    function _setStipendManager(address _stipendManager) internal {
-        require(_stipendManager != address(0), ZeroAddress());
-        stipendManager = _stipendManager;
-        emit StipendManagerSet(_stipendManager);
+    function _transferFunds(address operator, address recipient, uint256 amount, uint256 tokenID) internal {
+        if (tokenID == 0) {
+            (bool success, ) = payable(recipient).call{value: amount}("");
+            require(success, RewardsTransferFailed(recipient));
+            emit ETHRewardsClaimed(operator, recipient, amount);
+        } else {
+            IERC20(rewardTokens[tokenID]).transfer(recipient, amount);
+            emit TokenRewardsClaimed(operator, recipient, amount);
+        }
+    }
+
+    function _setRewardManager(address _rewardManager) internal {
+        require(_rewardManager != address(0), ZeroAddress());
+        rewardManager = _rewardManager;
+        emit RewardManagerSet(_rewardManager);
+    }
+
+    function _setRewardToken(address _rewardToken, uint256 _id) internal {
+        require(_rewardToken != address(0), ZeroAddress());
+        require(_id != 0, InvalidTokenID());
+        rewardTokens[_id] = _rewardToken;
+        emit RewardTokenSet(_rewardToken, _id);
     }
 }
