@@ -129,6 +129,17 @@ target "relay-emulator" {
   labels = get_labels("relay-emulator")
 }
 
+target "snode" {
+  inherits   = ["_common"]
+  context    = "./"
+  dockerfile = "Dockerfile.snode"
+  contexts = {
+    builder_ctx = "target:mev-commit-builder"
+  }
+  tags   = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-snode" : "${REGISTRY}/snode:${TAG}"]
+  labels = get_labels("snode")
+}
+
 group "all" {
   targets = [
     "mev-commit-builder",
@@ -139,7 +150,8 @@ group "all" {
     "preconf-rpc",
     "bidder-emulator",
     "provider-emulator",
-    "relay-emulator"
+    "relay-emulator",
+    "snode"
   ]
 }
 

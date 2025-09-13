@@ -54,8 +54,7 @@ func TestWSPublisher(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	doneChan := p.Start(ctx)
-	p.AddContracts(common.Address{})
+	doneChan := p.Start(ctx, common.Address{})
 
 	// Wait for first subscribe (will immediately error and cause resubscribe)
 	select {
