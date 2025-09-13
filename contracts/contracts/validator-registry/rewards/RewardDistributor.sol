@@ -6,12 +6,14 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/Pau
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IRewardDistributor} from "../../interfaces/IRewardDistributor.sol";
 import {RewardDistributorStorage} from "./RewardDistributorStorage.sol";
 import {Errors} from "../../utils/Errors.sol";
 
 contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
     Ownable2StepUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+    using SafeERC20 for IERC20;
 
     modifier onlyOwnerOrRewardManager() {
         require(msg.sender == rewardManager || msg.sender == owner(), NotOwnerOrRewardManager());
@@ -55,6 +57,7 @@ contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
             rewardData[rewardList[i].operator][rewardList[i].recipient][0].accrued += rewardList[i].amount;
             emit ETHGranted(rewardList[i].operator, rewardList[i].recipient, rewardList[i].amount);
         }
+        emit RewardsBatchGranted(0, totalAmount);
         require(msg.value == totalAmount, IncorrectPaymentAmount(msg.value, totalAmount));
     }
 
@@ -66,16 +69,16 @@ contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
         require(rewardToken != address(0), InvalidRewardToken());
         for (uint256 i = 0; i < len; ++i) {
             totalAmount += rewardList[i].amount;
-                rewardData[rewardList[i].operator][rewardList[i].recipient][tokenID].accrued += rewardList[i].amount;
+            rewardData[rewardList[i].operator][rewardList[i].recipient][tokenID].accrued += rewardList[i].amount;
             emit TokensGranted(rewardList[i].operator, rewardList[i].recipient, rewardList[i].amount);
         }
-        emit RewardsBatchGranted(totalAmount);
-        IERC20(rewardToken).transferFrom(msg.sender, address(this), totalAmount);
+        emit RewardsBatchGranted(tokenID, totalAmount);
+        IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), totalAmount);
     }
 
     /// @notice Claim rewards for the caller (as operator) to specific recipients.
     /// @param recipients List of recipients to claim rewards for.
-    /// @param tokenID The ID of the token to claim rewards for.
+    /// @param tokenID The ID of the token to claim rewards for. 0 for ETH.
     function claimRewards(address[] calldata recipients, uint256 tokenID) external whenNotPaused nonReentrant {
         _claimRewards(msg.sender, recipients, tokenID);
     }
@@ -83,7 +86,7 @@ contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
     /// @notice Claim rewards on behalf of an operator to specific recipients (must be delegated).
     /// @param operator Operator to claim rewards for.
     /// @param recipients List of recipients to claim rewards for.
-    /// @param tokenID The ID of the token to claim rewards for.
+    /// @param tokenID The ID of the token to claim rewards for. 0 for ETH.
     function claimOnbehalfOfOperator(address operator, address[] calldata recipients, uint256 tokenID) external whenNotPaused nonReentrant {
         uint256 len = recipients.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -126,10 +129,11 @@ contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
     /// @dev Allows an operator to migrate unclaimed recipient rewards to a different address.
     /// @param tokenID The ID of the token to migrate rewards for.
     function migrateExistingRewards(address from, address to, uint256 tokenID) external whenNotPaused nonReentrant {
-        uint128 claimableAmt = getPendingRewards(msg.sender, from, tokenID);
-        require(claimableAmt > 0, NoClaimableRewards(msg.sender, from));
         require(to != address(0), ZeroAddress());
         require(to != from, InvalidRecipient());
+        require(tokenID == 0 || rewardTokens[tokenID] != address(0), InvalidRewardToken());
+        uint128 claimableAmt = getPendingRewards(msg.sender, from, tokenID);
+        require(claimableAmt > 0, NoClaimableRewards(msg.sender, from));
         rewardData[msg.sender][from][tokenID].accrued -= claimableAmt;
         rewardData[msg.sender][to][tokenID].accrued += claimableAmt;
         emit RewardsMigrated(tokenID, msg.sender, from, to, claimableAmt);
@@ -137,6 +141,7 @@ contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
 
     /// @dev Allows the owner to reclaim stipends that were incorrectly granted or unable to be claimed by an operator.
     function reclaimStipendsToOwner(address[] calldata operators, address[] calldata recipients, uint256 tokenID) external onlyOwner {
+        require(tokenID == 0 || rewardTokens[tokenID] != address(0), InvalidRewardToken());
         address _owner = owner();
         uint256 toWithdraw = 0;
         uint256 len = operators.length;
@@ -176,6 +181,7 @@ contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
     // Retreives the recipient for an operator's registered key
     function getKeyRecipient(address operator, bytes calldata pubkey) external view returns (address) {
         require(pubkey.length == 48, InvalidBLSPubKeyLength());
+        require(operator != address(0), InvalidOperator());
         bytes32 pkHash = keccak256(pubkey);
         // Individual key overrides take priority over the default recipient
         if (operatorKeyOverrides[operator][pkHash] != address(0)) {
@@ -222,7 +228,7 @@ contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
             require(success, RewardsTransferFailed(recipient));
             emit ETHRewardsClaimed(operator, recipient, amount);
         } else {
-            IERC20(rewardTokens[tokenID]).transfer(recipient, amount);
+            IERC20(rewardTokens[tokenID]).safeTransfer(recipient, amount);
             emit TokenRewardsClaimed(operator, recipient, amount);
         }
     }
@@ -234,7 +240,6 @@ contract RewardDistributor is IRewardDistributor, RewardDistributorStorage,
     }
 
     function _setRewardToken(address _rewardToken, uint256 _id) internal {
-        require(_rewardToken != address(0), ZeroAddress());
         require(_id != 0, InvalidTokenID());
         rewardTokens[_id] = _rewardToken;
         emit RewardTokenSet(_rewardToken, _id);

@@ -55,8 +55,8 @@ contract ERC20Mintable is IERC20 {
     }
 }
 
-// Name chosen to match `--match-contract RewardsDistributor`
-contract RewardsDistributor is Test {
+// Name chosen to match `--match-contract RewardDistributor`
+contract RewardDistributorTest is Test {
     RewardDistributor internal rewardDistributor;
 
     // Roles / actors
@@ -323,13 +323,10 @@ contract RewardsDistributor is Test {
 
     // ───────────────────────── Admin & pause
 
-    function test_onlyOwner_canSetRewardToken_andRejectsZeroAddressAndTokenIdZero() public {
+    function test_onlyOwner_canSetRewardToken_andRejectsTokenIdZero() public {
         vm.expectRevert(); // onlyOwner
         rewardDistributor.setRewardToken(address(rewardTokenOne), 9);
-
         vm.startPrank(contractOwner);
-        vm.expectRevert(); // ZeroAddress
-        rewardDistributor.setRewardToken(address(0), 4);
         vm.expectRevert(); // InvalidTokenID
         rewardDistributor.setRewardToken(address(rewardTokenOne), 0);
         vm.stopPrank();
@@ -798,7 +795,7 @@ contract RewardsDistributor is Test {
         vm.expectEmit(true, true, true, true);
         emit IRewardDistributor.TokensGranted(operatorAlpha, recipientTwo, 3 ether);
         vm.expectEmit(false, false, false, true);
-        emit IRewardDistributor.RewardsBatchGranted(5 ether);
+        emit IRewardDistributor.RewardsBatchGranted(0, 5 ether);
         rewardDistributor.grantTokenRewards(tokenBatch, 1);
         vm.stopPrank();
 

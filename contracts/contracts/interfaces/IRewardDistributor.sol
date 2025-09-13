@@ -24,7 +24,7 @@ interface IRewardDistributor {
     /// @dev Emitted when stipends are granted.
     event ETHGranted(address indexed operator, address indexed recipient, uint256 indexed amount);
     event TokensGranted(address indexed operator, address indexed recipient, uint256 indexed amount);
-    event RewardsBatchGranted(uint256 indexed amount);
+    event RewardsBatchGranted(uint256 indexed tokenID, uint256 indexed amount);
     /// @dev Emitted when rewards are claimed by a recipient for an operator.
     event ETHRewardsClaimed(address indexed operator, address indexed recipient, uint256 indexed amount);
     event TokenRewardsClaimed(address indexed operator, address indexed recipient, uint256 indexed amount);
