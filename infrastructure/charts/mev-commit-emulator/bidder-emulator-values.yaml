@@ -36,7 +36,7 @@ job:
 image:
   repository: "primev/primev"  
   #tag: "provideremulator-amd" # provider --> tag: "provideremulator-amd" 
-  tag: "" # bidderemulator-amd-v1
+  tag: "rc-1.2.x-bidder-emulator" # bidderemulator-amd-v1
   pullPolicy: Always
 
 # Service configuration

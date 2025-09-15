@@ -1,0 +1,121 @@
+# Leader Erigon Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}-leader-erigon
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+    app.kubernetes.io/component: leader-erigon
+spec:
+  type: {{ .Values.service.erigon.type }}
+  ports:
+    - port: {{ .Values.service.erigon.ports.http }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ .Values.service.erigon.ports.ws }}
+      targetPort: ws
+      protocol: TCP
+      name: ws
+    - port: {{ .Values.service.erigon.ports.metrics }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    - port: {{ .Values.erigon.ports.p2p }}
+      targetPort: p2p
+      protocol: TCP
+      name: p2p
+  selector:
+    {{- if .Values.service.erigon.customSelector }}
+    {{- toYaml .Values.service.erigon.customSelector | nindent 4 }}
+    {{- else }}
+    {{- include "erigon-snode.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: leader
+    {{- end }}
+---
+# Leader Snode Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}-leader-snode
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+    app.kubernetes.io/component: leader-snode
+spec:
+  type: {{ .Values.service.snode.type }}
+  ports:
+    - port: {{ .Values.service.snode.ports.api }}
+      targetPort: api
+      protocol: TCP
+      name: api
+    - port: {{ .Values.service.snode.ports.health }}
+      targetPort: health
+      protocol: TCP
+      name: health
+  selector:
+    {{- if .Values.service.snode.customSelector }}
+    {{- toYaml .Values.service.snode.customSelector | nindent 4 }}
+    {{- else }}
+    {{- include "erigon-snode.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: leader
+    {{- end }}
+---
+{{- if .Values.consensus.follower.enabled }}
+# Follower Erigon Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}-follower-erigon
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+    app.kubernetes.io/component: follower-erigon
+spec:
+  type: {{ .Values.service.erigon.type }}
+  ports:
+    - port: {{ .Values.service.erigon.ports.http }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ .Values.service.erigon.ports.ws }}
+      targetPort: ws
+      protocol: TCP
+      name: ws
+    - port: {{ .Values.service.erigon.ports.metrics }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    - port: {{ .Values.erigon.ports.p2p }}
+      targetPort: p2p
+      protocol: TCP
+      name: p2p
+  selector:
+    {{- if .Values.service.erigon.customSelector }}
+    {{- toYaml .Values.service.erigon.customSelector | nindent 4 }}
+    {{- else }}
+    {{- include "erigon-snode.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: follower
+    {{- end }}
+---
+# Follower Snode Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}-follower-snode
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+    app.kubernetes.io/component: follower-snode
+spec:
+  type: {{ .Values.service.snode.type }}
+  ports:
+    - port: {{ .Values.service.snode.ports.health }}
+      targetPort: health
+      protocol: TCP
+      name: health
+  selector:
+    {{- if .Values.service.snode.customSelector }}
+    {{- toYaml .Values.service.snode.customSelector | nindent 4 }}
+    {{- else }}
+    {{- include "erigon-snode.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: follower
+    {{- end }}
+{{- end }}

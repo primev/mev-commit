@@ -245,13 +245,34 @@ check_rpc() {
     RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
         -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
         "http://127.0.0.1:$RPC_PORT" 2>/dev/null)
-    
+
     BLOCK_HEX=$(echo "$RESPONSE" | grep -o '"result":"[^"]*"' | cut -d'"' -f4)
+
     if [[ -n "$BLOCK_HEX" && "$BLOCK_HEX" != "null" ]]; then
         BLOCK_NUMBER=$((16#${BLOCK_HEX#0x}))
         print_success "RPC working! Block: $BLOCK_NUMBER"
         return 0
+    else
+        print_warning "RPC not ready. Response: $RESPONSE"
+        return 1
     fi
+}
+
+# RPC check with retry loop
+check_rpc_with_retry() {
+    MAX_RETRIES=30   # number of attempts
+    SLEEP_INTERVAL=5 # seconds between attempts
+
+    for i in $(seq 1 $MAX_RETRIES); do
+        print_info "RPC check attempt $i/$MAX_RETRIES..."
+        if check_rpc; then
+            return 0
+        fi
+        print_warning "RPC not ready yet, retrying in $SLEEP_INTERVAL seconds..."
+        sleep $SLEEP_INTERVAL
+    done
+
+    print_error "RPC check failed after $MAX_RETRIES attempts"
     return 1
 }
 

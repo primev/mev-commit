@@ -25,7 +25,7 @@ job:
 # Application image
 image:
   repository: "primev/primev"
-  tag: ""
+  tag: "rc-1.2.0-relay-emulator"
   pullPolicy: Always
 
 # Service configuration
