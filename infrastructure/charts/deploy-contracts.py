@@ -20,7 +20,7 @@ REPO_BRANCH = "main"
 ORACLE_KEYSTORE_URL = "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore2/UTC--2025-06-24T18-20-44.554617000Z--1c533735c11dd317bc816629f86e00f479d097a3"
 SENDER_KEYSTORE_URL = "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore1/UTC--2025-06-24T18-20-43.890647000Z--421657a89f467ac04c542e46645a7752e199b5e6"
 
-KUBE_POD = "erigon-snode-0"
+KUBE_POD = "erigon-snode-leader-0"
 RPC_HOST = "127.0.0.1"
 RPC_PORT = 8545
 RPC_URL = f"http://{RPC_HOST}:{RPC_PORT}"

@@ -74,7 +74,7 @@ funding:
 # Storage
 persistence:
   enabled: true
-  storageClass: "premium-rwo"
+  storageClass: "openebs-nvme-disk2"
   accessMode: ReadWriteOnce
   size: 10Gi
 
@@ -91,8 +91,8 @@ service:
 # Resource limits
 resources:
   limits:
-    cpu: 2000m
-    memory: 4Gi
+    cpu: 4000m
+    memory: 14Gi
   requests:
     cpu: 50m
     memory: 100Mi
