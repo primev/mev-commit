@@ -252,14 +252,14 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				t.logger.Info("old block commitments deleted", "blockNumber", oldBlockNo)
 			}
 			if t.peerType == p2p.PeerTypeBidder {
-				if len(winners) > 2 {
-					// Bidders should process the block 2 behind the current one. Ideally the
+				if len(winners) > 3 {
+					// Bidders should process the block 3 behind the current one. Ideally the
 					// provider should open the commitment as they get the reward, so the incentive
 					// for bidder to open is only in cases of slashes as he will get refund. Only one
 					// of bidder or provider should open the commitment as 1 of the txns would
 					// fail. This delay is to ensure this.
-					t.logger.Debug("bidder detected, processing 2 blocks behind the current one")
-					winners = winners[:len(winners)-2]
+					t.logger.Info("bidder detected, processing 3 blocks behind the current one")
+					winners = winners[:len(winners)-3]
 				} else {
 					t.logger.Debug("no winners to open commitments")
 					continue
