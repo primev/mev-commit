@@ -372,15 +372,16 @@ func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) 
 				continue
 			}
 			if r.Receipt.Status != types.ReceiptStatusSuccessful {
-				reason, err := m.helper.RevertReason(ctx, r.Receipt, m.owner)
-				if err != nil {
-					m.logger.Error(
-						"retrieving transaction revert reason failed",
-						"error", err,
-						"txHash", txHashes[start+i],
-					)
-					reason = "unknown"
-				}
+				// reason, err := m.helper.RevertReason(ctx, r.Receipt, m.owner)
+				// if err != nil {
+				// 	m.logger.Error(
+				// 		"retrieving transaction revert reason failed",
+				// 		"error", err,
+				// 		"txHash", txHashes[start+i],
+				// 	)
+				// 	reason = "unknown"
+				// }
+				reason := "unknown"
 				m.logger.Error(
 					"failed transaction",
 					"txHash", txHashes[start+i],
