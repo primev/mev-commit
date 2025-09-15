@@ -230,6 +230,9 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				t.logger.Debug("no winners to open commitments")
 				continue
 			}
+			slices.SortFunc(winners, func(a, b *store.BlockWinner) int {
+				return int(a.BlockNumber - b.BlockNumber)
+			})
 			t.logger.Debug("stored block winners", "count", len(winners))
 			oldBlockNos := make([]int64, 0)
 			winners = slices.DeleteFunc(winners, func(item *store.BlockWinner) bool {
