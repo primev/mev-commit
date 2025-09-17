@@ -62,6 +62,7 @@ type SingleNodeApp struct {
 	connectionStatus  sync.Mutex
 	connectionRefused bool
 	rpcClient         *rpc.Client
+	runLoopStopped    chan struct{}
 }
 
 // NewSingleNodeApp creates and initializes a new SingleNodeApp.
@@ -154,6 +155,7 @@ func NewSingleNodeApp(
 		cancel:            cancel,
 		connectionRefused: false,
 		rpcClient:         rpcClient,
+		runLoopStopped:    make(chan struct{}),
 	}, nil
 }
 
@@ -199,6 +201,13 @@ func (app *SingleNodeApp) healthHandler(w http.ResponseWriter, r *http.Request) 
 		app.logger.Warn("Health check failed: ethereum is not available (connection refused)")
 		http.Error(w, "ethereum is not available", http.StatusServiceUnavailable)
 		return
+	}
+
+	select {
+	case <-app.runLoopStopped:
+		http.Error(w, "run loop has stopped", http.StatusServiceUnavailable)
+		return
+	default:
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -247,6 +256,7 @@ func (app *SingleNodeApp) Start() {
 	go func() {
 		defer app.wg.Done()
 		defer app.logger.Info("SingleNodeApp run loop finished.")
+		defer close(app.runLoopStopped)
 		app.runLoop()
 	}()
 }
@@ -329,24 +339,22 @@ func (app *SingleNodeApp) produceBlock() error {
 	}
 
 	if app.payloadRepo != nil {
-		payloadInfo := &types.PayloadInfo{
-			PayloadID:        currentState.PayloadID,
-			ExecutionPayload: currentState.ExecutionPayload,
-			BlockHeight:      blockHeight,
-		}
+		// Save payload to repository
 		saveCtx, saveCancel := context.WithTimeout(app.appCtx, 200*time.Millisecond)
 		defer saveCancel()
 
-		if err := app.payloadRepo.SavePayload(saveCtx, payloadInfo); err != nil {
-			app.logger.Error(
-				"Failed to save payload to database",
-				"payload_id", currentState.PayloadID,
-				"error", err,
-			)
-			return fmt.Errorf("failed to save payload to database: %w", err)
-		} else {
-			app.logger.Info("Payload details submitted to database for saving", "payload_id", currentState.PayloadID)
+		if err := app.payloadRepo.SavePayload(saveCtx, &types.PayloadInfo{
+			PayloadID:        currentState.PayloadID,
+			ExecutionPayload: currentState.ExecutionPayload,
+			BlockHeight:      blockHeight,
+		}); err != nil {
+			return fmt.Errorf("failed to save payload: %w", err)
 		}
+		app.logger.Info(
+			"payload saved to repository",
+			"payload_id", currentState.PayloadID,
+			"block_height", blockHeight,
+		)
 	}
 
 	// Step 2: Finalize the block
@@ -358,6 +366,7 @@ func (app *SingleNodeApp) produceBlock() error {
 	if err := app.blockBuilder.FinalizeBlock(app.appCtx, currentState.PayloadID, currentState.ExecutionPayload, ""); err != nil {
 		return fmt.Errorf("failed to finalize block: %w", err)
 	}
+
 	return nil
 }
 
