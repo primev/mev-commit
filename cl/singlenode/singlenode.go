@@ -18,6 +18,7 @@ import (
 	"github.com/primev/mev-commit/cl/singlenode/payloadstore"
 	localstate "github.com/primev/mev-commit/cl/singlenode/state"
 	"github.com/primev/mev-commit/cl/types"
+	"github.com/primev/mev-commit/cl/util"
 )
 
 const (
@@ -53,15 +54,18 @@ type SingleNodeApp struct {
 	blockBuilder BlockBuilder
 	// stateManager is a local state manager for block production
 	// it's not anticipated to use DB as all the state already in geth client
-	stateManager      *localstate.LocalStateManager
-	payloadRepo       types.PayloadRepository
-	payloadServer     *api.PayloadServer
-	appCtx            context.Context
-	cancel            context.CancelFunc
-	wg                sync.WaitGroup
-	connectionStatus  sync.Mutex
-	connectionRefused bool
-	rpcClient         *rpc.Client
+	stateManager         *localstate.LocalStateManager
+	payloadRepo          types.PayloadRepository
+	payloadServer        *api.PayloadServer
+	appCtx               context.Context
+	cancel               context.CancelFunc
+	wg                   sync.WaitGroup
+	connectionStatus     sync.Mutex
+	connectionRefused    bool
+	rpcClient            *rpc.Client
+	payloadChan          chan *types.PayloadInfo
+	runLoopStopped       chan struct{}
+	payloadUploadStopped chan struct{}
 }
 
 // NewSingleNodeApp creates and initializes a new SingleNodeApp.
@@ -144,16 +148,19 @@ func NewSingleNodeApp(
 	}
 
 	return &SingleNodeApp{
-		logger:            logger,
-		cfg:               cfg,
-		blockBuilder:      bb,
-		stateManager:      stateMgr,
-		payloadRepo:       pRepo,
-		payloadServer:     payloadServer,
-		appCtx:            ctx,
-		cancel:            cancel,
-		connectionRefused: false,
-		rpcClient:         rpcClient,
+		logger:               logger,
+		cfg:                  cfg,
+		blockBuilder:         bb,
+		stateManager:         stateMgr,
+		payloadRepo:          pRepo,
+		payloadServer:        payloadServer,
+		appCtx:               ctx,
+		cancel:               cancel,
+		connectionRefused:    false,
+		rpcClient:            rpcClient,
+		payloadChan:          make(chan *types.PayloadInfo, 10),
+		runLoopStopped:       make(chan struct{}),
+		payloadUploadStopped: make(chan struct{}),
 	}, nil
 }
 
@@ -199,6 +206,16 @@ func (app *SingleNodeApp) healthHandler(w http.ResponseWriter, r *http.Request) 
 		app.logger.Warn("Health check failed: ethereum is not available (connection refused)")
 		http.Error(w, "ethereum is not available", http.StatusServiceUnavailable)
 		return
+	}
+
+	select {
+	case <-app.runLoopStopped:
+		http.Error(w, "run loop has stopped", http.StatusServiceUnavailable)
+		return
+	case <-app.payloadUploadStopped:
+		http.Error(w, "payload upload loop has stopped", http.StatusServiceUnavailable)
+		return
+	default:
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -247,8 +264,41 @@ func (app *SingleNodeApp) Start() {
 	go func() {
 		defer app.wg.Done()
 		defer app.logger.Info("SingleNodeApp run loop finished.")
+		defer close(app.runLoopStopped)
 		app.runLoop()
 	}()
+
+	if app.payloadRepo != nil {
+		app.wg.Add(1)
+		go func() {
+			defer app.wg.Done()
+			defer app.logger.Info("Payload upload loop finished.")
+			defer close(app.payloadUploadStopped)
+
+			for {
+				select {
+				case <-app.appCtx.Done():
+					return
+				case payloadInfo := <-app.payloadChan:
+					if payloadInfo == nil {
+						continue
+					}
+					if err := util.RetryWithBackoff(app.appCtx, 3, app.logger.With("payload", payloadInfo.PayloadID), func() error {
+						return app.payloadRepo.SavePayload(app.appCtx, payloadInfo)
+					}); err != nil {
+						app.logger.Error(
+							"Failed to save payload to database after retries",
+							"payload_id", payloadInfo.PayloadID,
+							"error", err,
+						)
+						return
+					} else {
+						app.logger.Info("Payload details submitted to database for saving", "payload_id", payloadInfo.PayloadID)
+					}
+				}
+			}
+		}()
+	}
 }
 
 // shutdownWithError handles errors during the run loop and initiates a shutdown.
@@ -328,27 +378,6 @@ func (app *SingleNodeApp) produceBlock() error {
 		blockHeight = 0
 	}
 
-	if app.payloadRepo != nil {
-		payloadInfo := &types.PayloadInfo{
-			PayloadID:        currentState.PayloadID,
-			ExecutionPayload: currentState.ExecutionPayload,
-			BlockHeight:      blockHeight,
-		}
-		saveCtx, saveCancel := context.WithTimeout(app.appCtx, 200*time.Millisecond)
-		defer saveCancel()
-
-		if err := app.payloadRepo.SavePayload(saveCtx, payloadInfo); err != nil {
-			app.logger.Error(
-				"Failed to save payload to database",
-				"payload_id", currentState.PayloadID,
-				"error", err,
-			)
-			return fmt.Errorf("failed to save payload to database: %w", err)
-		} else {
-			app.logger.Info("Payload details submitted to database for saving", "payload_id", currentState.PayloadID)
-		}
-	}
-
 	// Step 2: Finalize the block
 	app.logger.Info(
 		"finalizing block",
@@ -357,6 +386,19 @@ func (app *SingleNodeApp) produceBlock() error {
 	)
 	if err := app.blockBuilder.FinalizeBlock(app.appCtx, currentState.PayloadID, currentState.ExecutionPayload, ""); err != nil {
 		return fmt.Errorf("failed to finalize block: %w", err)
+	}
+
+	if app.payloadRepo != nil {
+		// Non-blocking send to the payload channel
+		select {
+		case app.payloadChan <- &types.PayloadInfo{
+			PayloadID:        currentState.PayloadID,
+			ExecutionPayload: currentState.ExecutionPayload,
+			BlockHeight:      blockHeight,
+		}:
+		case <-app.appCtx.Done():
+			return app.appCtx.Err()
+		}
 	}
 	return nil
 }
