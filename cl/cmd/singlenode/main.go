@@ -413,11 +413,17 @@ func startFollowerNode(c *cli.Context) error {
 	}
 	bb := blockbuilder.NewMemberBlockBuilder(engineCL, logger.With("component", "BlockBuilder"))
 
+	healthAddr := c.String(healthAddrPortFlag.Name)
+	if healthAddr == "" {
+		return fmt.Errorf("health-addr is required")
+	}
+
 	followerNode, err := follower.NewFollower(
 		logger,
 		repo,
 		syncBatchSize,
 		bb,
+		healthAddr,
 	)
 	if err != nil {
 		logger.Error("Failed to initialize Follower", "error", err)
