@@ -340,7 +340,7 @@ func (app *SingleNodeApp) produceBlock() error {
 
 	if app.payloadRepo != nil {
 		// Save payload to repository
-		saveCtx, saveCancel := context.WithTimeout(app.appCtx, 400*time.Millisecond)
+		saveCtx, saveCancel := context.WithTimeout(app.appCtx, 200*time.Millisecond)
 		defer saveCancel()
 
 		if err := app.payloadRepo.SavePayload(saveCtx, &types.PayloadInfo{
