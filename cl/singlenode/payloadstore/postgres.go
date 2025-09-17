@@ -291,7 +291,7 @@ func (r *PostgresRepository) GetLatestHeight(ctx context.Context) (uint64, error
 	var h int64
 	err := r.db.QueryRowContext(queryCtx, query).Scan(&h)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == sql.ErrNoRows { // Empty table -> new chain
 			return 0, nil
 		}
 		return 0, err
