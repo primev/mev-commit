@@ -280,21 +280,26 @@ func (r *PostgresRepository) GetLatestPayload(ctx context.Context) (*types.Paylo
 
 func (r *PostgresRepository) GetLatestHeight(ctx context.Context) (uint64, error) {
 	query := `
-		SELECT MAX(block_height) FROM execution_payloads;
+		SELECT block_height
+		FROM execution_payloads
+		ORDER BY block_height DESC
+		LIMIT 1;
 	`
 	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	var n sql.NullInt64
-	if err := r.db.QueryRowContext(queryCtx, query).Scan(&n); err != nil {
-		// MAX should never return sql.ErrNoRow, always bubble errors
+	var h int64
+	err := r.db.QueryRowContext(queryCtx, query).Scan(&h)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
 		return 0, err
 	}
-	if !n.Valid {
-		// Empty table -> new chain
-		return 0, nil
+	if h < 0 {
+		return 0, fmt.Errorf("returned block height is negative: %d", h)
 	}
-	return uint64(n.Int64), nil
+	return uint64(h), nil
 }
 
 // Close closes the database connection.
