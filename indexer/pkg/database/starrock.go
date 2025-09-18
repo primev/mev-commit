@@ -141,7 +141,7 @@ func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) erro
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	var timestamp, proposerIndex, relayTag, rewardEth string
+	var timestamp, proposerIndex, relayTag, rewardEth, builderHex, feeRecHex string
 
 	if ei.Timestamp != nil {
 		timestamp = fmt.Sprintf("'%s'", ei.Timestamp.Format("2006-01-02 15:04:05"))
@@ -166,13 +166,27 @@ func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) erro
 	} else {
 		rewardEth = "NULL"
 	}
+	if ei.BuilderHex != nil {
+		builderHex = fmt.Sprintf("'%s'", *ei.BuilderHex)
+	} else {
+		builderHex = "NULL"
+	}
+
+	if ei.FeeRecHex != nil {
+		feeRecHex = fmt.Sprintf("'%s'", *ei.FeeRecHex)
+	} else {
+		feeRecHex = "NULL"
+	}
 
 	query := fmt.Sprintf(`
 INSERT INTO blocks(
-    slot, block_number, timestamp, proposer_index,
-    winning_relay, producer_reward_eth
-) VALUES (%d, %d, %s, %s, %s, %s)`,
-		ei.Slot, ei.BlockNumber, timestamp, proposerIndex, relayTag, rewardEth)
+    slot, block_number, timestamp, proposer_index, winning_relay,
+    winning_builder_pubkey, fee_recipient, producer_reward_eth,
+    validator_pubkey, validator_opted_in, block_status, graffiti,
+    block_root, parent_root, state_root, created_at
+) VALUES (%d, %d, %s, %s, %s, %s, %s, %s, '', 0, 1, '', '', '', '', NOW())`,
+		ei.Slot, ei.BlockNumber, timestamp, proposerIndex, relayTag,
+		builderHex, feeRecHex, rewardEth)
 
 	_, err := db.Conn.ExecContext(ctx2, query)
 	if err != nil {

@@ -183,6 +183,56 @@ func main() {
 			if ei.RewardEth != nil {
 				log.Printf("[REWARD] Producer reward: %.6f ETH", *ei.RewardEth)
 			}
+			beaconCtx, beaconCancel := context.WithTimeout(ctx, 10*time.Second)
+			url := fmt.Sprintf("%s/block/%d", cfg.BeaconBase, ei.Slot)
+			var beaconResp struct {
+				Data struct {
+					Status     string `json:"status"`
+					Graffiti   string `json:"graffiti"`
+					BlockRoot  string `json:"blockroot"`
+					ParentRoot string `json:"parentroot"`
+					StateRoot  string `json:"stateroot"`
+				} `json:"data"`
+			}
+
+			// Try to get beacon metadata
+			beaconAvailable := false
+			if err := httputil.FetchJSONWithRetry(beaconCtx, httpc, url, &beaconResp, 2, 300*time.Millisecond); err == nil {
+				beaconAvailable = true
+				log.Printf("[BEACON] Fetched metadata for slot %d", ei.Slot)
+			}
+			beaconCancel()
+
+			// Convert status to int
+			var blockStatus int = 1
+			if beaconAvailable {
+				switch beaconResp.Data.Status {
+				case "0":
+					blockStatus = 0
+				case "1":
+					blockStatus = 1
+				case "2":
+					blockStatus = 2
+				}
+			}
+			if beaconAvailable {
+				statusText := "proposed"
+				if blockStatus == 0 {
+					statusText = "missed"
+				}
+				if blockStatus == 2 {
+					statusText = "orphaned"
+				}
+				log.Printf("[BEACON] Status: %s", statusText)
+				if beaconResp.Data.Graffiti != "" {
+					log.Printf("[BEACON] Graffiti: %s", beaconResp.Data.Graffiti)
+				}
+				if len(beaconResp.Data.BlockRoot) > 10 {
+					log.Printf("[BEACON] Block root: %s...", beaconResp.Data.BlockRoot[:10])
+				}
+			} else {
+				log.Printf("[BEACON] Metadata not available for slot %d", ei.Slot)
+			}
 
 			// Save block to database
 			if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
@@ -190,78 +240,13 @@ func main() {
 				continue
 			}
 			log.Printf("[DB] Block %d saved successfully", nextBN)
-			go func(slot int64) {
-				time.Sleep(1 * time.Second) // Brief delay for block to settle
+			// Save block to database
+			if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
+				log.Printf("[DB] Failed to save block %d: %v", nextBN, err)
+				continue
+			}
+			log.Printf("[DB] Block %d saved successfully", nextBN)
 
-				// Fetch BeaconChain.in block/{slot} data for missing fields
-				url := fmt.Sprintf("%s/block/%d", cfg.BeaconBase, slot)
-				ctx2, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-				defer cancel()
-
-				var resp struct {
-					Data struct {
-						Status     string `json:"status"` // 0=missed, 1=proposed, 2=orphaned
-						Graffiti   string `json:"graffiti"`
-						BlockRoot  string `json:"blockroot"`
-						ParentRoot string `json:"parentroot"`
-						StateRoot  string `json:"stateroot"`
-					} `json:"data"`
-				}
-
-				if err := httputil.FetchJSONWithRetry(ctx2, httpc, url, &resp, 3, 300*time.Millisecond); err != nil {
-					log.Printf("[BEACON] Failed to fetch slot metadata for %d: %v", slot, err)
-					return
-				}
-				// Convert string status to int
-				var blockStatus int = 1 // default to proposed
-				switch resp.Data.Status {
-				case "0":
-					blockStatus = 0
-				case "1":
-					blockStatus = 1
-				case "2":
-					blockStatus = 2
-				default:
-					blockStatus = 1
-				}
-				// Update blocks table with beacon metadata
-				updateCtx, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel2()
-
-				// _, err := db.Conn.ExecContext(updateCtx, `
-				// INSERT INTO blocks (
-				//     slot, block_status, graffiti, block_root, parent_root, state_root
-				// ) VALUES (?, ?, ?, ?, ?, ?)`,
-				// slot, blockStatus, resp.Data.Graffiti, resp.Data.BlockRoot,
-				// resp.Data.ParentRoot, resp.Data.StateRoot)
-				var exists bool
-				err := db.Conn.QueryRowContext(updateCtx,
-					`SELECT 1 FROM blocks WHERE slot = ? LIMIT 1`, slot).Scan(&exists)
-
-				if err == nil && exists {
-					// Row exists, we can do the beacon metadata insert
-					_, err = db.Conn.ExecContext(updateCtx, `
-        INSERT INTO blocks (slot, block_status, graffiti, block_root, parent_root, state_root) 
-        VALUES (?, ?, ?, ?, ?, ?)`,
-						slot, blockStatus, resp.Data.Graffiti, resp.Data.BlockRoot,
-						resp.Data.ParentRoot, resp.Data.StateRoot)
-				} else {
-					log.Printf("[BEACON] Row for slot %d doesn't exist yet, skipping metadata update", slot)
-				}
-
-				if err != nil {
-					log.Printf("[BEACON] Failed to update metadata for slot %d: %v", slot, err)
-				} else {
-					statusText := "proposed"
-					if resp.Data.Status == string(0) {
-						statusText = "missed"
-					}
-					if resp.Data.Status == string(2) {
-						statusText = "orphaned"
-					}
-					log.Printf("[BEACON] Updated slot %d metadata (%s)", slot, statusText)
-				}
-			}(ei.Slot)
 			// Fetch and store bid data from all relays
 			totalBids := 0
 			successfulRelays := 0
@@ -303,66 +288,6 @@ func main() {
 			}
 
 			log.Printf("[SUMMARY] Block %d: %d bids from %d relays", nextBN, totalBids, successfulRelays)
-			// Async validator pubkey fetch
-			if ei.ProposerIdx != nil {
-				go func(slot int64, proposerIdx int64) {
-					time.Sleep(cfg.ValidatorWait)
-
-					vpub, err := beacon.FetchValidatorPubkey(httpc, cfg.BeaconBase, proposerIdx)
-					if err != nil {
-						log.Printf("[VALIDATOR] Failed to fetch pubkey for proposer %d: %v", proposerIdx, err)
-						return
-					}
-
-					if len(vpub) > 0 {
-						if err := db.UpdateValidatorPubkey(context.Background(), slot, vpub); err != nil {
-							log.Printf("[VALIDATOR] Failed to save pubkey for slot %d: %v", slot, err)
-						} else {
-							log.Printf("[VALIDATOR] Pubkey saved for proposer %d (slot %d)", proposerIdx, slot)
-						}
-					}
-				}(ei.Slot, *ei.ProposerIdx)
-			}
-
-			// Async opt-in status check
-			if ei.ProposerIdx != nil {
-				go func(slot int64, blockNumber int64) {
-					time.Sleep(cfg.ValidatorWait + 500*time.Millisecond)
-
-					// Wait for validator pubkey to be available
-					var vpk []byte
-					retries := 3
-					for i := 0; i < retries; i++ {
-						err := db.Conn.QueryRowContext(context.Background(),
-							`SELECT validator_pubkey FROM blocks WHERE slot=?`, slot).Scan(&vpk)
-						if err == nil && len(vpk) > 0 {
-							break
-						}
-						if i < retries-1 {
-							time.Sleep(time.Second)
-						}
-					}
-
-					if len(vpk) == 0 {
-						log.Printf("[OPT-IN] Validator pubkey not available for slot %d", slot)
-						return
-					}
-
-					opted, err := ethereum.CallAreOptedInAtBlock(httpc, cfg, blockNumber, vpk)
-					if err != nil {
-						log.Printf("[OPT-IN] Failed to check opt-in status for slot %d: %v", slot, err)
-						return
-					}
-
-					_, err = db.Conn.ExecContext(context.Background(),
-						`INSERT INTO blocks (slot, validator_opted_in) VALUES (?, ?)`, slot, opted)
-					if err != nil {
-						log.Printf("[OPT-IN] Failed to save opt-in status for slot %d: %v", slot, err)
-					} else {
-						log.Printf("[OPT-IN] Slot %d validator opted-in: %t", slot, opted)
-					}
-				}(ei.Slot, ei.BlockNumber)
-			}
 
 			lastBN = nextBN
 			if err := db.SaveLastBlockNumber(ctx, lastBN); err != nil {
