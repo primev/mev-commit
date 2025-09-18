@@ -42,7 +42,6 @@ type blockBuilder interface {
 }
 
 func NewFollower(
-	ctx context.Context,
 	logger *slog.Logger,
 	sharedDB PayloadDB,
 	syncBatchSize uint64,

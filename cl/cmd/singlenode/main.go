@@ -442,7 +442,6 @@ func startFollowerNode(c *cli.Context) error {
 	}
 
 	followerNode, err := follower.NewFollower(
-		rootCtx,
 		logger,
 		sharedDB,
 		syncBatchSize,

@@ -81,7 +81,7 @@ func TestFollower_syncFromSharedDB(t *testing.T) {
 	syncBatchSize := uint64(100)
 
 	bb := newMockBlockBuilder()
-	follower, err := follower.NewFollower(context.Background(), logger, payloadRepo, syncBatchSize, bb, ":8080")
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb, ":8080")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestFollower_syncFromSharedDB_NoRows(t *testing.T) {
 	syncBatchSize := uint64(100)
 
 	bb := newMockBlockBuilder()
-	follower, err := follower.NewFollower(context.Background(), logger, payloadRepo, syncBatchSize, bb, ":8081")
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb, ":8081")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestFollower_syncFromSharedDB_MultipleIterations(t *testing.T) {
 	syncBatchSize := uint64(20)
 
 	bb := newMockBlockBuilder()
-	follower, err := follower.NewFollower(context.Background(), logger, payloadRepo, syncBatchSize, bb, ":8082")
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb, ":8082")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +364,7 @@ func TestFollower_Start_SimulateNewChain(t *testing.T) {
 	syncBatchSize := uint64(100)
 
 	bb := newMockBlockBuilder()
-	follower, err := follower.NewFollower(context.Background(), logger, payloadRepo, syncBatchSize, bb, ":8083")
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb, ":8083")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -442,7 +442,7 @@ func TestFollower_Start_SyncExistingChain(t *testing.T) {
 	syncBatchSize := uint64(20)
 
 	bb := newMockBlockBuilder()
-	follower, err := follower.NewFollower(context.Background(), logger, payloadRepo, syncBatchSize, bb, ":8084")
+	follower, err := follower.NewFollower(logger, payloadRepo, syncBatchSize, bb, ":8084")
 	if err != nil {
 		t.Fatal(err)
 	}
