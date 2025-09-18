@@ -18,11 +18,24 @@ import (
 	"github.com/primev/mev-commit/cl/singlenode/payloadstore"
 	localstate "github.com/primev/mev-commit/cl/singlenode/state"
 	"github.com/primev/mev-commit/cl/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
 	// Stop Function
 	shutdownTimeout = 5 * time.Second
+)
+
+var (
+	snDBDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "mev_commit",
+		Subsystem: "singlenode",
+		Name:      "db_duration_seconds",
+		Help:      "Duration of save payload DB operation in singlenode",
+		Buckets:   prometheus.DefBuckets,
+	}, []string{"op"})
 )
 
 // Config holds the configuration for the SingleNodeApp.
@@ -237,6 +250,7 @@ func (app *SingleNodeApp) Start() {
 		defer app.wg.Done()
 		mux := http.NewServeMux()
 		mux.HandleFunc("/health", app.healthHandler)
+		mux.Handle("/metrics", promhttp.Handler())
 		addr := app.cfg.HealthAddr
 		server := &http.Server{Addr: addr, Handler: mux}
 		app.logger.Info("Health endpoint listening", "address", addr)
@@ -356,6 +370,7 @@ func (app *SingleNodeApp) produceBlock() error {
 		saveCtx, saveCancel := context.WithTimeout(app.appCtx, 200*time.Millisecond)
 		defer saveCancel()
 
+		saveStart := time.Now()
 		if err := app.payloadRepo.SavePayload(saveCtx, &types.PayloadInfo{
 			PayloadID:        currentState.PayloadID,
 			ExecutionPayload: currentState.ExecutionPayload,
@@ -363,6 +378,8 @@ func (app *SingleNodeApp) produceBlock() error {
 		}); err != nil {
 			return fmt.Errorf("failed to save payload: %w", err)
 		}
+		saveDuration := time.Since(saveStart)
+		snDBDuration.WithLabelValues("save_payload").Observe(float64(saveDuration.Seconds()))
 		app.logger.Info(
 			"payload saved to repository",
 			"payload_id", currentState.PayloadID,

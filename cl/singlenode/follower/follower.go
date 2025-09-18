@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/primev/mev-commit/cl/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -28,6 +31,16 @@ type Follower struct {
 
 const (
 	defaultBackoff = 200 * time.Millisecond
+)
+
+var (
+	followerDBDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "mev_commit",
+		Subsystem: "follower",
+		Name:      "db_duration_seconds",
+		Help:      "Duration of DB operations in follower",
+		Buckets:   prometheus.DefBuckets,
+	}, []string{"op"})
 )
 
 type PayloadDB interface {
@@ -73,6 +86,7 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 		defer close(f.healthStopped)
 		mux := http.NewServeMux()
 		mux.HandleFunc("/health", f.healthHandler)
+		mux.Handle("/metrics", promhttp.Handler())
 		server := &http.Server{Addr: f.healthAddr, Handler: mux}
 		f.logger.Info("Health endpoint listening", "address", f.healthAddr)
 
@@ -149,7 +163,10 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 		}
 
 		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		start := time.Now()
 		targetBlock, err := f.sharedDB.GetLatestHeight(cctx)
+		duration := time.Since(start)
+		followerDBDuration.WithLabelValues("get_latest_height").Observe(float64(duration.Seconds()))
 		cancel()
 		if err != nil {
 			f.sleepRespectingContext(ctx, defaultBackoff)
@@ -171,7 +188,10 @@ func (f *Follower) syncFromSharedDB(ctx context.Context) error {
 		limit := min(f.syncBatchSize, blocksRemaining)
 
 		cctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		start = time.Now()
 		payloads, err := f.sharedDB.GetPayloadsSince(cctx, lastSignalledBlock+1, int(limit))
+		duration = time.Since(start)
+		followerDBDuration.WithLabelValues("get_payloads_since").Observe(float64(duration.Seconds()))
 		cancel()
 		if err != nil {
 			f.logger.Error("failed to get payloads since", "error", err)
