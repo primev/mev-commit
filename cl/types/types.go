@@ -43,10 +43,10 @@ const (
 )
 
 type PayloadInfo struct {
-	PayloadID        string
-	ExecutionPayload string
-	BlockHeight      uint64
-	InsertedAt       time.Time
+	PayloadID        string    `json:"payload_id"`
+	ExecutionPayload string    `json:"execution_payload"`
+	BlockHeight      uint64    `json:"block_height"`
+	InsertedAt       time.Time `json:"inserted_at"`
 }
 
 type PayloadRepository interface {

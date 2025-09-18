@@ -5,6 +5,7 @@ go 1.23.0
 toolchain go1.24.0
 
 require (
+	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/go-redis/redismock/v9 v9.2.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/golang/mock v1.6.0
@@ -56,6 +57,7 @@ require (
 	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect

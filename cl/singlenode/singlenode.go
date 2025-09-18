@@ -35,6 +35,7 @@ type Config struct {
 	PriorityFeeReceipt       string
 	HealthAddr               string
 	PostgresDSN              string
+	RedisURL                 string
 	APIAddr                  string
 	NonAuthRpcURL            string
 	TxPoolPollingInterval    time.Duration
@@ -127,8 +128,20 @@ func NewSingleNodeApp(
 		}
 		pRepo = repo
 		logger.Info("Payload repository initialized, payloads will be saved to PostgreSQL.")
+	} else if cfg.RedisURL != "" {
+		repo, err := payloadstore.NewRedisRepositoryFromURL(ctx, cfg.RedisURL, logger)
+		if err != nil {
+			cancel()
+			logger.Error(
+				"failed to create payload repository",
+				"error", err,
+			)
+			return nil, fmt.Errorf("failed to initialize payload repository: %w", err)
+		}
+		pRepo = repo
+		logger.Info("Payload repository initialized, payloads will be saved to Redis.")
 	} else {
-		logger.Info("PostgresDSN not provided, payload saving to DB is disabled.")
+		logger.Info("PostgresDSN or RedisURL not provided, payload saving to DB is disabled.")
 	}
 
 	var payloadServer *api.PayloadServer

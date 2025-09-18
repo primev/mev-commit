@@ -15,7 +15,7 @@ import (
 
 type Follower struct {
 	logger                *slog.Logger
-	sharedDB              payloadDB
+	sharedDB              PayloadDB
 	syncBatchSize         uint64
 	payloadCh             chan types.PayloadInfo
 	bbMutex               sync.RWMutex
@@ -30,7 +30,7 @@ const (
 	defaultBackoff = 200 * time.Millisecond
 )
 
-type payloadDB interface {
+type PayloadDB interface {
 	GetPayloadsSince(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error)
 	GetLatestHeight(ctx context.Context) (uint64, error)
 }
@@ -43,14 +43,11 @@ type blockBuilder interface {
 
 func NewFollower(
 	logger *slog.Logger,
-	sharedDB payloadDB,
+	sharedDB PayloadDB,
 	syncBatchSize uint64,
 	bb blockBuilder,
 	healthAddr string,
 ) (*Follower, error) {
-	if sharedDB == nil {
-		return nil, errors.New("payload repository not provided")
-	}
 	if syncBatchSize == 0 {
 		return nil, errors.New("sync batch size must be greater than 0")
 	}
