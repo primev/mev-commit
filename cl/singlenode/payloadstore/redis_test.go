@@ -167,3 +167,111 @@ func TestClose(t *testing.T) {
 		t.Fatalf("Close error: %v", err)
 	}
 }
+
+func TestGetPayloadByHeight_Found(t *testing.T) {
+	repo, _, cleanup := newTestRepo(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	p5 := &types.PayloadInfo{PayloadID: "id5", ExecutionPayload: "p5", BlockHeight: 5, InsertedAt: now}
+	p7 := &types.PayloadInfo{PayloadID: "id7", ExecutionPayload: "p7", BlockHeight: 7, InsertedAt: now}
+
+	if err := repo.SavePayload(ctx, p5); err != nil {
+		t.Fatalf("SavePayload p5 error: %v", err)
+	}
+	if err := repo.SavePayload(ctx, p7); err != nil {
+		t.Fatalf("SavePayload p7 error: %v", err)
+	}
+
+	got, err := repo.GetPayloadByHeight(ctx, 7)
+	if err != nil {
+		t.Fatalf("GetPayloadByHeight error: %v", err)
+	}
+	if got == nil {
+		t.Fatalf("expected payload, got nil")
+	}
+	if got.PayloadID != "id7" || got.ExecutionPayload != "p7" || got.BlockHeight != 7 || got.InsertedAt != now {
+		t.Fatalf("unexpected payload: %#v", got)
+	}
+
+	got, err = repo.GetPayloadByHeight(ctx, 5)
+	if err != nil {
+		t.Fatalf("GetPayloadByHeight error: %v", err)
+	}
+	if got == nil {
+		t.Fatalf("expected payload, got nil")
+	}
+	if got.PayloadID != "id5" || got.ExecutionPayload != "p5" || got.BlockHeight != 5 || got.InsertedAt != now {
+		t.Fatalf("unexpected payload: %#v", got)
+	}
+}
+
+func TestGetPayloadByHeight_NotFound(t *testing.T) {
+	repo, _, cleanup := newTestRepo(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	p5 := &types.PayloadInfo{PayloadID: "id5", ExecutionPayload: "p5", BlockHeight: 5, InsertedAt: now}
+	if err := repo.SavePayload(ctx, p5); err != nil {
+		t.Fatalf("SavePayload p5 error: %v", err)
+	}
+
+	got, err := repo.GetPayloadByHeight(ctx, 6)
+	if err == nil {
+		t.Fatalf("expected error for missing height, got nil (payload: %#v)", got)
+	}
+	if got != nil {
+		t.Fatalf("expected nil payload on not found, got: %#v", got)
+	}
+}
+
+func TestGetLatestPayload_Empty(t *testing.T) {
+	repo, _, cleanup := newTestRepo(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	got, err := repo.GetLatestPayload(ctx)
+	if err != nil {
+		t.Fatalf("GetLatestPayload error: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil payload for empty repo, got %#v", got)
+	}
+}
+
+func TestGetLatestPayload_ReturnsHighest(t *testing.T) {
+	repo, _, cleanup := newTestRepo(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	p1 := &types.PayloadInfo{PayloadID: "a", ExecutionPayload: "pa", BlockHeight: 10, InsertedAt: now}
+	p2 := &types.PayloadInfo{PayloadID: "b", ExecutionPayload: "pb", BlockHeight: 12, InsertedAt: now}
+	p3 := &types.PayloadInfo{PayloadID: "c", ExecutionPayload: "pc", BlockHeight: 15, InsertedAt: now}
+
+	if err := repo.SavePayload(ctx, p1); err != nil {
+		t.Fatalf("SavePayload p1 error: %v", err)
+	}
+	if err := repo.SavePayload(ctx, p2); err != nil {
+		t.Fatalf("SavePayload p2 error: %v", err)
+	}
+	if err := repo.SavePayload(ctx, p3); err != nil {
+		t.Fatalf("SavePayload p3 error: %v", err)
+	}
+
+	got, err := repo.GetLatestPayload(ctx)
+	if err != nil {
+		t.Fatalf("GetLatestPayload error: %v", err)
+	}
+	if got == nil {
+		t.Fatalf("expected payload, got nil")
+	}
+	if got.BlockHeight != 15 || got.PayloadID != "c" || got.ExecutionPayload != "pc" || got.InsertedAt != now {
+		t.Fatalf("unexpected latest payload: %#v", got)
+	}
+}

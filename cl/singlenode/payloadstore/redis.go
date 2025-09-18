@@ -96,6 +96,53 @@ func (r *RedisRepository) GetPayloadsSince(ctx context.Context, sinceHeight uint
 	return result, nil
 }
 
+func (r *RedisRepository) GetPayloadByHeight(ctx context.Context, height uint64) (*types.PayloadInfo, error) {
+	hStr := strconv.FormatUint(height, 10)
+	members, err := r.redisClient.ZRangeByScore(ctx, zKeyPayloads, &redis.ZRangeBy{
+		Min:    hStr,
+		Max:    hStr,
+		Offset: 0,
+		Count:  1,
+	}).Result()
+	if err != nil {
+		return nil, fmt.Errorf("ZRangeByScore: %w", err)
+	}
+	if len(members) == 0 {
+		return nil, fmt.Errorf("payload not found")
+	}
+	var pi types.PayloadInfo
+	if err := json.Unmarshal([]byte(members[0]), &pi); err != nil {
+		return nil, fmt.Errorf("unmarshal payload: %w", err)
+	}
+	return &pi, nil
+}
+
+func (r *RedisRepository) GetLatestPayload(ctx context.Context) (*types.PayloadInfo, error) {
+	items, err := r.redisClient.ZRevRangeWithScores(ctx, zKeyPayloads, 0, 0).Result()
+	if err != nil {
+		return nil, fmt.Errorf("ZRevRangeWithScores: %w", err)
+	}
+	if len(items) == 0 {
+		return nil, nil
+	}
+	top := items[0]
+	if top.Score < 0 {
+		return nil, fmt.Errorf("negative height score: %v", top.Score)
+	}
+	str, ok := top.Member.(string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected member type %T, expected string", top.Member)
+	}
+	var pi types.PayloadInfo
+	if err := json.Unmarshal([]byte(str), &pi); err != nil {
+		return nil, fmt.Errorf("unmarshal payload: %w", err)
+	}
+	if pi.BlockHeight == 0 {
+		pi.BlockHeight = uint64(top.Score)
+	}
+	return &pi, nil
+}
+
 func (r *RedisRepository) GetLatestHeight(ctx context.Context) (uint64, error) {
 	startIdx := int64(0)
 	stopIdx := int64(0)
