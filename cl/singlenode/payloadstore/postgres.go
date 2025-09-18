@@ -27,9 +27,9 @@ func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger)
 		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(50)
+	db.SetConnMaxLifetime(1 * time.Hour)
 
 	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
