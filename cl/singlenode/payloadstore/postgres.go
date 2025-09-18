@@ -27,8 +27,8 @@ func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger)
 		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -110,6 +110,7 @@ func (r *PostgresRepository) SavePayload(ctx context.Context, info *types.Payloa
 			"Failed to insert payload into postgres",
 			"payload_id", info.PayloadID,
 			"block_height", info.BlockHeight,
+			"dbStats", r.db.Stats(),
 			"error", err,
 		)
 		return fmt.Errorf("failed to insert payload into postgres: %w", err)
