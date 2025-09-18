@@ -191,8 +191,9 @@ var (
 	})
 
 	redisURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:     "redis-url",
-		Usage:    "Redis URL for storing payloads. If empty, saving to Redis is disabled. (e.g., 'redis://user:pass@host:port/dbname')",
+		Name:  "redis-url",
+		Usage: "Redis URL for storing payloads. If empty, saving to Redis is disabled. (e.g., 'redis://localhost:6379/2')",
+
 		EnvVars:  []string{"LEADER_REDIS_URL"},
 		Value:    "",
 		Category: categoryDatabase,
