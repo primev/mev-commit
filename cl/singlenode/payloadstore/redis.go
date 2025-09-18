@@ -27,7 +27,7 @@ func NewRedisRepository(redisClient *redis.Client, logger *slog.Logger) *RedisRe
 const zKeyPayloads = "execution_payloads:z"
 
 func (r *RedisRepository) SavePayload(ctx context.Context, info *types.PayloadInfo) error {
-	if info.InsertedAt.IsZero() { // TODO: is this needed?
+	if info.InsertedAt.IsZero() {
 		info.InsertedAt = time.Now().UTC()
 	}
 	data, err := json.Marshal(info)
@@ -65,7 +65,7 @@ func (r *RedisRepository) SavePayload(ctx context.Context, info *types.PayloadIn
 
 func (r *RedisRepository) GetPayloadsSince(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error) {
 	if limit <= 0 {
-		return nil, fmt.Errorf("limit must be greater than 0") // TODO: should zero be allowed?
+		return nil, fmt.Errorf("limit must be greater than 0")
 	}
 
 	rangeBy := &redis.ZRangeBy{
