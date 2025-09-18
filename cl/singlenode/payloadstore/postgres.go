@@ -110,6 +110,7 @@ func (r *PostgresRepository) SavePayload(ctx context.Context, info *types.Payloa
 			"Failed to insert payload into postgres",
 			"payload_id", info.PayloadID,
 			"block_height", info.BlockHeight,
+			"dbStats", r.db.Stats(),
 			"error", err,
 		)
 		return fmt.Errorf("failed to insert payload into postgres: %w", err)
