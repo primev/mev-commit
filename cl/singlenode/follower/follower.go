@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/primev/mev-commit/cl/singlenode/payloadstore"
 	"github.com/primev/mev-commit/cl/types"
 	"golang.org/x/sync/errgroup"
 )
@@ -42,14 +43,29 @@ type blockBuilder interface {
 }
 
 func NewFollower(
+	ctx context.Context,
 	logger *slog.Logger,
-	sharedDB payloadDB,
+	postgresDSN string,
+	redisURL string,
 	syncBatchSize uint64,
 	bb blockBuilder,
 	healthAddr string,
 ) (*Follower, error) {
-	if sharedDB == nil {
-		return nil, errors.New("payload repository not provided")
+	var sharedDB payloadDB
+	if postgresDSN != "" {
+		pgRepo, err := payloadstore.NewPostgresRepository(ctx, postgresDSN, logger)
+		if err != nil {
+			return nil, err
+		}
+		sharedDB = pgRepo
+	} else if redisURL != "" {
+		redisRepo, err := payloadstore.NewRedisRepositoryFromURL(ctx, redisURL, logger)
+		if err != nil {
+			return nil, err
+		}
+		sharedDB = redisRepo
+	} else {
+		return nil, errors.New("postgresDSN or redisURL must be provided")
 	}
 	if syncBatchSize == 0 {
 		return nil, errors.New("sync batch size must be greater than 0")

@@ -17,7 +17,6 @@ import (
 	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/singlenode"
 	"github.com/primev/mev-commit/cl/singlenode/follower"
-	"github.com/primev/mev-commit/cl/singlenode/payloadstore"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
@@ -191,6 +190,14 @@ var (
 		Category: categoryDatabase,
 	})
 
+	redisURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "redis-url",
+		Usage:    "Redis URL for storing payloads. If empty, saving to Redis is disabled. (e.g., 'redis://user:pass@host:port/dbname')",
+		EnvVars:  []string{"LEADER_REDIS_URL"},
+		Value:    "",
+		Category: categoryDatabase,
+	})
+
 	apiAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "api-addr",
 		Usage:   "Address for member node API endpoint (e.g., ':9090'). If empty, API is disabled.",
@@ -237,6 +244,7 @@ func main() {
 		priorityFeeReceiptFlag,
 		healthAddrPortFlag,
 		postgresDSNFlag,
+		redisURLFlag,
 		apiAddrFlag,
 		nonAuthRpcUrlFlag,
 		txPoolPollingIntervalFlag,
@@ -252,6 +260,7 @@ func main() {
 		logTagsFlag,
 		healthAddrPortFlag,
 		postgresDSNFlag,
+		redisURLFlag,
 		syncBatchSizeFlag,
 	}
 
@@ -338,6 +347,7 @@ func startLeaderNode(c *cli.Context) error {
 		PriorityFeeReceipt:       c.String(priorityFeeReceiptFlag.Name),
 		HealthAddr:               c.String(healthAddrPortFlag.Name),
 		PostgresDSN:              c.String(postgresDSNFlag.Name),
+		RedisURL:                 c.String(redisURLFlag.Name),
 		APIAddr:                  c.String(apiAddrFlag.Name),
 		NonAuthRpcURL:            c.String(nonAuthRpcUrlFlag.Name),
 		TxPoolPollingInterval:    c.Duration(txPoolPollingIntervalFlag.Name),
@@ -383,14 +393,9 @@ func startFollowerNode(c *cli.Context) error {
 	rootCtx, rootCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer rootCancel()
 
-	postgresDSN := c.String(postgresDSNFlag.Name)
-	if postgresDSN == "" {
-		return fmt.Errorf("postgresDSN is required")
-	}
-	repo, err := payloadstore.NewPostgresFollower(rootCtx, postgresDSN, logger)
-	if err != nil {
-		return fmt.Errorf("failed to initialize payload repository: %w", err)
-	}
+	postgresDSN := c.String(postgresDSNFlag.Name) // Validation handled in constructor
+	redisURL := c.String(redisURLFlag.Name)
+
 	syncBatchSize := c.Uint64(syncBatchSizeFlag.Name)
 	if syncBatchSize == 0 {
 		return fmt.Errorf("sync-batch-size is required")
@@ -419,8 +424,10 @@ func startFollowerNode(c *cli.Context) error {
 	}
 
 	followerNode, err := follower.NewFollower(
+		rootCtx,
 		logger,
-		repo,
+		postgresDSN,
+		redisURL,
 		syncBatchSize,
 		bb,
 		healthAddr,

@@ -24,6 +24,19 @@ func NewRedisRepository(redisClient *redis.Client, logger *slog.Logger) *RedisRe
 	}
 }
 
+func NewRedisRepositoryFromURL(ctx context.Context, redisURL string, logger *slog.Logger) (*RedisRepository, error) {
+	opts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid redis url: %w", err)
+	}
+	rdb := redis.NewClient(opts)
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		_ = rdb.Close()
+		return nil, fmt.Errorf("redis ping failed: %w", err)
+	}
+	return NewRedisRepository(rdb, logger), nil
+}
+
 const zKeyPayloads = "execution_payloads:z"
 
 func (r *RedisRepository) SavePayload(ctx context.Context, info *types.PayloadInfo) error {
