@@ -17,6 +17,7 @@ import (
 	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/singlenode"
 	"github.com/primev/mev-commit/cl/singlenode/follower"
+	"github.com/primev/mev-commit/cl/singlenode/payloadstore"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
@@ -394,8 +395,24 @@ func startFollowerNode(c *cli.Context) error {
 	rootCtx, rootCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer rootCancel()
 
-	postgresDSN := c.String(postgresDSNFlag.Name) // Validation handled in constructor
+	postgresDSN := c.String(postgresDSNFlag.Name)
 	redisURL := c.String(redisURLFlag.Name)
+	var sharedDB follower.PayloadDB
+	if postgresDSN != "" {
+		pgRepo, err := payloadstore.NewPostgresRepository(rootCtx, postgresDSN, logger)
+		if err != nil {
+			return fmt.Errorf("failed to create postgres repository: %w", err)
+		}
+		sharedDB = pgRepo
+	} else if redisURL != "" {
+		redisRepo, err := payloadstore.NewRedisRepositoryFromURL(rootCtx, redisURL, logger)
+		if err != nil {
+			return fmt.Errorf("failed to create redis repository: %w", err)
+		}
+		sharedDB = redisRepo
+	} else {
+		return fmt.Errorf("postgresDSN or redisURL must be provided")
+	}
 
 	syncBatchSize := c.Uint64(syncBatchSizeFlag.Name)
 	if syncBatchSize == 0 {
@@ -427,8 +444,7 @@ func startFollowerNode(c *cli.Context) error {
 	followerNode, err := follower.NewFollower(
 		rootCtx,
 		logger,
-		postgresDSN,
-		redisURL,
+		sharedDB,
 		syncBatchSize,
 		bb,
 		healthAddr,

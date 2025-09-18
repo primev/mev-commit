@@ -9,14 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/primev/mev-commit/cl/singlenode/payloadstore"
 	"github.com/primev/mev-commit/cl/types"
 	"golang.org/x/sync/errgroup"
 )
 
 type Follower struct {
 	logger                *slog.Logger
-	sharedDB              payloadDB
+	sharedDB              PayloadDB
 	syncBatchSize         uint64
 	payloadCh             chan types.PayloadInfo
 	bbMutex               sync.RWMutex
@@ -31,7 +30,7 @@ const (
 	defaultBackoff = 200 * time.Millisecond
 )
 
-type payloadDB interface {
+type PayloadDB interface {
 	GetPayloadsSince(ctx context.Context, sinceHeight uint64, limit int) ([]types.PayloadInfo, error)
 	GetLatestHeight(ctx context.Context) (uint64, error)
 }
@@ -45,28 +44,11 @@ type blockBuilder interface {
 func NewFollower(
 	ctx context.Context,
 	logger *slog.Logger,
-	postgresDSN string,
-	redisURL string,
+	sharedDB PayloadDB,
 	syncBatchSize uint64,
 	bb blockBuilder,
 	healthAddr string,
 ) (*Follower, error) {
-	var sharedDB payloadDB
-	if postgresDSN != "" {
-		pgRepo, err := payloadstore.NewPostgresRepository(ctx, postgresDSN, logger)
-		if err != nil {
-			return nil, err
-		}
-		sharedDB = pgRepo
-	} else if redisURL != "" {
-		redisRepo, err := payloadstore.NewRedisRepositoryFromURL(ctx, redisURL, logger)
-		if err != nil {
-			return nil, err
-		}
-		sharedDB = redisRepo
-	} else {
-		return nil, errors.New("postgresDSN or redisURL must be provided")
-	}
 	if syncBatchSize == 0 {
 		return nil, errors.New("sync batch size must be greater than 0")
 	}
