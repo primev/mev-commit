@@ -399,7 +399,7 @@ func startFollowerNode(c *cli.Context) error {
 	redisURL := c.String(redisURLFlag.Name)
 	var sharedDB follower.PayloadDB
 	if postgresDSN != "" {
-		pgRepo, err := payloadstore.NewPostgresRepository(rootCtx, postgresDSN, logger)
+		pgRepo, err := payloadstore.NewPostgresFollower(rootCtx, postgresDSN, logger)
 		if err != nil {
 			return fmt.Errorf("failed to create postgres repository: %w", err)
 		}
