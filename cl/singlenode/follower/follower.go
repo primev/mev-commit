@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/primev/mev-commit/cl/types"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -73,6 +74,7 @@ func (f *Follower) Start(ctx context.Context) <-chan struct{} {
 		defer close(f.healthStopped)
 		mux := http.NewServeMux()
 		mux.HandleFunc("/health", f.healthHandler)
+		mux.Handle("/metrics", promhttp.Handler())
 		server := &http.Server{Addr: f.healthAddr, Handler: mux}
 		f.logger.Info("Health endpoint listening", "address", f.healthAddr)
 
