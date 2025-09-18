@@ -49,10 +49,9 @@ func LoadConfig() *Config {
 		OptInContract:    getenv("OPT_IN_CONTRACT", "0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64"),
 		EtherscanKey:     os.Getenv("ETHERSCAN_API_KEY"),
 		InfuraRPC:        os.Getenv("INFURA_RPC"),
+		BeaconBase:       getenv("BEACON_BASE", beaconBase),
 	}
 }
-
-var config *Config
 
 func getenv(key, def string) string {
 	if v := os.Getenv(key); v != "" {

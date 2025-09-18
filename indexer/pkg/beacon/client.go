@@ -180,6 +180,7 @@ func FetchBlockFromRPC(httpc *http.Client, rpcURL string, blockNumber int64) (*E
 	return &ExecInfo{
 		BlockNumber: blockNumber,
 		Timestamp:   &blockTime,
+		FeeRecHex:   &result.Result.Miner,
 	}, nil
 }
 func FetchCombinedBlockData(httpc *http.Client, rpcURL string, beaconBase string, blockNumber int64) (*ExecInfo, error) {
@@ -191,15 +192,20 @@ func FetchCombinedBlockData(httpc *http.Client, rpcURL string, beaconBase string
 
 	// Convert block number to slot for beacon chain query
 	slotNumber := utils.BlockNumberToSlot(blockNumber)
+	execBlock.Slot = slotNumber
 
 	// Try to get beacon chain data using slot number (may not exist for recent blocks)
-	beaconData, _ := FetchBeaconExecutionBlock(httpc, beaconBase, slotNumber)
+	beaconData, _ := FetchBeaconExecutionBlock(httpc, beaconBase, blockNumber)
 
 	// Merge data - use Alchemy as primary, beacon as supplement
 	if beaconData != nil {
-		execBlock.Slot = beaconData.Slot
+		if beaconData.Slot > 0 {
+			execBlock.Slot = beaconData.Slot
+		}
 		execBlock.ProposerIdx = beaconData.ProposerIdx
 		execBlock.RelayTag = beaconData.RelayTag
+		execBlock.BuilderHex = beaconData.BuilderHex
+		execBlock.FeeRecHex = beaconData.FeeRecHex
 		execBlock.RewardEth = beaconData.RewardEth
 	} else {
 		// Set the calculated slot if beacon data not available

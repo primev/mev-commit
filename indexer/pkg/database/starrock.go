@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	"github.com/primev/mev-commit/indexer/pkg/beacon"
 	"github.com/primev/mev-commit/indexer/pkg/config"
 )
@@ -17,6 +17,14 @@ type DB struct {
 }
 
 func MustConnect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, error) {
+	if cfg, err := mysql.ParseDSN(dsn); err == nil {
+		if cfg.Params == nil {
+			cfg.Params = map[string]string{}
+		}
+		cfg.Params["interpolateParams"] = "true"
+		dsn = cfg.FormatDSN()
+	}
+
 	conn, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open StarRocks connection: %w", err)
@@ -183,10 +191,10 @@ func (db *DB) UpdateValidatorPubkey(ctx context.Context, slot int64, vpub []byte
 
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-
+	pubkeyHex := fmt.Sprintf("%x", vpub)
 	_, err := db.Conn.ExecContext(ctx2, `
-		UPDATE blocks SET validator_pubkey = ? WHERE slot = ?`,
-		vpub, slot)
+		INSERT INTO blocks (slot, validator_pubkey) VALUES (?, ?)`,
+		slot, pubkeyHex)
 	if err != nil {
 		return fmt.Errorf("update validator slot=%d: %w", slot, err)
 	}
