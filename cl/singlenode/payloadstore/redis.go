@@ -167,7 +167,7 @@ func (r *RedisRepository) GetLatestHeight(ctx context.Context) (uint64, error) {
 	}
 	h, perr := strconv.ParseUint(s, 10, 64)
 	if perr != nil {
-		return 0, nil
+		return 0, fmt.Errorf("parse uint: %w", perr)
 	}
 	return h, nil
 }
