@@ -27,9 +27,10 @@ func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger)
 		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
 	}
 
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(20)
+	db.SetConnMaxLifetime(0)
+	db.SetConnMaxIdleTime(0)
 
 	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -101,7 +102,7 @@ func (r *PostgresRepository) SavePayload(ctx context.Context, info *types.Payloa
 		    inserted_at = NOW();
 	`
 
-	insertCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	insertCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	result, err := r.db.ExecContext(insertCtx, query, info.PayloadID, info.ExecutionPayload, info.BlockHeight)
@@ -205,7 +206,7 @@ func (r *PostgresRepository) GetPayloadByHeight(ctx context.Context, height uint
 		WHERE block_height = $1;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	var payload types.PayloadInfo
@@ -247,7 +248,7 @@ func (r *PostgresRepository) GetLatestPayload(ctx context.Context) (*types.Paylo
 		LIMIT 1;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	var payload types.PayloadInfo
@@ -286,7 +287,7 @@ func (r *PostgresRepository) GetLatestHeight(ctx context.Context) (uint64, error
 		ORDER BY block_height DESC
 		LIMIT 1;
 	`
-	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	var h int64
