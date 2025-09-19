@@ -6,7 +6,7 @@ Validators are able to _opt-in to mev-commit_ in one of three ways:
 2. Restaking with the `MevCommitMiddleware` contract.
 3. Simple staking with the `VanillaRegistry` contract.
 
-The `ValidatorOptInRouter` contract acts as a query router between all three solutions, allowing any actor to query whether a group of validator pubkeys is opted-in to mev-commit.
+The `ValidatorOptInHub` contract acts as a query router between all three solutions, allowing any actor to query whether a group of validator pubkeys is opted-in to mev-commit. This is an updated version of the ValidatorOptInRouter contract for ease of use and to add future registry support.
 
 ## Mev-commit AVS - Eigenlayer Restaking Solution
 
