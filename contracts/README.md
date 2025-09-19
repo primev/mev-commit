@@ -56,10 +56,12 @@ This changelog tracks deployments of **Hoodi Testnet** contracts. This changelog
 
 | Contract              | Proxy Address                                |  Initial Commit           |
 |-----------------------|----------------------------------------------|---------------------|
+| ValidatorOptInHub     | `0x953c2a669493A126fd50E9f56306f254B4e49709` | `35664894728008c34cf6e24cbe77ce91f091144b` in 'optinrouter-new-registry-support'      |
 | ValidatorOptInRouter  | `0xa380ba6d6083a4Cb2a3B62b0a81Ea8727861c13e` | `13cf068477e6efdbb5c4fe5ce53a11af30bf8b47` in 'main'      |
 | VanillaRegistry       | `0x536f0792c5d5ed592e67a9260606c85f59c312f0` | `13cf068477e6efdbb5c4fe5ce53a11af30bf8b47` in 'main'      |
 | MevCommitAVS          | `0xdF8649d298ad05f019eE4AdBD6210867B8AB225F` | `13cf068477e6efdbb5c4fe5ce53a11af30bf8b47` in 'main'      |
 | MevCommitMiddleware   | `0x8E847EC4a36c8332652aB3b2B7D5c54dE29c7fde` | `13cf068477e6efdbb5c4fe5ce53a11af30bf8b47` in 'main'      |
+
 
 ### Upgrade History
 
