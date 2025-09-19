@@ -112,7 +112,7 @@ func (r *PostgresRepository) SavePayload(ctx context.Context, info *types.Payloa
 		    inserted_at = NOW();
 	`
 
-	insertCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	insertCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	result, err := r.db.ExecContext(insertCtx, query, info.PayloadID, info.ExecutionPayload, info.BlockHeight)
@@ -216,7 +216,7 @@ func (r *PostgresRepository) GetPayloadByHeight(ctx context.Context, height uint
 		WHERE block_height = $1;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	var payload types.PayloadInfo
@@ -258,7 +258,7 @@ func (r *PostgresRepository) GetLatestPayload(ctx context.Context) (*types.Paylo
 		LIMIT 1;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	var payload types.PayloadInfo
@@ -297,7 +297,7 @@ func (r *PostgresRepository) GetLatestHeight(ctx context.Context) (uint64, error
 		ORDER BY block_height DESC
 		LIMIT 1;
 	`
-	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	var h int64
