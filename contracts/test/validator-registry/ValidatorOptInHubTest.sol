@@ -93,7 +93,7 @@ contract ValidatorOptInHubTest is Test {
         validatorPublicKeys[0] = validatorPublicKeyOne;
         validatorPublicKeys[1] = validatorPublicKeyTwo;
 
-        bool[][] memory actualResultsMatrix = hub.areValidatorsOptedIn(validatorPublicKeys);
+        bool[][] memory actualResultsMatrix = hub.areValidatorsOptedInList(validatorPublicKeys);
 
         // Expected columns NOW: [registryA, registryB, registryC]
         bool[][] memory expectedResultsMatrix = new bool[][](2);
@@ -114,9 +114,9 @@ contract ValidatorOptInHubTest is Test {
         _assertEqualBoolMatrix(actualResultsMatrix, expectedResultsMatrix);
 
         // “Any” aggregate checks
-        assertTrue(hub.isValidatorOptedInAny(validatorPublicKeyOne));
-        assertTrue(hub.isValidatorOptedInAny(validatorPublicKeyTwo));
-        assertFalse(hub.isValidatorOptedInAny(validatorPublicKeyThree));
+        assertTrue(hub.isValidatorOptedIn(validatorPublicKeyOne));
+        assertTrue(hub.isValidatorOptedIn(validatorPublicKeyTwo));
+        assertFalse(hub.isValidatorOptedIn(validatorPublicKeyThree));
     }
 
     function test_addRegistry_appends_and_affectsResults() public {
@@ -124,16 +124,16 @@ contract ValidatorOptInHubTest is Test {
         hub.addRegistry(address(registryD));
 
         // pk1 remains true (registryA says true)
-        assertTrue(hub.isValidatorOptedInAny(validatorPublicKeyOne));
+        assertTrue(hub.isValidatorOptedIn(validatorPublicKeyOne));
 
         // pk3 remains false (all registries false)
-        assertFalse(hub.isValidatorOptedInAny(validatorPublicKeyThree));
+        assertFalse(hub.isValidatorOptedIn(validatorPublicKeyThree));
 
         // Matrix now has 4 columns
         bytes[] memory validatorPublicKeys = new bytes[](1);
         validatorPublicKeys[0] = validatorPublicKeyOne;
 
-        bool[][] memory actualResultsMatrix = hub.areValidatorsOptedIn(validatorPublicKeys);
+        bool[][] memory actualResultsMatrix = hub.areValidatorsOptedInList(validatorPublicKeys);
         assertEq(actualResultsMatrix[0].length, 4, "expected 4 registries");
         assertEq(actualResultsMatrix[0][0], true);  // A
         assertEq(actualResultsMatrix[0][1], false); // B
@@ -175,7 +175,7 @@ contract ValidatorOptInHubTest is Test {
         bytes[] memory validatorPublicKeys = new bytes[](1);
         validatorPublicKeys[0] = validatorPublicKeyTwo;
 
-        bool[][] memory actualResultsMatrix = hub.areValidatorsOptedIn(validatorPublicKeys);
+        bool[][] memory actualResultsMatrix = hub.areValidatorsOptedInList(validatorPublicKeys);
         assertEq(actualResultsMatrix[0].length, 3);
         assertEq(actualResultsMatrix[0][0], false); // A says false for pk2
         assertEq(actualResultsMatrix[0][1], false); // replaced with C
@@ -206,7 +206,7 @@ contract ValidatorOptInHubTest is Test {
         bytes[] memory validatorPublicKeys = new bytes[](1);
         validatorPublicKeys[0] = validatorPublicKeyOne;
 
-        bool[][] memory actualResultsMatrix = hub.areValidatorsOptedIn(validatorPublicKeys);
+        bool[][] memory actualResultsMatrix = hub.areValidatorsOptedInList(validatorPublicKeys);
         assertEq(actualResultsMatrix[0][0], false);
         // Column 1 remains registryB and still reports false for pk1
         assertEq(actualResultsMatrix[0][1], false);
@@ -228,6 +228,7 @@ contract ValidatorOptInHubTest is Test {
         _expectCustomError(IValidatorOptInHub.IndexRegistryMismatch.selector);
         hub.removeRegistry(1, address(registryA)); // slot 1 is registryB at setup
     }
+    
 
     function test_receive_reverts() public {
         (bool ok, bytes memory r) = address(hub).call{value: 1 ether}("");
@@ -241,6 +242,91 @@ contract ValidatorOptInHubTest is Test {
         assertFalse(ok, "fallback should revert");
         assertGe(r.length, 4);
         assertEq(bytes4(r), Errors.InvalidFallback.selector);
+    }
+
+    function test_isValidatorOptedInList_returnsPerRegistryFlags_forEachValidator_onInitialSetup() public {
+        // validatorPublicKeyOne is true on registryA, false on registryB/C
+        bool[] memory perRegistryFlagsForValidatorOne = hub.isValidatorOptedInList(validatorPublicKeyOne);
+        bool[] memory expectedFlagsForValidatorOne = new bool[](3);
+        expectedFlagsForValidatorOne[0] = true;  // A
+        expectedFlagsForValidatorOne[1] = false; // B
+        expectedFlagsForValidatorOne[2] = false; // C
+        _assertEqualBoolArray(perRegistryFlagsForValidatorOne, expectedFlagsForValidatorOne);
+
+        // validatorPublicKeyTwo is false on registryA, true on registryB, false on registryC
+        bool[] memory perRegistryFlagsForValidatorTwo = hub.isValidatorOptedInList(validatorPublicKeyTwo);
+        bool[] memory expectedFlagsForValidatorTwo = new bool[](3);
+        expectedFlagsForValidatorTwo[0] = false; // A
+        expectedFlagsForValidatorTwo[1] = true;  // B
+        expectedFlagsForValidatorTwo[2] = false; // C
+        _assertEqualBoolArray(perRegistryFlagsForValidatorTwo, expectedFlagsForValidatorTwo);
+
+        // validatorPublicKeyThree is false everywhere
+        bool[] memory perRegistryFlagsForValidatorThree = hub.isValidatorOptedInList(validatorPublicKeyThree);
+        bool[] memory expectedFlagsForValidatorThree = new bool[](3);
+        expectedFlagsForValidatorThree[0] = false;
+        expectedFlagsForValidatorThree[1] = false;
+        expectedFlagsForValidatorThree[2] = false;
+        _assertEqualBoolArray(perRegistryFlagsForValidatorThree, expectedFlagsForValidatorThree);
+    }
+
+    function test_areValidatorsOptedIn_returnsAnyAggregation_forBatch_onInitialSetup() public {
+        bytes[] memory batchOfValidatorPublicKeys = new bytes[](3);
+        batchOfValidatorPublicKeys[0] = validatorPublicKeyOne;   // true on A
+        batchOfValidatorPublicKeys[1] = validatorPublicKeyTwo;   // true on B
+        batchOfValidatorPublicKeys[2] = validatorPublicKeyThree; // false everywhere
+
+        bool[] memory anyAggregationStatuses = hub.areValidatorsOptedIn(batchOfValidatorPublicKeys);
+
+        bool[] memory expectedAnyAggregationStatuses = new bool[](3);
+        expectedAnyAggregationStatuses[0] = true;  // pk1 → true (A)
+        expectedAnyAggregationStatuses[1] = true;  // pk2 → true (B)
+        expectedAnyAggregationStatuses[2] = false; // pk3 → false
+        _assertEqualBoolArray(anyAggregationStatuses, expectedAnyAggregationStatuses);
+    }
+
+    function test_areValidatorsOptedIn_reflectsChanges_afterUpdateRegistryReplacement() public {
+        // Replace index 1 (registryB) with registryC; pk2 was true on B, but false on C
+        hub.updateRegistry(1, address(registryB), address(registryC));
+
+        bytes[] memory batchOfValidatorPublicKeys = new bytes[](2);
+        batchOfValidatorPublicKeys[0] = validatorPublicKeyOne; // still true on A
+        batchOfValidatorPublicKeys[1] = validatorPublicKeyTwo; // should become false (B replaced)
+
+        bool[] memory anyAggregationStatuses = hub.areValidatorsOptedIn(batchOfValidatorPublicKeys);
+
+        bool[] memory expectedAnyAggregationStatuses = new bool[](2);
+        expectedAnyAggregationStatuses[0] = true;  // pk1 true via A
+        expectedAnyAggregationStatuses[1] = false; // pk2 now false (B→C)
+        _assertEqualBoolArray(anyAggregationStatuses, expectedAnyAggregationStatuses);
+    }
+
+    function test_isValidatorOptedInList_expandsLength_afterAddingAdditionalRegistry() public {
+        // Add a fourth registry (registryD) that returns false for all keys by default
+        hub.addRegistry(address(registryD));
+
+        // Query per-registry flags for validatorPublicKeyOne; should now have length 4
+        bool[] memory perRegistryFlagsForValidatorOne = hub.isValidatorOptedInList(validatorPublicKeyOne);
+        assertEq(perRegistryFlagsForValidatorOne.length, 4, "expected per-registry list to include the newly added registry");
+        assertEq(perRegistryFlagsForValidatorOne[0], true);   // A
+        assertEq(perRegistryFlagsForValidatorOne[1], false);  // B
+        assertEq(perRegistryFlagsForValidatorOne[2], false);  // C
+        assertEq(perRegistryFlagsForValidatorOne[3], false);  // D (newly added defaults to false)
+    }
+
+    function test_areValidatorsOptedIn_returnsEmpty_whenInputArrayIsEmpty() public {
+        bytes[] memory emptyBatchOfValidatorPublicKeys = new bytes[](0);
+        bool[] memory anyAggregationStatuses = hub.areValidatorsOptedIn(emptyBatchOfValidatorPublicKeys);
+        assertEq(anyAggregationStatuses.length, 0, "empty input should produce empty result");
+    }
+
+    function test_isValidatorOptedInList_allFalse_forUnknownValidatorKey() public {
+        bool[] memory perRegistryFlagsForUnknownKey = hub.isValidatorOptedInList(validatorPublicKeyThree);
+        bool[] memory expectedFlagsForUnknownKey = new bool[](3);
+        expectedFlagsForUnknownKey[0] = false;
+        expectedFlagsForUnknownKey[1] = false;
+        expectedFlagsForUnknownKey[2] = false;
+        _assertEqualBoolArray(perRegistryFlagsForUnknownKey, expectedFlagsForUnknownKey);
     }
 
 }

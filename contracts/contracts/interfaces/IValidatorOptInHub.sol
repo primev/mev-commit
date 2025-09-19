@@ -35,14 +35,14 @@ interface IValidatorOptInHub {
     function removeRegistry(uint256 index, address registry) external;
 
     /// @notice Returns an array of bool lists indicating whether each validator pubkey is opted in to mev-commit.
-    function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[][] memory optInStatuses);
+    function areValidatorsOptedInList(bytes[] calldata valBLSPubKeys) external view returns (bool[][] memory optInStatuses);
 
     /// @notice Returns a bool list indicating whether a validator pubkey is opted in to mev-commit with any of the registries.
-    function areValidatorsOptedInAny(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory optInStatuses);
+    function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory optInStatuses);
 
     /// @notice Returns a bool list indicating whether a validator pubkey is opted in to mev-commit.
-    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool[] memory optInStatus);
+    function isValidatorOptedInList(bytes calldata valPubKey) external view returns (bool[] memory optInStatus);
 
     /// @notice Returns a bool indicating whether a validator pubkey is opted in to mev-commit with any of the registries.
-    function isValidatorOptedInAny(bytes calldata valPubKey) external view returns (bool);
+    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool);
 }

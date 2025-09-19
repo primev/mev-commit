@@ -58,15 +58,15 @@
     "outputs": [
       {
         "name": "",
-        "type": "bool[][]",
-        "internalType": "bool[][]"
+        "type": "bool[]",
+        "internalType": "bool[]"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "areValidatorsOptedInAny",
+    "name": "areValidatorsOptedInList",
     "inputs": [
       {
         "name": "valBLSPubKeys",
@@ -77,8 +77,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "bool[]",
-        "internalType": "bool[]"
+        "type": "bool[][]",
+        "internalType": "bool[][]"
       }
     ],
     "stateMutability": "view"
@@ -114,15 +114,15 @@
     "outputs": [
       {
         "name": "",
-        "type": "bool[]",
-        "internalType": "bool[]"
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "isValidatorOptedInAny",
+    "name": "isValidatorOptedInList",
     "inputs": [
       {
         "name": "valPubKey",
@@ -133,8 +133,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "bool",
-        "internalType": "bool"
+        "type": "bool[]",
+        "internalType": "bool[]"
       }
     ],
     "stateMutability": "view"

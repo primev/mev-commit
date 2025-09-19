@@ -77,30 +77,30 @@ contract ValidatorOptInHub is IValidatorOptInHub, ValidatorOptInHubStorage,
     }
 
     /// @notice Returns an array of bool lists indicating whether each validator pubkey is opted in to mev-commit.
-    function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[][] memory) {
+    function areValidatorsOptedInList(bytes[] calldata valBLSPubKeys) external view returns (bool[][] memory) {
         uint256 len = valBLSPubKeys.length;
         bool[][] memory _optInStatuses = new bool[][](len);
+        for (uint256 i = 0; i < len; ++i) {
+            _optInStatuses[i] = _isValidatorOptedInList(valBLSPubKeys[i]);
+        }
+        return _optInStatuses;
+    }
+
+    function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory) {
+        uint256 len = valBLSPubKeys.length;
+        bool[] memory _optInStatuses = new bool[](len);
         for (uint256 i = 0; i < len; ++i) {
             _optInStatuses[i] = _isValidatorOptedIn(valBLSPubKeys[i]);
         }
         return _optInStatuses;
     }
 
-    function areValidatorsOptedInAny(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory) {
-        uint256 len = valBLSPubKeys.length;
-        bool[] memory _optInStatuses = new bool[](len);
-        for (uint256 i = 0; i < len; ++i) {
-            _optInStatuses[i] = _isValidatorOptedInAny(valBLSPubKeys[i]);
-        }
-        return _optInStatuses;
+    function isValidatorOptedInList(bytes calldata valPubKey) external view returns (bool[] memory) {
+        return _isValidatorOptedInList(valPubKey);
     }
 
-    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool[] memory) {
+    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool) {
         return _isValidatorOptedIn(valPubKey);
-    }
-
-    function isValidatorOptedInAny(bytes calldata valPubKey) external view returns (bool) {
-        return _isValidatorOptedInAny(valPubKey);
     }
 
     // solhint-disable-next-line no-empty-blocks
@@ -126,7 +126,7 @@ contract ValidatorOptInHub is IValidatorOptInHub, ValidatorOptInHubStorage,
 
     /// @notice Internal function to check if a validator is opted in to mev-commit with any of the registries.
     /// @return bool list indicating whether the validator is opted in to each registry.
-    function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool[] memory) {
+    function _isValidatorOptedInList(bytes calldata valPubKey) internal view returns (bool[] memory) {
         bool[] memory _optInStatuses = new bool[](registries.length);
         uint256 len = registries.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -139,7 +139,7 @@ contract ValidatorOptInHub is IValidatorOptInHub, ValidatorOptInHubStorage,
         return _optInStatuses;
     }
 
-    function _isValidatorOptedInAny(bytes calldata valPubKey) internal view returns (bool) {
+    function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
         uint256 len = registries.length;
         for (uint256 i = 0; i < len; ++i) {
             if (address(registries[i]) != address(0)) {

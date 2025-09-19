@@ -9,12 +9,18 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {ValidatorOptInHub} from "../../contracts/validator-registry/ValidatorOptInHub.sol";
+import {ValidatorOptInRouter} from "../../contracts/validator-registry/ValidatorOptInRouter.sol";
+import {AlwaysFalseRegistry} from "../../contracts/validator-registry/falseRegistry/AlwaysFalseRegistry.sol";
+import {IMevCommitAVS} from "../../contracts/interfaces/IMevCommitAVS.sol";
+import {IMevCommitMiddleware} from "../../contracts/interfaces/IMevCommitMiddleware.sol";
+import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
 import {MainnetConstants} from "../MainnetConstants.sol";
 
 contract BaseDeploy is Script {
     function deployValidatorOptInHub(
         address[] memory registries,
-        address owner
+        address owner,
+        address optinRouter
     ) public returns (address) {
         console.log("Deploying ValidatorOptInHub on chain:", block.chainid);
         address proxy = Upgrades.deployUUPSProxy(
@@ -27,6 +33,20 @@ contract BaseDeploy is Script {
         console.log("ValidatorOptInHub UUPS proxy deployed to:", address(proxy));
         ValidatorOptInHub hub = ValidatorOptInHub(payable(proxy));
         console.log("ValidatorOptInHub owner:", hub.owner());
+
+        AlwaysFalseRegistry alwaysFalse = new AlwaysFalseRegistry();
+        console.log("AlwaysFalseRegistry deployed at:", address(alwaysFalse));
+
+        address alwaysFalseAddress = address(alwaysFalse);
+        address hubAddress = address(hub);
+
+        // Make router backwards compatible by getting data from the hub
+        ValidatorOptInRouter router = ValidatorOptInRouter(payable(optinRouter));
+        router.setVanillaRegistry(IVanillaRegistry(hubAddress));
+        router.setMevCommitAVS(IMevCommitAVS(alwaysFalseAddress));
+        router.setMevCommitMiddleware(IMevCommitMiddleware(alwaysFalseAddress));
+        console.log("ValidatorOptInRouter wired to hub");
+
         return proxy;
     }
 }
@@ -37,8 +57,10 @@ contract DeployMainnet is BaseDeploy {
     address constant public VANILLA_REGISTRY = 0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9;
     
     address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
-    
-    address[] public registries = [MEV_COMMIT_MIDDLEWARE, MEV_COMMIT_AVS, VANILLA_REGISTRY];
+
+    address constant public OPTIN_ROUTER = 0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64;
+
+    address[] public registries = [VANILLA_REGISTRY, MEV_COMMIT_AVS, MEV_COMMIT_MIDDLEWARE];
 
     function run() external {
         require(block.chainid == 1, "must deploy on mainnet");
@@ -46,7 +68,8 @@ contract DeployMainnet is BaseDeploy {
 
         deployValidatorOptInHub(
             registries,
-            OWNER
+            OWNER,
+            OPTIN_ROUTER
         );
         vm.stopBroadcast();
     }
@@ -59,8 +82,9 @@ contract DeployHoodi is BaseDeploy {
 
     //This is the most important field. On mainnet it'll be the primev multisig.
     address constant public OWNER = 0x1623fE21185c92BB43bD83741E226288B516134a;
-    
-    address[] public registries = [MEV_COMMIT_MIDDLEWARE, MEV_COMMIT_AVS, VANILLA_REGISTRY];
+    address constant public OPTIN_ROUTER = 0xa380ba6d6083a4Cb2a3B62b0a81Ea8727861c13e;
+
+    address[] public registries = [VANILLA_REGISTRY, MEV_COMMIT_AVS, MEV_COMMIT_MIDDLEWARE];
 
 
     function run() external {
@@ -69,7 +93,8 @@ contract DeployHoodi is BaseDeploy {
         vm.startBroadcast();
         deployValidatorOptInHub(
             registries,
-            OWNER
+            OWNER,
+            OPTIN_ROUTER
         );
         vm.stopBroadcast();
     }
