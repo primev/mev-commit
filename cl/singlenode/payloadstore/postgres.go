@@ -42,16 +42,6 @@ func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger)
 		return nil, fmt.Errorf("failed to ping postgres: %w", err)
 	}
 
-	go func() {
-		t := time.NewTicker(2 * time.Minute)
-		defer t.Stop()
-		for range t.C {
-			c, ccancel := context.WithTimeout(context.Background(), time.Second)
-			_ = db.PingContext(c)
-			ccancel()
-		}
-	}()
-
 	// Create table with enhanced schema for sequential access
 	schemaCreationQuery := `
 		CREATE TABLE IF NOT EXISTS execution_payloads (
