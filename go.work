@@ -6,6 +6,7 @@ use (
 	./bridge/standard
 	./cl
 	./contracts-abi
+	./indexer
 	./infrastructure/tools/keystore-generator
 	./oracle
 	./p2p
