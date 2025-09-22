@@ -797,3 +797,258 @@ func TestGetBidInfo(t *testing.T) {
 		}
 	})
 }
+
+func TestShutterisedBidOptions(t *testing.T) {
+	t.Parallel()
+
+	client := startServer(t)
+
+	t.Run("valid shutterised bid options", func(t *testing.T) {
+		rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
+			TxHashes:            []string{common.HexToHash("0x0000ab").Hex()[2:]},
+			Amount:              "1000000000000000000",
+			BlockNumber:         1,
+			DecayStartTimestamp: 10,
+			DecayEndTimestamp:   20,
+			BidOptions: &bidderapiv1.BidOptions{
+				Options: []*bidderapiv1.BidOption{
+					{
+						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+								IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+								EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+							},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error sending bid with valid shutterised options: %v", err)
+		}
+
+		count := 0
+		for {
+			_, err := rcv.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				t.Fatalf("error receiving preconfs: %v", err)
+			}
+			count++
+		}
+		if count != 2 {
+			t.Fatalf("expected 2 preconfs, got %v", count)
+		}
+	})
+
+	t.Run("nil shutterised bid option", func(t *testing.T) {
+		rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
+			TxHashes:            []string{common.HexToHash("0x0000ab").Hex()[2:]},
+			Amount:              "1000000000000000000",
+			BlockNumber:         1,
+			DecayStartTimestamp: 10,
+			DecayEndTimestamp:   20,
+			BidOptions: &bidderapiv1.BidOptions{
+				Options: []*bidderapiv1.BidOption{
+					{
+						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+							ShutterisedBidOption: nil,
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error sending bid: %v", err)
+		}
+
+		_, err = rcv.Recv()
+		if err == nil || !strings.Contains(err.Error(), "shutterised bid option identity prefix or encrypted tx is nil") {
+			t.Fatalf("expected error about nil shutterised bid option, got %v", err)
+		}
+	})
+
+	t.Run("empty identity prefix", func(t *testing.T) {
+		rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
+			TxHashes:            []string{common.HexToHash("0x0000ab").Hex()[2:]},
+			Amount:              "1000000000000000000",
+			BlockNumber:         1,
+			DecayStartTimestamp: 10,
+			DecayEndTimestamp:   20,
+			BidOptions: &bidderapiv1.BidOptions{
+				Options: []*bidderapiv1.BidOption{
+					{
+						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+								IdentityPrefix: "",
+								EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+							},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error sending bid: %v", err)
+		}
+
+		_, err = rcv.Recv()
+		if err == nil || !strings.Contains(err.Error(), "shutterised bid option identity prefix or encrypted tx is nil") {
+			t.Fatalf("expected error about empty identity prefix, got %v", err)
+		}
+	})
+
+	t.Run("empty encrypted tx", func(t *testing.T) {
+		rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
+			TxHashes:            []string{common.HexToHash("0x0000ab").Hex()[2:]},
+			Amount:              "1000000000000000000",
+			BlockNumber:         1,
+			DecayStartTimestamp: 10,
+			DecayEndTimestamp:   20,
+			BidOptions: &bidderapiv1.BidOptions{
+				Options: []*bidderapiv1.BidOption{
+					{
+						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+								IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+								EncryptedTx:    "",
+							},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error sending bid: %v", err)
+		}
+
+		_, err = rcv.Recv()
+		if err == nil || !strings.Contains(err.Error(), "shutterised bid option identity prefix or encrypted tx is nil") {
+			t.Fatalf("expected error about empty encrypted tx, got %v", err)
+		}
+	})
+
+	t.Run("both identity prefix and encrypted tx empty", func(t *testing.T) {
+		rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
+			TxHashes:            []string{common.HexToHash("0x0000ab").Hex()[2:]},
+			Amount:              "1000000000000000000",
+			BlockNumber:         1,
+			DecayStartTimestamp: 10,
+			DecayEndTimestamp:   20,
+			BidOptions: &bidderapiv1.BidOptions{
+				Options: []*bidderapiv1.BidOption{
+					{
+						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+								IdentityPrefix: "",
+								EncryptedTx:    "",
+							},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error sending bid: %v", err)
+		}
+
+		_, err = rcv.Recv()
+		if err == nil || !strings.Contains(err.Error(), "shutterised bid option identity prefix or encrypted tx is nil") {
+			t.Fatalf("expected error about empty fields, got %v", err)
+		}
+	})
+
+	t.Run("multiple transactions with shutterised options", func(t *testing.T) {
+		rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
+			TxHashes: []string{
+				common.HexToHash("0x0000ab").Hex()[2:],
+				common.HexToHash("0x0000cd").Hex()[2:],
+			},
+			Amount:              "1000000000000000000",
+			BlockNumber:         1,
+			DecayStartTimestamp: 10,
+			DecayEndTimestamp:   20,
+			BidOptions: &bidderapiv1.BidOptions{
+				Options: []*bidderapiv1.BidOption{
+					{
+						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+								IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+								EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+							},
+						},
+					},
+					{
+						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+								IdentityPrefix: "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
+								EncryptedTx:    "0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+							},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error sending bid with multiple shutterised options: %v", err)
+		}
+
+		count := 0
+		for {
+			_, err := rcv.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				t.Fatalf("error receiving preconfs: %v", err)
+			}
+			count++
+		}
+		if count != 2 {
+			t.Fatalf("expected 2 preconfs, got %v", count)
+		}
+	})
+
+	t.Run("mixed bid options with one invalid shutterised option", func(t *testing.T) {
+		rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
+			TxHashes: []string{
+				common.HexToHash("0x0000ab").Hex()[2:],
+				common.HexToHash("0x0000cd").Hex()[2:],
+			},
+			Amount:              "1000000000000000000",
+			BlockNumber:         1,
+			DecayStartTimestamp: 10,
+			DecayEndTimestamp:   20,
+			BidOptions: &bidderapiv1.BidOptions{
+				Options: []*bidderapiv1.BidOption{
+					{
+						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+								IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+								EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+							},
+						},
+					},
+					{
+						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+								IdentityPrefix: "",
+								EncryptedTx:    "0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+							},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error sending bid: %v", err)
+		}
+
+		_, err = rcv.Recv()
+		if err == nil || !strings.Contains(err.Error(), "shutterised bid option identity prefix or encrypted tx is nil") {
+			t.Fatalf("expected error about invalid shutterised option, got %v", err)
+		}
+	})
+}

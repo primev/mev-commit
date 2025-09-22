@@ -173,27 +173,24 @@ func (s *Service) SendBid(
 	)
 	switch {
 	case len(bid.TxHashes) > 0:
-		txnsStr = strings.Join(stripPrefix(bid.TxHashes), ",")
-	case len(bid.RawTransactions) > 0:
-		strBuilder := new(strings.Builder)
-		for i, rawTx := range bid.RawTransactions {
+		for i := range bid.TxHashes {
 			if bid.BidOptions != nil && len(bid.BidOptions.Options) > 0 {
 				if option := bid.BidOptions.Options[i]; option != nil {
 					switch option.GetOpt().(type) {
 					case *bidderapiv1.BidOption_ShutterisedBidOption:
 						c := option.GetShutterisedBidOption()
-						if c == nil || c.GetIdentityPrefix() == "" {
-							s.logger.Error("shutterised bid option identity prefix is nil", "option", option)
-							return status.Errorf(codes.InvalidArgument, "shutterised bid option identity prefix is nil")
+						if c == nil || c.GetIdentityPrefix() == "" || c.GetEncryptedTx() == "" {
+							s.logger.Error("shutterised bid option identity prefix or encrypted tx is nil", "option", option)
+							return status.Errorf(codes.InvalidArgument, "shutterised bid option identity prefix or encrypted tx is nil")
 						}
-						strBuilder.WriteString(strings.TrimPrefix(c.GetIdentityPrefix(), "0x")) //txHash is used as identityPrefix for shutterised txs
-						if i != len(bid.RawTransactions)-1 {
-							strBuilder.WriteString(",")
-						}
-						continue
 					}
 				}
 			}
+		}
+		txnsStr = strings.Join(stripPrefix(bid.TxHashes), ",")
+	case len(bid.RawTransactions) > 0:
+		strBuilder := new(strings.Builder)
+		for i, rawTx := range bid.RawTransactions {
 
 			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
 			if err != nil {

@@ -455,6 +455,10 @@ message ShutterisedBidOption {
     description: "Hex string encoding of the identity of the transaction that the bidder wants to include in the block."
     pattern: "[a-fA-F0-9]{64}"
   }];
+  string encrypted_tx = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the encrypted transaction that the bidder wants to include in the block."
+    pattern: "[a-fA-F0-9]{64}"
+  }];
 };
 
 message BidOption {
