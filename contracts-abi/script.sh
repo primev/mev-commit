@@ -52,6 +52,10 @@ extract_and_save_abi "$BASE_DIR/out/RewardDistributor.sol/RewardDistributor.json
 
 extract_and_save_abi "$BASE_DIR/out/BlockRewardManager.sol/BlockRewardManager.json" "$ABI_DIR/BlockRewardManager.abi"
 
+extract_and_save_abi "$BASE_DIR/out/ValidatorOptInHub.sol/ValidatorOptInHub.json" "$ABI_DIR/ValidatorOptInHub.abi"
+
+extract_and_save_abi "$BASE_DIR/out/AlwaysFalseRegistry.sol/AlwaysFalseRegistry.json" "$ABI_DIR/AlwaysFalseRegistry.abi"
+
 echo "ABI files extracted successfully."
 
 GO_CODE_BASE_DIR="./clients"
@@ -122,6 +126,10 @@ generate_go_code "$ABI_DIR/DepositManager.abi" "DepositManager" "depositmanager"
 generate_go_code "$ABI_DIR/RewardDistributor.abi" "RewardDistributor" "rewarddistributor"
 
 generate_go_code "$ABI_DIR/BlockRewardManager.abi" "BlockRewardManager" "blockrewardmanager"
+
+generate_go_code "$ABI_DIR/ValidatorOptInHub.abi" "ValidatorOptInHub" "validatoroptinhub"
+
+generate_go_code "$ABI_DIR/AlwaysFalseRegistry.abi" "AlwaysFalseRegistry" "alwaysfalseregistry"
 
 echo "External ABI downloaded and processed successfully."
 
