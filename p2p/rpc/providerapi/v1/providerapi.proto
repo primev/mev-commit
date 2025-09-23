@@ -191,7 +191,7 @@ message PositionConstraint {
 
 message ShutterisedBidOption {
   string identity_prefix = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Hex string encoding of the identity of the transaction that the bidder wants to include in the block."
+    description: "Hex string encoding of the identity prefix of the transaction that the bidder wants to include in the block."
     pattern: "[a-fA-F0-9]{64}"
   }];
 };
