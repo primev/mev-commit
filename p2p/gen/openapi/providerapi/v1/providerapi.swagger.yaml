@@ -293,7 +293,7 @@ definitions:
         type: array
         items:
           type: string
-        description: Optional array of ,  hashes that are allowed to revert or be discarded.
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
       rawTransactions:
         type: array
         items:
