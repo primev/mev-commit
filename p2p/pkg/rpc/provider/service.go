@@ -156,6 +156,7 @@ func (s *Service) ProcessBid(
 					Opt: &providerapiv1.BidOption_ShutterisedBidOption{
 						ShutterisedBidOption: &providerapiv1.ShutterisedBidOption{
 							IdentityPrefix: c.GetIdentityPrefix(),
+							EncryptedTx:    c.GetEncryptedTx(),
 						},
 					},
 				}
