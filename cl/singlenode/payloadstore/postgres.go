@@ -37,9 +37,9 @@ func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger)
 		return nil, fmt.Errorf("failed to create postgres connection pool: %w", err)
 	}
 
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if err := pool.Ping(pingCtx); err != nil {
+	// pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// defer cancel()
+	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
 		l.Error("Failed to close database connection after error", "error", err)
 		return nil, fmt.Errorf("failed to ping postgres: %w", err)
@@ -62,9 +62,9 @@ func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger)
 		CREATE INDEX IF NOT EXISTS idx_block_height ON execution_payloads(block_height);
 		CREATE INDEX IF NOT EXISTS idx_inserted_at ON execution_payloads(inserted_at);
 	`
-	execCtx, execCancel := context.WithTimeout(ctx, 10*time.Second)
-	defer execCancel()
-	if _, err := pool.Exec(execCtx, schemaCreationQuery); err != nil {
+	//execCtx, execCancel := context.WithTimeout(ctx, 10*time.Second)
+	//defer execCancel()
+	if _, err := pool.Exec(ctx, schemaCreationQuery); err != nil {
 		pool.Close()
 		l.Error("Failed to close database connection after error", "error", err)
 		return nil, fmt.Errorf("failed to create execution_payloads table: %w", err)
@@ -81,9 +81,9 @@ func NewPostgresFollower(ctx context.Context, dsn string, logger *slog.Logger) (
 		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
 	}
 
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if err := pool.Ping(pingCtx); err != nil {
+	//pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	//defer cancel()
+	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("failed to ping postgres: %w", err)
 	}
@@ -103,10 +103,10 @@ func (r *PostgresRepository) SavePayload(ctx context.Context, info *types.Payloa
 		    inserted_at = NOW();
 	`
 
-	insertCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	//insertCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	//defer cancel()
 
-	result, err := r.pool.Exec(insertCtx, query, info.PayloadID, info.ExecutionPayload, info.BlockHeight)
+	result, err := r.pool.Exec(ctx, query, info.PayloadID, info.ExecutionPayload, info.BlockHeight)
 	if err != nil {
 		r.logger.Error(
 			"Failed to insert payload into postgres",
@@ -146,10 +146,10 @@ func (r *PostgresRepository) GetPayloadsSince(ctx context.Context, sinceHeight u
 		LIMIT $2;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+	//queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	//defer cancel()
 
-	rows, err := r.pool.Query(queryCtx, query, sinceHeight, limit)
+	rows, err := r.pool.Query(ctx, query, sinceHeight, limit)
 	if err != nil {
 		r.logger.Error(
 			"Failed to query payloads since height",
@@ -207,11 +207,11 @@ func (r *PostgresRepository) GetPayloadByHeight(ctx context.Context, height uint
 		WHERE block_height = $1;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	//queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	//defer cancel()
 
 	var payload types.PayloadInfo
-	err := r.pool.QueryRow(queryCtx, query, height).Scan(
+	err := r.pool.QueryRow(ctx, query, height).Scan(
 		&payload.PayloadID,
 		&payload.ExecutionPayload,
 		&payload.BlockHeight,
@@ -249,11 +249,11 @@ func (r *PostgresRepository) GetLatestPayload(ctx context.Context) (*types.Paylo
 		LIMIT 1;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	//queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	//defer cancel()
 
 	var payload types.PayloadInfo
-	err := r.pool.QueryRow(queryCtx, query).Scan(
+	err := r.pool.QueryRow(ctx, query).Scan(
 		&payload.PayloadID,
 		&payload.ExecutionPayload,
 		&payload.BlockHeight,
@@ -288,11 +288,11 @@ func (r *PostgresRepository) GetLatestHeight(ctx context.Context) (uint64, error
 		ORDER BY block_height DESC
 		LIMIT 1;
 	`
-	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	//queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	//defer cancel()
 
 	var h int64
-	err := r.pool.QueryRow(queryCtx, query).Scan(&h)
+	err := r.pool.QueryRow(ctx, query).Scan(&h)
 	if err != nil {
 		if err == sql.ErrNoRows { // Empty table -> new chain
 			return 0, nil
