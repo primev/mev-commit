@@ -373,7 +373,7 @@ definitions:
     properties:
       identityPrefix:
         type: string
-        description: Hex string encoding of the identity of the transaction that the bidder wants to include in the block.
+        description: Hex string encoding of the identity prefix of the transaction that the bidder wants to include in the block.
         pattern: '[a-fA-F0-9]{64}'
   v1BidResponse:
     type: object
