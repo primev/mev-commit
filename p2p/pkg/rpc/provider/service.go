@@ -131,12 +131,9 @@ func (s *Service) ProcessBid(
 		}
 		opts := new(providerapiv1.BidOptions)
 		for _, bOpt := range bidderOpts.Options {
-			switch bOpt.GetOpt().(type) {
-			case *bidderapiv1.BidOption_PositionConstraint:
+			switch {
+			case bOpt.GetPositionConstraint() != nil:
 				c := bOpt.GetPositionConstraint()
-				if c == nil {
-					continue
-				}
 				opt := &providerapiv1.BidOption{
 					Opt: &providerapiv1.BidOption_PositionConstraint{
 						PositionConstraint: &providerapiv1.PositionConstraint{
@@ -147,11 +144,8 @@ func (s *Service) ProcessBid(
 					},
 				}
 				opts.Options = append(opts.Options, opt)
-			case *bidderapiv1.BidOption_ShutterisedBidOption:
+			case bOpt.GetShutterisedBidOption() != nil:
 				c := bOpt.GetShutterisedBidOption()
-				if c == nil {
-					continue
-				}
 				opt := &providerapiv1.BidOption{
 					Opt: &providerapiv1.BidOption_ShutterisedBidOption{
 						ShutterisedBidOption: &providerapiv1.ShutterisedBidOption{
