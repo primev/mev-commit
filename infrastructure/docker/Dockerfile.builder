@@ -15,6 +15,7 @@ COPY cl/go.mod               cl/go.sum              ./cl/
 COPY infrastructure/tools/keystore-generator/go.mod infrastructure/tools/keystore-generator/go.sum ./infrastructure/tools/keystore-generator/
 
 COPY p2p/integrationtest/provider/entrypoint.sh /scripts/provider-emulator-entrypoint.sh
+COPY p2p/integrationtest/real-bidder/entrypoint.sh /scripts/realbidder-emulator-entrypoint.sh
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
@@ -39,6 +40,7 @@ ARG TARGETS="./oracle/cmd \
              ./tools/validators-monitor \
              ./tools/points-service \
              ./p2p/integrationtest/provider \
+             ./p2p/integrationtest/real-bidder \
              ./cl/cmd/singlenode"
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
