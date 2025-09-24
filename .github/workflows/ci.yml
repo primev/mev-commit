@@ -192,7 +192,11 @@ jobs:
         run: |
           bash script.sh
           git checkout ${{ github.event.pull_request.head.ref }}
-          git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
+          if [ -n "$(git status --porcelain .)" ]; then
+            echo "Generated files not in parity with the source files."
+            git status --porcelain .
+            exit 1
+          fi
           git reset --hard HEAD
         working-directory: contracts-abi
 
