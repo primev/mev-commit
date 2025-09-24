@@ -173,16 +173,13 @@ func (s *Service) SendBid(
 	)
 	switch {
 	case len(bid.TxHashes) > 0:
-		for i := range bid.TxHashes {
-			if bid.BidOptions != nil && len(bid.BidOptions.Options) > 0 {
-				if option := bid.BidOptions.Options[i]; option != nil {
-					switch option.GetOpt().(type) {
-					case *bidderapiv1.BidOption_ShutterisedBidOption:
-						c := option.GetShutterisedBidOption()
-						if c == nil || c.GetIdentityPrefix() == "" || c.GetEncryptedTx() == "" {
-							s.logger.Error("shutterised bid option identity prefix or encrypted tx is nil", "option", option)
-							return status.Errorf(codes.InvalidArgument, "shutterised bid option identity prefix or encrypted tx is nil")
-						}
+		if bid.BidOptions != nil && len(bid.BidOptions.Options) > 0 {
+			for _, option := range bid.BidOptions.Options {
+				if option.GetShutterisedBidOption() != nil {
+					c := option.GetShutterisedBidOption()
+					if len(c.GetIdentityPrefix()) != 64 || len(c.GetEncryptedTx()) == 0 {
+						s.logger.Error("shutterised bid option identity prefix or encrypted tx is invalid", "option", option)
+						return status.Errorf(codes.InvalidArgument, "shutterised bid option identity prefix or encrypted tx is invalid")
 					}
 				}
 			}
