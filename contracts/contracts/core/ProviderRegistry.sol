@@ -99,24 +99,17 @@ contract ProviderRegistry is
      * @dev Slash funds from the provider and send the slashed amount to the bidder.
      * @dev reenterancy not necessary but still putting here for precaution.
      * @dev Note we slash the funds taking into account the residual bid percent after decay.
-     * @param amt The amount of bid to slash from the provider's stake .
      * @param slashAmt The amount to slash from the provider's stake.
      * @param provider The address of the provider.
      * @param bidder The address to transfer the slashed funds to.
-     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function slash(
-        uint256 amt,
         uint256 slashAmt,
         address provider,
-        address payable bidder,
-        uint256 residualBidPercentAfterDecay
+        address payable bidder
     ) external nonReentrant onlyPreconfManager whenNotPaused {
-        uint256 residualAmt = (amt * residualBidPercentAfterDecay) /
-            ONE_HUNDRED_PERCENT;
-
-        uint256 penaltyFee = (residualAmt * feePercent) / ONE_HUNDRED_PERCENT;
-        uint256 bidderPortion = residualAmt + slashAmt;
+        uint256 penaltyFee = (slashAmt * feePercent) / ONE_HUNDRED_PERCENT;
+        uint256 bidderPortion = slashAmt;
         uint256 totalSlash = bidderPortion + penaltyFee;
         uint256 providerStake = providerStakes[provider];
 
@@ -124,9 +117,8 @@ contract ProviderRegistry is
             emit InsufficientFundsToSlash(
                 provider,
                 providerStake,
-                residualAmt,
                 penaltyFee,
-                slashAmt
+                bidderPortion
             );
 
             uint256 leftover = providerStake;

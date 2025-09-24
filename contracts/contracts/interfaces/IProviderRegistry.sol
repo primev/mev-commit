@@ -43,9 +43,8 @@ interface IProviderRegistry {
     event InsufficientFundsToSlash(
         address indexed provider,
         uint256 providerStake,
-        uint256 residualAmount,
         uint256 penaltyFee,
-        uint256 slashAmt
+        uint256 bidderPortion
     );
 
     /// @dev Event emitted when transfer to bidder fails
@@ -80,11 +79,9 @@ interface IProviderRegistry {
     function stake() external payable;
 
     function slash(
-        uint256 amt,
         uint256 slashAmt,
         address provider,
-        address payable bidder,
-        uint256 residualBidPercentAfterDecay
+        address payable bidder
     ) external;
 
     function addVerifiedBLSKey(bytes calldata blsPublicKey, bytes calldata signature) external;
