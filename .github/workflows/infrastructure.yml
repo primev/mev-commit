@@ -36,11 +36,10 @@ on:
         description: 'Target Machine'
         type: choice
         options:
-          - lax1
           - chi1
           - mia2
           - mia3
-        default: 'lax'
+        default: 'chi1'
 
 permissions:
   contents: read
@@ -63,6 +62,9 @@ jobs:
           echo
           echo "MEMORY INFO:"
           free -h
+          echo "RUNNER_NAME=$RUNNER_NAME"
+          echo "RUNNER_OS=$RUNNER_OS"
+          echo "TARGET_MACHINE=${{ github.event.inputs.target_machine }}"
 
       - name: Setup Environment
         run: |
