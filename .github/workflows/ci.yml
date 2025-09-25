@@ -142,7 +142,7 @@ jobs:
 
       - name: Run Tests
         run: forge clean && forge test -vvv --via-ir
-  
+
       - name: Run Snapshot
         run: forge clean && forge snapshot --via-ir
 
