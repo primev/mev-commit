@@ -206,7 +206,7 @@ func main() {
 	}
 	logger.Info("deposit manager enabled")
 
-	var providerAddress string
+	var providerAddresses []string
 	retries := 10
 	for range retries {
 		resp, err := bidderClient.GetValidProviders(context.Background(), &pb.GetValidProvidersRequest{})
@@ -215,24 +215,27 @@ func main() {
 			continue
 		}
 		if len(resp.ValidProviders) > 0 {
-			providerAddress = resp.ValidProviders[0]
+			providerAddresses = resp.ValidProviders
 			break
 		}
 		time.Sleep(time.Second)
 	}
 
-	if providerAddress == "" {
+	if len(providerAddresses) == 0 {
 		logger.Error("no connected and valid provider found")
 		return
 	}
 
+	targetDeposits := make([]*pb.TargetDeposit, len(providerAddresses))
+	for i, addr := range providerAddresses {
+		targetDeposits[i] = &pb.TargetDeposit{
+			TargetDeposit: minDeposit.String(),
+			Provider:      addr,
+		}
+	}
+
 	resp, err := bidderClient.SetTargetDeposits(context.Background(), &pb.SetTargetDepositsRequest{
-		TargetDeposits: []*pb.TargetDeposit{
-			{
-				TargetDeposit: minDeposit.String(),
-				Provider:      providerAddress,
-			},
-		},
+		TargetDeposits: targetDeposits,
 	})
 	if err != nil {
 		logger.Error("failed to set target deposits", "err", err)
