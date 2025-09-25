@@ -141,7 +141,7 @@ jobs:
           forge --version
 
       - name: Build
-        run: forge build -vvv --via-ir
+        run: forge clean && forge build -vvv --via-ir
 
       - name: Snapshot (runs tests)
         run: forge snapshot -vvv --via-ir --no-compile
