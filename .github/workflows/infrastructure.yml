@@ -37,9 +37,6 @@ on:
         type: choice
         options:
           - lax1
-          - chi1
-          - mia2
-          - mia3
         default: 'lax1'
 
 permissions:
