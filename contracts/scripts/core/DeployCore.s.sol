@@ -32,7 +32,7 @@ contract DeployCore is Script {
         );
         uint256 feePercent = 2 * PERCENT_MULTIPLIER; // 2%
         uint256 providerPenaltyPercent = 5 * PERCENT_MULTIPLIER; // 5%
-        uint64 commitmentDispatchWindow = 500;
+        uint64 commitmentDispatchWindow = 2000;
         uint256 withdrawalDelay = 24 hours  * 1000; // 24 hours in milliseconds
         uint256 protocolFeePayoutPeriod = 1 hours * 1000; // 1 hour in ms timestamps
         uint256 bidderWithdrawalPeriodMs = 10 minutes * 1000; // 10 minutes in ms timestamps
