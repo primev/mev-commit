@@ -863,14 +863,38 @@ func (s *Service) DepositManagerStatus(
 		}
 	}()
 
+	latestTargetDeposits := make(map[common.Address]struct {
+		amount   *big.Int
+		blockNum uint64
+		index    uint
+	})
+	for iterator.Next() {
+		event := iterator.Event
+		latest, exists := latestTargetDeposits[event.Provider]
+		newEventIsFromHigherBlockNum := event.Raw.BlockNumber > latest.blockNum
+		newEventIsFromHigherIndexInSameBlock := event.Raw.BlockNumber == latest.blockNum && event.Raw.Index > latest.index
+		if !exists || newEventIsFromHigherBlockNum || newEventIsFromHigherIndexInSameBlock {
+			latestTargetDeposits[event.Provider] = struct {
+				amount   *big.Int
+				blockNum uint64
+				index    uint
+			}{amount: new(big.Int).Set(event.Amount), blockNum: event.Raw.BlockNumber, index: event.Raw.Index}
+		}
+	}
+	if err := iterator.Error(); err != nil {
+		s.logger.Error("iterating target deposits", "error", err)
+		return nil, status.Errorf(codes.Internal, "iterating target deposits: %v", err)
+	}
+
 	resp := &bidderapiv1.DepositManagerStatusResponse{
 		Enabled:        true,
-		TargetDeposits: make([]*bidderapiv1.TargetDeposit, 0),
+		TargetDeposits: make([]*bidderapiv1.TargetDeposit, 0, len(latestTargetDeposits)),
 	}
-	for iterator.Next() {
+
+	for provider, latest := range latestTargetDeposits {
 		resp.TargetDeposits = append(resp.TargetDeposits, &bidderapiv1.TargetDeposit{
-			Provider:      iterator.Event.Provider.Hex(),
-			TargetDeposit: iterator.Event.Amount.String(),
+			Provider:      provider.Hex(),
+			TargetDeposit: latest.amount.String(),
 		})
 	}
 

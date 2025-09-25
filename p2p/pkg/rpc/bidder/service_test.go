@@ -13,10 +13,13 @@ import (
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	depositmanager "github.com/primev/mev-commit/contracts-abi/clients/DepositManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
@@ -796,4 +799,146 @@ func TestGetBidInfo(t *testing.T) {
 			}
 		}
 	})
+}
+
+type dmTestSub struct{ ch chan error }
+
+func (s *dmTestSub) Unsubscribe()      {}
+func (s *dmTestSub) Err() <-chan error { return s.ch }
+
+type dmTestFilterer struct{ logs []types.Log }
+
+func (f *dmTestFilterer) FilterLogs(_ context.Context, _ ethereum.FilterQuery) ([]types.Log, error) {
+	return f.logs, nil
+}
+
+func (f *dmTestFilterer) SubscribeFilterLogs(_ context.Context, _ ethereum.FilterQuery, _ chan<- types.Log) (ethereum.Subscription, error) {
+	errc := make(chan error)
+	close(errc)
+	return &dmTestSub{ch: errc}, nil
+}
+
+type dmTestDepositManager struct {
+	filter func(opts *bind.FilterOpts, providers []common.Address) (*depositmanager.DepositmanagerTargetDepositSetIterator, error)
+}
+
+func (m *dmTestDepositManager) SetTargetDeposits(*bind.TransactOpts, []common.Address, []*big.Int) (*types.Transaction, error) {
+	return nil, nil
+}
+func (m *dmTestDepositManager) TopUpDeposits(*bind.TransactOpts, []common.Address) (*types.Transaction, error) {
+	return nil, nil
+}
+func (m *dmTestDepositManager) ParseTargetDepositSet(types.Log) (*depositmanager.DepositmanagerTargetDepositSet, error) {
+	return nil, nil
+}
+func (m *dmTestDepositManager) ParseDepositToppedUp(types.Log) (*depositmanager.DepositmanagerDepositToppedUp, error) {
+	return nil, nil
+}
+func (m *dmTestDepositManager) FilterTargetDepositSet(opts *bind.FilterOpts, providers []common.Address) (*depositmanager.DepositmanagerTargetDepositSetIterator, error) {
+	return m.filter(opts, providers)
+}
+
+type dmTestBackend struct {
+	codeAt    func(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error)
+	balanceAt func(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+}
+
+func (m *dmTestBackend) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	return m.codeAt(ctx, contract, blockNumber)
+}
+func (m *dmTestBackend) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
+	if m.balanceAt != nil {
+		return m.balanceAt(ctx, account, blockNumber)
+	}
+	return big.NewInt(0), nil
+}
+
+func TestDepositManagerStatus(t *testing.T) {
+	t.Parallel()
+
+	abiJSON := `[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"provider","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TargetDepositSet","type":"event"}]`
+	parsedABI, err := abi.JSON(strings.NewReader(abiJSON))
+	if err != nil {
+		t.Fatalf("parse abi: %v", err)
+	}
+	ev := parsedABI.Events["TargetDepositSet"]
+
+	p1 := common.HexToAddress("0x00000000000000000000000000000000000000a1")
+	p2 := common.HexToAddress("0x00000000000000000000000000000000000000a2")
+	makeLog := func(provider common.Address, amt *big.Int, bn uint64, idx uint) types.Log {
+		data, packErr := ev.Inputs.NonIndexed().Pack(amt)
+		if packErr != nil {
+			t.Fatalf("pack amount: %v", packErr)
+		}
+		return types.Log{
+			Topics:      []common.Hash{ev.ID, common.BytesToHash(common.LeftPadBytes(provider.Bytes(), 32))},
+			Data:        data,
+			BlockNumber: bn,
+			Index:       idx,
+		}
+	}
+
+	filterer := &dmTestFilterer{logs: []types.Log{
+		makeLog(p1, big.NewInt(100), 10, 0),
+		makeLog(p1, big.NewInt(200), 10, 1),
+		makeLog(p2, big.NewInt(300), 9, 5),
+	}}
+	df, err := depositmanager.NewDepositmanagerFilterer(common.Address{}, filterer)
+	if err != nil {
+		t.Fatalf("new filterer: %v", err)
+	}
+
+	implAddr := common.HexToAddress("0x0000000000000000000000000000000000000123")
+	dm := &dmTestDepositManager{
+		filter: func(opts *bind.FilterOpts, providers []common.Address) (*depositmanager.DepositmanagerTargetDepositSetIterator, error) {
+			return df.FilterTargetDepositSet(opts, providers)
+		},
+	}
+	be := &dmTestBackend{
+		codeAt: func(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+			return append(common.FromHex("0xef0100"), implAddr.Bytes()...), nil
+		},
+	}
+
+	validator, err := protovalidate.New()
+	if err != nil {
+		t.Fatalf("validator: %v", err)
+	}
+
+	svc := bidderapi.NewService(
+		common.HexToAddress("0x0000000000000000000000000000000000000b1d"),
+		nil, nil, nil,
+		validator,
+		nil,
+		nil,
+		nil,
+		15*time.Second,
+		util.NewTestLogger(os.Stdout),
+		nil,
+		dm,
+		be,
+		implAddr,
+	)
+
+	resp, err := svc.DepositManagerStatus(context.Background(), &bidderapiv1.DepositManagerStatusRequest{})
+	if err != nil {
+		t.Fatalf("DepositManagerStatus error: %v", err)
+	}
+	if !resp.Enabled {
+		t.Fatalf("expected Enabled = true")
+	}
+	if len(resp.TargetDeposits) != 2 {
+		t.Fatalf("expected 2 target deposits, got %d", len(resp.TargetDeposits))
+	}
+
+	got := make(map[string]string)
+	for _, td := range resp.TargetDeposits {
+		got[td.Provider] = td.TargetDeposit
+	}
+	if got[p1.Hex()] != "200" {
+		t.Fatalf("expected p1 amount 200, got %s", got[p1.Hex()])
+	}
+	if got[p2.Hex()] != "300" {
+		t.Fatalf("expected p2 amount 300, got %s", got[p2.Hex()])
+	}
 }
