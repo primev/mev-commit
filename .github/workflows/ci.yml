@@ -140,11 +140,11 @@ jobs:
           npm --version
           forge --version
 
-      - name: Build
-        run: forge clean && forge build -vvv --via-ir
-
-      - name: Snapshot (runs tests)
-        run: forge snapshot -vvv --via-ir
+      - name: Run Tests
+        run: forge clean && forge test -vvv --via-ir
+  
+      - name: Run Snapshot
+        run: forge clean && forge snapshot --via-ir
 
   contracts:
     name: Test and Build Contracts Scripts
