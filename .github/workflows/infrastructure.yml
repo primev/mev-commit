@@ -207,13 +207,14 @@ jobs:
             exit 1
           fi
 
-          if [ "${IS_MANUAL_DEPLOYMENT}" == "false" ] || [ "${{ github.event.inputs.all_targets }}" == "false" ]; then
-            STDOUT="$(echo "${STDOUT}" | awk -F 'stdout\\) ' '{print $2}')"
-            OS="$(echo "${STDOUT}" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
-            ARCH="$(echo "${STDOUT}" | awk '{print $2}' | tr '[:upper:]' '[:lower:]')"
-            [ "${ARCH}" == "x86_64" ] && ARCH="amd64"
-            echo "ARTIFACTS_GOOS=${OS}" >> ${GITHUB_ENV}
-            echo "ARTIFACTS_GOARCH=${ARCH}" >> ${GITHUB_ENV}
+          if [ "${IS_MANUAL_DEPLOYMENT}" == "false" ] || [ "${{ github.event.inputs.all_targets || 'false' }}" == "false" ]; then
+            OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+            ARCH="$(uname -m | tr '[:upper:]' '[:lower:]')"
+            [ "${ARCH}" = "x86_64" ] && ARCH="amd64"
+            {
+              echo "ARTIFACTS_GOOS=${OS}"
+              echo "ARTIFACTS_GOARCH=${ARCH}"
+            } >> "${GITHUB_ENV}"
           fi
         working-directory: infrastructure/nomad
 
