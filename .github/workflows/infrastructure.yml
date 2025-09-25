@@ -36,8 +36,8 @@ on:
         description: 'Target Machine'
         type: choice
         options:
-          - lax1
-        default: 'lax1'
+          - mia2
+        default: 'mia2'
 
 permissions:
   contents: read
