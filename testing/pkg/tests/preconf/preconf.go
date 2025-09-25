@@ -408,15 +408,13 @@ DONE:
 						return fmt.Errorf("funds not unlocked")
 					}
 
-					bidderPortion := new(big.Int).Add(residualBidAmt, slashAmount)
-					penaltyFee := new(big.Int).Mul(residualBidAmt, big.NewInt(FEE_PERCENT))
+					penaltyFee := new(big.Int).Mul(slashAmount, big.NewInt(FEE_PERCENT))
 					penaltyFee.Div(penaltyFee, big.NewInt(ONE_HUNDRED_PERCENT))
-
-					totalSlash := new(big.Int).Add(bidderPortion, penaltyFee)
+					totalSlash := new(big.Int).Add(slashAmount, penaltyFee)
 
 					_, ok = store.Get(fundsSlashedKey(common.BytesToAddress(providerAddr), totalSlash))
 					if !ok {
-						logger.Error("Funds not slashed", "entry", entry, "total", totalSlash, "penaltyFee", penaltyFee, "bidderPortion", bidderPortion)
+						logger.Error("Funds not slashed", "entry", entry, "total", totalSlash)
 						return fmt.Errorf("funds not slashed")
 					}
 				} else {

@@ -590,11 +590,6 @@
     "name": "slash",
     "inputs": [
       {
-        "name": "amt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
         "name": "slashAmt",
         "type": "uint256",
         "internalType": "uint256"
@@ -608,11 +603,6 @@
         "name": "bidder",
         "type": "address",
         "internalType": "address payable"
-      },
-      {
-        "name": "residualBidPercentAfterDecay",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -896,19 +886,13 @@
         "internalType": "uint256"
       },
       {
-        "name": "residualAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
         "name": "penaltyFee",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "slashAmt",
+        "name": "bidderPortion",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"

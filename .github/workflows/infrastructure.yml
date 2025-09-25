@@ -40,7 +40,7 @@ on:
           - chi1
           - mia2
           - mia3
-        default: 'lax'
+        default: 'lax1'
 
 permissions:
   contents: read

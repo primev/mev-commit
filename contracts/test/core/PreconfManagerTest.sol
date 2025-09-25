@@ -80,7 +80,7 @@ contract PreconfManagerTest is Test {
 
         _testCommitmentAliceBob = TestCommitment(
             2,
-            0,
+            3, // slashAmt
             2,
             "0xkartik",
             "0xkartik",
@@ -819,10 +819,9 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.zkProof,
                 _testCommitmentAliceBob.bidOptions
             );
-            uint256 oneHundredPercent = providerRegistry.ONE_HUNDRED_PERCENT();
 
             vm.prank(oracleContract);
-            preconfManager.initiateSlash(index, oneHundredPercent);
+            preconfManager.initiateSlash(index);
 
             (, isSettled, , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);
@@ -836,8 +835,8 @@ contract PreconfManagerTest is Test {
             assertEq(bidderRegistry.providerAmount(committer), 0 ether);
             assertEq(
                 bidder.balance,
-                3 ether + _testCommitmentAliceBob.bidAmt + 2
-            ); // +2 is the slashed funds from provider
+                3 ether + _testCommitmentAliceBob.bidAmt + 3
+            ); // +3 is the slashed funds from provider
         }
         // commitmentDigest value is internal to contract and not asserted
     }
