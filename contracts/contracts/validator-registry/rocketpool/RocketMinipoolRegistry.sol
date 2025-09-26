@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {RocketMinipoolInterface} from "rocketpool/contracts/interface/minipool/RocketMinipoolInterface.sol";
 import {MinipoolStatus} from "rocketpool/contracts/types/MinipoolStatus.sol";
 import {RocketStorageInterface} from "rocketpool/contracts/interface/RocketStorageInterface.sol";
@@ -16,7 +17,7 @@ import {RocketMinipoolRegistryStorage} from "./RocketMinipoolRegistryStorage.sol
 /// @notice This contract serves as the entrypoint for operators to register with
 /// the mev-commit protocol via Rocketpool minipools.
 contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegistryStorage,
-    Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+    Ownable2StepUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
 
     modifier onlyFreezeOracle() {
         require(msg.sender == freezeOracle, IRocketMinipoolRegistry.OnlyFreezeOracle());
@@ -51,6 +52,7 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     function initialize(address owner, address freezeOracle, address unfreezeReceiver, address rocketStorage, uint256 unfreezeFee, uint64 deregistrationPeriod) external initializer {
         __Ownable_init(owner);
         __Pausable_init();
+        __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
         _setFreezeOracle(freezeOracle);
         _setUnfreezeReceiver(unfreezeReceiver);
@@ -91,7 +93,7 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     }
 
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
-    function unfreeze(bytes[] calldata valPubKeys) external payable whenNotPaused {
+    function unfreeze(bytes[] calldata valPubKeys) external payable whenNotPaused nonReentrant {
         uint256 requiredFee = unfreezeFee * valPubKeys.length;
         require(msg.value >= requiredFee, UnfreezeFeeRequired(requiredFee));
         uint256 len = valPubKeys.length;
@@ -190,10 +192,10 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     }
 
     /// @dev Fetches the minipool from a validator's pubkey and returns true if caller is either the minipool's node address or node's withdrawal address.
-    function isOperatorValidForKey(bytes calldata validatorPubkey) public view returns (bool) {
+    function isOperatorValidForKey(address operator, bytes calldata validatorPubkey) public view returns (bool) {
         address minipool = getMinipoolFromPubkey(validatorPubkey);
         address nodeAddress = getNodeAddressFromMinipool(minipool);
-        return (nodeAddress == msg.sender || rocketStorage.getNodeWithdrawalAddress(nodeAddress) == msg.sender);
+        return (nodeAddress == operator || rocketStorage.getNodeWithdrawalAddress(nodeAddress) == operator);
     }
 
     function isValidatorRegistered(bytes calldata validatorPubkey) public view returns (bool) {
@@ -208,11 +210,10 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     /// @dev Registers a validator.
     function _registerValidator(bytes calldata valPubKey) internal {
         address minipool = getMinipoolFromPubkey(valPubKey);
-        require(minipool != address(0), NoMinipoolForKey(valPubKey));
-        require(_isOperatorValid(minipool), NotMinipoolOperator(valPubKey));
         require(isMinipoolActive(minipool), MinipoolNotActive(valPubKey));
         require(!isValidatorRegistered(valPubKey), ValidatorAlreadyRegistered(valPubKey));
         address nodeAddress = getNodeAddressFromMinipool(minipool);
+        require(_isOperatorValid(nodeAddress), NotMinipoolOperator(valPubKey));
         IRocketMinipoolRegistry.ValidatorRegistration storage reg = validatorRegistrations[valPubKey];
         reg.exists = true;
         emit ValidatorRegistered(valPubKey, nodeAddress);
@@ -255,18 +256,22 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     }
 
     function _setFreezeOracle(address newFreezeOracle) internal {
+        require(newFreezeOracle != address(0), ZeroParam());
         freezeOracle = newFreezeOracle;
     }
 
     function _setUnfreezeReceiver(address newUnfreezeReceiver) internal {
+        require(newUnfreezeReceiver != address(0), ZeroParam());
         unfreezeReceiver = newUnfreezeReceiver;
     }
 
     function _setUnfreezeFee(uint256 newUnfreezeFee) internal {
+        require(newUnfreezeFee != 0, ZeroParam());
         unfreezeFee = newUnfreezeFee;
     }
 
     function _setRocketStorage(address newRocketStorage) internal {
+        require(newRocketStorage != address(0), ZeroParam());
         rocketStorage = RocketStorageInterface(newRocketStorage);
     }
 
@@ -282,8 +287,9 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         if (!isValidatorRegistered(valPubKey)) return false;
         if (validatorRegistrations[valPubKey].freezeTimestamp != 0) return false;
         if (validatorRegistrations[valPubKey].deregTimestamp != 0) return false;
-        if (getMinipoolFromPubkey(valPubKey) == address(0)) return false;
-        if (!isMinipoolActive(getMinipoolFromPubkey(valPubKey))) return false;
+        address minipool = getMinipoolFromPubkey(valPubKey);
+        if (minipool == address(0)) return false;
+        if (!isMinipoolActive(minipool)) return false;
         return true;
     }
 

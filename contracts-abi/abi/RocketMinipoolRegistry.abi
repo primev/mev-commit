@@ -282,6 +282,11 @@
     "name": "isOperatorValidForKey",
     "inputs": [
       {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "validatorPubkey",
         "type": "bytes",
         "internalType": "bytes"
@@ -720,7 +725,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes"
       },
       {
@@ -739,7 +744,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes"
       },
       {
@@ -758,7 +763,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes"
       }
     ],
@@ -771,7 +776,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes"
       },
       {
@@ -790,7 +795,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes"
       }
     ],
@@ -980,6 +985,11 @@
   },
   {
     "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "RefundFailed",
     "inputs": []
   },
@@ -1069,5 +1079,10 @@
         "internalType": "bytes"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroParam",
+    "inputs": []
   }
 ]

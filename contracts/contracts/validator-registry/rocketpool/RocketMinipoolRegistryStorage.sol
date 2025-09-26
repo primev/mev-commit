@@ -16,4 +16,5 @@ abstract contract RocketMinipoolRegistryStorage {
 
     mapping(bytes => IRocketMinipoolRegistry.ValidatorRegistration) public validatorRegistrations;
 
+    uint256[44] private __gap;
 }

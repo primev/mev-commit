@@ -9,20 +9,24 @@ interface IRocketMinipoolRegistry {
         uint64 freezeTimestamp;
     }
 
+    // ----------------- EVENTS -----------------
+
     /// @notice Emitted when a validator is registered.
-    event ValidatorRegistered(bytes validatorPubKey, address indexed nodeAddress);
-
-    /// @notice Emitted when a validator is deregistered.
-    event ValidatorDeregistered(bytes validatorPubKey, address indexed nodeAddress);
-
-    /// @notice Emitted when a validator is frozen.
-    event ValidatorFrozen(bytes validatorPubKey);
-
-    /// @notice Emitted when a validator is unfrozen.
-    event ValidatorUnfrozen(bytes validatorPubKey);
+    event ValidatorRegistered(bytes indexed validatorPubKey, address indexed nodeAddress);
 
     /// @notice Emitted when a validator deregistration request is made.
-    event ValidatorDeregistrationRequested(bytes validatorPubKey, address indexed nodeAddress);
+    event ValidatorDeregistrationRequested(bytes indexed validatorPubKey, address indexed nodeAddress);
+
+    /// @notice Emitted when a validator is deregistered.
+    event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed nodeAddress);
+
+    /// @notice Emitted when a validator is frozen.
+    event ValidatorFrozen(bytes indexed validatorPubKey);
+
+    /// @notice Emitted when a validator is unfrozen.
+    event ValidatorUnfrozen(bytes indexed validatorPubKey);
+
+    // ----------------- ERRORS -----------------
 
     error ValidatorAlreadyRegistered(bytes validatorPubkey);
 
@@ -57,6 +61,10 @@ interface IRocketMinipoolRegistry {
     error UnfreezeTransferFailed();
 
     error RefundFailed();
+
+    error ZeroParam();
+
+    // ----------------- FUNCTIONS -----------------
 
     /// @notice Registers validators with a minipool.
     function registerValidators(bytes[] calldata validatorPubkeys) external;
@@ -93,4 +101,7 @@ interface IRocketMinipoolRegistry {
 
     /// @notice Checks if a validator is opted-in.  
     function isValidatorOptedIn(bytes calldata validatorPubkey) external view returns (bool);
+
+    /// @notice Checks if an operator is valid to interact on behalf of a validator.
+    function isOperatorValidForKey(address operator, bytes calldata validatorPubkey) external view returns (bool);
 }

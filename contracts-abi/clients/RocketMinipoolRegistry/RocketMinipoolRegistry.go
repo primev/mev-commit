@@ -38,7 +38,7 @@ type IRocketMinipoolRegistryValidatorRegistration struct {
 
 // RocketminipoolregistryMetaData contains all meta data concerning the Rocketminipoolregistry contract.
 var RocketminipoolregistryMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterValidators\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregistrationPeriod\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"freeze\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"freezeOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getEligibleTimeForDeregistration\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinipoolFromPubkey\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getNodeAddressFromMinipool\",\"inputs\":[{\"name\":\"minipool\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getNodeAddressFromPubkey\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidOperatorsForKey\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorRegInfo\",\"inputs\":[{\"name\":\"valPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIRocketMinipoolRegistry.ValidatorRegistration\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"freezeTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"freezeOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"unfreezeReceiver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"rocketStorage\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"unfreezeFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregistrationPeriod\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isMinipoolActive\",\"inputs\":[{\"name\":\"minipool\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isOperatorValidForKey\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorOptedIn\",\"inputs\":[{\"name\":\"valPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorRegistered\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ownerUnfreeze\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerValidators\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestValidatorDeregistration\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"rocketStorage\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractRocketStorageInterface\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setDeregistrationPeriod\",\"inputs\":[{\"name\":\"newDeregistrationPeriod\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setFreezeOracle\",\"inputs\":[{\"name\":\"newFreezeOracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setRocketStorage\",\"inputs\":[{\"name\":\"newRocketStorage\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setUnfreezeFee\",\"inputs\":[{\"name\":\"newUnfreezeFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setUnfreezeReceiver\",\"inputs\":[{\"name\":\"newUnfreezeReceiver\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unfreeze\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"unfreezeFee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unfreezeReceiver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"validatorRegistrations\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"freezeTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorDeregistered\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"nodeAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorDeregistrationRequested\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"nodeAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorFrozen\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorRegistered\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"nodeAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorUnfrozen\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"DeregRequestAlreadyExists\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"DeregRequestDoesNotExist\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"DeregistrationTooSoon\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FrozenValidatorCannotDeregister\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"InvalidBLSPubKeyLength\",\"inputs\":[{\"name\":\"expectedLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actualLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MinipoolNotActive\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"NoMinipoolForKey\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotMinipoolOperator\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"OnlyFreezeOracle\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"RefundFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnfreezeFeeRequired\",\"inputs\":[{\"name\":\"requiredFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"UnfreezeTransferFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ValidatorAlreadyFrozen\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorAlreadyRegistered\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorDeregistrationNotExpired\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotFrozen\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotRegistered\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterValidators\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregistrationPeriod\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"freeze\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"freezeOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getEligibleTimeForDeregistration\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinipoolFromPubkey\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getNodeAddressFromMinipool\",\"inputs\":[{\"name\":\"minipool\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getNodeAddressFromPubkey\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidOperatorsForKey\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorRegInfo\",\"inputs\":[{\"name\":\"valPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIRocketMinipoolRegistry.ValidatorRegistration\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"freezeTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"freezeOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"unfreezeReceiver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"rocketStorage\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"unfreezeFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregistrationPeriod\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isMinipoolActive\",\"inputs\":[{\"name\":\"minipool\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isOperatorValidForKey\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorOptedIn\",\"inputs\":[{\"name\":\"valPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorRegistered\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ownerUnfreeze\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerValidators\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestValidatorDeregistration\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"rocketStorage\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractRocketStorageInterface\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setDeregistrationPeriod\",\"inputs\":[{\"name\":\"newDeregistrationPeriod\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setFreezeOracle\",\"inputs\":[{\"name\":\"newFreezeOracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setRocketStorage\",\"inputs\":[{\"name\":\"newRocketStorage\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setUnfreezeFee\",\"inputs\":[{\"name\":\"newUnfreezeFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setUnfreezeReceiver\",\"inputs\":[{\"name\":\"newUnfreezeReceiver\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unfreeze\",\"inputs\":[{\"name\":\"valPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"unfreezeFee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unfreezeReceiver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"validatorRegistrations\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"freezeTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorDeregistered\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":true,\"internalType\":\"bytes\"},{\"name\":\"nodeAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorDeregistrationRequested\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":true,\"internalType\":\"bytes\"},{\"name\":\"nodeAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorFrozen\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":true,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorRegistered\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":true,\"internalType\":\"bytes\"},{\"name\":\"nodeAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorUnfrozen\",\"inputs\":[{\"name\":\"validatorPubKey\",\"type\":\"bytes\",\"indexed\":true,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"DeregRequestAlreadyExists\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"DeregRequestDoesNotExist\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"DeregistrationTooSoon\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FrozenValidatorCannotDeregister\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"InvalidBLSPubKeyLength\",\"inputs\":[{\"name\":\"expectedLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actualLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MinipoolNotActive\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"NoMinipoolForKey\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotMinipoolOperator\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"OnlyFreezeOracle\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RefundFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnfreezeFeeRequired\",\"inputs\":[{\"name\":\"requiredFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"UnfreezeTransferFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ValidatorAlreadyFrozen\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorAlreadyRegistered\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorDeregistrationNotExpired\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotFrozen\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotRegistered\",\"inputs\":[{\"name\":\"validatorPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ZeroParam\",\"inputs\":[]}]",
 }
 
 // RocketminipoolregistryABI is the input ABI used to generate the binding from.
@@ -498,12 +498,12 @@ func (_Rocketminipoolregistry *RocketminipoolregistryCallerSession) IsMinipoolAc
 	return _Rocketminipoolregistry.Contract.IsMinipoolActive(&_Rocketminipoolregistry.CallOpts, minipool)
 }
 
-// IsOperatorValidForKey is a free data retrieval call binding the contract method 0x527300f3.
+// IsOperatorValidForKey is a free data retrieval call binding the contract method 0x5ac0191f.
 //
-// Solidity: function isOperatorValidForKey(bytes validatorPubkey) view returns(bool)
-func (_Rocketminipoolregistry *RocketminipoolregistryCaller) IsOperatorValidForKey(opts *bind.CallOpts, validatorPubkey []byte) (bool, error) {
+// Solidity: function isOperatorValidForKey(address operator, bytes validatorPubkey) view returns(bool)
+func (_Rocketminipoolregistry *RocketminipoolregistryCaller) IsOperatorValidForKey(opts *bind.CallOpts, operator common.Address, validatorPubkey []byte) (bool, error) {
 	var out []interface{}
-	err := _Rocketminipoolregistry.contract.Call(opts, &out, "isOperatorValidForKey", validatorPubkey)
+	err := _Rocketminipoolregistry.contract.Call(opts, &out, "isOperatorValidForKey", operator, validatorPubkey)
 
 	if err != nil {
 		return *new(bool), err
@@ -515,18 +515,18 @@ func (_Rocketminipoolregistry *RocketminipoolregistryCaller) IsOperatorValidForK
 
 }
 
-// IsOperatorValidForKey is a free data retrieval call binding the contract method 0x527300f3.
+// IsOperatorValidForKey is a free data retrieval call binding the contract method 0x5ac0191f.
 //
-// Solidity: function isOperatorValidForKey(bytes validatorPubkey) view returns(bool)
-func (_Rocketminipoolregistry *RocketminipoolregistrySession) IsOperatorValidForKey(validatorPubkey []byte) (bool, error) {
-	return _Rocketminipoolregistry.Contract.IsOperatorValidForKey(&_Rocketminipoolregistry.CallOpts, validatorPubkey)
+// Solidity: function isOperatorValidForKey(address operator, bytes validatorPubkey) view returns(bool)
+func (_Rocketminipoolregistry *RocketminipoolregistrySession) IsOperatorValidForKey(operator common.Address, validatorPubkey []byte) (bool, error) {
+	return _Rocketminipoolregistry.Contract.IsOperatorValidForKey(&_Rocketminipoolregistry.CallOpts, operator, validatorPubkey)
 }
 
-// IsOperatorValidForKey is a free data retrieval call binding the contract method 0x527300f3.
+// IsOperatorValidForKey is a free data retrieval call binding the contract method 0x5ac0191f.
 //
-// Solidity: function isOperatorValidForKey(bytes validatorPubkey) view returns(bool)
-func (_Rocketminipoolregistry *RocketminipoolregistryCallerSession) IsOperatorValidForKey(validatorPubkey []byte) (bool, error) {
-	return _Rocketminipoolregistry.Contract.IsOperatorValidForKey(&_Rocketminipoolregistry.CallOpts, validatorPubkey)
+// Solidity: function isOperatorValidForKey(address operator, bytes validatorPubkey) view returns(bool)
+func (_Rocketminipoolregistry *RocketminipoolregistryCallerSession) IsOperatorValidForKey(operator common.Address, validatorPubkey []byte) (bool, error) {
+	return _Rocketminipoolregistry.Contract.IsOperatorValidForKey(&_Rocketminipoolregistry.CallOpts, operator, validatorPubkey)
 }
 
 // IsValidatorOptedIn is a free data retrieval call binding the contract method 0x470b690f.
@@ -2199,22 +2199,26 @@ func (it *RocketminipoolregistryValidatorDeregisteredIterator) Close() error {
 
 // RocketminipoolregistryValidatorDeregistered represents a ValidatorDeregistered event raised by the Rocketminipoolregistry contract.
 type RocketminipoolregistryValidatorDeregistered struct {
-	ValidatorPubKey []byte
+	ValidatorPubKey common.Hash
 	NodeAddress     common.Address
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
 // FilterValidatorDeregistered is a free log retrieval operation binding the contract event 0x10ec0bb1533e599e504516d6b49226d8a637ea19cbadfc6f7ff14a01bede3170.
 //
-// Solidity: event ValidatorDeregistered(bytes validatorPubKey, address indexed nodeAddress)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorDeregistered(opts *bind.FilterOpts, nodeAddress []common.Address) (*RocketminipoolregistryValidatorDeregisteredIterator, error) {
+// Solidity: event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed nodeAddress)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorDeregistered(opts *bind.FilterOpts, validatorPubKey [][]byte, nodeAddress []common.Address) (*RocketminipoolregistryValidatorDeregisteredIterator, error) {
 
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
 	var nodeAddressRule []interface{}
 	for _, nodeAddressItem := range nodeAddress {
 		nodeAddressRule = append(nodeAddressRule, nodeAddressItem)
 	}
 
-	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorDeregistered", nodeAddressRule)
+	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorDeregistered", validatorPubKeyRule, nodeAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2223,15 +2227,19 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorDe
 
 // WatchValidatorDeregistered is a free log subscription operation binding the contract event 0x10ec0bb1533e599e504516d6b49226d8a637ea19cbadfc6f7ff14a01bede3170.
 //
-// Solidity: event ValidatorDeregistered(bytes validatorPubKey, address indexed nodeAddress)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorDeregistered(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorDeregistered, nodeAddress []common.Address) (event.Subscription, error) {
+// Solidity: event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed nodeAddress)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorDeregistered(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorDeregistered, validatorPubKey [][]byte, nodeAddress []common.Address) (event.Subscription, error) {
 
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
 	var nodeAddressRule []interface{}
 	for _, nodeAddressItem := range nodeAddress {
 		nodeAddressRule = append(nodeAddressRule, nodeAddressItem)
 	}
 
-	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorDeregistered", nodeAddressRule)
+	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorDeregistered", validatorPubKeyRule, nodeAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2265,7 +2273,7 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorDer
 
 // ParseValidatorDeregistered is a log parse operation binding the contract event 0x10ec0bb1533e599e504516d6b49226d8a637ea19cbadfc6f7ff14a01bede3170.
 //
-// Solidity: event ValidatorDeregistered(bytes validatorPubKey, address indexed nodeAddress)
+// Solidity: event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed nodeAddress)
 func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) ParseValidatorDeregistered(log types.Log) (*RocketminipoolregistryValidatorDeregistered, error) {
 	event := new(RocketminipoolregistryValidatorDeregistered)
 	if err := _Rocketminipoolregistry.contract.UnpackLog(event, "ValidatorDeregistered", log); err != nil {
@@ -2344,22 +2352,26 @@ func (it *RocketminipoolregistryValidatorDeregistrationRequestedIterator) Close(
 
 // RocketminipoolregistryValidatorDeregistrationRequested represents a ValidatorDeregistrationRequested event raised by the Rocketminipoolregistry contract.
 type RocketminipoolregistryValidatorDeregistrationRequested struct {
-	ValidatorPubKey []byte
+	ValidatorPubKey common.Hash
 	NodeAddress     common.Address
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
 // FilterValidatorDeregistrationRequested is a free log retrieval operation binding the contract event 0x13b70fd48d462f71863cae24350d77b0dc4115a7e928b39dd0f0f60b701ffed3.
 //
-// Solidity: event ValidatorDeregistrationRequested(bytes validatorPubKey, address indexed nodeAddress)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorDeregistrationRequested(opts *bind.FilterOpts, nodeAddress []common.Address) (*RocketminipoolregistryValidatorDeregistrationRequestedIterator, error) {
+// Solidity: event ValidatorDeregistrationRequested(bytes indexed validatorPubKey, address indexed nodeAddress)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorDeregistrationRequested(opts *bind.FilterOpts, validatorPubKey [][]byte, nodeAddress []common.Address) (*RocketminipoolregistryValidatorDeregistrationRequestedIterator, error) {
 
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
 	var nodeAddressRule []interface{}
 	for _, nodeAddressItem := range nodeAddress {
 		nodeAddressRule = append(nodeAddressRule, nodeAddressItem)
 	}
 
-	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorDeregistrationRequested", nodeAddressRule)
+	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorDeregistrationRequested", validatorPubKeyRule, nodeAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2368,15 +2380,19 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorDe
 
 // WatchValidatorDeregistrationRequested is a free log subscription operation binding the contract event 0x13b70fd48d462f71863cae24350d77b0dc4115a7e928b39dd0f0f60b701ffed3.
 //
-// Solidity: event ValidatorDeregistrationRequested(bytes validatorPubKey, address indexed nodeAddress)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorDeregistrationRequested(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorDeregistrationRequested, nodeAddress []common.Address) (event.Subscription, error) {
+// Solidity: event ValidatorDeregistrationRequested(bytes indexed validatorPubKey, address indexed nodeAddress)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorDeregistrationRequested(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorDeregistrationRequested, validatorPubKey [][]byte, nodeAddress []common.Address) (event.Subscription, error) {
 
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
 	var nodeAddressRule []interface{}
 	for _, nodeAddressItem := range nodeAddress {
 		nodeAddressRule = append(nodeAddressRule, nodeAddressItem)
 	}
 
-	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorDeregistrationRequested", nodeAddressRule)
+	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorDeregistrationRequested", validatorPubKeyRule, nodeAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2410,7 +2426,7 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorDer
 
 // ParseValidatorDeregistrationRequested is a log parse operation binding the contract event 0x13b70fd48d462f71863cae24350d77b0dc4115a7e928b39dd0f0f60b701ffed3.
 //
-// Solidity: event ValidatorDeregistrationRequested(bytes validatorPubKey, address indexed nodeAddress)
+// Solidity: event ValidatorDeregistrationRequested(bytes indexed validatorPubKey, address indexed nodeAddress)
 func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) ParseValidatorDeregistrationRequested(log types.Log) (*RocketminipoolregistryValidatorDeregistrationRequested, error) {
 	event := new(RocketminipoolregistryValidatorDeregistrationRequested)
 	if err := _Rocketminipoolregistry.contract.UnpackLog(event, "ValidatorDeregistrationRequested", log); err != nil {
@@ -2489,16 +2505,21 @@ func (it *RocketminipoolregistryValidatorFrozenIterator) Close() error {
 
 // RocketminipoolregistryValidatorFrozen represents a ValidatorFrozen event raised by the Rocketminipoolregistry contract.
 type RocketminipoolregistryValidatorFrozen struct {
-	ValidatorPubKey []byte
+	ValidatorPubKey common.Hash
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
 // FilterValidatorFrozen is a free log retrieval operation binding the contract event 0xfa1d47945b5949504666dd8477bbfc00a77b976fb2119961c96adf939e53e876.
 //
-// Solidity: event ValidatorFrozen(bytes validatorPubKey)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorFrozen(opts *bind.FilterOpts) (*RocketminipoolregistryValidatorFrozenIterator, error) {
+// Solidity: event ValidatorFrozen(bytes indexed validatorPubKey)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorFrozen(opts *bind.FilterOpts, validatorPubKey [][]byte) (*RocketminipoolregistryValidatorFrozenIterator, error) {
 
-	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorFrozen")
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
+
+	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorFrozen", validatorPubKeyRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2507,10 +2528,15 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorFr
 
 // WatchValidatorFrozen is a free log subscription operation binding the contract event 0xfa1d47945b5949504666dd8477bbfc00a77b976fb2119961c96adf939e53e876.
 //
-// Solidity: event ValidatorFrozen(bytes validatorPubKey)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorFrozen(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorFrozen) (event.Subscription, error) {
+// Solidity: event ValidatorFrozen(bytes indexed validatorPubKey)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorFrozen(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorFrozen, validatorPubKey [][]byte) (event.Subscription, error) {
 
-	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorFrozen")
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
+
+	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorFrozen", validatorPubKeyRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2544,7 +2570,7 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorFro
 
 // ParseValidatorFrozen is a log parse operation binding the contract event 0xfa1d47945b5949504666dd8477bbfc00a77b976fb2119961c96adf939e53e876.
 //
-// Solidity: event ValidatorFrozen(bytes validatorPubKey)
+// Solidity: event ValidatorFrozen(bytes indexed validatorPubKey)
 func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) ParseValidatorFrozen(log types.Log) (*RocketminipoolregistryValidatorFrozen, error) {
 	event := new(RocketminipoolregistryValidatorFrozen)
 	if err := _Rocketminipoolregistry.contract.UnpackLog(event, "ValidatorFrozen", log); err != nil {
@@ -2623,22 +2649,26 @@ func (it *RocketminipoolregistryValidatorRegisteredIterator) Close() error {
 
 // RocketminipoolregistryValidatorRegistered represents a ValidatorRegistered event raised by the Rocketminipoolregistry contract.
 type RocketminipoolregistryValidatorRegistered struct {
-	ValidatorPubKey []byte
+	ValidatorPubKey common.Hash
 	NodeAddress     common.Address
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
 // FilterValidatorRegistered is a free log retrieval operation binding the contract event 0x7cb7aef9bd2e5ee3f6073019691bb332fe3ef290465065aca1b9983f3dc66c56.
 //
-// Solidity: event ValidatorRegistered(bytes validatorPubKey, address indexed nodeAddress)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorRegistered(opts *bind.FilterOpts, nodeAddress []common.Address) (*RocketminipoolregistryValidatorRegisteredIterator, error) {
+// Solidity: event ValidatorRegistered(bytes indexed validatorPubKey, address indexed nodeAddress)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorRegistered(opts *bind.FilterOpts, validatorPubKey [][]byte, nodeAddress []common.Address) (*RocketminipoolregistryValidatorRegisteredIterator, error) {
 
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
 	var nodeAddressRule []interface{}
 	for _, nodeAddressItem := range nodeAddress {
 		nodeAddressRule = append(nodeAddressRule, nodeAddressItem)
 	}
 
-	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorRegistered", nodeAddressRule)
+	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorRegistered", validatorPubKeyRule, nodeAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2647,15 +2677,19 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorRe
 
 // WatchValidatorRegistered is a free log subscription operation binding the contract event 0x7cb7aef9bd2e5ee3f6073019691bb332fe3ef290465065aca1b9983f3dc66c56.
 //
-// Solidity: event ValidatorRegistered(bytes validatorPubKey, address indexed nodeAddress)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorRegistered(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorRegistered, nodeAddress []common.Address) (event.Subscription, error) {
+// Solidity: event ValidatorRegistered(bytes indexed validatorPubKey, address indexed nodeAddress)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorRegistered(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorRegistered, validatorPubKey [][]byte, nodeAddress []common.Address) (event.Subscription, error) {
 
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
 	var nodeAddressRule []interface{}
 	for _, nodeAddressItem := range nodeAddress {
 		nodeAddressRule = append(nodeAddressRule, nodeAddressItem)
 	}
 
-	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorRegistered", nodeAddressRule)
+	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorRegistered", validatorPubKeyRule, nodeAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2689,7 +2723,7 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorReg
 
 // ParseValidatorRegistered is a log parse operation binding the contract event 0x7cb7aef9bd2e5ee3f6073019691bb332fe3ef290465065aca1b9983f3dc66c56.
 //
-// Solidity: event ValidatorRegistered(bytes validatorPubKey, address indexed nodeAddress)
+// Solidity: event ValidatorRegistered(bytes indexed validatorPubKey, address indexed nodeAddress)
 func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) ParseValidatorRegistered(log types.Log) (*RocketminipoolregistryValidatorRegistered, error) {
 	event := new(RocketminipoolregistryValidatorRegistered)
 	if err := _Rocketminipoolregistry.contract.UnpackLog(event, "ValidatorRegistered", log); err != nil {
@@ -2768,16 +2802,21 @@ func (it *RocketminipoolregistryValidatorUnfrozenIterator) Close() error {
 
 // RocketminipoolregistryValidatorUnfrozen represents a ValidatorUnfrozen event raised by the Rocketminipoolregistry contract.
 type RocketminipoolregistryValidatorUnfrozen struct {
-	ValidatorPubKey []byte
+	ValidatorPubKey common.Hash
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
 // FilterValidatorUnfrozen is a free log retrieval operation binding the contract event 0x83f1169418932171cc1b130d2c1e543ace8af55b47e4a1341b39b9c71d491392.
 //
-// Solidity: event ValidatorUnfrozen(bytes validatorPubKey)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorUnfrozen(opts *bind.FilterOpts) (*RocketminipoolregistryValidatorUnfrozenIterator, error) {
+// Solidity: event ValidatorUnfrozen(bytes indexed validatorPubKey)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorUnfrozen(opts *bind.FilterOpts, validatorPubKey [][]byte) (*RocketminipoolregistryValidatorUnfrozenIterator, error) {
 
-	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorUnfrozen")
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
+
+	logs, sub, err := _Rocketminipoolregistry.contract.FilterLogs(opts, "ValidatorUnfrozen", validatorPubKeyRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2786,10 +2825,15 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) FilterValidatorUn
 
 // WatchValidatorUnfrozen is a free log subscription operation binding the contract event 0x83f1169418932171cc1b130d2c1e543ace8af55b47e4a1341b39b9c71d491392.
 //
-// Solidity: event ValidatorUnfrozen(bytes validatorPubKey)
-func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorUnfrozen(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorUnfrozen) (event.Subscription, error) {
+// Solidity: event ValidatorUnfrozen(bytes indexed validatorPubKey)
+func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorUnfrozen(opts *bind.WatchOpts, sink chan<- *RocketminipoolregistryValidatorUnfrozen, validatorPubKey [][]byte) (event.Subscription, error) {
 
-	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorUnfrozen")
+	var validatorPubKeyRule []interface{}
+	for _, validatorPubKeyItem := range validatorPubKey {
+		validatorPubKeyRule = append(validatorPubKeyRule, validatorPubKeyItem)
+	}
+
+	logs, sub, err := _Rocketminipoolregistry.contract.WatchLogs(opts, "ValidatorUnfrozen", validatorPubKeyRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2823,7 +2867,7 @@ func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) WatchValidatorUnf
 
 // ParseValidatorUnfrozen is a log parse operation binding the contract event 0x83f1169418932171cc1b130d2c1e543ace8af55b47e4a1341b39b9c71d491392.
 //
-// Solidity: event ValidatorUnfrozen(bytes validatorPubKey)
+// Solidity: event ValidatorUnfrozen(bytes indexed validatorPubKey)
 func (_Rocketminipoolregistry *RocketminipoolregistryFilterer) ParseValidatorUnfrozen(log types.Log) (*RocketminipoolregistryValidatorUnfrozen, error) {
 	event := new(RocketminipoolregistryValidatorUnfrozen)
 	if err := _Rocketminipoolregistry.contract.UnpackLog(event, "ValidatorUnfrozen", log); err != nil {
