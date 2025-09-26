@@ -197,7 +197,7 @@ func (s *Service) SendBid(
 	}
 
 	if bid.SlashAmount == "" {
-		s.logger.Info("slash amount is empty, using bid amount as slash amount", "bid", bid)
+		s.logger.Info("slash amount is empty in bid, using bid amount as slash amount", "bid amount", bid.Amount)
 		bid.SlashAmount = bid.Amount
 	}
 
