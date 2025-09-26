@@ -15,6 +15,7 @@ deploy-devnet:
 	sleep 10
 	helm install oracle-devnet ./postgres -f postgres/values.yaml
 	kubectl get pods | grep oracle-devnet
+	sleep 10
 	@BRANCH=$$(git rev-parse --abbrev-ref HEAD) && \
 	echo "Deploying with branch: $$BRANCH" && \
 	bash deploy.sh --branch $$BRANCH --password CXBMf4xEDO0I --local true
