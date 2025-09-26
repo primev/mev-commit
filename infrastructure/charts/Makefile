@@ -8,10 +8,11 @@ check-images:
 clean-images:
 	docker rmi $$(docker images --filter="reference=primev/primev*" -q) --force
 
-deploy-sc:
+deploy-devnet:
 	kubectl apply -f minikube-sc.yaml
 	kubectl get storageclass
-
-deploy-pg:
 	helm install oracle-devnet ./postgres -f postgres/values.yaml
 	kubectl get pods | grep oracle-devnet
+	@BRANCH=$$(git rev-parse --abbrev-ref HEAD) && \
+	echo "Deploying with branch: $$BRANCH" && \
+	bash deploy.sh --branch $$BRANCH --password CXBMf4xEDO0I --local true
