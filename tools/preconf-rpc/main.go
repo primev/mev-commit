@@ -122,6 +122,13 @@ var (
 		Value:   "10000000000000000000", // 10 ETH
 	}
 
+	optionBidderTopup = &cli.StringFlag{
+		Name:    "bidder-topup",
+		Usage:   "topup for bidder",
+		EnvVars: []string{"PRECONF_RPC_BIDDER_TOPUP"},
+		Value:   "1000000000000000000", // 1 ETH
+	}
+
 	optionAutoDepositAmount = &cli.StringFlag{
 		Name:    "auto-deposit-amount",
 		Usage:   "auto deposit amount",
@@ -181,6 +188,12 @@ var (
 		Usage:   "Blocknative API key for transaction pricing",
 		EnvVars: []string{"PRECONF_RPC_BLOCKNATIVE_API_KEY"},
 		Value:   "",
+	}
+
+	optionWebhookURLs = &cli.StringSliceFlag{
+		Name:    "webhook-urls",
+		Usage:   "List of webhook URLs to send notifications to",
+		EnvVars: []string{"PRECONF_RPC_WEBHOOK_URLS"},
 	}
 
 	optionLogFmt = &cli.StringFlag{
@@ -254,6 +267,8 @@ func main() {
 			optionDepositAddress,
 			optionBridgeAddress,
 			optionBlocknativeAPIKey,
+			optionWebhookURLs,
+			optionBidderTopup,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -291,6 +306,11 @@ func main() {
 				return fmt.Errorf("failed to parse settlement-topup")
 			}
 
+			bidderTopup, ok := new(big.Int).SetString(c.String(optionBidderTopup.Name), 10)
+			if !ok {
+				return fmt.Errorf("failed to parse bidder-topup")
+			}
+
 			signer, err := keysigner.NewKeystoreSigner(
 				c.String(optionKeystorePath.Name),
 				c.String(optionKeystorePassword.Name),
@@ -316,6 +336,7 @@ func main() {
 				AutoDepositAmount:      autoDepositAmount,
 				SettlementThreshold:    settlementThreshold,
 				SettlementTopup:        settlementTopup,
+				BidderTopup:            bidderTopup,
 				SettlementRPCUrl:       c.String(optionSettlementRPCUrl.Name),
 				BidderRPC:              c.String(optionBidderRPCUrl.Name),
 				L1RPCUrls:              c.StringSlice(optionL1RPCUrls.Name),
@@ -325,6 +346,7 @@ func main() {
 				DepositAddress:         common.HexToAddress(c.String(optionDepositAddress.Name)),
 				BridgeAddress:          common.HexToAddress(c.String(optionBridgeAddress.Name)),
 				PricerAPIKey:           c.String(optionBlocknativeAPIKey.Name),
+				Webhooks:               c.StringSlice(optionWebhookURLs.Name),
 			}
 
 			s, err := service.New(&config)
