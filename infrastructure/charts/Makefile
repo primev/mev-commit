@@ -2,8 +2,11 @@ clean:
 	helm list --no-headers | awk '{print $$1}' | xargs helm uninstall
 	kubectl get pvc --no-headers | awk '{print $$1}' | xargs kubectl delete pvc
 
+check-images:
+	docker images | grep primev
+
 clean-images:
-	docker rmi $(docker images --filter="reference=primev/primev*" -q) --force
+	docker rmi $$(docker images --filter="reference=primev/primev*" -q) --force
 
 deploy-pg:
 	helm install oracle-devnet ./postgres -f postgres/values.yaml
