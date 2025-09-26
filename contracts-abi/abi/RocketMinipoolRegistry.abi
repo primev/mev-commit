@@ -228,6 +228,31 @@
         "name": "owner",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "freezeOracle",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "unfreezeReceiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "rocketStorage",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "unfreezeFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deregistrationPeriod",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "outputs": [],

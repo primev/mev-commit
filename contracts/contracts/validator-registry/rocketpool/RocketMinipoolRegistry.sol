@@ -48,10 +48,15 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         revert Errors.InvalidFallback();
     }
     
-    function initialize(address owner) external initializer {
+    function initialize(address owner, address freezeOracle, address unfreezeReceiver, address rocketStorage, uint256 unfreezeFee, uint64 deregistrationPeriod) external initializer {
         __Ownable_init(owner);
         __Pausable_init();
         __UUPSUpgradeable_init();
+        _setFreezeOracle(freezeOracle);
+        _setUnfreezeReceiver(unfreezeReceiver);
+        _setUnfreezeFee(unfreezeFee);
+        _setRocketStorage(rocketStorage);
+        _setDeregistrationPeriod(deregistrationPeriod);
     }
 
     function registerValidators(bytes[] calldata valPubKeys) external onlyValidBLSPubKeys(valPubKeys) whenNotPaused {
@@ -114,27 +119,27 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
 
     /// @dev Sets the deregistration period, restricted to contract owner.
     function setDeregistrationPeriod(uint64 newDeregistrationPeriod) external onlyOwner {
-        deregistrationPeriod = newDeregistrationPeriod;
+        _setDeregistrationPeriod(newDeregistrationPeriod);
     }
 
     /// @dev Sets the rocket storage, restricted to contract owner.    
     function setRocketStorage(address newRocketStorage) external onlyOwner {
-        rocketStorage = RocketStorageInterface(newRocketStorage);
+        _setRocketStorage(newRocketStorage);
     }
 
     /// @dev Sets the freeze oracle, restricted to contract owner.
     function setFreezeOracle(address newFreezeOracle) external onlyOwner {
-        freezeOracle = newFreezeOracle;
+        _setFreezeOracle(newFreezeOracle);
     }
 
     /// @dev Sets the unfreeze receiver, restricted to contract owner.
     function setUnfreezeReceiver(address newUnfreezeReceiver) external onlyOwner {
-        unfreezeReceiver = newUnfreezeReceiver;
+        _setUnfreezeReceiver(newUnfreezeReceiver);
     }
 
     /// @dev Sets the unfreeze fee, restricted to contract owner.
     function setUnfreezeFee(uint256 newUnfreezeFee) external onlyOwner {
-        unfreezeFee = newUnfreezeFee;
+        _setUnfreezeFee(newUnfreezeFee);
     }
 
     /// @dev Unfreezes validators, restricted to contract owner.
@@ -247,6 +252,26 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         require(regInfo.freezeTimestamp != 0, ValidatorNotFrozen(valPubKey)); 
         regInfo.freezeTimestamp = 0;
         emit ValidatorUnfrozen(valPubKey);
+    }
+
+    function _setFreezeOracle(address newFreezeOracle) internal {
+        freezeOracle = newFreezeOracle;
+    }
+
+    function _setUnfreezeReceiver(address newUnfreezeReceiver) internal {
+        unfreezeReceiver = newUnfreezeReceiver;
+    }
+
+    function _setUnfreezeFee(uint256 newUnfreezeFee) internal {
+        unfreezeFee = newUnfreezeFee;
+    }
+
+    function _setRocketStorage(address newRocketStorage) internal {
+        rocketStorage = RocketStorageInterface(newRocketStorage);
+    }
+
+    function _setDeregistrationPeriod(uint64 newDeregistrationPeriod) internal {
+        deregistrationPeriod = newDeregistrationPeriod;
     }
 
     /// @dev Authorizes contract upgrades, restricted to contract owner.
