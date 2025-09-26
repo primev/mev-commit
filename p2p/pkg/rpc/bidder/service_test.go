@@ -565,6 +565,56 @@ func TestSendBid(t *testing.T) {
 	}
 }
 
+func TestSendBidSlashAmount(t *testing.T) {
+	t.Parallel()
+
+	client := startServer(t)
+
+	t.Run("slash amount not specified - should default to bid amount", func(t *testing.T) {
+		rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
+			TxHashes:            []string{common.HexToHash("0x0000ab").Hex()[2:]},
+			Amount:              "1000000000000000000",
+			SlashAmount:         "",
+			BlockNumber:         1,
+			DecayStartTimestamp: 10,
+			DecayEndTimestamp:   20,
+			RevertingTxHashes:   []string{},
+		})
+		if err != nil {
+			t.Fatalf("error sending bid: %v", err)
+		}
+		preconf, err := rcv.Recv()
+		if err != nil {
+			t.Fatalf("error receiving preconf: %v", err)
+		}
+		if preconf.SlashAmount != "1000000000000000000" {
+			t.Fatalf("expected slash amount to default to bid amount 1000000000000000000, got %s", preconf.SlashAmount)
+		}
+	})
+
+	t.Run("slash amount specified - should use provided amount", func(t *testing.T) {
+		rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
+			TxHashes:            []string{common.HexToHash("0x0000ab").Hex()[2:]},
+			Amount:              "1000000000000000000",
+			SlashAmount:         "500000000000000000",
+			BlockNumber:         1,
+			DecayStartTimestamp: 10,
+			DecayEndTimestamp:   20,
+			RevertingTxHashes:   []string{},
+		})
+		if err != nil {
+			t.Fatalf("error sending bid: %v", err)
+		}
+		preconf, err := rcv.Recv()
+		if err != nil {
+			t.Fatalf("error receiving preconf: %v", err)
+		}
+		if preconf.SlashAmount != "500000000000000000" {
+			t.Fatalf("expected slash amount 500000000000000000, got %s", preconf.SlashAmount)
+		}
+	})
+}
+
 func TestClaimSlashedFunds(t *testing.T) {
 	t.Parallel()
 
