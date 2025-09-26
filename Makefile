@@ -13,5 +13,5 @@ docker:
 	docker buildx bake $(NO_CACHE)
 
 build-minikube-mac:
-	TAG=minikube-$$(date +%Y%m%d-%H%M%S) && \
+	@TAG=minikube-$$(date +%Y%m%d-%H%M%S) && \
 	$(MAKE) docker REGISTRY=primev REPO_NAME=primev TAG=$$TAG PLATFORM=linux/arm64 NO_CACHE=--no-cache

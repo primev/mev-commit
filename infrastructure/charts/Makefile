@@ -8,10 +8,10 @@ check-images:
 clean-images:
 	docker rmi $$(docker images --filter="reference=primev/primev*" -q) --force
 
-deploy-pg:
-	helm install oracle-devnet ./postgres -f postgres/values.yaml
-	kubectl get pods | grep oracle-devnet
-
 deploy-sc:
 	kubectl apply -f minikube-sc.yaml
 	kubectl get storageclass
+
+deploy-pg:
+	helm install oracle-devnet ./postgres -f postgres/values.yaml
+	kubectl get pods | grep oracle-devnet
