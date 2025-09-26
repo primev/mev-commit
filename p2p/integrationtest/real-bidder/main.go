@@ -303,8 +303,8 @@ func main() {
 						logger,
 						[]string{txn},
 						blockWithTxn.blockNum,
-						time.Now().Add(200*time.Millisecond).UnixMilli(),
-						time.Now().Add(2*time.Second).UnixMilli(),
+						time.Now().Add(500*time.Millisecond).UnixMilli(),
+						time.Now().Add(6*time.Second).UnixMilli(),
 					)
 					if err != nil {
 						logger.Error("failed to send bid", "err", err)
@@ -347,8 +347,8 @@ func sendBid(
 	if len(txnHashes) == 0 {
 		return errors.New("no txns to send")
 	}
-	amount := rand.Intn(200000)
-	amount += 100000
+	amount := rand.Intn(2000000000)
+	amount += 1000000000
 
 	hashesToSend := make([]string, len(txnHashes))
 	copy(hashesToSend, txnHashes)
