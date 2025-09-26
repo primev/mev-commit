@@ -197,7 +197,8 @@ func (s *Service) SendBid(
 	}
 
 	if bid.SlashAmount == "" {
-		bid.SlashAmount = "0"
+		s.logger.Info("slash amount is empty, using bid amount as slash amount", "bid", bid)
+		bid.SlashAmount = bid.Amount
 	}
 
 	var optBuf []byte
