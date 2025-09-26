@@ -276,7 +276,7 @@ func NewNode(opts *Options) (*Node, error) {
 		txmonitor.NewEVMHelperWithLogger(contractRPC, opts.Logger.With("component", "txmonitor"), contracts),
 		txnStore,
 		opts.Logger.With("component", "txmonitor"),
-		1024,
+		2048,
 	)
 	startables = append(
 		startables,

@@ -114,7 +114,7 @@ func NewNode(opts *Options) (*Node, error) {
 		txmonitor.NewEVMHelperWithLogger(settlementClient, nd.logger, contracts),
 		st,
 		nd.logger.With("component", "tx_monitor"),
-		1024,
+		2048,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
