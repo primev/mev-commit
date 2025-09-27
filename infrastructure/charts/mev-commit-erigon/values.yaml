@@ -5,10 +5,10 @@ genesis:
     balance: "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD4A51000FDA0FFFF"
     password: "password123"
     timestamp: "0x0"
-  url: "https://storage.googleapis.com/devnet-artifacts/devnet-genesis/genesis.json"
+  url: "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/genesis_mainenv-v1.2.0.json"
 
 erigon:
-  networkId: 141414
+  networkId: 57173
   datadir: "/data/erigon"
   ports:
     http: 8545
@@ -39,68 +39,79 @@ erigon:
   nodiscover: true
   # Additional arguments to pass to erigon
   extraArgs:
-    common: []  # Args applied to both leader and follower
+    common:
+      - --db.pagesize=16KB
+      - --batchSize=4GB
+      - --etl.bufferSize=4GB
+      - --state.cache=8GB
+      - --bodies.cache=64MB
+      - --db.read.concurrency=32
+      - --txpool.commit.every=60s   # Args applied to both leader and follower
     leader:
       - "--port=30303"
+      - "--staticpeers=enode://502b2893d3de99fdd86f317c72c2da982c9df9e3edb2dcf9c8d1e014fd56d6d5d5602e1d841ad6f02c3caeb4d53295b0df47da5a18a004047a3188acb4676d61@erigon-snode-follower-erigon.dev.svc.cluster.local:30303"
+      - "--trustedpeers=enode://502b2893d3de99fdd86f317c72c2da982c9df9e3edb2dcf9c8d1e014fd56d6d5d5602e1d841ad6f02c3caeb4d53295b0df47da5a18a004047a3188acb4676d61@erigon-snode-follower-erigon.dev.svc.cluster.local:30303"
     follower:
-      - "--port=30304"
-      - "--staticpeers=enode://674ce5dc5c6862ed6a91b32bbd196753a3ab329032a9a549a0cb3a20ab97da1ccae40ff6ef1bbab6e8bba62fc5924b9346354c5d63a5874522a2bc884c24a098@erigon-snode-leader-erigon.default.svc.cluster.local:30303"
-      - "--trustedpeers=enode://674ce5dc5c6862ed6a91b32bbd196753a3ab329032a9a549a0cb3a20ab97da1ccae40ff6ef1bbab6e8bba62fc5924b9346354c5d63a5874522a2bc884c24a098@erigon-snode-leader-erigon.default.svc.cluster.local:30303"
+      - "--port=30303"
+      - "--staticpeers=enode://674ce5dc5c6862ed6a91b32bbd196753a3ab329032a9a549a0cb3a20ab97da1ccae40ff6ef1bbab6e8bba62fc5924b9346354c5d63a5874522a2bc884c24a098@erigon-snode-leader-erigon.dev.svc.cluster.local:30304"
+      - "--trustedpeers=enode://674ce5dc5c6862ed6a91b32bbd196753a3ab329032a9a549a0cb3a20ab97da1ccae40ff6ef1bbab6e8bba62fc5924b9346354c5d63a5874522a2bc884c24a098@erigon-snode-leader-erigon.dev.svc.cluster.local:30303"
 
 consensus:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 5
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 2
   leader:
-    # Leader node configuration
     instanceId: "snode-leader"
-    apiAddr: ":9090"                    # Address for member node API endpoint
-    healthAddr: ":8080"                 # Address for health check endpoint  
-    priorityFeeRecipient: "0xcEc94aeB187321262BA8Ae5BB0A9D79EAd56da92"  # Ethereum address for receiving priority fees
-    nonAuthRpcUrl: "http://localhost:8545"  # Non-authenticated Ethereum RPC URL
-    
-    # JWT secret for leader's Ethereum Execution client Engine API
+    apiAddr: ":9090"
+    healthAddr: ":8080"
+    priorityFeeRecipient: "0xcEc94aeB187321262BA8Ae5BB0A9D79EAd56da92"
+    nonAuthRpcUrl: "http://localhost:8545"
     jwtSecret: "32c2902cc88b19b1c775ffef7e67673f296beb2e610f93230b40e5ef822ae9d4"
     
     # EVM build configuration
-    evmBuildDelay: "1ms"                # Delay after initiating payload construction before calling getPayload
-    evmBuildDelayEmptyBlock: "1m0s"     # Minimum time since last block to build an empty block
-    txPoolPollingInterval: "5ms"        # Wait interval for polling the tx pool while there are no pending transactions
-    
-    # Database configuration (optional for leader)
-    postgresDb:
-      dsn: "postgres://mev_commit_consensus:FlYvDD9hwHwHn6c0ncXpEKXA6xefcZcJVqEjk7RSEeCMeZQbRr69p2sN6bjcQGi2@mev-commit-consensus-postgresql.default.svc.cluster.local:5432/mev_commit_consensus?sslmode=disable"  # PostgreSQL DSN - if empty, saving to DB is disabled
+    evmBuildDelay: "1ms"
+    evmBuildDelayEmptyBlock: "1m0s"
+    txPoolPollingInterval: "5ms"
     
     # Logging configuration
-    logLevel: "info"     # Log level ('debug', 'info', 'warn', 'error')
-    logFmt: "text"       # Log format ('text' or 'json')
-    logTags: ""          # Comma-separated <name:value> log tags (e.g., env:prod,service:snode)
+    logLevel: "info"
+    logFmt: "text"
+    logTags: ""
     
-    # Additional arguments
-    extraArgs: []
+    # Additional arguments - add storage backend here
+    extraArgs:
+      # Example PostgreSQL storage
+      - "--postgres-dsn=postgres://mev_commit_consensus:nq9CQ8MSOrpDpIpXtvXq2k8rO61tl036YMYqCL8rlKLo784QYuIsOZaq1H4aJyJT@mev-commit-consensus-postgresql.dev.svc.cluster.local:5432/mev_commit_consensus?sslmode=disable"
+      # Example Redis storage  
+      #- "--redis-url=redis://consensus-redis.dev.svc.cluster.local:6379/0"
 
   follower:
     enabled: true
     replicaCount: 1
     
-    # Follower node configuration
     instanceId: "snode-follower"
-    healthAddr: ":8080"                 # Address for health check endpoint
-    
-    # JWT secret for follower's Ethereum Execution client Engine API  
+    healthAddr: ":8080"
     jwtSecret: "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c"
     
-    # Database configuration (REQUIRED for followers)
-    postgresDb:
-      dsn: "postgres://mev_commit_consensus:FlYvDD9hwHwHn6c0ncXpEKXA6xefcZcJVqEjk7RSEeCMeZQbRr69p2sN6bjcQGi2@mev-commit-consensus-postgresql.default.svc.cluster.local:5432/mev_commit_consensus?sslmode=disable"  # REQUIRED: PostgreSQL DSN for follower
-    
-    # Sync configuration  
-    syncBatchSize: 100                  # Number of payloads per request to the EL during sync
+    # Sync configuration
+    syncBatchSize: 100
     
     # Logging configuration
-    logLevel: "info"     # Log level ('debug', 'info', 'warn', 'error')
-    logFmt: "text"       # Log format ('text' or 'json')
-    logTags: ""          # Comma-separated <name:value> log tags (e.g., env:prod,service:snode)
+    logLevel: "info"
+    logFmt: "text"
+    logTags: ""
     
-    # Additional arguments
-    extraArgs: []
+    # Additional arguments - storage backend REQUIRED for followers
+    extraArgs:
+      # Example PostgreSQL storage (REQUIRED for followers)
+      - "--postgres-dsn=postgres://mev_commit_consensus:nq9CQ8MSOrpDpIpXtvXq2k8rO61tl036YMYqCL8rlKLo784QYuIsOZaq1H4aJyJT@mev-commit-consensus-postgresql.dev.svc.cluster.local:5432/mev_commit_consensus?sslmode=disable"
+      # Example Redis storage
+      #- "--redis-url=redis://consensus-redis.dev.svc.cluster.local:6379/0"
+
 
 image:
   erigon:
@@ -109,13 +120,28 @@ image:
     pullPolicy: IfNotPresent
   snode:
     repository: primev/primev
-    tag: snode-consensus-v3.0.7-retry-fix
+    #tag: snode-consensus-v3.0.7-retry-fix
+    #tag: snode-consensus-v3.0.7-fix-payload-update
+    #tag: rc-1.2.0-pg-test-v4-snode
+    tag: rc-1.2.0-rc-5-snode
     pullPolicy: IfNotPresent
 
 storage:
-  size: 100Gi
-  storageClassName: openebs-nvme-disk2
+  # Global defaults
+  size: 200Gi
+  storageClassName: openebs-hostpath
   accessMode: ReadWriteOnce
+  
+  # Leader-specific storage (optional overrides)
+  leader:
+    size: 500Gi                    # Larger storage for leader
+    storageClassName: openebs-nvme2-disk2  # Faster storage class
+  
+  # Follower-specific storage (optional overrides)  
+  follower:
+    size: 500Gi                     # Smaller storage for followers
+    storageClassName: openebs-nvme2-disk1     # Cheaper storage class
+
 
 security:
   runAsUser: 0
@@ -130,11 +156,11 @@ terminationGracePeriodSeconds: 300
 resources:
   erigon:
     requests:
-      cpu: "100m"
-      memory: "500Mi"
+      cpu: "1000m"
+      memory: "32Gi"
     limits:
-      cpu: "6000m"
-      memory: "16Gi"
+      cpu: "16000m"
+      memory: "64Gi"
   snode:
     requests:
       cpu: "100m"
@@ -177,7 +203,7 @@ topologySpreadConstraints: []
 additionalLabels: {}
 
 ingress:
-  enabled: true
+  enabled: false
   className: "nginx"
   
   # Leader RPC Configuration

@@ -52,7 +52,7 @@ data:
   MEV_COMMIT_PROVIDER_DECISION_TIMEOUT: "{{ .Values.provider.decisionTimeout | default "30s" }}"
   {{- end }}
   MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT: "{{ .Values.global.rpc.settlementEndpoint }}"
-  MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT: "{{ .Values.global.rpc.settlementWsEndpoint }}"
+  #MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT: "{{ .Values.global.rpc.settlementWsEndpoint }}"
   MEV_COMMIT_L1_RPC_URL: "{{ .Values.global.rpc.l1Endpoint }}"
   MEV_COMMIT_LAGGARD_MODE: "{{ .Values.global.laggardMode | default "10" }}"
   {{- if eq .Values.node.type "bidder" }}

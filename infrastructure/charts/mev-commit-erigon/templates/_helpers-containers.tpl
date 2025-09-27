@@ -199,7 +199,7 @@ Usage: include "erigon-snode.erigonContainer" (dict "root" . "component" "leader
     - name: erigon-volume
       mountPath: /shared
       subPath: shared
-    - name: leader-nodekey
+    - name: nodekey
       mountPath: {{ .root.Values.erigon.datadir }}/nodekey
       subPath: nodekey
       readOnly: true
@@ -237,9 +237,6 @@ Leader snode container definition
     - --evm-build-delay={{ .Values.consensus.leader.evmBuildDelay }}
     - --evm-build-delay-empty-block={{ .Values.consensus.leader.evmBuildDelayEmptyBlock }}
     - --tx-pool-polling-interval={{ .Values.consensus.leader.txPoolPollingInterval }}
-    {{- if .Values.consensus.leader.postgresDb.dsn }}
-    - --postgres-dsn={{ .Values.consensus.leader.postgresDb.dsn }}
-    {{- end }}
     - --log-level={{ .Values.consensus.leader.logLevel }}
     - --log-fmt={{ .Values.consensus.leader.logFmt }}
     {{- if .Values.consensus.leader.logTags }}
@@ -253,6 +250,18 @@ Leader snode container definition
       containerPort: 9090
     - name: health
       containerPort: 8080
+  {{- if .Values.consensus.liveness.enabled }}
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: health
+      scheme: HTTP
+    initialDelaySeconds: {{ .Values.consensus.liveness.initialDelaySeconds | default 30 }}
+    periodSeconds: {{ .Values.consensus.liveness.periodSeconds | default 10 }}
+    timeoutSeconds: {{ .Values.consensus.liveness.timeoutSeconds | default 5 }}
+    successThreshold: {{ .Values.consensus.liveness.successThreshold | default 1 }}
+    failureThreshold: {{ .Values.consensus.liveness.failureThreshold | default 3 }}
+  {{- end }}
   volumeMounts:
     - name: erigon-volume
       mountPath: /data/snode
@@ -284,7 +293,6 @@ Follower snode container definition
     - --eth-client-url=http://localhost:{{ .Values.erigon.ports.authrpc }}
     - --jwt-secret={{ .Values.consensus.follower.jwtSecret }}
     - --sync-batch-size={{ .Values.consensus.follower.syncBatchSize }}
-    - --postgres-dsn={{ .Values.consensus.follower.postgresDb.dsn }}
     - --log-level={{ .Values.consensus.follower.logLevel }}
     - --log-fmt={{ .Values.consensus.follower.logFmt }}
     {{- if .Values.consensus.follower.logTags }}
@@ -296,6 +304,18 @@ Follower snode container definition
   ports:
     - name: health
       containerPort: 8080
+  {{- if .Values.consensus.liveness.enabled }}
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: health
+      scheme: HTTP
+    initialDelaySeconds: {{ .Values.consensus.liveness.initialDelaySeconds | default 30 }}
+    periodSeconds: {{ .Values.consensus.liveness.periodSeconds | default 10 }}
+    timeoutSeconds: {{ .Values.consensus.liveness.timeoutSeconds | default 5 }}
+    successThreshold: {{ .Values.consensus.liveness.successThreshold | default 1 }}
+    failureThreshold: {{ .Values.consensus.liveness.failureThreshold | default 3 }}
+  {{- end }}
   volumeMounts:
     - name: erigon-volume
       mountPath: /data/snode

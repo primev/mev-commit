@@ -76,10 +76,11 @@ bidder:
 keystore:
   path: "/keystore"
   downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore3/UTC--2025-06-24T18-20-45.217640000Z--b3de169055dc89aa8c5f03fdf07621bd371888e3"
+  #downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore50/UTC--2025-06-24T18-21-16.210941000Z--434fbecd5aab036eee6445c81e323c3e3778e932"
   
   # AWS Secrets Manager keystore (still enabled for keystore files)
   awsEnabled: false  # Keep AWS SM for keystore files only
-  awsSecretKey: "testenv/testnet/mev-commit"
+  awsSecretKey: "mainenv/mainnet/mev-commit"
   refreshInterval: "12h"
   properties:
     keystore: "bootnode1_keystore"

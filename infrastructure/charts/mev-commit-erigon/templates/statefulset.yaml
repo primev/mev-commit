@@ -52,7 +52,7 @@ spec:
         {{- include "erigon-snode.erigonContainer" (dict "root" . "component" "leader") | nindent 8 }}
         {{- include "erigon-snode.snodeLeaderContainer" . | nindent 8 }}
   volumeClaimTemplates:
-    {{- include "erigon-snode.volumeClaimTemplate" . | nindent 4 }}
+    {{- include "erigon-snode.volumeClaimTemplate" (dict "root" . "component" "leader") | nindent 4 }}
 ---
 {{- if .Values.consensus.follower.enabled }}
 # Follower StatefulSet
@@ -107,5 +107,5 @@ spec:
         {{- include "erigon-snode.erigonContainer" (dict "root" . "component" "follower") | nindent 8 }}
         {{- include "erigon-snode.snodeFollowerContainer" . | nindent 8 }}
   volumeClaimTemplates:
-    {{- include "erigon-snode.volumeClaimTemplate" . | nindent 4 }}
+    {{- include "erigon-snode.volumeClaimTemplate" (dict "root" . "component" "follower") | nindent 4 }}
 {{- end }}
