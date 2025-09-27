@@ -24,8 +24,9 @@ global:
   # RPC endpoints
   rpc:
     settlementEndpoint: "http://erigon-snode-leader-erigon.default.svc.cluster.local:8545"
-    settlementWsEndpoint: "ws://erigon-snode-leader-erigon.default.svc.cluster.local:8546"
-    l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
+    settlementWsEndpoint: ""
+    #l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
+    l1Endpoint: "https://eth-sepolia.g.alchemy.com/v2/Lpd-qvA14YMKl8_YwaPqO"
 
  
 node:
@@ -44,7 +45,7 @@ node:
   defaultKeystorePassword: "CXBMf4xEDO0I"
   defaultP2PSecret: ""
 
-  bootnodeConnectionString: "/ip4/45.250.253.23/tcp/13522/p2p/16Uiu2HAmKxA6EYiYo6EUo91uAATGmMKjNydKVXhP2gTW6jPvyHN7"
+  bootnodeConnectionString: "/ip4/45.250.253.30/tcp/13522/p2p/16Uiu2HAmKxA6EYiYo6EUo91uAATGmMKjNydKVXhP2gTW6jPvyHN7"
   resources:
     limits:
       cpu: 6000m
@@ -83,7 +84,9 @@ bidder:
 
 keystore:
   path: "/keystore"
-  downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore4/UTC--2025-06-24T18-20-45.876172000Z--cede115ffaa36313bde4e3dcf1fc50869b308791"
+  #downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore21/UTC--2025-06-24T18-20-57.038738000Z--2fdca81ef5f950d214b4b1073df1e3bfe674f0bb"
+  downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore41/UTC--2025-06-24T18-21-10.239598000Z--0eca83ef13e78571bd246df3fd7b05de2c216c35"
+  #downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore24/UTC--2025-06-24T18-20-59.005006000Z--cb094dc47ebbba0efe31bd5c13b16ffd4ed14e1a"
   retries: 3
 
 #nodeSelector:

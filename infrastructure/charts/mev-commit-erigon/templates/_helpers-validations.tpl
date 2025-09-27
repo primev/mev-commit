@@ -48,9 +48,23 @@ Validate follower configuration
 */}}
 {{- define "erigon-snode.validateFollower" -}}
 {{- if .Values.consensus.follower.enabled }}
-{{- if not .Values.consensus.follower.postgresDb.dsn }}
-{{- fail "ERROR: consensus.follower.postgresDb.dsn is required when follower is enabled" }}
+{{- $hasStorageBackend := false -}}
+
+{{/* Check extraArgs for Redis URL or PostgreSQL DSN */}}
+{{- if .Values.consensus.follower.extraArgs }}
+{{- range .Values.consensus.follower.extraArgs }}
+{{- if or (contains "--redis-url=" .) (contains "--postgres-dsn=" .) }}
+{{- $hasStorageBackend = true -}}
 {{- end }}
+{{- end }}
+{{- end }}
+
+{{/* Validate that at least one storage backend is configured */}}
+{{- if not $hasStorageBackend }}
+{{- fail "ERROR: Follower requires a storage backend. Configure either:\n  - --redis-url= in consensus.follower.extraArgs, OR\n  - --postgres-dsn= in consensus.follower.extraArgs" }}
+{{- end }}
+
+{{/* Validate other required follower fields */}}
 {{- if not .Values.consensus.follower.instanceId }}
 {{- fail "ERROR: consensus.follower.instanceId is required when follower is enabled" }}
 {{- end }}
