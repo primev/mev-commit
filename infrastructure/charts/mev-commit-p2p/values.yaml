@@ -58,7 +58,7 @@ global:
     settlementEndpoint: "http://erigon-snode-leader-erigon.default.svc.cluster.local:8545"
     settlementWsEndpoint: ""
     #l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
-    l1Endpoint: "https://eth-sepolia.g.alchemy.com/v2/Lpd-qvA14YMKl8_YwaPqO"
+    l1Endpoint: "https://eth-sepolia.g.alchemy.com/"
 
   # Notifications
   notifications:

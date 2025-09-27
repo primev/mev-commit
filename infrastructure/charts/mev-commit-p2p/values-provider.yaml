@@ -26,7 +26,7 @@ global:
     settlementEndpoint: "http://erigon-snode-leader-erigon.default.svc.cluster.local:8545"
     settlementWsEndpoint: ""
     #l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
-    l1Endpoint: "https://eth-sepolia.g.alchemy.com/v2/Lpd-qvA14YMKl8_YwaPqO"
+    l1Endpoint: "https://eth-sepolia.g.alchemy.com/v2/"
 
 
     
@@ -47,7 +47,7 @@ node:
   defaultKeystorePassword: "CXBMf4xEDO0I"
   defaultP2PSecret: "mev-commit-provider-secret"
 
-  bootnodeConnectionString: "/ip4/45.250.253.30/tcp/13522/p2p/16Uiu2HAmKxA6EYiYo6EUo91uAATGmMKjNydKVXhP2gTW6jPvyHN7"
+  bootnodeConnectionString: "/ip4/45.0.0.0/tcp/13522/p2p/16Uiu2HAmKxA6EYiYo6EUo91uAATGmMKjNydKVXhP2gTW6jPvyHN7"
 
   resources:
     limits:
