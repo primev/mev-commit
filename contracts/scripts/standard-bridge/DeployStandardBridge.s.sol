@@ -32,7 +32,7 @@ contract BridgeBase is Script {
     uint256 public constant DEPLOYER_INITIAL_BALANCE = DEPLOYER_GENESIS_ALLOCATION - ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN;
 
     // Amount of ETH to initially fund the relayer account on L1.
-    uint256 public constant RELAYER_INITIAL_FUNDING_L1 = 1 ether;
+    uint256 public constant RELAYER_INITIAL_FUNDING_L1 = 0.1 ether;
 
     // Amount of ETH required by the contract deployer to initialize all bridge and core contract state,
     // AND initially fund the relayer, all on mev-commit chain.
