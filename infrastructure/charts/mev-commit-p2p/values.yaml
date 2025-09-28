@@ -7,7 +7,7 @@ global:
   # Docker image configuration
   image:
     repository: primev/primev
-    tag: "rc-1.2.0-mev-commit"
+    tag: "rc-1.2.0-rc-5-mev-commit"
     pullPolicy: Always
 
   # TLS certificate configuration
@@ -56,8 +56,9 @@ global:
   # RPC endpoints
   rpc:
     settlementEndpoint: "http://erigon-snode-leader-erigon.default.svc.cluster.local:8545"
-    settlementWsEndpoint: "ws://erigon-snode-leader-erigon.default.svc.cluster.local:8546"
-    l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
+    settlementWsEndpoint: ""
+    #l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
+    l1Endpoint: "https://eth-sepolia.g.alchemy.com/"
 
   # Notifications
   notifications:
@@ -97,11 +98,11 @@ node:
 
   resources:
     limits:
-      cpu: 1000m
-      memory: 2048Mi
+      cpu: 6000m
+      memory: 12Gi
     requests:
-      cpu: 500m
-      memory: 1024Mi
+      cpu: 280m
+      memory: 1Gi
 
   bootnodeConnectionString: ""
 

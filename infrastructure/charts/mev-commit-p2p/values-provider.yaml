@@ -24,8 +24,10 @@ global:
   # RPC endpoints
   rpc:
     settlementEndpoint: "http://erigon-snode-leader-erigon.default.svc.cluster.local:8545"
-    settlementWsEndpoint: "ws://erigon-snode-leader-erigon.default.svc.cluster.local:8546"
-    l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
+    settlementWsEndpoint: ""
+    #l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
+    l1Endpoint: "https://eth-sepolia.g.alchemy.com/v2/"
+
 
     
 
@@ -45,7 +47,7 @@ node:
   defaultKeystorePassword: "CXBMf4xEDO0I"
   defaultP2PSecret: "mev-commit-provider-secret"
 
-  bootnodeConnectionString: "/ip4/45.250.253.23/tcp/13522/p2p/16Uiu2HAmKxA6EYiYo6EUo91uAATGmMKjNydKVXhP2gTW6jPvyHN7"
+  bootnodeConnectionString: "/ip4/45.0.0.0/tcp/13522/p2p/16Uiu2HAmKxA6EYiYo6EUo91uAATGmMKjNydKVXhP2gTW6jPvyHN7"
 
   resources:
     limits:
@@ -82,7 +84,11 @@ provider:
 
 keystore:
   path: "/keystore"
-  downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore5/UTC--2025-06-24T18-20-46.524919000Z--44b5a4b0c879844033e11b88b507816492ff98b0"
+  downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore11/UTC--2025-06-24T18-20-50.505029000Z--9f028c0b07c930ddeca079bf2bdfae94ab5a4ce0"
+  #downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore40/UTC--2025-06-24T18-21-09.569731000Z--f25f6a07a414a63788027758a13b67807beb105f" # --> used
+  #downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore20/UTC--2025-06-24T18-20-56.382563000Z--61371baf2cd5aed452c3a965b96df0d35f220e80" # --> used
+  #downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore31/UTC--2025-06-24T18-21-03.625299000Z--c74b08773f83c91bde7a7988c1565f66b469853a"
+  #downloadUrl: "https://storage.googleapis.com/devnet-artifacts/keystores/erigon-keystores/keystore22/UTC--2025-06-24T18-20-57.691429000Z--b0c3ce98f8da30733868d901447f4ca561e2dc98"
 
   
   # AWS Secrets Manager keystore (still enabled for keystore files)
