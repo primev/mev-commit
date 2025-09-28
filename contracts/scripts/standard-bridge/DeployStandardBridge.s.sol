@@ -17,12 +17,12 @@ contract BridgeBase is Script {
     // Amount of ETH to initially fund the relayer account on the mev-commit chain.
     // This should be high enough to cover the cost of enqueuing transactions as
     // long as the relayer account is a zero-fee account.
-    uint256 public constant RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 0.03 ether;
+    uint256 public constant RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 0.01 ether;
 
     // Amount of ETH to initially fund the oracle account on the mev-commit chain.
     // This should be high enough to cover the cost of enqueuing transactions as
     // long as the oracle account is a zero-fee account.
-    uint256 public constant ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 0.5 ether;
+    uint256 public constant ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 0.01 ether;
 
     // Amount of ETH which must be allocated only to the contract deployer on mev-commit chain genesis.
     uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 500 ether;
