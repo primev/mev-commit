@@ -103,7 +103,7 @@ var (
 		Name:    "l1-rpc-urls",
 		Usage:   "URLs for L1 RPC",
 		EnvVars: []string{"MEV_ORACLE_L1_RPC_URLS"},
-		Value:   cli.NewStringSlice("https://ethereum-holesky-rpc.publicnode.com"),
+		Value:   cli.NewStringSlice("https://ethereum-rpc.publicnode.com"),
 	})
 
 	optionSettlementRPCUrlHTTP = altsrc.NewStringFlag(&cli.StringFlag{
