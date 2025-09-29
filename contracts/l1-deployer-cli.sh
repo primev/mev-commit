@@ -331,7 +331,7 @@ check_rpc_url() {
 }
 
 check_etherscan_api_key() {
-    response=$(curl -s "https://api.etherscan.io/api?module=account&action=balance&address=${SENDER}&tag=latest&apikey=${ETHERSCAN_API_KEY}")
+    response=$(curl -s "https://api.etherscan.io/v2/api?chainid=${chain_id}&module=account&action=balance&address=${SENDER}&tag=latest&apikey=${ETHERSCAN_API_KEY}")
 
     status=$(echo "$response" | grep -o '"status":"[0-9]"' | cut -d':' -f2 | tr -d '"')
 

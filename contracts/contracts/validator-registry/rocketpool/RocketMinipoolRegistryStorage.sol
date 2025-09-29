@@ -8,7 +8,7 @@ abstract contract RocketMinipoolRegistryStorage {
     RocketStorageInterface public rocketStorage;
 
     /// @notice Number of seconds a validator must wait after requesting deregistration before it can be finalized.
-    uint64 public deregistrationPeriod = 1 days;
+    uint64 public deregistrationPeriod;
 
     uint256 public unfreezeFee;
     address public freezeOracle;
