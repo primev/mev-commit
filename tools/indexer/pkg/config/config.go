@@ -5,16 +5,17 @@ import (
 )
 
 type Relay struct {
-	Name string
-	Tag  string
-	URL  string
+	Relay_id int64
+	Name     string
+	Tag      string
+	URL      string
 }
 
 var RelaysDefault = []Relay{
-	{Name: "Titan", Tag: "titan-relay", URL: "https://regional.titanrelay.xyz"},
-	{Name: "Aestus", Tag: "aestus-relay", URL: "https://aestus.live"},
-	{Name: "Bloxroute Max Profit", Tag: "bloxroute-max-profit-relay", URL: "https://bloxroute.max-profit.blxrbdn.com"},
-	{Name: "Bloxroute Regulated", Tag: "bloxroute-regulated-relay", URL: "https://bloxroute.regulated.blxrbdn.com"},
+	{Relay_id: 1, Name: "Titan", Tag: "titan-relay", URL: "https://regional.titanrelay.xyz"},
+	{Relay_id: 2, Name: "Aestus", Tag: "aestus-relay", URL: "https://aestus.live"},
+	{Relay_id: 3, Name: "Bloxroute Max Profit", Tag: "bloxroute-max-profit-relay", URL: "https://bloxroute.max-profit.blxrbdn.com"},
+	{Relay_id: 4, Name: "Bloxroute Regulated", Tag: "bloxroute-regulated-relay", URL: "https://bloxroute.regulated.blxrbdn.com"},
 }
 
 type Config struct {

@@ -4,79 +4,34 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"net"
-	"net/http"
-	"strconv"
+	"github.com/hashicorp/go-retryablehttp"
 	"time"
 )
 
-func NewHTTPClient(timeout time.Duration) *http.Client {
-	return &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   5 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			MaxIdleConns:        100,
-			IdleConnTimeout:     90 * time.Second,
-			TLSHandshakeTimeout: 5 * time.Second,
-		},
-	}
+func NewHTTPClient(timeout time.Duration) *retryablehttp.Client {
+	client := retryablehttp.NewClient()
+	client.HTTPClient.Timeout = timeout
+	client.RetryMax = 3
+	client.RetryWaitMin = 200 * time.Millisecond
+	client.RetryWaitMax = 2 * time.Second
+	return client
 }
-func FetchJSONWithRetry(ctx context.Context, httpc *http.Client, url string, out any, attempts int, baseDelay time.Duration) error {
-	var lastErr error
 
-	for i := 0; i < attempts; i++ {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		resp, err := httpc.Do(req)
-		if err == nil && resp != nil && resp.StatusCode == 200 {
-			defer resp.Body.Close()
-			return json.NewDecoder(resp.Body).Decode(out)
-		}
-		if resp != nil {
-			// 429 courtesy backoff if provided
-			if resp.StatusCode == 429 {
-				if ra := resp.Header.Get("Retry-After"); ra != "" {
-					if secs, err := strconv.Atoi(ra); err == nil {
-						select {
-						case <-ctx.Done():
-							resp.Body.Close()
-							return ctx.Err()
-
-						case <-time.After(time.Duration(secs) * time.Second):
-						}
-
-					}
-				}
-			}
-			if resp.StatusCode != http.StatusOK {
-				lastErr = fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
-			}
-			resp.Body.Close()
-		} else if err != nil {
-			lastErr = err
-		}
-		if i < attempts-1 {
-			sleep := baseDelay * time.Duration(1<<i)
-			jitter := time.Duration(rand.Int63n(int64(baseDelay / 2)))
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(sleep + jitter):
-			}
-		}
+func FetchJSON(ctx context.Context, client *retryablehttp.Client, url string, out any) error {
+	req, err := retryablehttp.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("GET %s failed after %d attempts: %v", url, attempts, lastErr)
 
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	return json.NewDecoder(resp.Body).Decode(out)
 }

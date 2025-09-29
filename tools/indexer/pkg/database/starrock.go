@@ -4,15 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/primev/mev-commit/indexer/pkg/beacon"
-	"github.com/primev/mev-commit/indexer/pkg/config"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/primev/mev-commit/tools/indexer/pkg/beacon"
+	"github.com/primev/mev-commit/tools/indexer/pkg/config"
 )
 
 type DB struct {
-	Conn *sql.DB
+	conn *sql.DB
 }
 
 func MustConnect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, error) {
@@ -33,11 +35,11 @@ func MustConnect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, 
 		return nil, fmt.Errorf("StarRocks ping failed: %v", err)
 	}
 
-	return &DB{Conn: conn}, nil
+	return &DB{conn: conn}, nil
 
 }
 func (db *DB) Close() {
-	db.Conn.Close()
+	db.conn.Close()
 }
 
 func (db *DB) EnsureStateTable(ctx context.Context) error {
@@ -55,14 +57,14 @@ func (db *DB) EnsureStateTable(ctx context.Context) error {
 		"replication_num" = "1"
 	)`
 
-	if _, err := db.Conn.ExecContext(ctx2, ddl); err != nil {
+	if _, err := db.conn.ExecContext(ctx2, ddl); err != nil {
 		return fmt.Errorf("failed to create state table: %w", err)
 	}
 
 	var count int
-	err := db.Conn.QueryRowContext(ctx2, `SELECT COUNT(*) FROM ingestor_state WHERE id = 1`).Scan(&count)
+	err := db.conn.QueryRowContext(ctx2, `SELECT COUNT(*) FROM ingestor_state WHERE id = 1`).Scan(&count)
 	if err != nil || count == 0 {
-		_, err = db.Conn.ExecContext(ctx2,
+		_, err = db.conn.ExecContext(ctx2,
 			`INSERT INTO ingestor_state (id, last_block_number) VALUES (1, 0)`)
 		if err != nil {
 			return fmt.Errorf("failed to insert initial state: %w", err)
@@ -71,13 +73,28 @@ func (db *DB) EnsureStateTable(ctx context.Context) error {
 
 	return nil
 }
+func (db *DB) GetMaxBlockNumber(ctx context.Context) (int64, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
+	var bn int64
+	err := db.conn.QueryRowContext(ctx2, `SELECT COALESCE(MAX(block_number),0) FROM blocks`).Scan(&bn)
+	return bn, err
+}
+func (db *DB) GetValidatorPubkey(ctx context.Context, slot int64) ([]byte, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	var vpk []byte
+	err := db.conn.QueryRowContext(ctx2, `SELECT validator_pubkey FROM blocks WHERE slot=?`, slot).Scan(&vpk)
+	return vpk, err
+}
 func (db *DB) LoadLastBlockNumber(ctx context.Context) (int64, bool) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var bn int64
-	err := db.Conn.QueryRowContext(ctx2,
+	err := db.conn.QueryRowContext(ctx2,
 		`SELECT last_block_number FROM ingestor_state WHERE id = 1 LIMIT 1`).Scan(&bn)
 	if err != nil {
 		return 0, false
@@ -89,13 +106,8 @@ func (db *DB) SaveLastBlockNumber(ctx context.Context, bn int64) error {
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	_, err := db.Conn.ExecContext(ctx2, `DELETE FROM ingestor_state WHERE id = 1`)
-	if err != nil {
-		return fmt.Errorf("failed to delete old state: %w", err)
-	}
-
-	query := fmt.Sprintf(`INSERT INTO ingestor_state (id, last_block_number) VALUES (1, %d)`, bn)
-	_, err = db.Conn.ExecContext(ctx2, query)
+	query := fmt.Sprintf(`REPLACE INTO ingestor_state (id, last_block_number) VALUES (1, %d)`, bn)
+	_, err := db.conn.ExecContext(ctx2, query)
 	if err != nil {
 		return fmt.Errorf("save last_block_number failed: %w", err)
 	}
@@ -113,14 +125,14 @@ func (db *DB) UpsertRelays(ctx context.Context, relays []config.Relay) error {
 	// StarRocks batch insert approach
 	var values []string
 	for _, r := range relays {
-		value := fmt.Sprintf("('%s', '%s', '%s', 1)", r.Name, r.Tag, r.URL)
+		value := fmt.Sprintf("(%d, '%s', '%s', '%s', 1)", r.Relay_id, r.Name, r.Tag, r.URL)
 		values = append(values, value)
 	}
 
-	query := fmt.Sprintf(`INSERT INTO relays (name, tag, base_url, is_active) VALUES %s`,
+	query := fmt.Sprintf(`INSERT INTO relays (relay_id, name, tag, base_url, is_active) VALUES %s`,
 		strings.Join(values, ","))
 
-	_, err := db.Conn.ExecContext(ctx2, query)
+	_, err := db.conn.ExecContext(ctx2, query)
 	return err
 }
 
@@ -165,7 +177,7 @@ INSERT INTO blocks(
 ) VALUES (%d, %d, %s, %s, %s, %s)`,
 		ei.Slot, ei.BlockNumber, timestamp, proposerIndex, relayTag, rewardEth)
 
-	_, err := db.Conn.ExecContext(ctx2, query)
+	_, err := db.conn.ExecContext(ctx2, query)
 	if err != nil {
 		return fmt.Errorf("upsert block slot=%d: %w", ei.Slot, err)
 	}
@@ -182,12 +194,234 @@ func (db *DB) UpdateValidatorPubkey(ctx context.Context, slot int64, vpub []byte
 
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
+	vhex := hexutil.Encode(vpub)
 
-	_, err := db.Conn.ExecContext(ctx2, `
-		UPDATE blocks SET validator_pubkey = ? WHERE slot = ?`,
-		vpub, slot)
-	if err != nil {
+	q := fmt.Sprintf("INSERT INTO blocks (slot, validator_pubkey) VALUES (%d, '%s')", slot, vhex)
+
+	if _, err := db.conn.ExecContext(ctx2, q); err != nil {
 		return fmt.Errorf("update validator slot=%d: %w", slot, err)
 	}
+
 	return nil
+}
+
+// Add these new methods to your DB struct
+func (db *DB) InsertBid(ctx context.Context, slot int64, relayID int64, builder, proposer, feeRec []byte, valStr string, blockNum *int64, tsMS *int64) error {
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	builderHex := hexutil.Encode(builder)
+	proposerHex := hexutil.Encode(proposer)
+	feeRecHex := hexutil.Encode(feeRec)
+	blockNumSQL := "NULL"
+	if blockNum != nil {
+		blockNumSQL = fmt.Sprintf("%d", *blockNum)
+	}
+
+	tsMSSQL := "NULL"
+	if tsMS != nil {
+		tsMSSQL = fmt.Sprintf("%d", *tsMS)
+	}
+	query := fmt.Sprintf(`
+        INSERT INTO bids(
+            slot, relay_id, builder_pubkey, proposer_pubkey,
+            proposer_fee_recipient, value_wei, block_number, timestamp_ms
+        )
+        VALUES (%d, %d, '%s', '%s', '%s', '%s', %s, %s)`,
+		slot, relayID, builderHex, proposerHex, feeRecHex, valStr, blockNumSQL, tsMSSQL,
+	)
+
+	_, err := db.conn.ExecContext(ctx2, query)
+	return err
+}
+
+func (db *DB) GetActiveRelays(ctx context.Context) ([]struct {
+	ID  int64
+	URL string
+}, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	rows, err := db.conn.QueryContext(ctx2, `SELECT relay_id, base_url FROM relays WHERE is_active = 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		ID  int64
+		URL string
+	}
+	for rows.Next() {
+		var id int64
+		var url string
+		if err := rows.Scan(&id, &url); err != nil {
+			continue // Skip bad rows
+		}
+		results = append(results, struct {
+			ID  int64
+			URL string
+		}{ID: id, URL: url})
+	}
+	return results, rows.Err()
+}
+
+func (db *DB) GetRecentMissingBlocks(ctx context.Context, lookback int64, batch int) ([]struct {
+	Slot        int64
+	BlockNumber int64
+}, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	if lookback < 0 || batch < 0 || batch > 10000 {
+		return nil, fmt.Errorf("invalid parameters: lookback=%d, batch=%d", lookback, batch)
+	}
+
+	// Build query with literal values
+	query := fmt.Sprintf(`
+        WITH recent AS (
+            SELECT COALESCE(MAX(slot), 0) AS s FROM blocks
+        )
+        SELECT slot, block_number
+        FROM blocks, recent
+        WHERE slot > recent.s - %d
+          AND block_number IS NOT NULL
+          AND (winning_relay IS NULL 
+               OR winning_builder_pubkey IS NULL 
+               OR fee_recipient IS NULL 
+               OR producer_reward_eth IS NULL 
+               OR timestamp IS NULL 
+               OR proposer_index IS NULL)
+        ORDER BY slot DESC
+        LIMIT %d`, lookback, batch)
+
+	rows, err := db.conn.QueryContext(ctx2, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		Slot        int64
+		BlockNumber int64
+	}
+	for rows.Next() {
+		var slot, bn int64
+		if err := rows.Scan(&slot, &bn); err != nil {
+			continue
+		}
+		results = append(results, struct {
+			Slot        int64
+			BlockNumber int64
+		}{Slot: slot, BlockNumber: bn})
+	}
+	return results, rows.Err()
+}
+
+func (db *DB) GetRecentSlotsWithBlocks(ctx context.Context, lookback int64, batch int) ([]int64, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	q := fmt.Sprintf(`
+WITH recent AS (SELECT COALESCE(MAX(slot),0) AS s FROM blocks)
+SELECT DISTINCT slot
+FROM blocks, recent
+WHERE slot > recent.s - ?
+  AND block_number IS NOT NULL
+ORDER BY slot DESC
+LIMIT %d`, batch)
+	rows, err := db.conn.QueryContext(ctx2, q, lookback)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var slots []int64
+	for rows.Next() {
+		var slot int64
+		if err := rows.Scan(&slot); err != nil {
+			continue
+		}
+		slots = append(slots, slot)
+	}
+	return slots, rows.Err()
+}
+
+func (db *DB) GetValidatorsNeedingOptInCheck(ctx context.Context, lookback int64, batch int) ([]struct {
+	Slot            int64
+	BlockNumber     int64
+	ValidatorPubkey []byte
+}, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	q := fmt.Sprintf(`
+WITH recent AS (SELECT COALESCE(MAX(slot),0) AS s FROM blocks)
+SELECT slot, block_number, validator_pubkey
+FROM blocks, recent
+WHERE slot > recent.s - ?
+  AND block_number IS NOT NULL
+  AND validator_pubkey IS NOT NULL
+  AND validator_opted_in IS NULL
+ORDER BY slot DESC
+LIMIT %d`, batch)
+	rows, err := db.conn.QueryContext(ctx2, q, lookback)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		Slot            int64
+		BlockNumber     int64
+		ValidatorPubkey []byte
+	}
+	for rows.Next() {
+		var slot, bn int64
+		var vpk []byte
+		if err := rows.Scan(&slot, &bn, &vpk); err != nil {
+			continue
+		}
+		results = append(results, struct {
+			Slot            int64
+			BlockNumber     int64
+			ValidatorPubkey []byte
+		}{
+			Slot: slot, BlockNumber: bn, ValidatorPubkey: vpk,
+		})
+	}
+	return results, rows.Err()
+}
+
+func (db *DB) UpdateValidatorOptInStatus(ctx context.Context, slot int64, opted bool) error {
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	v := 0
+	if opted {
+		v = 1
+	} // TINYINT(1) in StarRocks
+	q := fmt.Sprintf(
+		"UPDATE blocks SET validator_opted_in=%d WHERE slot=%d AND validator_opted_in IS NULL",
+		v, slot,
+	)
+	_, err := db.conn.ExecContext(ctx2, q)
+	return err
+}
+
+func (db *DB) GetValidatorPubkeyWithRetry(ctx context.Context, slot int64, retries int, retryDelay time.Duration) ([]byte, error) {
+	var vpk []byte
+	for i := 0; i < retries; i++ {
+		ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+		err := db.conn.QueryRowContext(ctx2, `SELECT validator_pubkey FROM blocks WHERE slot=?`, slot).Scan(&vpk)
+		cancel()
+
+		if err == nil && len(vpk) > 0 {
+			return vpk, nil
+		}
+
+		if i < retries-1 {
+			time.Sleep(retryDelay)
+		}
+	}
+	return nil, fmt.Errorf("validator pubkey not available after %d retries", retries)
 }

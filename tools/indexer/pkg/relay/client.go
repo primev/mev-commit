@@ -4,16 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/primev/mev-commit/indexer/pkg/config"
 	"math/big"
-	"net/http"
+
 	"strings"
 	"time"
 
-	"github.com/primev/mev-commit/indexer/pkg/database"
-	httputil "github.com/primev/mev-commit/indexer/pkg/http"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/primev/mev-commit/tools/indexer/pkg/config"
+
+	"github.com/primev/mev-commit/tools/indexer/pkg/database"
+	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
 
 	"strconv"
 )
@@ -33,7 +35,6 @@ func parseBigString(v any) (string, bool) {
 			return "", false
 		}
 
-		// Use go-ethereum's hexutil for hex parsing
 		if strings.HasPrefix(z, "0x") || strings.HasPrefix(z, "0X") {
 			bi, err := hexutil.DecodeBig(z)
 			if err != nil {
@@ -56,7 +57,6 @@ func parseBigString(v any) (string, bool) {
 	}
 }
 
-// Insert bid rows (relays are only for bids)
 func InsertBid(ctx context.Context, db *database.DB, slot int64, relayID int64, bid map[string]any) error {
 
 	if slot <= 0 || relayID <= 0 {
@@ -117,17 +117,8 @@ func InsertBid(ctx context.Context, db *database.DB, slot int64, relayID int64, 
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// Write
-	// Change PostgreSQL $1,$2,$3... to MySQL ?,?,?...
-	_, err := db.Conn.ExecContext(ctx2, `
-    INSERT INTO bids(
-        slot, relay_id, builder_pubkey, proposer_pubkey,
-        proposer_fee_recipient, value_wei, block_number, timestamp_ms
-    )
-    VALUES (?,?,?,?,?,?,?,?)`,
-		slot, relayID, builder, proposer, feeRec, valStr, blockNum, tsMS,
-	)
-	return err
+	return db.InsertBid(ctx2, slot, relayID, builder, proposer, feeRec, valStr, blockNum, tsMS)
+
 }
 
 func UpsertRelaysAndLoad(ctx context.Context, db *database.DB) ([]Row, error) {
@@ -137,34 +128,25 @@ func UpsertRelaysAndLoad(ctx context.Context, db *database.DB) ([]Row, error) {
 	}
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	// load active
-	rows, err := db.Conn.QueryContext(ctx2, `SELECT relay_id, base_url FROM relays WHERE is_active = 1`)
+	dbResults, err := db.GetActiveRelays(ctx2)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+
 	var rws []Row
-	for rows.Next() {
-		var id int64
-		var url string
-		if err := rows.Scan(&id, &url); err != nil {
-			continue // Skip bad rows
-		}
-		rws = append(rws, Row{ID: id, URL: url})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+	for _, result := range dbResults {
+		rws = append(rws, Row{ID: result.ID, URL: result.URL})
 	}
 	return rws, nil
 }
 
-func FetchBuilderBlocksReceived(httpc *http.Client, relayBase string, slot int64) ([]map[string]any, error) {
+func FetchBuilderBlocksReceived(httpc *retryablehttp.Client, relayBase string, slot int64) ([]map[string]any, error) {
 	url := fmt.Sprintf("%s/relay/v1/data/bidtraces/builder_blocks_received?slot=%d", strings.TrimRight(relayBase, "/"), slot)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var arr []map[string]any
-	if err := httputil.FetchJSONWithRetry(ctx, httpc, url, &arr, 2, 200*time.Millisecond); err != nil {
+	if err := httputil.FetchJSON(ctx, httpc, url, &arr); err != nil {
 		return nil, err
 	}
 

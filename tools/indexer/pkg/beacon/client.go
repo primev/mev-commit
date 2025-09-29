@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/primev/mev-commit/indexer/pkg/ethereum"
-	httputil "github.com/primev/mev-commit/indexer/pkg/http"
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
+	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
 )
 
 type ExecInfo struct {
@@ -27,14 +28,14 @@ type ExecInfo struct {
 	RewardEth   *float64
 }
 
-func FetchBeaconExecutionBlock(httpc *http.Client, beaconBase string, blockNum int64) (*ExecInfo, error) {
+func FetchBeaconExecutionBlock(httpc *retryablehttp.Client, beaconBase string, blockNum int64) (*ExecInfo, error) {
 	url := fmt.Sprintf("%s/execution/block/%d", beaconBase, blockNum)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var wrap struct {
 		Data []map[string]any `json:"data"`
 	}
-	if err := httputil.FetchJSONWithRetry(ctx, httpc, url, &wrap, 3, 300*time.Millisecond); err != nil || len(wrap.Data) == 0 {
+	if err := httputil.FetchJSON(ctx, httpc, url, &wrap); err != nil || len(wrap.Data) == 0 {
 		return nil, fmt.Errorf("no exec block %d", blockNum)
 	}
 	j := wrap.Data[0]
@@ -119,7 +120,7 @@ func FetchBeaconExecutionBlock(httpc *http.Client, beaconBase string, blockNum i
 }
 
 // validator pubkey from proposer index
-func FetchValidatorPubkey(httpc *http.Client, beaconBase string, proposerIndex int64) ([]byte, error) {
+func FetchValidatorPubkey(httpc *retryablehttp.Client, beaconBase string, proposerIndex int64) ([]byte, error) {
 	url := fmt.Sprintf("%s/validator/%d", beaconBase, proposerIndex)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -128,7 +129,7 @@ func FetchValidatorPubkey(httpc *http.Client, beaconBase string, proposerIndex i
 			Pubkey string `json:"pubkey"`
 		} `json:"data"`
 	}
-	if err := httputil.FetchJSONWithRetry(ctx, httpc, url, &resp, 3, 300*time.Millisecond); err != nil {
+	if err := httputil.FetchJSON(ctx, httpc, url, &resp); err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(resp.Data.Pubkey) == "" {
@@ -137,8 +138,9 @@ func FetchValidatorPubkey(httpc *http.Client, beaconBase string, proposerIndex i
 	return common.FromHex(resp.Data.Pubkey), nil
 }
 
-// Add this new function to fetch blocks from Alchemy RPC
-func FetchBlockFromRPC(httpc *http.Client, rpcURL string, blockNumber int64) (*ExecInfo, error) {
+// to fetch blocks from Alchemy RPC
+func FetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber int64) (*ExecInfo, error) {
+	underlyingClient := httpc.HTTPClient
 	// Get block data from Alchemy
 	payload := map[string]any{
 		"jsonrpc": "2.0",
@@ -151,7 +153,7 @@ func FetchBlockFromRPC(httpc *http.Client, rpcURL string, blockNumber int64) (*E
 	req, _ := http.NewRequest("POST", rpcURL, bytes.NewReader(buf))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := httpc.Do(req)
+	resp, err := underlyingClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +185,7 @@ func FetchBlockFromRPC(httpc *http.Client, rpcURL string, blockNumber int64) (*E
 		Timestamp:   &blockTime,
 	}, nil
 }
-func FetchCombinedBlockData(httpc *http.Client, rpcURL string, beaconBase string, blockNumber int64) (*ExecInfo, error) {
+func FetchCombinedBlockData(httpc *retryablehttp.Client, rpcURL string, beaconBase string, blockNumber int64) (*ExecInfo, error) {
 	// Get execution block from Alchemy (always available)
 	execBlock, err := FetchBlockFromRPC(httpc, rpcURL, blockNumber)
 	if err != nil {
@@ -193,7 +195,6 @@ func FetchCombinedBlockData(httpc *http.Client, rpcURL string, beaconBase string
 	// Convert block number to slot for beacon chain query
 	slotNumber := ethereum.BlockNumberToSlot(blockNumber)
 
-	// Try to get beacon chain data using slot number (may not exist for recent blocks)
 	beaconData, _ := FetchBeaconExecutionBlock(httpc, beaconBase, slotNumber)
 
 	// Merge data - use Alchemy as primary, beacon as supplement
@@ -203,7 +204,7 @@ func FetchCombinedBlockData(httpc *http.Client, rpcURL string, beaconBase string
 		execBlock.RelayTag = beaconData.RelayTag
 		execBlock.RewardEth = beaconData.RewardEth
 	} else {
-		// Set the calculated slot if beacon data not available
+
 		execBlock.Slot = slotNumber
 	}
 

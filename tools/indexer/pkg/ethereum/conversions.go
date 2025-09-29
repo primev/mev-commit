@@ -1,4 +1,3 @@
-// pkg/utils/conversions.go
 package ethereum
 
 func BlockNumberToSlot(blockNumber int64) int64 {

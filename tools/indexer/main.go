@@ -4,17 +4,19 @@ import (
 	"context"
 
 	"fmt"
+
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/primev/mev-commit/indexer/pkg/backfill"
-	"github.com/primev/mev-commit/indexer/pkg/beacon"
-	"github.com/primev/mev-commit/indexer/pkg/config"
-	"github.com/primev/mev-commit/indexer/pkg/database"
-	"github.com/primev/mev-commit/indexer/pkg/ethereum"
-	httputil "github.com/primev/mev-commit/indexer/pkg/http"
-	"github.com/primev/mev-commit/indexer/pkg/relay"
+	"github.com/primev/mev-commit/tools/indexer/pkg/backfill"
+	"github.com/primev/mev-commit/tools/indexer/pkg/beacon"
+	"github.com/primev/mev-commit/tools/indexer/pkg/config"
+	"github.com/primev/mev-commit/tools/indexer/pkg/database"
+	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
+	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
+	"github.com/primev/mev-commit/tools/indexer/pkg/relay"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
-	"log"
+
+	"log/slog"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -23,9 +25,9 @@ import (
 )
 
 type Options struct {
-	BlockTick        time.Duration
-	ValidatorWait    time.Duration
-	BackfillEvery    time.Duration
+	BlockTick     time.Duration
+	ValidatorWait time.Duration
+
 	BackfillLookback int64
 	BackfillBatch    int
 	HTTPTimeout      time.Duration
@@ -84,13 +86,6 @@ var (
 		Value:   1500 * time.Millisecond,
 	})
 
-	optionBackfillEvery = altsrc.NewDurationFlag(&cli.DurationFlag{
-		Name:    "backfill-every",
-		Usage:   "interval for backfill operations",
-		EnvVars: []string{"INDEXER_BACKFILL_EVERY"},
-		Value:   5 * time.Minute,
-	})
-
 	optionBackfillLookback = altsrc.NewIntFlag(&cli.IntFlag{
 		Name:    "backfill-lookback",
 		Usage:   "number of slots to look back for backfill",
@@ -117,12 +112,11 @@ func createOptionsFromCLI(c *cli.Context) *config.Config {
 	return &config.Config{
 		BlockTick:        c.Duration("block-interval"),
 		ValidatorWait:    c.Duration("validator-delay"),
-		BackfillEvery:    c.Duration("backfill-every"),
-		BackfillLookback: int64(c.Int("backfill-lookback-slots")),
+		BackfillLookback: int64(c.Int("backfill-lookback")),
 		BackfillBatch:    c.Int("backfill-batch"),
 		HTTPTimeout:      c.Duration("http-timeout"),
 		OptInContract:    c.String("opt-in-contract"),
-		EtherscanKey:     c.String("etherscan-api-key"),
+		EtherscanKey:     c.String("etherscan-key"),
 		InfuraRPC:        c.String("infura-rpc"),
 		BeaconBase:       c.String("beacon-base"),
 	}
@@ -130,19 +124,28 @@ func createOptionsFromCLI(c *cli.Context) *config.Config {
 
 func startIndexer(c *cli.Context) error {
 
+	initLogger := slog.With("component", "init")
+	dbLogger := slog.With("component", "db")
+	httpLogger := slog.With("component", "http")
+	relayLogger := slog.With("component", "relay")
+	backfillLogger := slog.With("component", "backfill")
+	blockLogger := slog.With("component", "block")
+	bidsLogger := slog.With("component", "bids")
+	validatorLogger := slog.With("component", "validator")
+	optInLogger := slog.With("component", "opt-in")
+	progressLogger := slog.With("component", "progress")
+	shutdownLogger := slog.With("component", "shutdown")
+
 	dbURL := c.String(optionDatabaseURL.Name)
 	infuraRPC := c.String(optionInfuraRPC.Name)
 	beaconBase := c.String(optionBeaconBase.Name)
 	// Initialize random seed
 	rand.Seed(time.Now().UnixNano())
 
-	// Load configuration
-
-	// Validate required configuration
-
-	log.Printf("[INIT] Starting blockchain indexer with StarRocks database")
-	log.Printf("[CONFIG] Block interval: %s, Validator delay: %s, Backfill every: %s",
-		c.Duration("block-interval"), c.Duration("validator-delay"), c.Duration("backfill-every"))
+	initLogger.Info("starting blockchain indexer with StarRocks database")
+	initLogger.Info("configuration loaded",
+		"block_interval", c.Duration("block-interval"),
+		"validator_delay", c.Duration("validator-delay"))
 
 	// Setup graceful shutdown
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -151,81 +154,82 @@ func startIndexer(c *cli.Context) error {
 	// Connect to StarRocks database
 	db, err := database.MustConnect(ctx, dbURL, 20, 5)
 	if err != nil {
-		log.Fatalf("[DB] Connection failed: %v", err)
+		dbLogger.Error("connection failed", "error", err)
 	}
 	defer db.Close()
-	log.Printf("[DB] Connected to StarRocks database")
+	dbLogger.Info("connected to StarRocks database")
 
 	// Ensure required tables exist
 	if err := db.EnsureStateTable(ctx); err != nil {
-		log.Fatalf("[DB] Failed to ensure state table: %v", err)
+		dbLogger.Error("failed to ensure state table", "error", err)
+		return err
 	}
-	log.Printf(" [DB] State table ready")
+	dbLogger.Info("state table ready")
 
 	// Initialize HTTP client
 	httpc := httputil.NewHTTPClient(c.Duration("http-timeout"))
-	log.Printf("[HTTP] Client initialized with %s timeout", c.Duration("http-timeout"))
+	httpLogger.Info("client initialized", "timeout", c.Duration("http-timeout"))
 
 	// Load relay configurations
 	relays, err := relay.UpsertRelaysAndLoad(ctx, db)
 	if err != nil {
-		log.Fatalf("[RELAYS] Failed to load: %v", err)
+		relayLogger.Error("failed to load", "error", err)
 	}
-	log.Printf("[RELAYS] Loaded %d active relays:", len(relays))
+	relayLogger.Info("loaded active relays", "count", len(relays))
 	for _, r := range relays {
-		log.Printf("  - Relay ID %d: %s", r.ID, r.URL)
+		relayLogger.Info("relay found", "id", r.ID, "url", r.URL)
 	}
 
 	// Initialize starting block number
 	lastBN, found := db.LoadLastBlockNumber(ctx)
 	if !found || lastBN == 0 {
-		log.Printf(" [INIT] No previous state found, checking database for latest block...")
-		err := db.Conn.QueryRowContext(ctx, `SELECT COALESCE(MAX(block_number),0) FROM blocks`).Scan(&lastBN)
+		initLogger.Info("no previous state found, checking database for latest block")
+		lastBN, err = db.GetMaxBlockNumber(ctx)
 		if err != nil {
-			log.Printf("[INIT] Database query failed: %v", err)
+			initLogger.Error("database query failed", "error", err)
 		}
 	}
 
 	// Replace the hardcoded block search with:
 	if lastBN == 0 {
-		log.Printf("[INIT] Getting latest block from Ethereum RPC...")
+		initLogger.Info("getting latest block from Ethereum RPC...")
 
-		latestBlock, err := ethereum.GetLatestBlockNumber(httpc, infuraRPC)
+		latestBlock, err := ethereum.GetLatestBlockNumber(httpc.HTTPClient, infuraRPC)
 		if err != nil {
-			log.Fatalf("[INIT] Failed to get latest block from RPC: %v", err)
+			initLogger.Error("failed to get latest block from RPC", "error", err)
 		}
 
 		lastBN = latestBlock - 10 // Start 10 blocks behind to ensure data availability
-		log.Printf("[INIT] Starting from block %d (latest: %d)", lastBN, latestBlock)
+		initLogger.Info("starting from block", "block", lastBN, "latest", latestBlock)
 	}
 
-	log.Printf(" [INIT] Starting from block number: %d", lastBN)
-	log.Printf("[INIT] Indexer configuration - Lookback: %d slots, Batch size: %d",
-		c.Int("backfill-lookback-slots"), c.Int("backfill-batch"))
+	initLogger.Info("starting from block number", "block", lastBN)
+	initLogger.Info("indexer configuration", "lookback", c.Int("backfill-lookback"), "batch", c.Int("backfill-batch"))
 
-	// Setup tickers
-	backfillTicker := time.NewTicker(c.Duration("backfill-batch"))
-	defer backfillTicker.Stop()
-
+	if c.Int("backfill-lookback") > 0 {
+		backfillLogger.Info("running one-time backfill",
+			"lookback", c.Int("backfill-lookback"),
+			"batch", c.Int("backfill-batch"))
+		backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays)
+		backfillLogger.Info("completed startup backfill")
+	} else {
+		backfillLogger.Info("skipped", "reason", "backfill-lookback=0")
+	}
 	mainTicker := time.NewTicker(c.Duration("block-interval"))
 	defer mainTicker.Stop()
-
-	log.Printf("🎉 [INIT] Blockchain indexer started successfully")
+	initLogger.Info("blockchain indexer started successfully")
+	go backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays)
 
 	// Main processing loop
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf(" [SHUTDOWN] Graceful shutdown initiated: %v", ctx.Err())
+			shutdownLogger.Info("graceful shutdown initiated", "reason", ctx.Err())
 			if err := db.SaveLastBlockNumber(ctx, lastBN); err != nil {
-				log.Printf("[SHUTDOWN] Failed to save last block number: %v", err)
+				shutdownLogger.Error("failed to save last block number", "error", err)
 			}
-			log.Printf("[SHUTDOWN] Indexer stopped at block %d", lastBN)
+			shutdownLogger.Info("indexer stopped", "block", lastBN)
 			return nil
-
-		case <-backfillTicker.C:
-			log.Printf("[BACKFILL] Starting backfill operations...")
-			backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays)
 
 		case <-mainTicker.C:
 			nextBN := lastBN + 1
@@ -233,34 +237,36 @@ func startIndexer(c *cli.Context) error {
 			// Fetch execution block data
 			ei, err := beacon.FetchCombinedBlockData(httpc, infuraRPC, beaconBase, nextBN)
 			if err != nil || ei == nil {
-				log.Printf("⏳ [BLOCK] Block %d not available yet: %v", nextBN, err)
+				blockLogger.Warn("block not available yet", "block", nextBN, "error", err)
+
 				continue
 			}
 
 			// Log block details
-			log.Printf("[BLOCK] Processing block %d → slot %d", nextBN, ei.Slot)
+			blockLogger.Info("processing block", "block", nextBN, "slot", ei.Slot)
+
 			if ei.Timestamp != nil {
-				log.Printf("[BLOCK] Timestamp: %v", ei.Timestamp.Format(time.RFC3339))
+				blockLogger.Info("block timestamp", "block", nextBN, "timestamp", ei.Timestamp.Format(time.RFC3339))
 			}
 			if ei.ProposerIdx != nil {
-				log.Printf("[VALIDATOR] Proposer index: %d", *ei.ProposerIdx)
+				validatorLogger.Info("proposer index", "index", *ei.ProposerIdx)
 			}
 			if ei.RelayTag != nil {
-				log.Printf("[RELAY] Winning relay: %s", *ei.RelayTag)
+				relayLogger.Info("winning relay", "tag", *ei.RelayTag)
 			}
 			if ei.BuilderHex != nil && len(*ei.BuilderHex) > 20 {
-				log.Printf("🔨 [BUILDER] Builder pubkey: %s...", (*ei.BuilderHex)[:20])
+				blockLogger.Info("builder pubkey", "pubkey_prefix", (*ei.BuilderHex)[:20])
 			}
 			if ei.RewardEth != nil {
-				log.Printf("[REWARD] Producer reward: %.6f ETH", *ei.RewardEth)
+				blockLogger.Info("producer reward", "reward_eth", *ei.RewardEth)
 			}
 
 			// Save block to database
 			if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
-				log.Printf("[DB] Failed to save block %d: %v", nextBN, err)
+				dbLogger.Error("failed to save block", "block", nextBN, "error", err)
 				continue
 			}
-			log.Printf("[DB] Block %d saved successfully", nextBN)
+			dbLogger.Info("block saved successfully", "block", nextBN)
 
 			// Fetch and store bid data from all relays
 			totalBids := 0
@@ -270,14 +276,14 @@ func startIndexer(c *cli.Context) error {
 			for _, rr := range relays {
 				// Check if main context is canceled before processing each relay
 				if ctx.Err() != nil {
-					log.Printf("[BIDS] Main context canceled, stopping relay processing")
+					bidsLogger.Warn("main context canceled, stopping relay processing")
 					mainContextCanceled = true
 					break
 				}
 
 				bids, err := relay.FetchBuilderBlocksReceived(httpc, rr.URL, ei.Slot)
 				if err != nil {
-					log.Printf(" [BIDS] Relay %d (%s) failed: %v", rr.ID, rr.URL, err)
+					bidsLogger.Error("relay failed", "relay_id", rr.ID, "url", rr.URL, "error", err)
 					continue
 				}
 
@@ -288,13 +294,13 @@ func startIndexer(c *cli.Context) error {
 				for _, bid := range bids {
 					// Check if main context is still valid
 					if ctx.Err() != nil {
-						log.Printf("[BIDS] Main context canceled, stopping bid insertion")
+						bidsLogger.Warn("main context canceled, stopping bid insertion")
 						mainContextCanceled = true
 						break
 					}
 
 					if err := relay.InsertBid(bidCtx, db, ei.Slot, rr.ID, bid); err != nil {
-						log.Printf(" [BIDS] Failed to insert bid for slot %d, relay %d: %v", ei.Slot, rr.ID, err)
+						bidsLogger.Error("failed to insert bid", "slot", ei.Slot, "relay_id", rr.ID, "error", err)
 					} else {
 						relayBids++
 					}
@@ -306,13 +312,13 @@ func startIndexer(c *cli.Context) error {
 				}
 
 				if relayBids > 0 {
-					log.Printf(" [BIDS] Relay %d: %d bids collected", rr.ID, relayBids)
+					bidsLogger.Info("bids collected", "relay_id", rr.ID, "count", relayBids)
 					totalBids += relayBids
 					successfulRelays++
 				}
 			}
 
-			log.Printf(" [SUMMARY] Block %d: %d bids from %d relays", nextBN, totalBids, successfulRelays)
+			bidsLogger.Info("summary", "block", nextBN, "total_bids", totalBids, "successful_relays", successfulRelays)
 			// Async validator pubkey fetch
 			if ei.ProposerIdx != nil {
 				go func(slot int64, proposerIdx int64) {
@@ -320,15 +326,15 @@ func startIndexer(c *cli.Context) error {
 
 					vpub, err := beacon.FetchValidatorPubkey(httpc, beaconBase, proposerIdx)
 					if err != nil {
-						log.Printf("[VALIDATOR] Failed to fetch pubkey for proposer %d: %v", proposerIdx, err)
+						validatorLogger.Error("failed to fetch pubkey", "proposer", proposerIdx, "error", err)
 						return
 					}
 
 					if len(vpub) > 0 {
 						if err := db.UpdateValidatorPubkey(context.Background(), slot, vpub); err != nil {
-							log.Printf(" [VALIDATOR] Failed to save pubkey for slot %d: %v", slot, err)
+							validatorLogger.Error("failed to save pubkey", "slot", slot, "error", err)
 						} else {
-							log.Printf("[VALIDATOR] Pubkey saved for proposer %d (slot %d)", proposerIdx, slot)
+							validatorLogger.Info("pubkey saved", "proposer", proposerIdx, "slot", slot)
 						}
 					}
 				}(ei.Slot, *ei.ProposerIdx)
@@ -340,45 +346,32 @@ func startIndexer(c *cli.Context) error {
 					time.Sleep(c.Duration("validator-delay") + 500*time.Millisecond)
 
 					// Wait for validator pubkey to be available
-					var vpk []byte
-					retries := 3
-					for i := 0; i < retries; i++ {
-						err := db.Conn.QueryRowContext(context.Background(),
-							`SELECT validator_pubkey FROM blocks WHERE slot=?`, slot).Scan(&vpk)
-						if err == nil && len(vpk) > 0 {
-							break
-						}
-						if i < retries-1 {
-							time.Sleep(time.Second)
-						}
-					}
-
-					if len(vpk) == 0 {
-						log.Printf("[OPT-IN] Validator pubkey not available for slot %d", slot)
+					vpk, err := db.GetValidatorPubkeyWithRetry(context.Background(), slot, 3, time.Second)
+					if err != nil {
+						optInLogger.Error("validator pubkey not available", "slot", slot, "error", err)
 						return
 					}
 
-					opted, err := ethereum.CallAreOptedInAtBlock(httpc, createOptionsFromCLI(c), blockNumber, vpk)
+					opted, err := ethereum.CallAreOptedInAtBlock(httpc.HTTPClient, createOptionsFromCLI(c), blockNumber, vpk)
 					if err != nil {
-						log.Printf("[OPT-IN] Failed to check opt-in status for slot %d: %v", slot, err)
+						optInLogger.Error("failed to check opt-in status", "slot", slot, "error", err)
 						return
 					}
 
-					_, err = db.Conn.ExecContext(context.Background(),
-						`UPDATE blocks SET validator_opted_in=? WHERE slot=?`, opted, slot)
+					err = db.UpdateValidatorOptInStatus(context.Background(), slot, opted)
 					if err != nil {
-						log.Printf("[OPT-IN] Failed to save opt-in status for slot %d: %v", slot, err)
+						optInLogger.Error("failed to save opt-in status", "slot", slot, "error", err)
 					} else {
-						log.Printf("[OPT-IN] Slot %d validator opted-in: %t", slot, opted)
+						optInLogger.Info("validator opt-in status", "slot", slot, "opted_in", opted)
 					}
 				}(ei.Slot, ei.BlockNumber)
 			}
 
 			lastBN = nextBN
 			if err := db.SaveLastBlockNumber(ctx, lastBN); err != nil {
-				log.Printf("[PROGRESS] Failed to save block number %d: %v", lastBN, err)
+				progressLogger.Error("failed to save block number", "block", lastBN, "error", err)
 			} else {
-				log.Printf("[PROGRESS] Advanced to block %d", lastBN)
+				progressLogger.Info("advanced to block", "block", lastBN)
 			}
 		}
 	}
@@ -392,7 +385,7 @@ func main() {
 		optionBeaconBase,
 		optionBlockInterval,
 		optionValidatorDelay,
-		optionBackfillEvery,
+
 		optionBackfillLookback,
 		optionBackfillBatch,
 		optionHTTPTimeout,
