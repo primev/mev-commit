@@ -38,8 +38,8 @@ func MustConnect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, 
 	return &DB{conn: conn}, nil
 
 }
-func (db *DB) Close() {
-	db.conn.Close()
+func (db *DB) Close() error {
+    return db.conn.Close()
 }
 
 func (db *DB) EnsureStateTable(ctx context.Context) error {
