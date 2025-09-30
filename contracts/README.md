@@ -17,7 +17,7 @@ This changelog tracks deployments of **Ethereum mainnet** contracts. This change
 | ValidatorOptInRouter  | `0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64` | `release/v1.1.x`    | `v1.1.0-contracts`      |
 | VanillaRegistry       | `0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9` | `release/v1.1.x`    | `v1.1.0-contracts`      |
 | MevCommitAVS          | `0xBc77233855e3274E1903771675Eb71E602D9DC2e` | `release/v1.1.x`    | `v1.1.0-contracts`      |
-| L1Gateway             | `0xDBf24cafF1470a6D08bF2FF2c6875bafC60Cf881` | `release/v1.1.x`    | `v1.1.0-contracts`      |
+| L1Gateway             | `0x5d64B933739558101F9359E2750ACC228f0CB64F` | `release/v1.2.x`    | `v1.2.0`                |
 | MevCommitMiddleware   | `0x21fD239311B050bbeE7F32850d99ADc224761382` | `release/v1.1.x`    | `v1.1.0-contracts`         |
 
 ### Upgrade History
@@ -34,19 +34,16 @@ This changelog tracks "core" contract deployments on the mev-commit chain. This 
 
 | Contract              | Proxy Address                                | Release Branch      | Initial Tag           |
 |-----------------------|----------------------------------------------|---------------------|--------------------------|
-| BidderRegistry        | `0xC973D09e51A20C9Ab0214c439e4B34Dbac52AD67` | `release/v1.1.x`    | `v1.1.0`      |
-| ProviderRegistry      | `0xb772Add4718E5BD6Fe57Fb486A6f7f008E52167E` | `release/v1.1.x`    | `v1.1.0`      |
-| PreconfManager        | `0x3761bF3932cD22d684A7485002E1424c3aCCD69c` | `release/v1.1.x`    | `v1.1.0`      |
-| Oracle                | `0xa1aaCA1e4583dB498D47f3D5901f2B2EB49Bd8f6` | `release/v1.1.x`    | `v1.1.0`      |
-| BlockTracker          | `0x0DA2a367C51f2a34465ACd6AE5d8A48385e9cB03` | `release/v1.1.x`    | `v1.1.0`      |
+| BidderRegistry        | `0x145a9f4cbae2ec281f417195ea3464dbd04289a2` | `release/v1.2.x`    | `v1.2.0`      |
+| ProviderRegistry      | `0xeb6d22309062a86fa194520344530874221ef48c` | `release/v1.2.x`    | `v1.2.0`      |
+| PreconfManager        | `0x2ee9e88f57a7db801e114a4df7a99eb7257871e2` | `release/v1.2.x`    | `v1.2.0`      |
+| Oracle                | `0x37a037d2423221f403cfa146f5fb962e19582d90` | `release/v1.2.x`    | `v1.2.0`      |
+| BlockTracker          | `0x5d64b933739558101f9359e2750acc228f0cb64f` | `release/v1.2.x`    | `v1.2.0`      |
 
-### Upgrade History
+### Upgrade history related to current deployments
 
 | Timestamp (UTC)             | Contract            | New Impl Version      | Upgrade Tag       |
 |-----------------------------|---------------------|-----------------------|-------------------|
-| April 7th 2025 | Oracle | OracleV2 | No tag, see commit `bc4ebddd70f23d58ba6f9b2e8701e7f45d89cf82` in `release/v1.1.x`. |
-| July 22nd 2025, 20:10:39 UTC | BidderRegistry | BidderRegistryV2 | `v1.1.5` in `release/v1.1.x`. |
-| July 22nd 2025, 20:10:39 UTC | ProviderRegistry | ProviderRegistryV2 | `v1.1.5` in `release/v1.1.x`. |
 
 ## Hoodi Testnet (L1) Contract Changelog
 
