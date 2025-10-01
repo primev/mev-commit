@@ -26,9 +26,9 @@ This changelog tracks deployments of **Ethereum mainnet** contracts. This change
 |-----------------------------|---------------------|-----------------------|-------------------|
 | Mar-12-2025 03:33:35 AM UTC | MevCommitMiddleware | MevCommitMiddlewareV2 | v1.1.0-middleware |
 
-## Core Contract Changelog
+## Mev-commit Chain Contract Changelog
 
-This changelog tracks "core" contract deployments on the mev-commit chain. This changelog is only valid from the `main` branch.
+This changelog tracks contract deployments on the mev-commit chain. This changelog is only valid from the `main` branch.
 
 ### Current Deployments
 
@@ -39,6 +39,7 @@ This changelog tracks "core" contract deployments on the mev-commit chain. This 
 | PreconfManager        | `0x2ee9e88f57a7db801e114a4df7a99eb7257871e2` | `release/v1.2.x`    | `v1.2.0`      |
 | Oracle                | `0x37a037d2423221f403cfa146f5fb962e19582d90` | `release/v1.2.x`    | `v1.2.0`      |
 | BlockTracker          | `0x5d64b933739558101f9359e2750acc228f0cb64f` | `release/v1.2.x`    | `v1.2.0`      |
+| SettlementGateway     | `0x21f5f1142200a515248a2eef5b0654581c7f2b46` | `release/v1.2.x`    | `v1.2.0`      |
 
 ### Upgrade history related to current deployments
 
