@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,6 +21,7 @@ import (
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
+	"github.com/primev/mev-commit/tools/preconf-rpc/notifier"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
@@ -44,7 +46,7 @@ type Config struct {
 	PgSSL                  bool
 	Signer                 keysigner.KeySigner
 	BidderRPC              string
-	AutoDepositAmount      *big.Int
+	TargetDepositAmount    *big.Int
 	L1RPCUrls              []string
 	SettlementRPCUrl       string
 	L1ContractAddr         common.Address
@@ -53,10 +55,12 @@ type Config struct {
 	BridgeAddress          common.Address
 	SettlementThreshold    *big.Int
 	SettlementTopup        *big.Int
+	BidderTopup            *big.Int
 	HTTPPort               int
 	GasTipCap              *big.Int
 	GasFeeCap              *big.Int
 	PricerAPIKey           string
+	Webhooks               []string
 }
 
 type Service struct {
@@ -106,46 +110,11 @@ func New(config *Config) (*Service, error) {
 	topologyCli := debugapiv1.NewDebugServiceClient(conn)
 	notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
 
-	status, err := bidderCli.DepositManagerStatus(context.Background(), &bidderapiv1.DepositManagerStatusRequest{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get deposit manager status: %w", err)
-	}
-	if !status.Enabled {
-		resp, err := bidderCli.EnableDepositManager(context.Background(), &bidderapiv1.EnableDepositManagerRequest{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to enable deposit manager: %w", err)
-		}
-		if !resp.Success {
-			return nil, fmt.Errorf("failed to enable deposit manager")
-		}
-	}
-	config.Logger.Info("deposit manager enabled")
-
-	validProviders, err := bidderCli.GetValidProviders(context.Background(), &bidderapiv1.GetValidProvidersRequest{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get valid providers: %w", err)
-	}
-	if len(validProviders.ValidProviders) == 0 {
-		return nil, fmt.Errorf("no valid providers found")
+	if err := setupDeposits(bidderCli, config.TargetDepositAmount); err != nil {
+		return nil, fmt.Errorf("failed to setup deposits: %w", err)
 	}
 
-	targetDeposits := make([]*bidderapiv1.TargetDeposit, len(validProviders.ValidProviders))
-	for i, provider := range validProviders.ValidProviders {
-		targetDeposits[i] = &bidderapiv1.TargetDeposit{
-			Provider:      provider,
-			TargetDeposit: config.AutoDepositAmount.String(),
-		}
-	}
-
-	resp, err := bidderCli.SetTargetDeposits(context.Background(), &bidderapiv1.SetTargetDepositsRequest{
-		TargetDeposits: targetDeposits,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to set target deposits: %w", err)
-	}
-	if len(resp.SuccessfullySetDeposits) != len(targetDeposits) {
-		return nil, fmt.Errorf("failed to set target deposits")
-	}
+	notifier := notifier.NewNotifier(config.Webhooks, config.Logger.With("module", "notifier"))
 
 	bridgeConfig := transfer.BridgeConfig{
 		Signer:                 config.Signer,
@@ -184,6 +153,44 @@ func New(config *Config) (*Service, error) {
 	s.cancel = cancel
 
 	healthChecker := health.New()
+
+	balanceNotifierDone := notifier.SetupLowBalanceNotification(
+		ctx,
+		"RPC Operator AccountBalance Low",
+		l1RPCClient.RawClient(),
+		config.Signer.GetAddress(),
+		3.0,
+		5*time.Minute,
+		15*time.Minute,
+	)
+
+	healthChecker.Register(health.CloseChannelHealthCheck("BalanceNotifier", balanceNotifierDone))
+	s.closers = append(s.closers, channelCloser(balanceNotifierDone))
+
+	bidderEOA, err := getBidderEOA(topologyCli)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bidder EOA: %w", err)
+	}
+
+	bidderFunderDone := startBidderFunder(
+		ctx,
+		config.Logger.With("module", "bidderfunder"),
+		bidderEOA,
+		accountsync.NewAccountSync(bidderEOA, settlementClient),
+		transferer,
+		config.SettlementThreshold,
+		config.BidderTopup,
+		settlementClient,
+		settlementChainID,
+		notifier,
+	)
+
+	txnNotifierDone := notifier.StartTransactionNotifier(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("TransactionNotifier", txnNotifierDone))
+	s.closers = append(s.closers, channelCloser(txnNotifierDone))
+
+	healthChecker.Register(health.CloseChannelHealthCheck("BidderFunder", bidderFunderDone))
+	s.closers = append(s.closers, channelCloser(bidderFunderDone))
 
 	bridgerDone := bridger.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("Bridger", bridgerDone))
@@ -230,6 +237,7 @@ func New(config *Config) (*Service, error) {
 		bidpricer,
 		blockTracker,
 		transferer,
+		notifier,
 		settlementChainID,
 		config.Logger.With("module", "txsender"),
 	)
@@ -331,4 +339,118 @@ func initDB(opts *Config) (db *sql.DB, err error) {
 	db.SetConnMaxLifetime(1 * time.Hour)
 
 	return db, err
+}
+
+func startBidderFunder(
+	ctx context.Context,
+	logger *slog.Logger,
+	bidderAccount common.Address,
+	syncer *accountsync.AccountSync,
+	transferer *transfer.Transferer,
+	settlementThreshold *big.Int,
+	settlementTopup *big.Int,
+	settlementClient *ethclient.Client,
+	settlementChainID *big.Int,
+	notifier *notifier.Notifier,
+) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+
+		for {
+			sub := syncer.Subscribe(ctx, settlementThreshold)
+			select {
+			case <-ctx.Done():
+				return
+			case <-sub:
+				logger.Info("bidder account balance below threshold")
+				err := transferer.Transfer(ctx, bidderAccount, settlementChainID, settlementTopup)
+				if err != nil {
+					logger.Error("failed to transfer funds to bidder account", "error", err)
+				} else {
+					logger.Info("successfully transferred funds to bidder account")
+					if err := notifier.SendBidderFundedNotification(
+						ctx,
+						bidderAccount,
+						settlementTopup,
+					); err != nil {
+						logger.Error("failed to send bidder funded notification", "error", err)
+					}
+				}
+				time.Sleep(1 * time.Minute) // Prevent rapid retries
+			}
+		}
+	}()
+
+	return done
+}
+
+func setupDeposits(bidderCli bidderapiv1.BidderClient, amount *big.Int) error {
+	status, err := bidderCli.DepositManagerStatus(context.Background(), &bidderapiv1.DepositManagerStatusRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to get deposit manager status: %w", err)
+	}
+	if !status.Enabled {
+		resp, err := bidderCli.EnableDepositManager(context.Background(), &bidderapiv1.EnableDepositManagerRequest{})
+		if err != nil {
+			return fmt.Errorf("failed to enable deposit manager: %w", err)
+		}
+		if !resp.Success {
+			return fmt.Errorf("failed to enable deposit manager")
+		}
+	}
+
+	validProviders, err := bidderCli.GetValidProviders(context.Background(), &bidderapiv1.GetValidProvidersRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to get valid providers: %w", err)
+	}
+	if len(validProviders.ValidProviders) == 0 {
+		return fmt.Errorf("no valid providers found")
+	}
+
+	targetDeposits := make([]*bidderapiv1.TargetDeposit, 0, len(validProviders.ValidProviders))
+	for _, provider := range validProviders.ValidProviders {
+		if status.Enabled && slices.ContainsFunc(status.TargetDeposits, func(td *bidderapiv1.TargetDeposit) bool {
+			if td.Provider == provider && td.TargetDeposit == amount.String() {
+				return true
+			}
+			return false
+		}) {
+			continue
+		}
+		targetDeposits = append(targetDeposits, &bidderapiv1.TargetDeposit{
+			Provider:      provider,
+			TargetDeposit: amount.String(),
+		})
+	}
+
+	if len(targetDeposits) > 0 {
+		resp, err := bidderCli.SetTargetDeposits(context.Background(), &bidderapiv1.SetTargetDepositsRequest{
+			TargetDeposits: targetDeposits,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to set target deposits: %w", err)
+		}
+		if len(resp.SuccessfullySetDeposits) != len(targetDeposits) {
+			return fmt.Errorf("failed to set target deposits")
+		}
+	}
+
+	return nil
+}
+
+func getBidderEOA(debugClient debugapiv1.DebugServiceClient) (common.Address, error) {
+	info, err := debugClient.GetTopology(context.Background(), &debugapiv1.EmptyMessage{})
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to get node info: %w", err)
+	}
+	self := info.Topology.Fields["self"].GetStructValue()
+	if self == nil {
+		return common.Address{}, fmt.Errorf("self field not found in topology")
+	}
+	addressHex := self.Fields["Ethereum Address"].GetStringValue()
+	if addressHex == "" {
+		return common.Address{}, fmt.Errorf("ethereum address not found in topology self field")
+	}
+	return common.HexToAddress(addressHex), nil
 }

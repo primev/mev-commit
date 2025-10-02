@@ -112,21 +112,35 @@ var (
 		Name:    "settlement-threshold",
 		Usage:   "Minimum threshold for settlement chain balance",
 		EnvVars: []string{"PRECONF_RPC_SETTLEMENT_THRESHOLD"},
-		Value:   "5000000000000000000", // 5 ETH
+		Value:   "2000000000000000000", // 2 ETH
 	}
 
 	optionSettlementTopup = &cli.StringFlag{
 		Name:    "settlement-topup",
 		Usage:   "topup for settlement",
 		EnvVars: []string{"PRECONF_RPC_SETTLEMENT_TOPUP"},
-		Value:   "10000000000000000000", // 10 ETH
+		Value:   "2100000000000000000", // 2.1 ETH
 	}
 
-	optionAutoDepositAmount = &cli.StringFlag{
-		Name:    "auto-deposit-amount",
-		Usage:   "auto deposit amount",
-		EnvVars: []string{"PRECONF_RPC_AUTO_DEPOSIT_AMOUNT"},
-		Value:   "1000000000000000000", // 1 ETH
+	optionBidderThreshold = &cli.StringFlag{
+		Name:    "bidder-threshold",
+		Usage:   "threshold for bidder balance on settlement chain",
+		EnvVars: []string{"PRECONF_RPC_BIDDER_THRESHOLD"},
+		Value:   "100000000000000000", // 0.1 ETH
+	}
+
+	optionBidderTopup = &cli.StringFlag{
+		Name:    "bidder-topup",
+		Usage:   "topup for bidder",
+		EnvVars: []string{"PRECONF_RPC_BIDDER_TOPUP"},
+		Value:   "110000000000000000", // 0.11 ETH
+	}
+
+	optionTargetDepositAmount = &cli.StringFlag{
+		Name:    "target-deposit-amount",
+		Usage:   "target deposit amount",
+		EnvVars: []string{"PRECONF_RPC_TARGET_DEPOSIT_AMOUNT"},
+		Value:   "100000000000000000", // 0.1 ETH
 	}
 
 	optionGasTipCap = &cli.StringFlag{
@@ -181,6 +195,12 @@ var (
 		Usage:   "Blocknative API key for transaction pricing",
 		EnvVars: []string{"PRECONF_RPC_BLOCKNATIVE_API_KEY"},
 		Value:   "",
+	}
+
+	optionWebhookURLs = &cli.StringSliceFlag{
+		Name:    "webhook-urls",
+		Usage:   "List of webhook URLs to send notifications to",
+		EnvVars: []string{"PRECONF_RPC_WEBHOOK_URLS"},
 	}
 
 	optionLogFmt = &cli.StringFlag{
@@ -250,10 +270,13 @@ func main() {
 			optionGasTipCap,
 			optionGasFeeCap,
 			optionSettlementContractAddr,
-			optionAutoDepositAmount,
+			optionTargetDepositAmount,
 			optionDepositAddress,
 			optionBridgeAddress,
 			optionBlocknativeAPIKey,
+			optionWebhookURLs,
+			optionBidderThreshold,
+			optionBidderTopup,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -276,9 +299,9 @@ func main() {
 				return fmt.Errorf("failed to parse gas-fee-cap")
 			}
 
-			autoDepositAmount, ok := new(big.Int).SetString(c.String(optionAutoDepositAmount.Name), 10)
+			targetDepositAmount, ok := new(big.Int).SetString(c.String(optionTargetDepositAmount.Name), 10)
 			if !ok {
-				return fmt.Errorf("failed to parse auto-deposit-amount")
+				return fmt.Errorf("failed to parse target-deposit-amount")
 			}
 
 			settlementThreshold, ok := new(big.Int).SetString(c.String(optionSettlementThreshold.Name), 10)
@@ -289,6 +312,11 @@ func main() {
 			settlementTopup, ok := new(big.Int).SetString(c.String(optionSettlementTopup.Name), 10)
 			if !ok {
 				return fmt.Errorf("failed to parse settlement-topup")
+			}
+
+			bidderTopup, ok := new(big.Int).SetString(c.String(optionBidderTopup.Name), 10)
+			if !ok {
+				return fmt.Errorf("failed to parse bidder-topup")
 			}
 
 			signer, err := keysigner.NewKeystoreSigner(
@@ -313,9 +341,10 @@ func main() {
 				Logger:                 logger,
 				GasTipCap:              gasTipCap,
 				GasFeeCap:              gasFeeCap,
-				AutoDepositAmount:      autoDepositAmount,
+				TargetDepositAmount:    targetDepositAmount,
 				SettlementThreshold:    settlementThreshold,
 				SettlementTopup:        settlementTopup,
+				BidderTopup:            bidderTopup,
 				SettlementRPCUrl:       c.String(optionSettlementRPCUrl.Name),
 				BidderRPC:              c.String(optionBidderRPCUrl.Name),
 				L1RPCUrls:              c.StringSlice(optionL1RPCUrls.Name),
@@ -325,6 +354,7 @@ func main() {
 				DepositAddress:         common.HexToAddress(c.String(optionDepositAddress.Name)),
 				BridgeAddress:          common.HexToAddress(c.String(optionBridgeAddress.Name)),
 				PricerAPIKey:           c.String(optionBlocknativeAPIKey.Name),
+				Webhooks:               c.StringSlice(optionWebhookURLs.Name),
 			}
 
 			s, err := service.New(&config)
