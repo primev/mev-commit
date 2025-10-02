@@ -46,7 +46,7 @@ type Config struct {
 	PgSSL                  bool
 	Signer                 keysigner.KeySigner
 	BidderRPC              string
-	AutoDepositAmount      *big.Int
+	TargetDepositAmount    *big.Int
 	L1RPCUrls              []string
 	SettlementRPCUrl       string
 	L1ContractAddr         common.Address
@@ -110,7 +110,7 @@ func New(config *Config) (*Service, error) {
 	topologyCli := debugapiv1.NewDebugServiceClient(conn)
 	notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
 
-	if err := setupDeposits(bidderCli, config.AutoDepositAmount); err != nil {
+	if err := setupDeposits(bidderCli, config.TargetDepositAmount); err != nil {
 		return nil, fmt.Errorf("failed to setup deposits: %w", err)
 	}
 

@@ -122,14 +122,21 @@ var (
 		Value:   "2100000000000000000", // 2.1 ETH
 	}
 
+	optionBidderThreshold = &cli.StringFlag{
+		Name:    "bidder-threshold",
+		Usage:   "threshold for bidder balance on settlement chain",
+		EnvVars: []string{"PRECONF_RPC_BIDDER_THRESHOLD"},
+		Value:   "100000000000000000", // 0.1 ETH
+	}
+
 	optionBidderTopup = &cli.StringFlag{
 		Name:    "bidder-topup",
 		Usage:   "topup for bidder",
 		EnvVars: []string{"PRECONF_RPC_BIDDER_TOPUP"},
-		Value:   "100000000000000000", // 0.1 ETH
+		Value:   "110000000000000000", // 0.11 ETH
 	}
 
-	optionAutoDepositAmount = &cli.StringFlag{
+	optionTargetDepositAmount = &cli.StringFlag{
 		Name:    "target-deposit-amount",
 		Usage:   "target deposit amount",
 		EnvVars: []string{"PRECONF_RPC_TARGET_DEPOSIT_AMOUNT"},
@@ -263,11 +270,12 @@ func main() {
 			optionGasTipCap,
 			optionGasFeeCap,
 			optionSettlementContractAddr,
-			optionAutoDepositAmount,
+			optionTargetDepositAmount,
 			optionDepositAddress,
 			optionBridgeAddress,
 			optionBlocknativeAPIKey,
 			optionWebhookURLs,
+			optionBidderThreshold,
 			optionBidderTopup,
 		},
 		Action: func(c *cli.Context) error {
@@ -291,9 +299,9 @@ func main() {
 				return fmt.Errorf("failed to parse gas-fee-cap")
 			}
 
-			autoDepositAmount, ok := new(big.Int).SetString(c.String(optionAutoDepositAmount.Name), 10)
+			targetDepositAmount, ok := new(big.Int).SetString(c.String(optionTargetDepositAmount.Name), 10)
 			if !ok {
-				return fmt.Errorf("failed to parse auto-deposit-amount")
+				return fmt.Errorf("failed to parse target-deposit-amount")
 			}
 
 			settlementThreshold, ok := new(big.Int).SetString(c.String(optionSettlementThreshold.Name), 10)
@@ -333,7 +341,7 @@ func main() {
 				Logger:                 logger,
 				GasTipCap:              gasTipCap,
 				GasFeeCap:              gasFeeCap,
-				AutoDepositAmount:      autoDepositAmount,
+				TargetDepositAmount:    targetDepositAmount,
 				SettlementThreshold:    settlementThreshold,
 				SettlementTopup:        settlementTopup,
 				BidderTopup:            bidderTopup,
