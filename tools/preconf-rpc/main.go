@@ -112,28 +112,28 @@ var (
 		Name:    "settlement-threshold",
 		Usage:   "Minimum threshold for settlement chain balance",
 		EnvVars: []string{"PRECONF_RPC_SETTLEMENT_THRESHOLD"},
-		Value:   "5000000000000000000", // 5 ETH
+		Value:   "2000000000000000000", // 2 ETH
 	}
 
 	optionSettlementTopup = &cli.StringFlag{
 		Name:    "settlement-topup",
 		Usage:   "topup for settlement",
 		EnvVars: []string{"PRECONF_RPC_SETTLEMENT_TOPUP"},
-		Value:   "10000000000000000000", // 10 ETH
+		Value:   "2100000000000000000", // 2.1 ETH
 	}
 
 	optionBidderTopup = &cli.StringFlag{
 		Name:    "bidder-topup",
 		Usage:   "topup for bidder",
 		EnvVars: []string{"PRECONF_RPC_BIDDER_TOPUP"},
-		Value:   "1000000000000000000", // 1 ETH
+		Value:   "100000000000000000", // 0.1 ETH
 	}
 
 	optionAutoDepositAmount = &cli.StringFlag{
-		Name:    "auto-deposit-amount",
-		Usage:   "auto deposit amount",
-		EnvVars: []string{"PRECONF_RPC_AUTO_DEPOSIT_AMOUNT"},
-		Value:   "1000000000000000000", // 1 ETH
+		Name:    "target-deposit-amount",
+		Usage:   "target deposit amount",
+		EnvVars: []string{"PRECONF_RPC_TARGET_DEPOSIT_AMOUNT"},
+		Value:   "100000000000000000", // 0.1 ETH
 	}
 
 	optionGasTipCap = &cli.StringFlag{

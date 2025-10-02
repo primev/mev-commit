@@ -16,6 +16,10 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 )
 
+const (
+	bridgeLimitWei = 1000000000000000000 // 1 ETH
+)
+
 type Bidder interface {
 	Estimate() (int64, error)
 }
@@ -343,6 +347,13 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		txType = sender.TxTypeDeposit
 	case txn.To().Cmp(h.bridgeAddress) == 0:
 		txType = sender.TxTypeInstantBridge
+		if txn.Value().Cmp(big.NewInt(bridgeLimitWei)) > 0 {
+			h.logger.Error("Bridge transaction with value greater than limit", "value", txn.Value().String())
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				fmt.Sprintf("bridge transaction value exceeds limit %d wei", bridgeLimitWei),
+			)
+		}
 	}
 
 	err = h.sndr.Enqueue(ctx, &sender.Transaction{
