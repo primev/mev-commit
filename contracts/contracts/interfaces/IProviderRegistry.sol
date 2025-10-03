@@ -39,6 +39,9 @@ interface IProviderRegistry {
     /// @dev Event emitted when a BLS key is added
     event BLSKeyAdded(address indexed provider, bytes blsPublicKey);
 
+    /// @dev Event emitted when a BLS key is removed
+    event BLSKeyRemoved(address indexed provider, bytes blsPublicKey);
+
     /// @dev Event emitted when there are insufficient funds to slash
     event InsufficientFundsToSlash(
         address indexed provider,
