@@ -56,6 +56,8 @@ extract_and_save_abi "$BASE_DIR/out/ValidatorOptInHub.sol/ValidatorOptInHub.json
 
 extract_and_save_abi "$BASE_DIR/out/AlwaysFalseRegistry.sol/AlwaysFalseRegistry.json" "$ABI_DIR/AlwaysFalseRegistry.abi"
 
+extract_and_save_abi "$BASE_DIR/out/RocketMinipoolRegistry.sol/RocketMinipoolRegistry.json" "$ABI_DIR/RocketMinipoolRegistry.abi"
+
 echo "ABI files extracted successfully."
 
 GO_CODE_BASE_DIR="./clients"
@@ -130,6 +132,8 @@ generate_go_code "$ABI_DIR/BlockRewardManager.abi" "BlockRewardManager" "blockre
 generate_go_code "$ABI_DIR/ValidatorOptInHub.abi" "ValidatorOptInHub" "validatoroptinhub"
 
 generate_go_code "$ABI_DIR/AlwaysFalseRegistry.abi" "AlwaysFalseRegistry" "alwaysfalseregistry"
+
+generate_go_code "$ABI_DIR/RocketMinipoolRegistry.abi" "RocketMinipoolRegistry" "rocketminipoolregistry"
 
 echo "External ABI downloaded and processed successfully."
 

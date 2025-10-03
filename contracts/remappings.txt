@@ -7,3 +7,4 @@ forge-std/=lib/forge-std/src/
 eigenlayer-contracts/=lib/eigenlayer-contracts/
 symbiotic-core/=lib/core/src/
 symbiotic-burners/=lib/burners/src/
+rocketpool/=lib/rocketpool/
