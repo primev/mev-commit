@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 func NewHTTPClient(timeout time.Duration) *retryablehttp.Client {
@@ -14,6 +15,7 @@ func NewHTTPClient(timeout time.Duration) *retryablehttp.Client {
 	client.RetryMax = 3
 	client.RetryWaitMin = 200 * time.Millisecond
 	client.RetryWaitMax = 2 * time.Second
+	client.Logger = nil
 	return client
 }
 

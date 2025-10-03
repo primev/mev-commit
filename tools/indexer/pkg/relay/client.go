@@ -57,10 +57,10 @@ func parseBigString(v any) (string, bool) {
 	}
 }
 
-func InsertBid(ctx context.Context, db *database.DB, slot int64, relayID int64, bid map[string]any) error {
+func BuildBidInsert(slot int64, relayID int64, bid map[string]any) (database.BidRow, bool){
 
 	if slot <= 0 || relayID <= 0 {
-		return fmt.Errorf("invalid slot or relayID")
+		return database.BidRow{}, false
 	}
 
 	// helper to read alternative keys from different relay schemas
@@ -80,7 +80,7 @@ func InsertBid(ctx context.Context, db *database.DB, slot int64, relayID int64, 
 
 	valStr, ok := parseBigString(get("value", "value_wei", "valueWei"))
 	if !ok || valStr == "" {
-		return nil // skip if no value
+		 return database.BidRow{}, false  // skip if no value
 	}
 
 	var blockNum *int64
@@ -114,11 +114,19 @@ func InsertBid(ctx context.Context, db *database.DB, slot int64, relayID int64, 
 		}
 	}
 
-	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+	// ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// defer cancel()
 
-	return db.InsertBid(ctx2, slot, relayID, builder, proposer, feeRec, valStr, blockNum, tsMS)
-
+	return database.BidRow{
+        Slot:        slot,
+        RelayID:     relayID,
+        Builder:  hexutil.Encode(builder),
+        Proposer: hexutil.Encode(proposer),
+        FeeRec:   hexutil.Encode(feeRec),
+        ValStr:      valStr,
+        BlockNum:    blockNum,
+        TsMS:        tsMS,
+    }, true
 }
 
 func UpsertRelaysAndLoad(ctx context.Context, db *database.DB) ([]Row, error) {
@@ -140,13 +148,13 @@ func UpsertRelaysAndLoad(ctx context.Context, db *database.DB) ([]Row, error) {
 	return rws, nil
 }
 
-func FetchBuilderBlocksReceived(httpc *retryablehttp.Client, relayBase string, slot int64) ([]map[string]any, error) {
+func FetchBuilderBlocksReceived(ctx context.Context, httpc *retryablehttp.Client, relayBase string, slot int64) ([]map[string]any, error) {
 	url := fmt.Sprintf("%s/relay/v1/data/bidtraces/builder_blocks_received?slot=%d", strings.TrimRight(relayBase, "/"), slot)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var arr []map[string]any
-	if err := httputil.FetchJSON(ctx, httpc, url, &arr); err != nil {
+	if err := httputil.FetchJSON(ctx2, httpc, url, &arr); err != nil {
 		return nil, err
 	}
 

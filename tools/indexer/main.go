@@ -97,7 +97,7 @@ var (
 		Name:    "backfill-batch",
 		Usage:   "batch size for backfill operations",
 		EnvVars: []string{"INDEXER_BACKFILL_BATCH"},
-		Value:   50,
+		Value:   5,
 	})
 
 	optionHTTPTimeout = altsrc.NewDurationFlag(&cli.DurationFlag{
@@ -210,15 +210,15 @@ func startIndexer(c *cli.Context) error {
 		backfillLogger.Info("running one-time backfill",
 			"lookback", c.Int("backfill-lookback"),
 			"batch", c.Int("backfill-batch"))
-		backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays)
+		go backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays)
 		backfillLogger.Info("completed startup backfill")
 	} else {
 		backfillLogger.Info("skipped", "reason", "backfill-lookback=0")
 	}
 	mainTicker := time.NewTicker(c.Duration("block-interval"))
 	defer mainTicker.Stop()
-	initLogger.Info("blockchain indexer started successfully")
-	go backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays)
+	// initLogger.Info("blockchain indexer started successfully")
+	// go backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays)
 
 	// Main processing loop
 	for {
@@ -272,7 +272,7 @@ func startIndexer(c *cli.Context) error {
 			totalBids := 0
 			successfulRelays := 0
 			mainContextCanceled := false
-
+const batchSize = 500
 			for _, rr := range relays {
 				// Check if main context is canceled before processing each relay
 				if ctx.Err() != nil {
@@ -281,15 +281,16 @@ func startIndexer(c *cli.Context) error {
 					break
 				}
 
-				bids, err := relay.FetchBuilderBlocksReceived(httpc, rr.URL, ei.Slot)
+				bids, err := relay.FetchBuilderBlocksReceived(ctx, httpc, rr.URL, ei.Slot)
 				if err != nil {
 					bidsLogger.Error("relay failed", "relay_id", rr.ID, "url", rr.URL, "error", err)
 					continue
 				}
 
 				relayBids := 0
-				// Create a separate context with timeout for bid insertions
-				bidCtx, bidCancel := context.WithTimeout(context.Background(), 30*time.Second)
+				    batch := make([]database.BidRow, 0, batchSize)
+				// a separate context with timeout for bid insertions
+				// bidCtx, bidCancel := context.WithTimeout(ctx, 30*time.Second)
 
 				for _, bid := range bids {
 					// Check if main context is still valid
@@ -299,13 +300,32 @@ func startIndexer(c *cli.Context) error {
 						break
 					}
 
-					if err := relay.InsertBid(bidCtx, db, ei.Slot, rr.ID, bid); err != nil {
-						bidsLogger.Error("failed to insert bid", "slot", ei.Slot, "relay_id", rr.ID, "error", err)
-					} else {
-						relayBids++
-					}
-				}
-				bidCancel()
+       if row, ok := relay.BuildBidInsert(ei.Slot, rr.ID, bid); ok {
+            batch = append(batch, row)
+			// for _, bid := range bids {
+            if len(batch) >= batchSize {
+				  insCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+                if err := db.InsertBidsBatch(insCtx, batch); err != nil {
+
+                    bidsLogger.Error("batch insert failed", "slot", ei.Slot, "relay_id", rr.ID, "count", len(batch), "error", err)
+                } else {
+                    relayBids += len(batch)
+                }
+                   cancel()
+                batch = batch[:0]
+            }
+        }
+    
+
+    // final flush
+    if len(batch) > 0 {
+        if err := db.InsertBidsBatch(ctx, batch); err != nil {
+            bidsLogger.Error("batch insert failed", "slot", ei.Slot, "relay_id", rr.ID, "count", len(batch), "error", err)
+        } else {
+            relayBids += len(batch)
+        }
+    }
+}
 
 				if mainContextCanceled {
 					break
@@ -331,7 +351,7 @@ func startIndexer(c *cli.Context) error {
 					}
 
 					if len(vpub) > 0 {
-						if err := db.UpdateValidatorPubkey(context.Background(), slot, vpub); err != nil {
+						if err := db.UpdateValidatorPubkey(ctx, slot, vpub); err != nil {
 							validatorLogger.Error("failed to save pubkey", "slot", slot, "error", err)
 						} else {
 							validatorLogger.Info("pubkey saved", "proposer", proposerIdx, "slot", slot)
@@ -346,7 +366,7 @@ func startIndexer(c *cli.Context) error {
 					time.Sleep(c.Duration("validator-delay") + 500*time.Millisecond)
 
 					// Wait for validator pubkey to be available
-					vpk, err := db.GetValidatorPubkeyWithRetry(context.Background(), slot, 3, time.Second)
+					vpk, err := db.GetValidatorPubkeyWithRetry(ctx, slot, 3, time.Second)
 					if err != nil {
 						optInLogger.Error("validator pubkey not available", "slot", slot, "error", err)
 						return
@@ -358,7 +378,7 @@ func startIndexer(c *cli.Context) error {
 						return
 					}
 
-					err = db.UpdateValidatorOptInStatus(context.Background(), slot, opted)
+					err = db.UpdateValidatorOptInStatus(ctx, slot, opted)
 					if err != nil {
 						optInLogger.Error("failed to save opt-in status", "slot", slot, "error", err)
 					} else {

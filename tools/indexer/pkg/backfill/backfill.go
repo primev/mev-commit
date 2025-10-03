@@ -60,36 +60,61 @@ func RecentMissing(ctx context.Context, db *database.DB, httpc *retryablehttp.Cl
 // RecentBids backfills bid data for ALL recent slots (not just opted-in blocks)
 func RecentBids(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, lookback int64, batch int) error {
 	logger := slog.With("component", "backfill")
-	slots, err := db.GetRecentSlotsWithBlocks(ctx, lookback, batch)
+	opCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	slots, err := db.GetRecentSlotsWithBlocks(opCtx, lookback, batch)
 	if err != nil {
 		logger.Error("RecentBids query failed", "error", err)
 		return err
 	}
 
+	logger.Info("RecentBids fetched slots", "count", len(slots))
 	processed := 0
 	totalBids := 0
-	for _, slot := range slots {
+	const batchSize = 500
 
-		// Fetch bids from ALL relays for this slot
+	for _, slot := range slots {
+		if ctx.Err() != nil {
+			break
+		}
+
 		slotBids := 0
+
 		for _, rr := range relays {
-			if ctx.Err() != nil { // graceful exit on cancel
+			if ctx.Err() != nil {
 				break
 			}
-			if bids, err := relay.FetchBuilderBlocksReceived(httpc, rr.URL, slot); err == nil {
-				for _, b := range bids {
-					if ctx.Err() != nil {
-						break
-					}
-					if err := relay.InsertBid(ctx, db, slot, rr.ID, b); err != nil {
-						logger.Error("RecentBids insert failed", "slot", slot, "relay_id", rr.ID, "error", err)
 
-					} else {
-						slotBids++
-					}
-				}
-			} else {
+			fetchCtx, fcancel := context.WithTimeout(ctx, 5*time.Second)
+			bids, err := relay.FetchBuilderBlocksReceived(fetchCtx, httpc, rr.URL, slot)
+			fcancel()
+			if err != nil {
 				logger.Error("RecentBids fetch failed", "slot", slot, "relay_id", rr.ID, "relay_url", rr.URL, "error", err)
+				continue
+			}
+
+			rows := make([]database.BidRow, 0, len(bids))
+			for _, b := range bids {
+				if row, ok := relay.BuildBidInsert(slot, rr.ID, b); ok {
+					rows = append(rows, row)
+				}
+			}
+
+			for i := 0; i < len(rows); i += batchSize {
+				end := i + batchSize
+				if end > len(rows) {
+					end = len(rows)
+				}
+				insCtx, icancel := context.WithTimeout(ctx, 5*time.Second)
+				if err := db.InsertBidsBatch(insCtx, rows[i:end]); err != nil {
+					logger.Error("RecentBids batch insert failed", "slot", slot, "relay_id", rr.ID, "count", end-i, "error", err)
+				} else {
+					slotBids += end - i
+				}
+				icancel()
+				if ctx.Err() != nil {
+					break
+				}
 			}
 		}
 
@@ -135,20 +160,48 @@ func ValidatorOptIn(ctx context.Context, db *database.DB, httpc *http.Client, cf
 func AllBlocksBids(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, startSlot, endSlot int64) error {
 	logger := slog.With("component", "backfill")
 	logger.Info("AllBlocksBids starting", "start_slot", startSlot, "end_slot", endSlot)
-
+	const batchSize = 500
 	totalProcessed := 0
 	totalBids := 0
 
 	for slot := startSlot; slot <= endSlot; slot++ {
+		if ctx.Err() != nil {
+			break
+		}
 		slotBids := 0
 
-		// Fetch bids from ALL relays for every single slot
 		for _, rr := range relays {
-			if bids, err := relay.FetchBuilderBlocksReceived(httpc, rr.URL, slot); err == nil {
-				for _, b := range bids {
-					if err := relay.InsertBid(ctx, db, slot, rr.ID, b); err == nil {
-						slotBids++
-					}
+			fetchCtx, fcancel := context.WithTimeout(ctx, 5*time.Second)
+			bids, err := relay.FetchBuilderBlocksReceived(fetchCtx, httpc, rr.URL, slot)
+			fcancel()
+			if err != nil {
+				logger.Error("AllBlocksBids fetch failed", "slot", slot, "relay_id", rr.ID, "url", rr.URL, "error", err)
+				continue
+			}
+
+			rows := make([]database.BidRow, 0, len(bids))
+			for _, b := range bids {
+				if row, ok := relay.BuildBidInsert(slot, rr.ID, b); ok {
+					rows = append(rows, row)
+				}
+			}
+
+			for i := 0; i < len(rows); i += batchSize {
+				end := i + batchSize
+				if end > len(rows) {
+					end = len(rows)
+				}
+
+				insCtx, icancel := context.WithTimeout(ctx, 5*time.Second)
+				if err := db.InsertBidsBatch(insCtx, rows[i:end]); err != nil {
+					logger.Error("AllBlocksBids batch insert failed", "slot", slot, "relay_id", rr.ID, "count", end-i, "error", err)
+				} else {
+					slotBids += end - i
+				}
+				icancel()
+
+				if ctx.Err() != nil {
+					break
 				}
 			}
 		}

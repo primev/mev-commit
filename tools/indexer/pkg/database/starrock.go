@@ -16,7 +16,16 @@ import (
 type DB struct {
 	conn *sql.DB
 }
-
+type BidInsert struct {
+    Slot        int64
+    RelayID     int64
+    BuilderHex  string
+    ProposerHex string
+    FeeRecHex   string
+    ValStr      string
+    BlockNum    *int64
+    TsMS        *int64
+}
 func MustConnect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, error) {
 	conn, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -39,7 +48,7 @@ func MustConnect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, 
 
 }
 func (db *DB) Close() error {
-    return db.conn.Close()
+	return db.conn.Close()
 }
 
 func (db *DB) EnsureStateTable(ctx context.Context) error {
@@ -205,33 +214,75 @@ func (db *DB) UpdateValidatorPubkey(ctx context.Context, slot int64, vpub []byte
 	return nil
 }
 
-// Add these new methods to your DB struct
-func (db *DB) InsertBid(ctx context.Context, slot int64, relayID int64, builder, proposer, feeRec []byte, valStr string, blockNum *int64, tsMS *int64) error {
-	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	builderHex := hexutil.Encode(builder)
-	proposerHex := hexutil.Encode(proposer)
-	feeRecHex := hexutil.Encode(feeRec)
-	blockNumSQL := "NULL"
-	if blockNum != nil {
-		blockNumSQL = fmt.Sprintf("%d", *blockNum)
-	}
+// // Add these new methods to your DB struct
+// func (db *DB) InsertBid(ctx context.Context, slot int64, relayID int64, builder, proposer, feeRec []byte, valStr string, blockNum *int64, tsMS *int64) error {
+// 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+// 	defer cancel()
+// 	builderHex := hexutil.Encode(builder)
+// 	proposerHex := hexutil.Encode(proposer)
+// 	feeRecHex := hexutil.Encode(feeRec)
+// 	blockNumSQL := "NULL"
+// 	if blockNum != nil {
+// 		blockNumSQL = fmt.Sprintf("%d", *blockNum)
+// 	}
 
-	tsMSSQL := "NULL"
-	if tsMS != nil {
-		tsMSSQL = fmt.Sprintf("%d", *tsMS)
-	}
-	query := fmt.Sprintf(`
+// 	tsMSSQL := "NULL"
+// 	if tsMS != nil {
+// 		tsMSSQL = fmt.Sprintf("%d", *tsMS)
+// 	}
+// 	query := fmt.Sprintf(`
+//         INSERT INTO bids(
+//             slot, relay_id, builder_pubkey, proposer_pubkey,
+//             proposer_fee_recipient, value_wei, block_number, timestamp_ms
+//         )
+//         VALUES (%d, %d, '%s', '%s', '%s', '%s', %s, %s)`,
+// 		slot, relayID, builderHex, proposerHex, feeRecHex, valStr, blockNumSQL, tsMSSQL,
+// 	)
+
+// 	_, err := db.conn.ExecContext(ctx2, query)
+// 	return err
+// }
+// Minimal batching: builds one multi-VALUES INSERT.
+// NOTE: relies on same string building pattern you already use.
+type BidRow struct {
+    Slot, RelayID           int64
+    Builder, Proposer, FeeRec string
+    ValStr                  string
+    BlockNum, TsMS          *int64
+}
+
+func (db *DB) InsertBidsBatch(ctx context.Context, rows []BidRow) error {
+    if len(rows) == 0 { return nil }
+
+    ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+
+    var sb strings.Builder
+    sb.WriteString(`
         INSERT INTO bids(
             slot, relay_id, builder_pubkey, proposer_pubkey,
             proposer_fee_recipient, value_wei, block_number, timestamp_ms
-        )
-        VALUES (%d, %d, '%s', '%s', '%s', '%s', %s, %s)`,
-		slot, relayID, builderHex, proposerHex, feeRecHex, valStr, blockNumSQL, tsMSSQL,
-	)
+        ) VALUES `)
 
-	_, err := db.conn.ExecContext(ctx2, query)
-	return err
+    for i, r := range rows {
+        if i > 0 { sb.WriteString(",") }
+
+        // builderHex  := hexutil.Encode(r.Builder)
+        // proposerHex := hexutil.Encode(r.Proposer)
+        // feeRecHex   := hexutil.Encode(r.FeeRec)
+
+        blockNumSQL := "NULL"
+        if r.BlockNum != nil { blockNumSQL = fmt.Sprintf("%d", *r.BlockNum) }
+
+        tsMSSQL := "NULL"
+        if r.TsMS != nil { tsMSSQL = fmt.Sprintf("%d", *r.TsMS) }
+
+        fmt.Fprintf(&sb, "(%d,%d,'%s','%s','%s','%s',%s,%s)",
+            r.Slot, r.RelayID, r.Builder, r.Proposer, r.FeeRec, r.ValStr, blockNumSQL, tsMSSQL)
+    }
+
+    _, err := db.conn.ExecContext(ctx2, sb.String())
+    return err
 }
 
 func (db *DB) GetActiveRelays(ctx context.Context) ([]struct {
