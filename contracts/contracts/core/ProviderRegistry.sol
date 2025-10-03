@@ -217,8 +217,29 @@ contract ProviderRegistry is
         bytes calldata blsPublicKey
     ) external onlyOwner {
         require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(blockBuilderBLSKeyToAddress[blsPublicKey] == address(0), BLSKeyAlreadyExists(blsPublicKey));
         eoaToBlsPubkeys[provider].push(blsPublicKey);
         blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
+        emit BLSKeyAdded(provider, blsPublicKey);
+    }
+
+    function overrideRemoveBLSKey(
+        address provider,
+        bytes calldata blsPublicKey
+    ) external onlyOwner {
+        require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(blockBuilderBLSKeyToAddress[blsPublicKey] == provider, BLSKeyDoesNotExist(blsPublicKey));
+        bytes[] storage keys = eoaToBlsPubkeys[provider];
+        uint256 length = keys.length;
+        for (uint256 i = 0; i < length; ++i) {
+            if (keccak256(keys[i]) == keccak256(blsPublicKey)) {
+                keys[i] = keys[length - 1];
+                keys.pop();
+                break;
+            }
+        }
+        delete blockBuilderBLSKeyToAddress[blsPublicKey];
+        emit BLSKeyRemoved(provider, blsPublicKey);
     }
 
     /// @dev Requests unstake of the staked amount.

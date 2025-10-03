@@ -39,6 +39,9 @@ interface IProviderRegistry {
     /// @dev Event emitted when a BLS key is added
     event BLSKeyAdded(address indexed provider, bytes blsPublicKey);
 
+    /// @dev Event emitted when a BLS key is removed
+    event BLSKeyRemoved(address indexed provider, bytes blsPublicKey);
+
     /// @dev Event emitted when there are insufficient funds to slash
     event InsufficientFundsToSlash(
         address indexed provider,
@@ -66,6 +69,8 @@ interface IProviderRegistry {
     error InsufficientStake(uint256 stake, uint256 minStake);
     error InvalidBLSPublicKeyLength(uint256 length, uint256 expectedLength);
     error ProviderNotRegistered(address sender);
+    error BLSKeyAlreadyExists(bytes blsPublicKey);
+    error BLSKeyDoesNotExist(bytes blsPublicKey);
     error AtLeastOneBLSKeyRequired();
     error PendingWithdrawalRequest(address sender);
     error BidderAmountIsZero(address sender);
