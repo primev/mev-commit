@@ -55,6 +55,7 @@ type Config struct {
 	BridgeAddress          common.Address
 	SettlementThreshold    *big.Int
 	SettlementTopup        *big.Int
+	BidderThreshold        *big.Int
 	BidderTopup            *big.Int
 	HTTPPort               int
 	GasTipCap              *big.Int
@@ -172,13 +173,15 @@ func New(config *Config) (*Service, error) {
 		return nil, fmt.Errorf("failed to get bidder EOA: %w", err)
 	}
 
+	config.Logger.Info("bidder EOA", "address", bidderEOA.Hex())
+
 	bidderFunderDone := startBidderFunder(
 		ctx,
 		config.Logger.With("module", "bidderfunder"),
 		bidderEOA,
 		accountsync.NewAccountSync(bidderEOA, settlementClient),
 		transferer,
-		config.SettlementThreshold,
+		config.BidderThreshold,
 		config.BidderTopup,
 		settlementClient,
 		settlementChainID,

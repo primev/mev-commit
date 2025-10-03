@@ -75,18 +75,6 @@ func (t *Transferer) Transfer(
 		return errors.New("invalid chain ID")
 	}
 
-	// Check if the account is a contract
-	code, err := t.client.CodeAt(ctx, to, nil)
-	if err != nil {
-		t.logger.Error("failed to get code", "error", err)
-		return err
-	}
-
-	if len(code) > 0 {
-		t.logger.Error("address is a contract")
-		return errors.New("address is a contract")
-	}
-
 	nonce, err := t.client.PendingNonceAt(ctx, t.signer.GetAddress())
 	if err != nil {
 		t.logger.Error("failed to get nonce", "error", err)
