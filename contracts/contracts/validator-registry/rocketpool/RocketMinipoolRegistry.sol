@@ -110,12 +110,12 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     }
 
     /// @dev Pauses the contract, restricted to contract owner.
-    function pause() external onlyOwner whenNotPaused {
+    function pause() external onlyOwner {
         _pause();
     }
 
     /// @dev Unpauses the contract, restricted to contract owner.   
-    function unpause() external onlyOwner whenPaused {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
