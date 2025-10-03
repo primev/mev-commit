@@ -217,6 +217,7 @@ contract ProviderRegistry is
         bytes calldata blsPublicKey
     ) external onlyOwner {
         require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(blockBuilderBLSKeyToAddress[blsPublicKey] == address(0), BLSKeyAlreadyExists(blsPublicKey));
         eoaToBlsPubkeys[provider].push(blsPublicKey);
         blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
         emit BLSKeyAdded(provider, blsPublicKey);
@@ -227,6 +228,7 @@ contract ProviderRegistry is
         bytes calldata blsPublicKey
     ) external onlyOwner {
         require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(blockBuilderBLSKeyToAddress[blsPublicKey] == provider, BLSKeyDoesNotExist(blsPublicKey));
         bytes[] storage keys = eoaToBlsPubkeys[provider];
         for (uint256 i = 0; i < keys.length; i++) {
             if (keccak256(keys[i]) == keccak256(blsPublicKey)) {

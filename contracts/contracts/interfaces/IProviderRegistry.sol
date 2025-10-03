@@ -69,6 +69,8 @@ interface IProviderRegistry {
     error InsufficientStake(uint256 stake, uint256 minStake);
     error InvalidBLSPublicKeyLength(uint256 length, uint256 expectedLength);
     error ProviderNotRegistered(address sender);
+    error BLSKeyAlreadyExists(bytes blsPublicKey);
+    error BLSKeyDoesNotExist(bytes blsPublicKey);
     error AtLeastOneBLSKeyRequired();
     error PendingWithdrawalRequest(address sender);
     error BidderAmountIsZero(address sender);
