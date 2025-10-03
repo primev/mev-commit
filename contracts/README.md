@@ -59,6 +59,7 @@ This changelog tracks deployments of **Hoodi Testnet** contracts. This changelog
 | VanillaRegistry       | `0x536f0792c5d5ed592e67a9260606c85f59c312f0` | `13cf068477e6efdbb5c4fe5ce53a11af30bf8b47` in 'main'      |
 | MevCommitAVS          | `0xdF8649d298ad05f019eE4AdBD6210867B8AB225F` | `13cf068477e6efdbb5c4fe5ce53a11af30bf8b47` in 'main'      |
 | MevCommitMiddleware   | `0x8E847EC4a36c8332652aB3b2B7D5c54dE29c7fde` | `13cf068477e6efdbb5c4fe5ce53a11af30bf8b47` in 'main'      |
+| RocketMinipoolRegistry| `0x30d478b02918c4b11731efc4868d848d551e79b2` | `d994896a8b17b131ebda8bbae1a43ddd55c906c1` in 'rocketpool-registry'      |
 
 
 ### Upgrade History
