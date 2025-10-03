@@ -357,6 +357,24 @@
   },
   {
     "type": "function",
+    "name": "overrideRemoveBLSKey",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "blsPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "owner",
     "inputs": [],
     "outputs": [
@@ -756,6 +774,25 @@
   },
   {
     "type": "event",
+    "name": "BLSKeyRemoved",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "blsPublicKey",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "BidderWithdrawSlashedAmount",
     "inputs": [
       {
@@ -1120,6 +1157,28 @@
     "type": "error",
     "name": "AtLeastOneBLSKeyRequired",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BLSKeyAlreadyExists",
+    "inputs": [
+      {
+        "name": "blsPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BLSKeyDoesNotExist",
+    "inputs": [
+      {
+        "name": "blsPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
   },
   {
     "type": "error",
