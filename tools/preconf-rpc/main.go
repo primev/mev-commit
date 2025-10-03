@@ -314,6 +314,11 @@ func main() {
 				return fmt.Errorf("failed to parse settlement-topup")
 			}
 
+			bidderThreshold, ok := new(big.Int).SetString(c.String(optionBidderThreshold.Name), 10)
+			if !ok {
+				return fmt.Errorf("failed to parse bidder-threshold")
+			}
+
 			bidderTopup, ok := new(big.Int).SetString(c.String(optionBidderTopup.Name), 10)
 			if !ok {
 				return fmt.Errorf("failed to parse bidder-topup")
@@ -344,6 +349,7 @@ func main() {
 				TargetDepositAmount:    targetDepositAmount,
 				SettlementThreshold:    settlementThreshold,
 				SettlementTopup:        settlementTopup,
+				BidderThreshold:        bidderThreshold,
 				BidderTopup:            bidderTopup,
 				SettlementRPCUrl:       c.String(optionSettlementRPCUrl.Name),
 				BidderRPC:              c.String(optionBidderRPCUrl.Name),
