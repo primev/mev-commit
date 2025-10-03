@@ -46,7 +46,7 @@ type Field struct {
 type txnInfo struct {
 	txn          *sender.Transaction
 	noOfAttempts int
-	start        time.Time
+	timeTaken    time.Duration
 }
 
 // Notifier sends notifications to multiple webhook endpoints
@@ -222,7 +222,6 @@ func (n *Notifier) StartTransactionNotifier(
 				// create markdown table with the txn info
 				text := ""
 				for _, txnInfo := range txnsToNotify {
-					duration := time.Since(txnInfo.start).Round(time.Second)
 					status := ""
 					switch txnInfo.txn.Status {
 					case sender.TxStatusPreConfirmed:
@@ -251,7 +250,7 @@ func (n *Notifier) StartTransactionNotifier(
 						txnInfo.txn.Hash().Hex()[:8],
 						txnInfo.txn.Sender.Hex()[:8],
 						txnInfo.noOfAttempts,
-						duration,
+						txnInfo.timeTaken,
 						txType,
 						status,
 					)
@@ -289,7 +288,7 @@ func (n *Notifier) NotifyTransactionStatus(
 	n.queuedTxns = append(n.queuedTxns, txnInfo{
 		txn:          txn,
 		noOfAttempts: noOfAttempts,
-		start:        start,
+		timeTaken:    time.Since(start).Round(time.Millisecond),
 	})
 }
 
