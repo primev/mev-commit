@@ -45,6 +45,7 @@ contract ProviderRegistryTest is Test {
     event FundsSlashed(address indexed provider, uint256 totalSlash);
     event TransferToBidderFailed(address indexed bidder, uint256 amount);
     event BLSKeyAdded(address indexed provider, bytes blsPublicKey);
+    event BLSKeyRemoved(address indexed provider, bytes blsPublicKey);
 
     function setUp() public {
         address BLS_VERIFY_ADDRESS = address(0xf0);
@@ -939,5 +940,37 @@ contract ProviderRegistryTest is Test {
 
         assertEq(providerRegistry.getEoaFromBLSKey(firstBLSKey), testProvider, "First BLS key should map to provider");
         assertEq(providerRegistry.getEoaFromBLSKey(secondBLSKey), testProvider, "Second BLS key should map to provider");
+    }
+
+    function test_OverrideRemoveBLSKey_MultipleKeys() public {
+        test_OverrideAddBLSKey_MultipleKeys();
+
+        address testProvider = vm.addr(423);
+        bytes memory firstBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+        bytes memory secondBLSKey = hex"a0000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        bytes[] memory storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 2, "Should have 2 BLS keys before removal");
+
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyRemoved(testProvider, secondBLSKey);
+        vm.prank(address(this));
+        providerRegistry.overrideRemoveBLSKey(testProvider, secondBLSKey);
+
+        storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 1, "Should have 1 BLS key after removing one");
+        assertEq(providerRegistry.getEoaFromBLSKey(secondBLSKey), address(0), "Removed BLS key should not map to any provider");
+
+        assertEq(providerRegistry.getEoaFromBLSKey(firstBLSKey), testProvider, "First BLS key should still map to provider");
+
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyRemoved(testProvider, firstBLSKey);
+        vm.prank(address(this));
+        providerRegistry.overrideRemoveBLSKey(testProvider, firstBLSKey);
+
+        storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 0, "Should have 0 BLS keys after removing both");
+        assertEq(providerRegistry.getEoaFromBLSKey(firstBLSKey), address(0), "Removed BLS key should not map to any provider");
+        assertEq(providerRegistry.getEoaFromBLSKey(secondBLSKey), address(0), "Removed BLS key should not map to any provider");
     }
 }
