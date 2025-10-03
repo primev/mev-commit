@@ -230,9 +230,10 @@ contract ProviderRegistry is
         require(providerRegistered[provider], ProviderNotRegistered(provider));
         require(blockBuilderBLSKeyToAddress[blsPublicKey] == provider, BLSKeyDoesNotExist(blsPublicKey));
         bytes[] storage keys = eoaToBlsPubkeys[provider];
-        for (uint256 i = 0; i < keys.length; i++) {
+        uint256 length = keys.length;
+        for (uint256 i = 0; i < length; ++i) {
             if (keccak256(keys[i]) == keccak256(blsPublicKey)) {
-                keys[i] = keys[keys.length - 1];
+                keys[i] = keys[length - 1];
                 keys.pop();
                 break;
             }
