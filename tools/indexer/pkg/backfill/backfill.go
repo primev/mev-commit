@@ -52,7 +52,7 @@ func recentMissing(ctx context.Context, db *database.DB, httpc *retryablehttp.Cl
 
 			if verr != nil {
 				return fmt.Errorf("validator pubkey fetch failed slot=%d: %w", ei.Slot, verr)
-			} else if len(vpub) > 0 {
+			} else if len(v) > 0 {
 				vpub = v
 				if err := db.UpdateValidatorPubkey(ctx, ei.Slot, vpub); err != nil {
 					return fmt.Errorf("validator pubkey update failed slot=%d: %w", ei.Slot, err)
@@ -122,10 +122,13 @@ func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, c
 
 	// Channel to pass slot data from stage 1 to stages 2 & 3
 	slotChan := make(chan SlotData, cfg.BackfillBatch)
+	errCh := make(chan error, 1)
 
 	// Run recentMissing and collect slot data
 	go func() {
-		recentMissing(ctx, db, httpc, cfg, cfg.BackfillLookback, cfg.BackfillBatch, slotChan)
+		if err := recentMissing(ctx, db, httpc, cfg, cfg.BackfillLookback, cfg.BackfillBatch, slotChan); err != nil {
+			errCh <- err
+		}
 		close(slotChan)
 	}()
 
@@ -138,6 +141,14 @@ func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, c
 		if len(data.ValidatorPubkey) > 0 {
 			validatorsToCheck = append(validatorsToCheck, data)
 		}
+	}
+	select {
+	case err := <-errCh:
+		if err != nil {
+			logger.Error("RecentMissing failed", "error", err)
+			return err
+		}
+	default:
 	}
 	for _, v := range validatorsToCheck {
 		opted, err := ethereum.CallAreOptedInAtBlock(httpc.HTTPClient, cfg, v.BlockNumber, v.ValidatorPubkey)

@@ -34,12 +34,6 @@ func initializeDatabase(ctx context.Context, dbURL string, logger *slog.Logger) 
 	return db, nil
 }
 
-func closeDatabase(db *database.DB, logger *slog.Logger) {
-	if cerr := db.Close(); cerr != nil {
-		logger.Error("[DB] close failed", "error", cerr)
-	}
-}
-
 func loadRelays(ctx context.Context, db *database.DB, logger *slog.Logger) ([]relay.Row, error) {
 	relays, err := relay.UpsertRelaysAndLoad(ctx, db)
 	if err != nil {
@@ -108,21 +102,17 @@ func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *re
 	for {
 		select {
 		case <-ctx.Done():
-			return handleShutdown(ctx, db, lastBN, logger)
+			logger.Info("[SHUTDOWN] graceful shutdown initiated", "reason", ctx.Err())
+			if err := db.SaveLastBlockNumber(ctx, lastBN); err != nil {
+				logger.Error("[SHUTDOWN] failed to save last block number", "error", err)
+			}
+			logger.Info("[SHUTDOWN] indexer stopped", "block", lastBN)
+			return nil
 
 		case <-mainTicker.C:
 			lastBN = processNextBlock(ctx, c, db, httpc, relays, infuraRPC, beaconBase, lastBN, logger)
 		}
 	}
-}
-
-func handleShutdown(ctx context.Context, db *database.DB, lastBN int64, logger *slog.Logger) error {
-	logger.Info("[SHUTDOWN] graceful shutdown initiated", "reason", ctx.Err())
-	if err := db.SaveLastBlockNumber(ctx, lastBN); err != nil {
-		logger.Error("[SHUTDOWN] failed to save last block number", "error", err)
-	}
-	logger.Info("[SHUTDOWN] indexer stopped", "block", lastBN)
-	return nil
 }
 
 func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, infuraRPC, beaconBase string, lastBN int64, logger *slog.Logger) int64 {
@@ -248,14 +238,16 @@ func launchAsyncValidatorTasks(ctx context.Context, c *cli.Context, db *database
 		go func(slot int64, proposerIdx int64) {
 			time.Sleep(c.Duration("validator-delay"))
 
-			vpub, err := beacon.FetchValidatorPubkey(ctx, httpc, beaconBase, proposerIdx)
+			vctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			vpub, err := beacon.FetchValidatorPubkey(vctx, httpc, beaconBase, proposerIdx)
 			if err != nil {
 				logger.Error("[VALIDATOR] failed to fetch pubkey", "proposer", proposerIdx, "error", err)
 				return
 			}
 
 			if len(vpub) > 0 {
-				if err := db.UpdateValidatorPubkey(ctx, slot, vpub); err != nil {
+				if err := db.UpdateValidatorPubkey(vctx, slot, vpub); err != nil {
 					logger.Error("[VALIDATOR] failed to save pubkey", "slot", slot, "error", err)
 				} else {
 					logger.Info("[VALIDATOR] pubkey saved", "proposer", proposerIdx, "slot", slot)
@@ -310,7 +302,11 @@ func startIndexer(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	defer closeDatabase(db, initLogger)
+	defer func() {
+		if cerr := db.Close(); cerr != nil {
+			initLogger.Error("[DB] close failed", "error", cerr)
+		}
+	}()
 
 	// Initialize HTTP client
 	httpc := httputil.NewHTTPClient(c.Duration("http-timeout"))
@@ -332,6 +328,6 @@ func startIndexer(c *cli.Context) error {
 	initLogger.Info("indexer configuration", "lookback", c.Int("backfill-lookback"), "batch", c.Int("backfill-batch"))
 
 	// Run backfill if configured
-	runBackfillIfConfigured(ctx, c, db, httpc, relays, initLogger)
+	go runBackfillIfConfigured(ctx, c, db, httpc, relays, initLogger)
 	return runMainLoop(ctx, c, db, httpc, relays, infuraRPC, beaconBase, lastBN, initLogger)
 }
