@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
-	"math/rand"
+
 	"os/signal"
 	"syscall"
 	"time"
@@ -25,8 +25,6 @@ func startIndexer(c *cli.Context) error {
 	dbURL := c.String(optionDatabaseURL.Name)
 	infuraRPC := c.String(optionInfuraRPC.Name)
 	beaconBase := c.String(optionBeaconBase.Name)
-	// Initialize random seed
-	rand.Seed(time.Now().UnixNano())
 
 	initLogger.Info("starting blockchain indexer with StarRocks database")
 	initLogger.Info("configuration loaded",
@@ -41,8 +39,14 @@ func startIndexer(c *cli.Context) error {
 	db, err := database.MustConnect(ctx, dbURL, 20, 5)
 	if err != nil {
 		initLogger.Error("[DB] connection failed", "error", err)
+		return err
 	}
-	defer db.Close()
+
+	defer func() {
+		if cerr := db.Close(); cerr != nil {
+			initLogger.Error("[DB] close failed", "error", cerr)
+		}
+	}()
 	initLogger.Info("[DB] connected to StarRocks database")
 
 	// Ensure required tables exist

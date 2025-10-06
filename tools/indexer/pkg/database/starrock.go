@@ -41,7 +41,8 @@ func MustConnect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, 
 	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := conn.PingContext(pingCtx); err != nil {
-		conn.Close()
+		_ = conn.Close()
+
 		return nil, fmt.Errorf("StarRocks ping failed: %v", err)
 	}
 
@@ -273,7 +274,7 @@ func (db *DB) GetActiveRelays(ctx context.Context) ([]struct {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []struct {
 		ID  int64
@@ -326,7 +327,7 @@ func (db *DB) GetRecentMissingBlocks(ctx context.Context, lookback int64, batch 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []struct {
 		Slot        int64
@@ -361,7 +362,7 @@ LIMIT %d`, batch)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var slots []int64
 	for rows.Next() {
@@ -396,7 +397,7 @@ LIMIT %d`, batch)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []struct {
 		Slot            int64

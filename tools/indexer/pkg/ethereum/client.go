@@ -60,7 +60,7 @@ func GetLatestBlockNumber(httpc *http.Client, rpcURL string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Result string `json:"result"`

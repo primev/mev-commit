@@ -29,7 +29,7 @@ func FetchJSON(ctx context.Context, client *retryablehttp.Client, url string, ou
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
