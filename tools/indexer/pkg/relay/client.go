@@ -57,7 +57,7 @@ func parseBigString(v any) (string, bool) {
 	}
 }
 
-func BuildBidInsert(slot int64, relayID int64, bid map[string]any) (database.BidRow, bool){
+func BuildBidInsert(slot int64, relayID int64, bid map[string]any) (database.BidRow, bool) {
 
 	if slot <= 0 || relayID <= 0 {
 		return database.BidRow{}, false
@@ -80,7 +80,7 @@ func BuildBidInsert(slot int64, relayID int64, bid map[string]any) (database.Bid
 
 	valStr, ok := parseBigString(get("value", "value_wei", "valueWei"))
 	if !ok || valStr == "" {
-		 return database.BidRow{}, false  // skip if no value
+		return database.BidRow{}, false // skip if no value
 	}
 
 	var blockNum *int64
@@ -114,19 +114,16 @@ func BuildBidInsert(slot int64, relayID int64, bid map[string]any) (database.Bid
 		}
 	}
 
-	// ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
-	// defer cancel()
-
 	return database.BidRow{
-        Slot:        slot,
-        RelayID:     relayID,
-        Builder:  hexutil.Encode(builder),
-        Proposer: hexutil.Encode(proposer),
-        FeeRec:   hexutil.Encode(feeRec),
-        ValStr:      valStr,
-        BlockNum:    blockNum,
-        TsMS:        tsMS,
-    }, true
+		Slot:     slot,
+		RelayID:  relayID,
+		Builder:  hexutil.Encode(builder),
+		Proposer: hexutil.Encode(proposer),
+		FeeRec:   hexutil.Encode(feeRec),
+		ValStr:   valStr,
+		BlockNum: blockNum,
+		TsMS:     tsMS,
+	}, true
 }
 
 func UpsertRelaysAndLoad(ctx context.Context, db *database.DB) ([]Row, error) {

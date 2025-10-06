@@ -28,10 +28,15 @@ type ExecInfo struct {
 	RewardEth   *float64
 }
 
-func FetchBeaconExecutionBlock(httpc *retryablehttp.Client, beaconBase string, blockNum int64) (*ExecInfo, error) {
+func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client, beaconBase string, blockNum int64) (*ExecInfo, error) {
 	url := fmt.Sprintf("%s/execution/block/%d", beaconBase, blockNum)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+
+	if _, has := ctx.Deadline(); !has {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+	}
+
 	var wrap struct {
 		Data []map[string]any `json:"data"`
 	}
@@ -120,10 +125,14 @@ func FetchBeaconExecutionBlock(httpc *retryablehttp.Client, beaconBase string, b
 }
 
 // validator pubkey from proposer index
-func FetchValidatorPubkey(httpc *retryablehttp.Client, beaconBase string, proposerIndex int64) ([]byte, error) {
+func FetchValidatorPubkey(ctx context.Context, httpc *retryablehttp.Client, beaconBase string, proposerIndex int64) ([]byte, error) {
 	url := fmt.Sprintf("%s/validator/%d", beaconBase, proposerIndex)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+
+	if _, has := ctx.Deadline(); !has {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+	}
 	var resp struct {
 		Data struct {
 			Pubkey string `json:"pubkey"`
@@ -139,7 +148,7 @@ func FetchValidatorPubkey(httpc *retryablehttp.Client, beaconBase string, propos
 }
 
 // to fetch blocks from Alchemy RPC
-func FetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber int64) (*ExecInfo, error) {
+func fetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber int64) (*ExecInfo, error) {
 	underlyingClient := httpc.HTTPClient
 	// Get block data from Alchemy
 	payload := map[string]any{
@@ -185,9 +194,9 @@ func FetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber i
 		Timestamp:   &blockTime,
 	}, nil
 }
-func FetchCombinedBlockData(httpc *retryablehttp.Client, rpcURL string, beaconBase string, blockNumber int64) (*ExecInfo, error) {
+func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rpcURL string, beaconBase string, blockNumber int64) (*ExecInfo, error) {
 	// Get execution block from Alchemy (always available)
-	execBlock, err := FetchBlockFromRPC(httpc, rpcURL, blockNumber)
+	execBlock, err := fetchBlockFromRPC(httpc, rpcURL, blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +204,7 @@ func FetchCombinedBlockData(httpc *retryablehttp.Client, rpcURL string, beaconBa
 	// Convert block number to slot for beacon chain query
 	slotNumber := ethereum.BlockNumberToSlot(blockNumber)
 
-	beaconData, _ := FetchBeaconExecutionBlock(httpc, beaconBase, slotNumber)
+	beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, beaconBase, slotNumber)
 
 	// Merge data - use Alchemy as primary, beacon as supplement
 	if beaconData != nil {
