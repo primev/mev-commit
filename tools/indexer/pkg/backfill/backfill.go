@@ -152,8 +152,12 @@ func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, c
 	}
 	for _, v := range validatorsToCheck {
 		opted, err := ethereum.CallAreOptedInAtBlock(httpc.HTTPClient, cfg, v.BlockNumber, v.ValidatorPubkey)
-		if err == nil {
-			db.UpdateValidatorOptInStatus(ctx, v.Slot, opted)
+		if err != nil {
+			logger.Error("opt-in check failed", "slot", v.Slot, "error", err)
+			continue
+		}
+		if uerr := db.UpdateValidatorOptInStatus(ctx, v.Slot, opted); uerr != nil {
+			logger.Error("opt-in status update failed", "slot", v.Slot, "error", uerr)
 		}
 	}
 	if err := recentBids(ctx, db, httpc, relays, slotsForBids); err != nil {
