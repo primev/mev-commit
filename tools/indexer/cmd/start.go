@@ -155,10 +155,8 @@ func processBidsForBlock(ctx context.Context, db *database.DB, httpc *retryableh
 	mainContextCanceled := false
 	const batchSize = 500
 	for _, rr := range relays {
-		// Check if main context is canceled before processing each relay
 		if ctx.Err() != nil {
 			logger.Warn("main context canceled, stopping relay processing")
-			mainContextCanceled = true
 			break
 		}
 
