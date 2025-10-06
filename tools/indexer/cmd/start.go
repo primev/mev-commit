@@ -125,30 +125,15 @@ func startIndexer(c *cli.Context) error {
 				initLogger.Warn("[BLOCK] not available yet", "block", nextBN, "error", err)
 				continue
 			}
-			fields := []any{
+			initLogger.Info("processing block",
 				"block", nextBN,
 				"slot", ei.Slot,
-			}
-			if ei.Timestamp != nil {
-				fields = append(fields, "timestamp", ei.Timestamp.Format(time.RFC3339))
-			}
-			if ei.ProposerIdx != nil {
-				fields = append(fields, "proposer_index", *ei.ProposerIdx)
-			}
-			if ei.RelayTag != nil {
-				fields = append(fields, "winning_relay", *ei.RelayTag)
-			}
-			if ei.BuilderHex != nil {
-				pref := *ei.BuilderHex
-				if len(pref) > 20 {
-					pref = pref[:20]
-				}
-				fields = append(fields, "builder_pubkey_prefix", pref)
-			}
-			if ei.RewardEth != nil {
-				fields = append(fields, "producer_reward_eth", *ei.RewardEth)
-			}
-			initLogger.Info("processing block", fields...)
+				"timestamp", ei.Timestamp,
+				"proposer_index", ei.ProposerIdx,
+				"winning_relay", ei.RelayTag,
+				"builder_pubkey_prefix", ei.BuilderHex,
+				"producer_reward_eth", ei.RewardEth,
+			)
 
 			// Save block to database
 			if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
@@ -206,11 +191,13 @@ func startIndexer(c *cli.Context) error {
 
 				// final flush
 				if len(batch) > 0 {
-					if err := db.InsertBidsBatch(ctx, batch); err != nil {
+					flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
+					if err := db.InsertBidsBatch(flushCtx, batch); err != nil {
 						initLogger.Error("[DB] batch insert failed", "slot", ei.Slot, "relay_id", rr.ID, "count", len(batch), "error", err)
 					} else {
 						relayBids += len(batch)
 					}
+					flushCancel()
 				}
 
 				if mainContextCanceled {
@@ -274,11 +261,13 @@ func startIndexer(c *cli.Context) error {
 			}
 
 			lastBN = nextBN
-			if err := db.SaveLastBlockNumber(ctx, lastBN); err != nil {
+			gctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if err := db.SaveLastBlockNumber(gctx, lastBN); err != nil {
 				initLogger.Error("[PROGRESS] failed to save block number", "block", lastBN, "error", err)
 			} else {
 				initLogger.Info("[PROGRESS] advanced to block", "block", lastBN)
 			}
+			cancel()
 		}
 	}
 }
