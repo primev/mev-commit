@@ -262,6 +262,7 @@ func launchAsyncValidatorTasks(ctx context.Context, c *cli.Context, db *database
 			// Wait for validator pubkey to be available
 			getCtx, getCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			vpk, err := db.GetValidatorPubkeyWithRetry(getCtx, slot, 3, time.Second)
+			getCancel()
 
 			if err != nil {
 				logger.Error("[VALIDATOR] pubkey not available", "slot", slot, "error", err)
@@ -274,8 +275,9 @@ func launchAsyncValidatorTasks(ctx context.Context, c *cli.Context, db *database
 				return
 			}
 
-			err = db.UpdateValidatorOptInStatus(getCtx, slot, opted)
-			getCancel()
+			updCtx, updCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			err = db.UpdateValidatorOptInStatus(updCtx, slot, opted)
+			updCancel()
 			if err != nil {
 				logger.Error("[OPT-IN] failed to save opt-in status", "slot", slot, "error", err)
 			} else {
