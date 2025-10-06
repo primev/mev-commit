@@ -10,10 +10,11 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {IProviderRegistry} from "../../contracts/interfaces/IProviderRegistry.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
 import {DepositManager} from "../../contracts/core/DepositManager.sol";
+import {ProviderRegistryV2} from "../../contracts/core/ProviderRegistryV2.sol";
 
 contract ProviderRegistryTest is Test {
     uint256 public testNumber;
-    ProviderRegistry public providerRegistry;
+    ProviderRegistryV2 public providerRegistry;
     uint256 public feePercent;
     uint256 public minStake;
     address public provider;
@@ -44,6 +45,8 @@ contract ProviderRegistryTest is Test {
     );
     event FundsSlashed(address indexed provider, uint256 totalSlash);
     event TransferToBidderFailed(address indexed bidder, uint256 amount);
+    event BLSKeyAdded(address indexed provider, bytes blsPublicKey);
+    event BLSKeyRemoved(address indexed provider, bytes blsPublicKey);
 
     function setUp() public {
         address BLS_VERIFY_ADDRESS = address(0xf0);
@@ -71,7 +74,9 @@ contract ProviderRegistryTest is Test {
                 )
             )
         );
-        providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
+
+        Upgrades.upgradeProxy(providerRegistryProxy, "ProviderRegistryV2.sol", "");
+        providerRegistry = ProviderRegistryV2(payable(providerRegistryProxy));
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
@@ -866,5 +871,109 @@ contract ProviderRegistryTest is Test {
             0.05 ether,
             "Penalty fee should be 0.05 ether"
         );
+    }
+
+    function test_OverrideAddBLSKey() public {
+        address testProvider = vm.addr(420);
+        vm.deal(testProvider, 3 ether);
+        vm.prank(testProvider);
+        providerRegistry.registerAndStake{value: 2 ether}();
+
+        bytes memory newBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyAdded(testProvider, newBLSKey);
+        providerRegistry.overrideAddBLSKey(testProvider, newBLSKey);
+
+        bytes[] memory storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 1, "Should have 1 BLS key");
+        assertEq(storedBLSKeys[0], newBLSKey, "BLS key should match");
+
+        address mappedProvider = providerRegistry.getEoaFromBLSKey(newBLSKey);
+        assertEq(mappedProvider, testProvider, "BLS key should map to correct provider");
+    }
+
+    function test_RevertWhen_OverrideAddBLSKey_NotOwner() public {
+        address testProvider = vm.addr(421);
+        vm.deal(testProvider, 3 ether);
+        vm.prank(testProvider);
+        providerRegistry.registerAndStake{value: 2 ether}();
+
+        bytes memory newBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        vm.prank(testProvider);
+        vm.expectRevert(); // Not owner
+        providerRegistry.overrideAddBLSKey(testProvider, newBLSKey);
+    }
+
+    function test_RevertWhen_OverrideAddBLSKey_ProviderNotRegistered() public {
+        address unregisteredProvider = vm.addr(422);
+        bytes memory newBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        vm.prank(address(this));
+        vm.expectRevert(abi.encodeWithSelector(IProviderRegistry.ProviderNotRegistered.selector, unregisteredProvider));
+        providerRegistry.overrideAddBLSKey(unregisteredProvider, newBLSKey);
+    }
+
+    function test_OverrideAddBLSKey_MultipleKeys() public {
+        address testProvider = vm.addr(423);
+        vm.deal(testProvider, 3 ether);
+        vm.prank(testProvider);
+        vm.expectEmit(true, true, true, true);
+        emit ProviderRegistered(testProvider, 2 ether);
+        providerRegistry.registerAndStake{value: 2 ether}();
+
+        bytes memory firstBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyAdded(testProvider, firstBLSKey);
+        providerRegistry.overrideAddBLSKey(testProvider, firstBLSKey);
+
+        bytes memory secondBLSKey = hex"a0000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyAdded(testProvider, secondBLSKey);
+        providerRegistry.overrideAddBLSKey(testProvider, secondBLSKey);
+
+        bytes[] memory storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 2, "Should have 2 BLS keys");
+
+        assertEq(providerRegistry.getEoaFromBLSKey(firstBLSKey), testProvider, "First BLS key should map to provider");
+        assertEq(providerRegistry.getEoaFromBLSKey(secondBLSKey), testProvider, "Second BLS key should map to provider");
+    }
+
+    function test_OverrideRemoveBLSKey_MultipleKeys() public {
+        test_OverrideAddBLSKey_MultipleKeys();
+
+        address testProvider = vm.addr(423);
+        bytes memory firstBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+        bytes memory secondBLSKey = hex"a0000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        bytes[] memory storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 2, "Should have 2 BLS keys before removal");
+
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyRemoved(testProvider, secondBLSKey);
+        vm.prank(address(this));
+        providerRegistry.overrideRemoveBLSKey(testProvider, secondBLSKey);
+
+        storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 1, "Should have 1 BLS key after removing one");
+        assertEq(providerRegistry.getEoaFromBLSKey(secondBLSKey), address(0), "Removed BLS key should not map to any provider");
+
+        assertEq(providerRegistry.getEoaFromBLSKey(firstBLSKey), testProvider, "First BLS key should still map to provider");
+
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyRemoved(testProvider, firstBLSKey);
+        vm.prank(address(this));
+        providerRegistry.overrideRemoveBLSKey(testProvider, firstBLSKey);
+
+        storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 0, "Should have 0 BLS keys after removing both");
+        assertEq(providerRegistry.getEoaFromBLSKey(firstBLSKey), address(0), "Removed BLS key should not map to any provider");
+        assertEq(providerRegistry.getEoaFromBLSKey(secondBLSKey), address(0), "Removed BLS key should not map to any provider");
     }
 }
