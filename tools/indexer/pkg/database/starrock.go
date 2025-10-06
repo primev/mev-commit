@@ -27,7 +27,7 @@ type BidInsert struct {
 	TsMS        *int64
 }
 
-func MustConnect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, error) {
+func Connect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, error) {
 	conn, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open StarRocks connection: %w", err)

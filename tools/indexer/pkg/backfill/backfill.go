@@ -139,23 +139,23 @@ func validatorOptIn(ctx context.Context, db *database.DB, httpc *http.Client, cf
 }
 
 // RunAll executes all backfill operations ensuring complete coverage
-func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, cfg *config.Config, relays []relay.Row) {
+func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, cfg *config.Config, relays []relay.Row) error {
 	logger := slog.With("component", "backfill")
 	logger.Info("Starting comprehensive backfill for ALL blocks (not just opted-in)")
 
-	// Run backfill operations
 	if err := recentMissing(ctx, db, httpc, cfg, cfg.BackfillLookback, cfg.BackfillBatch); err != nil {
 		logger.Error("RecentMissing failed", "error", err)
+		return err
 	}
-
 	if err := validatorOptIn(ctx, db, httpc.HTTPClient, cfg, cfg.BackfillLookback, cfg.BackfillBatch); err != nil {
 		logger.Error("ValidatorOptIn failed", "error", err)
+		return err
 	}
-
-	// This ensures bid data for ALL blocks, not just mev-commit opted-in blocks
 	if err := recentBids(ctx, db, httpc, relays, cfg.BackfillLookback, cfg.BackfillBatch); err != nil {
 		logger.Error("RecentBids failed", "error", err)
+		return err
 	}
 
 	logger.Info("Backfill-done")
+	return nil
 }

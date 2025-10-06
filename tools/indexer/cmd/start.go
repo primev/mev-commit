@@ -3,9 +3,6 @@ package main
 import (
 	"context"
 	"log/slog"
-
-	"os/signal"
-	"syscall"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -30,13 +27,9 @@ func startIndexer(c *cli.Context) error {
 	initLogger.Info("configuration loaded",
 		"block_interval", c.Duration("block-interval"),
 		"validator_delay", c.Duration("validator-delay"))
-
-	// Setup graceful shutdown
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
-
+	ctx := c.Context
 	// Connect to StarRocks database
-	db, err := database.MustConnect(ctx, dbURL, 20, 5)
+	db, err := database.Connect(ctx, dbURL, 20, 5)
 	if err != nil {
 		initLogger.Error("[DB] connection failed", "error", err)
 		return err
@@ -80,13 +73,13 @@ func startIndexer(c *cli.Context) error {
 		}
 	}
 
-	// Replace the hardcoded block search with:
 	if lastBN == 0 {
 		initLogger.Info("getting latest block from Ethereum RPC...")
 
 		latestBlock, err := ethereum.GetLatestBlockNumber(httpc.HTTPClient, infuraRPC)
 		if err != nil {
 			initLogger.Error("failed to get latest block from RPC", "error", err)
+			return err
 		}
 
 		lastBN = latestBlock - 10 // Start 10 blocks behind to ensure data availability
@@ -100,11 +93,15 @@ func startIndexer(c *cli.Context) error {
 		initLogger.Info("[BACKFILL] running one-time backfill",
 			"lookback", c.Int("backfill-lookback"),
 			"batch", c.Int("backfill-batch"))
-		go backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays)
-		initLogger.Info("[BACKFILL] completed startup backfill")
+		if err := backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays); err != nil {
+			initLogger.Error("[BACKFILL] failed", "error", err)
+		} else {
+			initLogger.Info("[BACKFILL] completed startup backfill")
+		}
 	} else {
 		initLogger.Info("[BACKFILL] skipped", "reason", "backfill-lookback=0")
 	}
+
 	mainTicker := time.NewTicker(c.Duration("block-interval"))
 	defer mainTicker.Stop()
 
@@ -126,28 +123,32 @@ func startIndexer(c *cli.Context) error {
 			ei, err := beacon.FetchCombinedBlockData(ctx, httpc, infuraRPC, beaconBase, nextBN)
 			if err != nil || ei == nil {
 				initLogger.Warn("[BLOCK] not available yet", "block", nextBN, "error", err)
-
 				continue
 			}
-
-			// Log block details
-			initLogger.Info("[BLOCK] processing block", "block", nextBN, "slot", ei.Slot)
-
+			fields := []any{
+				"block", nextBN,
+				"slot", ei.Slot,
+			}
 			if ei.Timestamp != nil {
-				initLogger.Info("[BLOCK] block timestamp", "block", nextBN, "timestamp", ei.Timestamp.Format(time.RFC3339))
+				fields = append(fields, "timestamp", ei.Timestamp.Format(time.RFC3339))
 			}
 			if ei.ProposerIdx != nil {
-				initLogger.Info("[VALIDATOR] proposer index", "index", *ei.ProposerIdx)
+				fields = append(fields, "proposer_index", *ei.ProposerIdx)
 			}
 			if ei.RelayTag != nil {
-				initLogger.Info("[RELAY] winning relay", "tag", *ei.RelayTag)
+				fields = append(fields, "winning_relay", *ei.RelayTag)
 			}
-			if ei.BuilderHex != nil && len(*ei.BuilderHex) > 20 {
-				initLogger.Info("[BLOCK] builder pubkey", "pubkey_prefix", (*ei.BuilderHex)[:20])
+			if ei.BuilderHex != nil {
+				pref := *ei.BuilderHex
+				if len(pref) > 20 {
+					pref = pref[:20]
+				}
+				fields = append(fields, "builder_pubkey_prefix", pref)
 			}
 			if ei.RewardEth != nil {
-				initLogger.Info("[BLOCK] producer reward", "reward_eth", *ei.RewardEth)
+				fields = append(fields, "producer_reward_eth", *ei.RewardEth)
 			}
+			initLogger.Info("processing block", fields...)
 
 			// Save block to database
 			if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
