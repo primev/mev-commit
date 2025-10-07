@@ -69,7 +69,7 @@ var (
 		Name:    "backfill-lookback",
 		Usage:   "number of slots to look back for backfill",
 		EnvVars: []string{"INDEXER_BACKFILL_LOOKBACK"},
-		Value:   512,
+		Value:   10000000,
 	})
 
 	optionBackfillBatch = altsrc.NewIntFlag(&cli.IntFlag{

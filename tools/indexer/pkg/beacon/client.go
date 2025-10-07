@@ -212,8 +212,8 @@ func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rp
 		execBlock.ProposerIdx = beaconData.ProposerIdx
 		execBlock.RelayTag = beaconData.RelayTag
 		execBlock.RewardEth = beaconData.RewardEth
-		        execBlock.BuilderHex = beaconData.BuilderHex
-        execBlock.FeeRecHex = beaconData.FeeRecHex
+		execBlock.BuilderHex = beaconData.BuilderHex
+		execBlock.FeeRecHex = beaconData.FeeRecHex
 	} else {
 
 		execBlock.Slot = slotNumber

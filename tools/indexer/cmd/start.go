@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -115,7 +116,13 @@ func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *re
 		}
 	}
 }
-
+func safe(p interface{}) interface{} {
+	v := reflect.ValueOf(p)
+	if !v.IsValid() || v.IsNil() {
+		return nil
+	}
+	return v.Elem().Interface()
+}
 func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, infuraRPC, beaconBase string, lastBN int64, logger *slog.Logger) int64 {
 	nextBN := lastBN + 1
 
@@ -129,10 +136,10 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 		"block", nextBN,
 		"slot", ei.Slot,
 		"timestamp", ei.Timestamp,
-		"proposer_index", *ei.ProposerIdx,
-		"winning_relay", *ei.RelayTag,
-		"builder_pubkey_prefix", *ei.BuilderHex,
-		"producer_reward_eth", *ei.RewardEth,
+		"proposer_index", safe(ei.ProposerIdx),
+		"winning_relay", safe(ei.RelayTag),
+		"builder_pubkey_prefix", safe(ei.BuilderHex),
+		"producer_reward_eth", safe(ei.RewardEth),
 	)
 
 	if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
@@ -145,7 +152,10 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 		logger.Error("failed to process bids", "error", err)
 		return lastBN
 	}
-	launchAsyncValidatorTasks(ctx, c, db, httpc, ei, beaconBase, logger)
+	if err := launchAsyncValidatorTasks(ctx, c, db, httpc, ei, beaconBase, logger); err != nil {
+		logger.Error("[VALIDATOR] failed to launch async tasks", "slot", ei.Slot, "error", err)
+		return lastBN
+	}
 
 	saveBlockProgress(db, nextBN, logger)
 	return nextBN
@@ -230,60 +240,51 @@ func saveBlockProgress(db *database.DB, blockNum int64, logger *slog.Logger) {
 
 }
 
-func launchAsyncValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, ei *beacon.ExecInfo, beaconBase string, logger *slog.Logger) { // Async validator pubkey fetch
-	if ei.ProposerIdx != nil {
-		go func(slot int64, proposerIdx int64) {
-			time.Sleep(c.Duration("validator-delay"))
-
-			vctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			vpub, err := beacon.FetchValidatorPubkey(vctx, httpc, beaconBase, proposerIdx)
-			if err != nil {
-				logger.Error("[VALIDATOR] failed to fetch pubkey", "proposer", proposerIdx, "error", err)
-				return
-			}
-
-			if len(vpub) > 0 {
-				if err := db.UpdateValidatorPubkey(vctx, slot, vpub); err != nil {
-					logger.Error("[VALIDATOR] failed to save pubkey", "slot", slot, "error", err)
-				} else {
-					logger.Info("[VALIDATOR] pubkey saved", "proposer", proposerIdx, "slot", slot)
-				}
-			}
-		}(ei.Slot, *ei.ProposerIdx)
+func launchAsyncValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, ei *beacon.ExecInfo, beaconBase string, logger *slog.Logger) error { // Async validator pubkey fetch
+	if ei.ProposerIdx == nil {
+		return nil
 	}
 
-	// Async opt-in status check
-	if ei.ProposerIdx != nil {
-		go func(slot int64, blockNumber int64) {
-			time.Sleep(c.Duration("validator-delay") + 500*time.Millisecond)
-
-			// Wait for validator pubkey to be available
-			getCtx, getCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			vpk, err := db.GetValidatorPubkeyWithRetry(getCtx, slot, 3, time.Second)
-			getCancel()
-
-			if err != nil {
-				logger.Error("[VALIDATOR] pubkey not available", "slot", slot, "error", err)
-				return
-			}
-
-			opted, err := ethereum.CallAreOptedInAtBlock(httpc.HTTPClient, createOptionsFromCLI(c), blockNumber, vpk)
-			if err != nil {
-				logger.Error("[OPT-IN] failed to check opt-in status", "slot", slot, "error", err)
-				return
-			}
-
-			updCtx, updCancel := context.WithTimeout(context.Background(), 3*time.Second)
-			err = db.UpdateValidatorOptInStatus(updCtx, slot, opted)
-			updCancel()
-			if err != nil {
-				logger.Error("[OPT-IN] failed to save opt-in status", "slot", slot, "error", err)
-			} else {
-				logger.Info("[OPT-IN] validator opt-in status", "slot", slot, "opted_in", opted)
-			}
-		}(ei.Slot, ei.BlockNumber)
+	vctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	vpub, err := beacon.FetchValidatorPubkey(vctx, httpc, beaconBase, *ei.ProposerIdx)
+	if err != nil {
+		return fmt.Errorf("fetch validator pubkey: %w", err)
 	}
+
+	if len(vpub) > 0 {
+		if err := db.UpdateValidatorPubkey(vctx, ei.Slot, vpub); err != nil {
+			logger.Error("[VALIDATOR] failed to save pubkey", "slot", ei.Slot, "error", err)
+		} else {
+			logger.Info("[VALIDATOR] pubkey saved", "proposer", *ei.ProposerIdx, "slot", ei.Slot)
+		}
+	}
+
+	// Wait for validator pubkey to be available
+	getCtx, getCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	vpk, err := db.GetValidatorPubkeyWithRetry(getCtx, ei.Slot, 3, time.Second)
+	getCancel()
+
+	if err != nil {
+		logger.Error("[VALIDATOR] pubkey not available", "slot", ei.Slot, "error", err)
+		return fmt.Errorf("save validator pubkey: %w", err)
+	}
+
+	opted, err := ethereum.CallAreOptedInAtBlock(httpc.HTTPClient, createOptionsFromCLI(c), ei.BlockNumber, vpk)
+	if err != nil {
+		return fmt.Errorf("check opt-in status: %w", err)
+	}
+
+	updCtx, updCancel := context.WithTimeout(context.Background(), 3*time.Second)
+	err = db.UpdateValidatorOptInStatus(updCtx, ei.Slot, opted)
+	updCancel()
+	if err != nil {
+		return fmt.Errorf("save opt-in status: %w", err)
+	} else {
+		logger.Info("[OPT-IN] validator opt-in status", "slot", ei.Slot, "opted_in", opted)
+	}
+	return nil
+
 }
 
 func startIndexer(c *cli.Context) error {
