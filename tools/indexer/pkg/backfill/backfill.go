@@ -18,154 +18,105 @@ type SlotData struct {
 	Slot            int64
 	BlockNumber     int64
 	ValidatorPubkey []byte
+	ProposerIdx     *int64
 }
 
-// RecentMissing backfills recent blocks that are missing data
-func recentMissing(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, cfg *config.Config, lookback int64, batch int, ch chan<- SlotData) error {
+func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, cfg *config.Config, relays []relay.Row) error {
 	logger := slog.With("component", "backfill")
+	logger.Info("Starting streaming backfill")
 
-	blocks, err := db.GetRecentMissingBlocks(ctx, lookback, batch)
-	if err != nil {
-		logger.Error("RecentMissing query failed", "error", err)
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 
-	for _, block := range blocks {
+	blocks, err := db.GetRecentMissingBlocks(ctx, cfg.BackfillLookback, cfg.BackfillBatch)
+	if err != nil {
+		return fmt.Errorf("get missing blocks: %w", err)
+	}
+
+	for _, b := range blocks {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		// Fetch beacon execution block data
-		ei, ferr := beacon.FetchBeaconExecutionBlock(fetchCtx, httpc, cfg.BeaconBase, block.BlockNumber)
+		ei, ferr := beacon.FetchBeaconExecutionBlock(fetchCtx, httpc, cfg.BeaconBase, b.BlockNumber)
 		cancel()
 		if ferr != nil || ei == nil {
-			return fmt.Errorf("beacon fetch failed for block=%d: %w", block.BlockNumber, ferr)
-		}
-		if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
-			logger.Error("RecentMissing upsert failed", "slot", block.Slot, "error", err)
-
+			logger.Error("beacon fetch failed", "block", b.BlockNumber, "error", ferr)
 			continue
 		}
+
+		if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
+			logger.Error("block upsert failed", "slot", ei.Slot, "error", err)
+			continue
+		}
+
 		var vpub []byte
-		// Schedule async validator pubkey fetch
 		if ei.ProposerIdx != nil {
 			vctx, vcancel := context.WithTimeout(ctx, 5*time.Second)
 			v, verr := beacon.FetchValidatorPubkey(vctx, httpc, cfg.BeaconBase, *ei.ProposerIdx)
 			vcancel()
-
 			if verr != nil {
-				return fmt.Errorf("validator pubkey fetch failed slot=%d: %w", ei.Slot, verr)
+				logger.Error("validator fetch failed", "slot", ei.Slot, "error", verr)
 			} else if len(v) > 0 {
 				vpub = v
+
+				// Save validator pubkey
 				if err := db.UpdateValidatorPubkey(ctx, ei.Slot, vpub); err != nil {
-					return fmt.Errorf("validator pubkey update failed slot=%d: %w", ei.Slot, err)
+					logger.Error("validator update failed", "slot", ei.Slot, "error", err)
+				} else {
+
+					opted, oerr := ethereum.CallAreOptedInAtBlock(httpc.HTTPClient, cfg, ei.BlockNumber, vpub)
+
+					if oerr != nil {
+						logger.Error("opt-in check failed", "slot", ei.Slot, "error", oerr)
+					} else {
+						updCtx, updCancel := context.WithTimeout(ctx, 3*time.Second)
+						if uerr := db.UpdateValidatorOptInStatus(updCtx, ei.Slot, opted); uerr != nil {
+							logger.Error("opt-in update failed", "slot", ei.Slot, "error", uerr)
+						}
+						updCancel()
+					}
 				}
 			}
 		}
-		select {
-		case ch <- SlotData{Slot: ei.Slot, BlockNumber: ei.BlockNumber, ValidatorPubkey: vpub}:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
 
-	logger.Info("RecentMissing processed", "blocks", len(blocks))
-	return nil
-}
-
-// RecentBids backfills bid data for ALL recent slots (not just opted-in blocks)
-func recentBids(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, slots []int64) error {
-	logger := slog.With("component", "backfill")
-
-	for _, slot := range slots {
-		if ctx.Err() != nil {
-			break
-		}
-
-		for _, rr := range relays {
-			if ctx.Err() != nil {
-				break
+		for _, r := range relays {
+			if err := ctx.Err(); err != nil {
+				return err
 			}
 
-			fetchCtx, fcancel := context.WithTimeout(ctx, 5*time.Second)
-			bids, err := relay.FetchBuilderBlocksReceived(fetchCtx, httpc, rr.URL, slot)
-			fcancel()
-			if err != nil {
-				logger.Error("RecentBids fetch failed", "slot", slot, "relay_id", rr.ID, "relay_url", rr.URL, "error", err)
+			bctx, bcancel := context.WithTimeout(ctx, 5*time.Second)
+			bids, berr := relay.FetchBuilderBlocksReceived(bctx, httpc, r.URL, ei.Slot)
+			bcancel()
+			if berr != nil {
+				logger.Debug("bid fetch failed", "slot", ei.Slot, "relay", r.ID, "error", berr)
+				continue
+			}
+
+			if len(bids) == 0 {
 				continue
 			}
 
 			rows := make([]database.BidRow, 0, len(bids))
-			for _, b := range bids {
-				if row, ok := relay.BuildBidInsert(slot, rr.ID, b); ok {
+			for _, bid := range bids {
+				if row, ok := relay.BuildBidInsert(ei.Slot, r.ID, bid); ok {
 					rows = append(rows, row)
 				}
 			}
 
 			if len(rows) > 0 {
-				insCtx, icancel := context.WithTimeout(ctx, 5*time.Second)
-				if err := db.InsertBidsBatch(insCtx, rows); err != nil {
-					icancel()
-					return fmt.Errorf("bids insert failed slot=%d relay_id=%d: %w", slot, rr.ID, err)
+				insCtx, insCancel := context.WithTimeout(ctx, 5*time.Second)
+				if ierr := db.InsertBidsBatch(insCtx, rows); ierr != nil {
+					logger.Error("bid insert failed", "slot", ei.Slot, "relay", r.ID, "error", ierr)
 				}
-				icancel()
+				insCancel()
 			}
 		}
-
+		logger.Debug("slot processed", "slot", ei.Slot)
 	}
 
-	logger.Info("RecentBids processed", "slots", len(slots))
+	logger.Info("Backfill completed", "blocks_processed", len(blocks))
 	return nil
-}
-
-// RunAll executes all backfill operations ensuring complete coverage
-func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, cfg *config.Config, relays []relay.Row) error {
-	logger := slog.With("component", "backfill")
-	logger.Info("Starting comprehensive backfill for ALL blocks (not just opted-in)")
-
-	// Channel to pass slot data from stage 1 to stages 2 & 3
-	slotChan := make(chan SlotData, cfg.BackfillBatch)
-	errCh := make(chan error, 1)
-
-	// Run recentMissing and collect slot data
-	go func() {
-		if err := recentMissing(ctx, db, httpc, cfg, cfg.BackfillLookback, cfg.BackfillBatch, slotChan); err != nil {
-			errCh <- err
-		}
-		close(slotChan)
-	}()
-
-	// Collect slots and validator data from channel
-	var slotsForBids []int64
-	var validatorsToCheck []SlotData
-
-	for data := range slotChan {
-		slotsForBids = append(slotsForBids, data.Slot)
-		if len(data.ValidatorPubkey) > 0 {
-			validatorsToCheck = append(validatorsToCheck, data)
-		}
-	}
-	select {
-	case err := <-errCh:
-		if err != nil {
-			logger.Error("RecentMissing failed", "error", err)
-			return err
-		}
-	default:
-	}
-	for _, v := range validatorsToCheck {
-		opted, err := ethereum.CallAreOptedInAtBlock(httpc.HTTPClient, cfg, v.BlockNumber, v.ValidatorPubkey)
-		if err != nil {
-			logger.Error("opt-in check failed", "slot", v.Slot, "error", err)
-			continue
-		}
-		if uerr := db.UpdateValidatorOptInStatus(ctx, v.Slot, opted); uerr != nil {
-			logger.Error("opt-in status update failed", "slot", v.Slot, "error", uerr)
-		}
-	}
-	if err := recentBids(ctx, db, httpc, relays, slotsForBids); err != nil {
-		logger.Error("RecentBids failed", "error", err)
-		return err
-	}
-
-	logger.Info("Backfill-done")
-	return nil
-
 }

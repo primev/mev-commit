@@ -305,7 +305,6 @@ func (db *DB) GetRecentMissingBlocks(ctx context.Context, lookback int64, batch 
 		return nil, fmt.Errorf("invalid parameters: lookback=%d, batch=%d", lookback, batch)
 	}
 
-	// Build query with literal values
 	query := fmt.Sprintf(`
         WITH recent AS (
             SELECT COALESCE(MAX(slot), 0) AS s FROM blocks
