@@ -204,7 +204,7 @@ func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rp
 	// Convert block number to slot for beacon chain query
 	slotNumber := ethereum.BlockNumberToSlot(blockNumber)
 
-	beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, beaconBase, slotNumber)
+	beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, beaconBase, blockNumber)
 
 	// Merge data - use Alchemy as primary, beacon as supplement
 	if beaconData != nil {
@@ -212,6 +212,8 @@ func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rp
 		execBlock.ProposerIdx = beaconData.ProposerIdx
 		execBlock.RelayTag = beaconData.RelayTag
 		execBlock.RewardEth = beaconData.RewardEth
+		        execBlock.BuilderHex = beaconData.BuilderHex
+        execBlock.FeeRecHex = beaconData.FeeRecHex
 	} else {
 
 		execBlock.Slot = slotNumber

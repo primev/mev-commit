@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -128,10 +129,10 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 		"block", nextBN,
 		"slot", ei.Slot,
 		"timestamp", ei.Timestamp,
-		"proposer_index", ei.ProposerIdx,
-		"winning_relay", ei.RelayTag,
-		"builder_pubkey_prefix", ei.BuilderHex,
-		"producer_reward_eth", ei.RewardEth,
+		"proposer_index", *ei.ProposerIdx,
+		"winning_relay", *ei.RelayTag,
+		"builder_pubkey_prefix", *ei.BuilderHex,
+		"producer_reward_eth", *ei.RewardEth,
 	)
 
 	if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
@@ -140,41 +141,43 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 	}
 	logger.Info("[DB] block saved successfully", "block", nextBN)
 
-	processBidsForBlock(ctx, db, httpc, relays, ei, logger)
+	if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
+		logger.Error("failed to process bids", "error", err)
+		return lastBN
+	}
 	launchAsyncValidatorTasks(ctx, c, db, httpc, ei, beaconBase, logger)
 
 	saveBlockProgress(db, nextBN, logger)
 	return nextBN
 }
 
-func processBidsForBlock(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, ei *beacon.ExecInfo, logger *slog.Logger) {
+func processBidsForBlock(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, ei *beacon.ExecInfo, logger *slog.Logger) error {
 
 	// Fetch and store bid data from all relays
 	totalBids := 0
 	successfulRelays := 0
-	mainContextCanceled := false
 	const batchSize = 500
 	for _, rr := range relays {
-		if ctx.Err() != nil {
+		if err := ctx.Err(); err != nil {
 			logger.Warn("main context canceled, stopping relay processing")
-			break
+			return err
 		}
 
 		bids, err := relay.FetchBuilderBlocksReceived(ctx, httpc, rr.URL, ei.Slot)
 		if err != nil {
-			logger.Error("[RELAY] failed to fetch bids", "relay_id", rr.ID, "url", rr.URL, "error", err)
-			continue
+			// logger.Error("[RELAY] failed to fetch bids", "relay_id", rr.ID, "url", rr.URL, "error", err)
+			return fmt.Errorf("fetch bids: relay_id=%d url=%s slot=%d: %w", rr.ID, rr.URL, ei.Slot, err)
+
 		}
 
 		relayBids := 0
 		batch := make([]database.BidRow, 0, batchSize)
 
 		for _, bid := range bids {
-			// Check if main context is still valid
-			if ctx.Err() != nil {
+
+			if err := ctx.Err(); err != nil {
 				logger.Warn("[BIDS] main context canceled, stopping bid insertion")
-				mainContextCanceled = true
-				break
+				return err
 			}
 
 			if row, ok := relay.BuildBidInsert(ei.Slot, rr.ID, bid); ok {
@@ -205,10 +208,6 @@ func processBidsForBlock(ctx context.Context, db *database.DB, httpc *retryableh
 			flushCancel()
 		}
 
-		if mainContextCanceled {
-			break
-		}
-
 		if relayBids > 0 {
 			logger.Info("[BIDS] bids collected", "relay_id", rr.ID, "count", relayBids)
 			totalBids += relayBids
@@ -216,7 +215,7 @@ func processBidsForBlock(ctx context.Context, db *database.DB, httpc *retryableh
 		}
 	}
 	logger.Info("[BIDS] summary", "block", ei.BlockNumber, "total_bids", totalBids, "successful_relays", successfulRelays)
-
+	return nil
 }
 
 func saveBlockProgress(db *database.DB, blockNum int64, logger *slog.Logger) {
