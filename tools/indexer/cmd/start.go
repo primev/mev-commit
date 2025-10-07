@@ -152,7 +152,7 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 		logger.Error("failed to process bids", "error", err)
 		return lastBN
 	}
-	if err := launchAsyncValidatorTasks(ctx, c, db, httpc, ei, beaconBase, logger); err != nil {
+	if err := launchValidatorTasks(ctx, c, db, httpc, ei, beaconBase, logger); err != nil {
 		logger.Error("[VALIDATOR] failed to launch async tasks", "slot", ei.Slot, "error", err)
 		return lastBN
 	}
@@ -240,7 +240,7 @@ func saveBlockProgress(db *database.DB, blockNum int64, logger *slog.Logger) {
 
 }
 
-func launchAsyncValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, ei *beacon.ExecInfo, beaconBase string, logger *slog.Logger) error { // Async validator pubkey fetch
+func launchValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, ei *beacon.ExecInfo, beaconBase string, logger *slog.Logger) error { // Async validator pubkey fetch
 	if ei.ProposerIdx == nil {
 		return nil
 	}
