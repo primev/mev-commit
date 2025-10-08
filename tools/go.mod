@@ -23,6 +23,7 @@ require (
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/go-cmp v0.6.0
 	github.com/testcontainers/testcontainers-go v0.27.0
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
@@ -31,7 +32,9 @@ require (
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
+	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/containerd/containerd v1.7.11 // indirect
