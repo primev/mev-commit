@@ -45,6 +45,7 @@ This changelog tracks contract deployments on the mev-commit chain. This changel
 
 | Timestamp (UTC)             | Contract            | New Impl Version      | Upgrade Tag       |
 |-----------------------------|---------------------|-----------------------|-------------------|
+| Oct-06-2025 10:30:00 PM UTC | ProviderRegistry    | ProviderRegistryV2    | v1.2.1            |
 
 ## Hoodi Testnet (L1) Contract Changelog
 
