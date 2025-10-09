@@ -13,7 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/go-retryablehttp"
-	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
+
 	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
 )
 
@@ -200,10 +200,6 @@ func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rp
 	if err != nil {
 		return nil, err
 	}
-
-	// Convert block number to slot for beacon chain query
-	slotNumber := ethereum.BlockNumberToSlot(blockNumber)
-
 	beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, beaconBase, blockNumber)
 
 	// Merge data - use Alchemy as primary, beacon as supplement
@@ -214,10 +210,6 @@ func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rp
 		execBlock.RewardEth = beaconData.RewardEth
 		execBlock.BuilderHex = beaconData.BuilderHex
 		execBlock.FeeRecHex = beaconData.FeeRecHex
-	} else {
-
-		execBlock.Slot = slotNumber
 	}
-
 	return execBlock, nil
 }
