@@ -52,7 +52,13 @@ func Connect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, erro
 func (db *DB) Close() error {
 	return db.conn.Close()
 }
-
+func (db *DB) GetMaxSlotNumber(ctx context.Context) (int64, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var slot int64
+	err := db.conn.QueryRowContext(ctx2, `SELECT COALESCE(MAX(slot),0) FROM blocks`).Scan(&slot)
+	return slot, err
+}
 func (db *DB) EnsureStateTable(ctx context.Context) error {
 	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -155,7 +161,7 @@ func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) erro
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	var timestamp, proposerIndex, relayTag, rewardEth string
+	var timestamp, proposerIndex, relayTag, rewardEth, builderPubkeyPrefix, feeRecHex string
 
 	if ei.Timestamp != nil {
 		timestamp = fmt.Sprintf("'%s'", ei.Timestamp.Format("2006-01-02 15:04:05"))
@@ -174,7 +180,16 @@ func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) erro
 	} else {
 		relayTag = "NULL"
 	}
-
+	if ei.BuilderHex != nil {
+		builderPubkeyPrefix = fmt.Sprintf("'%s'", (*ei.BuilderHex))
+	} else {
+		builderPubkeyPrefix = "NULL"
+	}
+	if ei.FeeRecHex != nil {
+		feeRecHex = fmt.Sprintf("'%s'", (*ei.FeeRecHex))
+	} else {
+		feeRecHex = "NULL"
+	}
 	if ei.RewardEth != nil {
 		rewardEth = fmt.Sprintf("%.6f", *ei.RewardEth)
 	} else {
@@ -184,9 +199,9 @@ func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) erro
 	query := fmt.Sprintf(`
 INSERT INTO blocks(
     slot, block_number, timestamp, proposer_index,
-    winning_relay, producer_reward_eth
-) VALUES (%d, %d, %s, %s, %s, %s)`,
-		ei.Slot, ei.BlockNumber, timestamp, proposerIndex, relayTag, rewardEth)
+    winning_relay, producer_reward_eth, winning_builder_pubkey, fee_recipient
+) VALUES (%d, %d, %s, %s, %s, %s, %s, %s)`,
+		ei.Slot, ei.BlockNumber, timestamp, proposerIndex, relayTag, rewardEth, builderPubkeyPrefix, feeRecHex)
 
 	_, err := db.conn.ExecContext(ctx2, query)
 	if err != nil {
@@ -429,7 +444,7 @@ func (db *DB) UpdateValidatorOptInStatus(ctx context.Context, slot int64, opted 
 		v = 1
 	} // TINYINT(1) in StarRocks
 	q := fmt.Sprintf(
-		"UPDATE blocks SET validator_opted_in=%d WHERE slot=%d AND validator_opted_in IS NULL",
+		"UPDATE blocks SET validator_opted_in=%d WHERE slot=%d",
 		v, slot,
 	)
 	_, err := db.conn.ExecContext(ctx2, q)

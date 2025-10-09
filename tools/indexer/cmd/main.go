@@ -69,14 +69,14 @@ var (
 		Name:    "backfill-lookback",
 		Usage:   "number of slots to look back for backfill",
 		EnvVars: []string{"INDEXER_BACKFILL_LOOKBACK"},
-		Value:   10000000,
+		Value:   50400,
 	})
 
 	optionBackfillBatch = altsrc.NewIntFlag(&cli.IntFlag{
 		Name:    "backfill-batch",
 		Usage:   "batch size for backfill operations",
 		EnvVars: []string{"INDEXER_BACKFILL_BATCH"},
-		Value:   5,
+		Value:   100,
 	})
 
 	optionHTTPTimeout = altsrc.NewDurationFlag(&cli.DurationFlag{
