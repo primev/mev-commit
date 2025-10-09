@@ -391,6 +391,7 @@ func TestBidHandling(t *testing.T) {
 		noStatus               bool
 		processErr             string
 		decayDispatchTimestamp int64
+		bidderAddr             common.Address
 	}
 
 	for _, tc := range []testCase{
@@ -413,6 +414,7 @@ func TestBidHandling(t *testing.T) {
 			},
 			status:                 providerapiv1.BidResponse_STATUS_ACCEPTED,
 			decayDispatchTimestamp: 10,
+			bidderAddr:             common.HexToAddress("0xe3f21915b2C9745aB383925533b7f6aC35c409f5"),
 		},
 		{
 			name: "rejected bid",
@@ -428,6 +430,7 @@ func TestBidHandling(t *testing.T) {
 			},
 			status:                 providerapiv1.BidResponse_STATUS_REJECTED,
 			decayDispatchTimestamp: 10,
+			bidderAddr:             common.HexToAddress("0xb3BFB272Fe736e90384E7EC53120eF213f9d4D62"),
 		},
 		{
 			name: "invalid bid status",
@@ -444,6 +447,7 @@ func TestBidHandling(t *testing.T) {
 			status:                 providerapiv1.BidResponse_STATUS_UNSPECIFIED,
 			noStatus:               true,
 			decayDispatchTimestamp: 10,
+			bidderAddr:             common.HexToAddress("0x5DcCCBd4097CABDF09C9c31d7aAca2f473F24B77"),
 		},
 		{
 			name: "invalid bid txHash",
@@ -459,6 +463,7 @@ func TestBidHandling(t *testing.T) {
 			},
 			processErr:             "tx_hashes: tx_hashes must be a valid array of transaction hashes",
 			decayDispatchTimestamp: 10,
+			bidderAddr:             common.HexToAddress("0x3E201a51E49202DFc38BDA9192f32aa2dd6C1870"),
 		},
 		{
 			name: "invalid bid amount",
@@ -474,6 +479,7 @@ func TestBidHandling(t *testing.T) {
 			},
 			processErr:             "bid_amount: bid_amount must be a valid integer",
 			decayDispatchTimestamp: 10,
+			bidderAddr:             common.HexToAddress("0x19517c5914562E5B1AA9f8023973B1AAe514bcD8"),
 		},
 		{
 			name: "invalid bid block number",
@@ -489,6 +495,7 @@ func TestBidHandling(t *testing.T) {
 			},
 			processErr:             "block_number: value must be greater than 0",
 			decayDispatchTimestamp: 10,
+			bidderAddr:             common.HexToAddress("0xC8Faf482d662C852f9D6869ab3Bf4a136064c9AC"),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -525,6 +532,9 @@ func TestBidHandling(t *testing.T) {
 					if bid.BlockNumber != tc.bid.BlockNumber {
 						t.Errorf("expected block number to be %v, got %v", tc.bid.BlockNumber, bid.BlockNumber)
 					}
+					if bid.BidderAddress != tc.bidderAddr.Hex() {
+						t.Errorf("expected bidder address to be %v, got %v", tc.bidderAddr.Hex(), bid.BidderAddress)
+					}
 					bidCh <- bid
 				}
 			}()
@@ -560,7 +570,7 @@ func TestBidHandling(t *testing.T) {
 				}
 			}()
 
-			respC, err := svc.ProcessBid(context.Background(), tc.bid)
+			respC, err := svc.ProcessBid(context.Background(), tc.bid, tc.bidderAddr)
 			if err != nil {
 				if tc.processErr != "" {
 					if !strings.Contains(err.Error(), tc.processErr) {

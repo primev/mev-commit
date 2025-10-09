@@ -49,7 +49,7 @@ type Topology interface {
 }
 
 type BidProcessor interface {
-	ProcessBid(context.Context, *preconfpb.Bid) (chan providerapi.ProcessedBidResponse, error)
+	ProcessBid(context.Context, *preconfpb.Bid, common.Address) (chan providerapi.ProcessedBidResponse, error)
 }
 
 type DepositManager interface {
@@ -301,7 +301,7 @@ func (p *Preconfirmation) handleBid(
 	ctx, cancel := context.WithTimeout(ctx, p.providerTimeout)
 	defer cancel()
 
-	statusC, err := p.processer.ProcessBid(ctx, bid)
+	statusC, err := p.processer.ProcessBid(ctx, bid, *bidderAddr)
 	if err != nil {
 		return err
 	}
