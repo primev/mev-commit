@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
+	"github.com/primev/mev-commit/x/util"
 )
 
 // Message represents a notification message structure
@@ -194,6 +195,33 @@ func (n *Notifier) SendBidderFundedNotification(
 	return n.SendMessage(ctx, message)
 }
 
+func buildStatus(t txnInfo) string {
+	switch t.txn.Status {
+	case sender.TxStatusPreConfirmed:
+		return "⚡ Pre-Confirmed"
+	case sender.TxStatusConfirmed:
+		return "✅ Confirmed"
+	case sender.TxStatusFailed:
+		return fmt.Sprintf("❌ Failed (Error: %s)", t.txn.Details)
+	default:
+		return "❓ Unknown"
+	}
+}
+
+func buildType(t txnInfo) string {
+	switch t.txn.Type {
+	case sender.TxTypeRegular:
+		classification := util.ClassifyTxOnly(t.txn.Transaction, t.txn.Sender)
+		return fmt.Sprintf("💸 %s (%s)", classification.Kind, classification.Details)
+	case sender.TxTypeDeposit:
+		return "🏦 Deposit"
+	case sender.TxTypeInstantBridge:
+		return "🌉 Instant Bridge"
+	default:
+		return "❓ Unknown"
+	}
+}
+
 func (n *Notifier) StartTransactionNotifier(
 	ctx context.Context,
 ) <-chan struct{} {
@@ -220,52 +248,26 @@ func (n *Notifier) StartTransactionNotifier(
 				n.queuedTxns = nil
 				n.queuedMu.Unlock()
 				// create markdown table with the txn info
-				text := ""
-				for _, txnInfo := range txnsToNotify {
-					status := ""
-					switch txnInfo.txn.Status {
-					case sender.TxStatusPreConfirmed:
-						status = "⚡ Pre-Confirmed"
-					case sender.TxStatusConfirmed:
-						status = "✅ Confirmed"
-					case sender.TxStatusFailed:
-						status = "❌ Failed"
-						status = fmt.Sprintf("%s (Error: %s)", status, txnInfo.txn.Details)
-					default:
-						status = "❓ Unknown"
-					}
-					txType := ""
-					switch txnInfo.txn.Type {
-					case sender.TxTypeRegular:
-						txType = "💸 ETH Transaction"
-					case sender.TxTypeDeposit:
-						txType = "🏦 Deposit"
-					case sender.TxTypeInstantBridge:
-						txType = "🌉 Instant Bridge"
-					default:
-						txType = "❓ Unknown"
-					}
-					text += fmt.Sprintf(
-						"- Txn: %s | Sender: %s | Attempts: %d | Duration: %s | Type: %s | Status: %s\n",
-						txnInfo.txn.Hash().Hex()[:8],
-						txnInfo.txn.Sender.Hex()[:8],
-						txnInfo.noOfAttempts,
-						txnInfo.timeTaken,
-						txType,
-						status,
+				fields := make([]Field, 0, len(txnsToNotify)*2)
+				for _, t := range txnsToNotify {
+					fields = append(fields,
+						Field{Title: "Txn", Value: fmt.Sprintf("`%s`", t.txn.Hash().Hex()), Short: false},
+						Field{Title: "Status", Value: buildStatus(t), Short: true},
+						Field{Title: "Sender", Value: fmt.Sprintf("`%s`", t.txn.Sender.Hex()[:10]), Short: true},
+						Field{Title: "Type", Value: buildType(t), Short: true},
+						Field{Title: "Attempts", Value: fmt.Sprintf("%d", t.noOfAttempts), Short: true},
+						Field{Title: "Duration", Value: t.timeTaken.String(), Short: true},
 					)
 				}
 				message := Message{
 					Text: "🚀 Transaction Report",
-					Attachments: []Attachment{
-						{
-							Color:  "#FFA500",
-							Title:  "The following transactions were completed in the last 15 mins",
-							Text:   text,
-							Footer: "Preconf RPC Monitor",
-							TS:     time.Now().Unix(),
-						},
-					},
+					Attachments: []Attachment{{
+						Color:      "#2D9CDB",
+						Title:      "Last 15 minutes",
+						Fields:     fields,
+						MarkdownIn: []string{"text", "fields"},
+						TS:         time.Now().Unix(),
+					}},
 				}
 				if err := n.SendMessage(ctx, message); err != nil {
 					n.logger.Error("Failed to send 15 minute transaction notification", "error", err)
