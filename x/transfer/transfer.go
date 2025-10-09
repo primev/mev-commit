@@ -86,7 +86,7 @@ func (t *Transferer) Transfer(
 		Nonce:     nonce,
 		GasFeeCap: t.gasFeeCap,
 		GasTipCap: t.gasTip,
-		Gas:       21000,
+		Gas:       60000,
 		Value:     amount,
 	}
 
