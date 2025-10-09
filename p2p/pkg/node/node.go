@@ -927,6 +927,7 @@ type noOpBidProcessor struct{}
 func (noOpBidProcessor) ProcessBid(
 	_ context.Context,
 	_ *preconfpb.Bid,
+	_ common.Address,
 ) (chan providerapi.ProcessedBidResponse, error) {
 	statusC := make(chan providerapi.ProcessedBidResponse, 5)
 	statusC <- providerapi.ProcessedBidResponse{Status: providerapiv1.BidResponse_STATUS_ACCEPTED, DispatchTimestamp: time.Now().UnixMilli()}

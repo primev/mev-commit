@@ -286,6 +286,10 @@ message Bid {
   BidOptions bid_options = 10 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Optional bid options for the transaction."
   }];
+  string bidder_address = 11 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the bidder's address recovered from the bid signature."
+    pattern: "^[a-fA-F0-9]{40}$"
+  }];
 };
 
 message BidResponse {
