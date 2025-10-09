@@ -251,7 +251,7 @@ func (n *Notifier) StartTransactionNotifier(
 				fields := make([]Field, 0, len(txnsToNotify)*2)
 				for _, t := range txnsToNotify {
 					fields = append(fields,
-						Field{Title: "Txn", Value: fmt.Sprintf("`%s`", t.txn.Hash().Hex()), Short: true},
+						Field{Title: "Txn", Value: fmt.Sprintf("`%s`", t.txn.Hash().Hex()), Short: false},
 						Field{Title: "Status", Value: buildStatus(t), Short: true},
 						Field{Title: "Sender", Value: fmt.Sprintf("`%s`", t.txn.Sender.Hex()[:10]), Short: true},
 						Field{Title: "Type", Value: buildType(t), Short: true},
