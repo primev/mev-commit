@@ -83,6 +83,7 @@ type testProcessor struct {
 func (t *testProcessor) ProcessBid(
 	_ context.Context,
 	_ *preconfpb.Bid,
+	_ common.Address,
 ) (chan providerapi.ProcessedBidResponse, error) {
 	statusC := make(chan providerapi.ProcessedBidResponse, 1)
 	statusC <- providerapi.ProcessedBidResponse{Status: t.BidResponse.Status, DispatchTimestamp: t.BidResponse.DispatchTimestamp}
