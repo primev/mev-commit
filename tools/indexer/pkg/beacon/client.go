@@ -185,7 +185,9 @@ func fetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber i
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("rpc HTTP %d", resp.StatusCode)
 	}
