@@ -174,7 +174,7 @@ func fetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber i
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "eth_getBlockByNumber",
-		"params":  []any{fmt.Sprintf("0x%x", blockNumber), false}, // false = no full txs (faster)
+		"params":  []any{fmt.Sprintf("0x%x", blockNumber), true},
 	}
 	buf, _ := json.Marshal(payload)
 
@@ -193,9 +193,9 @@ func fetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber i
 	var result struct {
 		Result struct {
 			Number    string `json:"number"`
-			Timestamp string `json:"timestamp"` // hex
-			Miner     string `json:"miner"`     // some nodes
-			Author    string `json:"author"`    // others use author
+			Timestamp string `json:"timestamp"`
+			Miner     string `json:"miner"`
+			Author    string `json:"author"`
 		} `json:"result"`
 		Error *struct {
 			Code    int    `json:"code"`
@@ -221,7 +221,6 @@ func fetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber i
 	}
 	t := time.Unix(secs, 0).UTC()
 
-	// fee recipient (coinbase) from EL header
 	fr := result.Result.Miner
 	if fr == "" {
 		fr = result.Result.Author
@@ -242,7 +241,6 @@ func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rp
 		return nil, err
 	}
 
-	// Best-effort: enrich from beacon (slot, proposer, relay, rewards, etc.)
 	if beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, beaconBase, blockNumber); beaconData != nil {
 		execBlock.Slot = beaconData.Slot
 		execBlock.ProposerIdx = beaconData.ProposerIdx
