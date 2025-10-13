@@ -1,6 +1,10 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
+	"github.com/urfave/cli/v2"
+	"strings"
 	"time"
 )
 
@@ -18,6 +22,21 @@ var RelaysDefault = []Relay{
 	{Relay_id: 4, Name: "Bloxroute Regulated", Tag: "bloxroute-regulated-relay", URL: "https://bloxroute.regulated.blxrbdn.com"},
 }
 
+func ResolveRelays(c *cli.Context) ([]Relay, error) {
+	s := strings.TrimSpace(c.String("relays-json"))
+	if s == "" {
+		return RelaysDefault, nil
+	}
+	var v []Relay
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		return nil, fmt.Errorf("invalid --relays-json: %w", err)
+	}
+	if len(v) == 0 {
+		return nil, fmt.Errorf("--relays-json provided but empty")
+	}
+	return v, nil
+}
+
 type Config struct {
 	BlockTick        time.Duration
 	ValidatorWait    time.Duration
@@ -31,4 +50,6 @@ type Config struct {
 	EtherscanKey     string
 	InfuraRPC        string
 	BeaconBase       string
+	RelayMode        bool
+	RelaysJSON       string
 }

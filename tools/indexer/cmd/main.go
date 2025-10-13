@@ -85,6 +85,18 @@ var (
 		EnvVars: []string{"INDEXER_HTTP_TIMEOUT"},
 		Value:   15 * time.Second,
 	})
+
+	optionRelayFlag = altsrc.NewBoolFlag(&cli.BoolFlag{
+		Name:    "relay",
+		Usage:   "Whether to run in relay mode",
+		EnvVars: []string{"INDEXER_RELAY"},
+		Value:   false,
+	})
+	optionRelaysJSON = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "relays-json",
+		Usage:   "JSON array overriding default relays (fields: relay_id,name,tag,url)",
+		EnvVars: []string{"INDEXER_RELAYS_JSON"},
+	})
 )
 
 func createOptionsFromCLI(c *cli.Context) *config.Config {
@@ -98,6 +110,8 @@ func createOptionsFromCLI(c *cli.Context) *config.Config {
 		EtherscanKey:     c.String("etherscan-key"),
 		InfuraRPC:        c.String("infura-rpc"),
 		BeaconBase:       c.String("beacon-base"),
+		RelayMode:        c.Bool("relay"),
+		RelaysJSON:       c.String("relays-json"),
 	}
 }
 
@@ -115,6 +129,8 @@ func main() {
 		optionHTTPTimeout,
 		optionOptInContract,
 		optionEtherscanKey,
+		optionRelayFlag,
+		optionRelaysJSON,
 	}
 
 	app := &cli.App{

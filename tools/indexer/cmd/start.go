@@ -3,18 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
-	"reflect"
-	"time"
-
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/primev/mev-commit/tools/indexer/pkg/backfill"
 	"github.com/primev/mev-commit/tools/indexer/pkg/beacon"
+	"github.com/primev/mev-commit/tools/indexer/pkg/config"
 	"github.com/primev/mev-commit/tools/indexer/pkg/database"
 	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
 	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
 	"github.com/primev/mev-commit/tools/indexer/pkg/relay"
+	"log/slog"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
@@ -34,21 +36,6 @@ func initializeDatabase(ctx context.Context, dbURL string, logger *slog.Logger) 
 	logger.Info("[DB] state table ready")
 
 	return db, nil
-}
-
-func loadRelays(ctx context.Context, db *database.DB, logger *slog.Logger) ([]relay.Row, error) {
-	relays, err := relay.UpsertRelaysAndLoad(ctx, db)
-	if err != nil {
-		logger.Error("[RELAY] failed to load", "error", err)
-		return nil, err
-	}
-
-	logger.Info("[RELAY] loaded active relays", "count", len(relays))
-	for _, r := range relays {
-		logger.Info("[RELAY] relay found", "id", r.ID, "url", r.URL)
-	}
-
-	return relays, nil
 }
 
 func getStartingBlockNumber(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, infuraRPC string, logger *slog.Logger) (int64, error) {
@@ -138,8 +125,8 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 		"timestamp", ei.Timestamp,
 		"proposer_index", safe(ei.ProposerIdx),
 		"winning_relay", safe(ei.RelayTag),
-		"builder_pubkey_prefix", safe(ei.BuilderHex),
-		"producer_reward_eth", safe(ei.RewardEth),
+		"builder_pubkey_prefix", safe(ei.BuilderPublicKey),
+		"mev_reward_eth", safe(ei.MevRewardEth),
 	)
 
 	if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
@@ -147,10 +134,13 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 		return lastBN
 	}
 	logger.Info("[DB] block saved successfully", "block", nextBN)
+	cfg := createOptionsFromCLI(c)
 
-	if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
-		logger.Error("failed to process bids", "error", err)
-		return lastBN
+	if cfg.RelayMode {
+		if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
+			logger.Error("failed to process bids", "error", err)
+			return lastBN
+		}
 	}
 	if err := launchValidatorTasks(ctx, c, db, httpc, ei, beaconBase, logger); err != nil {
 		logger.Error("[VALIDATOR] failed to launch async tasks", "slot", ei.Slot, "error", err)
@@ -162,68 +152,51 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 }
 
 func processBidsForBlock(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, ei *beacon.ExecInfo, logger *slog.Logger) error {
-
-	// Fetch and store bid data from all relays
-	totalBids := 0
-	successfulRelays := 0
-	const batchSize = 500
-	for _, rr := range relays {
-		if err := ctx.Err(); err != nil {
-			logger.Warn("main context canceled, stopping relay processing")
-			return err
-		}
-
-		bids, err := relay.FetchBuilderBlocksReceived(ctx, httpc, rr.URL, ei.Slot)
-		if err != nil {
-			// logger.Error("[RELAY] failed to fetch bids", "relay_id", rr.ID, "url", rr.URL, "error", err)
-			return fmt.Errorf("fetch bids: relay_id=%d url=%s slot=%d: %w", rr.ID, rr.URL, ei.Slot, err)
-
-		}
-
-		relayBids := 0
-		batch := make([]database.BidRow, 0, batchSize)
-
-		for _, bid := range bids {
-
+	logger.Info("[BIDS] processing bids for block", "block", ei.BlockNumber, "slot", ei.Slot)
+	var wg sync.WaitGroup
+	var totalBids int64
+	var successfulRelays int64
+	for _, r := range relays {
+		r := r
+		wg.Add(1)
+		go func(rel relay.Row) {
+			defer wg.Done()
 			if err := ctx.Err(); err != nil {
-				logger.Warn("[BIDS] main context canceled, stopping bid insertion")
-				return err
+				return
 			}
-
-			if row, ok := relay.BuildBidInsert(ei.Slot, rr.ID, bid); ok {
-				batch = append(batch, row)
-
-				if len(batch) >= batchSize {
-					insCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-					if err := db.InsertBidsBatch(insCtx, batch); err != nil {
-
-						logger.Error("[DB]batch insert failed", "slot", ei.Slot, "relay_id", rr.ID, "count", len(batch), "error", err)
-					} else {
-						relayBids += len(batch)
-					}
-					cancel()
-					batch = batch[:0]
+			bctx, bcancel := context.WithTimeout(ctx, 5*time.Second)
+			bids, berr := relay.FetchBuilderBlocksReceived(bctx, httpc, rel.URL, ei.Slot)
+			bcancel()
+			if berr != nil {
+				logger.Debug("bid fetch failed", "slot", ei.Slot, "relay", r.ID, "error", berr)
+				return
+			}
+			if len(bids) == 0 {
+				return
+			}
+			rows := make([]database.BidRow, 0, len(bids))
+			for _, bid := range bids {
+				if row, ok := relay.BuildBidInsert(ei.Slot, rel.ID, bid); ok {
+					rows = append(rows, row)
 				}
 			}
-		}
-
-		// final flush
-		if len(batch) > 0 {
-			flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			if err := db.InsertBidsBatch(flushCtx, batch); err != nil {
-				logger.Error("[DB] batch insert failed", "slot", ei.Slot, "relay_id", rr.ID, "count", len(batch), "error", err)
-			} else {
-				relayBids += len(batch)
+			if len(rows) > 0 {
+				insCtx, insCancel := context.WithTimeout(ctx, 5*time.Second)
+				if ierr := db.InsertBidsBatch(insCtx, rows); ierr != nil {
+					logger.Error("bid insert failed", "slot", ei.Slot, "relay", r.ID, "error", ierr)
+				}
+				insCancel()
 			}
-			flushCancel()
-		}
-
-		if relayBids > 0 {
-			logger.Info("[BIDS] bids collected", "relay_id", rr.ID, "count", relayBids)
-			totalBids += relayBids
-			successfulRelays++
-		}
+			atomic.AddInt64(&totalBids, int64(len(rows)))
+			atomic.AddInt64(&successfulRelays, 1)
+			logger.Info("[BIDS] ok",
+				"slot", ei.Slot, "relay_id", rel.ID,
+				"bids_in", len(bids), "rows_out", len(rows),
+			)
+		}(r)
 	}
+	wg.Wait()
+
 	logger.Info("[BIDS] summary", "block", ei.BlockNumber, "total_bids", totalBids, "successful_relays", successfulRelays)
 	return nil
 }
@@ -300,7 +273,24 @@ func startIndexer(c *cli.Context) error {
 		"block_interval", c.Duration("block-interval"),
 		"validator_delay", c.Duration("validator-delay"))
 	ctx := c.Context
-
+	var relays []relay.Row
+	if c.Bool(optionRelayFlag.Name) {
+		cfgRelays, err := config.ResolveRelays(c)
+		if err != nil {
+			return err
+		}
+		relays = make([]relay.Row, 0, len(cfgRelays))
+		for _, r := range cfgRelays {
+			relays = append(relays, relay.Row{ID: r.Relay_id, URL: r.URL})
+		}
+		initLogger.Info("[RELAY] enabled", "count", len(relays))
+	} else {
+		initLogger.Info("[RELAY] disabled")
+		relays = make([]relay.Row, 0, len(config.RelaysDefault))
+		for _, r := range config.RelaysDefault {
+			relays = append(relays, relay.Row{ID: r.Relay_id, URL: r.URL})
+		}
+	}
 	db, err := initializeDatabase(ctx, dbURL, initLogger)
 	if err != nil {
 		return err
@@ -314,12 +304,6 @@ func startIndexer(c *cli.Context) error {
 	// Initialize HTTP client
 	httpc := httputil.NewHTTPClient(c.Duration("http-timeout"))
 	initLogger.Info("[HTTP] client initialized", "timeout", c.Duration("http-timeout"))
-
-	// Load relay configurations
-	relays, err := loadRelays(ctx, db, initLogger)
-	if err != nil {
-		return err
-	}
 
 	// Get starting block number
 	lastBN, err := getStartingBlockNumber(ctx, db, httpc, infuraRPC, initLogger)
