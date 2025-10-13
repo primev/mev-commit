@@ -454,6 +454,8 @@ BID_LOOP:
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
+			t.clearBlockAttemptHistory(txn)
+			break BID_LOOP
 		case result.optedInSlot:
 			if result.noOfProviders == len(result.commitments) {
 				// This means that all builders have committed to the bid and it
