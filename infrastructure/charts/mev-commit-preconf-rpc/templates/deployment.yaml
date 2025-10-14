@@ -35,9 +35,7 @@ spec:
             {{- end }}
             - --keystore-dir={{ .Values.keystore.dir }}
             - --keystore-password=$(KEYSTORE_PASSWORD)
-            {{- range .Values.config.l1RpcUrls }}
-            - --l1-rpc-urls={{ . }}
-            {{- end }}
+            - --l1-rpc-urls={{ .Values.config.l1RpcUrls | join "," }}
             - --settlement-rpc-url={{ .Values.config.settlementRpcUrl }}
             - --bidder-rpc-url={{ .Values.config.bidderRpcUrl }}
             - --l1-contract-addr={{ .Values.config.l1ContractAddr }}
@@ -46,15 +44,22 @@ spec:
             - --bridge-address={{ .Values.config.bridgeAddress }}
             - --settlement-threshold={{ .Values.config.settlementThreshold }}
             - --settlement-topup={{ .Values.config.settlementTopup }}
-            - --auto-deposit-amount={{ .Values.config.autoDepositAmount }}
+            - --target-deposit-amount={{ .Values.config.targetDepositAmount }}
+            - --webhook-urls={{ .Values.config.webhookUrls | join "," }}            
             - --gas-tip-cap={{ .Values.config.gasTipCap }}
             - --gas-fee-cap={{ .Values.config.gasFeeCap }}
+            - --auth-token=$(AUTH_TOKEN)
           env:
             - name: KEYSTORE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "preconf-rpc.fullname" . }}-keystore-password
                   key: password
+            - name: AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "preconf-rpc.fullname" . }}-auth-token
+                  key: token
             - name: POSTGRES_PASSWORD
               value: {{ .Values.postgresql.password | quote }}
             - name: PRECONF_RPC_PG_HOST
