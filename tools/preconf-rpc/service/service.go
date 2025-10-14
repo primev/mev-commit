@@ -38,6 +38,8 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+const defaultMaxBodySize = 1 * 1024 * 1024 // 1 MB
+
 type Config struct {
 	Logger                 *slog.Logger
 	PgHost                 string
@@ -333,19 +335,29 @@ func New(config *Config) (*Service, error) {
 			Providers []string
 		}
 
-		var body fastTrackReq
+		var req fastTrackReq
 
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		r.Body = http.MaxBytesReader(w, r.Body, defaultMaxBodySize)
+		defer func() {
+			_ = r.Body.Close()
+		}()
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, fmt.Sprintf("failed to decode body: %v", err), http.StatusBadRequest)
 			return
 		}
 
-		allSlots = body.AllSlots
-		providers = make([]common.Address, 0, len(body.Providers))
-		for _, p := range body.Providers {
+		allSlots = req.AllSlots
+		providers = make([]common.Address, 0, len(req.Providers))
+		for _, p := range req.Providers {
 			if !common.IsHexAddress(p) {
 				http.Error(w, fmt.Sprintf("invalid provider address: %s", p), http.StatusBadRequest)
 				return
+			}
+			if slices.ContainsFunc(providers, func(addr common.Address) bool {
+				return addr.Cmp(common.HexToAddress(p)) == 0
+			}) {
+				continue
 			}
 			providers = append(providers, common.HexToAddress(p))
 		}
