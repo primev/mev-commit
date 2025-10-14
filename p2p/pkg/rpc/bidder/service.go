@@ -173,10 +173,22 @@ func (s *Service) SendBid(
 	)
 	switch {
 	case len(bid.TxHashes) > 0:
+		if bid.BidOptions != nil && len(bid.BidOptions.Options) > 0 {
+			for _, option := range bid.BidOptions.Options {
+				if option.GetShutterisedBidOption() != nil {
+					c := option.GetShutterisedBidOption()
+					if len(c.GetIdentityPrefix()) != 64 || len(c.GetEncryptedTx()) == 0 {
+						s.logger.Error("shutterised bid option identity prefix or encrypted tx is invalid", "option", option)
+						return status.Errorf(codes.InvalidArgument, "shutterised bid option identity prefix or encrypted tx is invalid")
+					}
+				}
+			}
+		}
 		txnsStr = strings.Join(stripPrefix(bid.TxHashes), ",")
 	case len(bid.RawTransactions) > 0:
 		strBuilder := new(strings.Builder)
 		for i, rawTx := range bid.RawTransactions {
+
 			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
 			if err != nil {
 				s.logger.Error("decoding raw transaction", "error", err)

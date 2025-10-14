@@ -458,6 +458,9 @@ definitions:
       positionConstraint:
         $ref: '#/definitions/bidderapiv1PositionConstraint'
         description: Position constraint for the transaction in the block.
+      shutterisedBidOption:
+        $ref: '#/definitions/bidderapiv1ShutterisedBidOption'
+        description: Shutterised bid option for the transaction in the block.
   bidderapiv1BidOptions:
     type: object
     properties:
@@ -556,6 +559,17 @@ definitions:
       - BASIS_PERCENTILE: Position is a percentile of the block size
        - BASIS_ABSOLUTE: Position is an absolute position in the block
        - BASIS_GAS_PERCENTILE: Position is a percentile of the gas used in the block
+  bidderapiv1ShutterisedBidOption:
+    type: object
+    properties:
+      identityPrefix:
+        type: string
+        description: Hex string encoding of the identity prefix of the transaction that the bidder wants to include in the block.
+        pattern: '[a-fA-F0-9]{64}'
+      encryptedTx:
+        type: string
+        description: Hex string encoding of the encrypted transaction that the bidder wants to include in the block.
+        pattern: '[a-fA-F0-9]{64}'
   googlerpcStatus:
     type: object
     properties:
