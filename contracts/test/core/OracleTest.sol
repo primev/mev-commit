@@ -260,7 +260,7 @@ contract OracleTest is Test {
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
         uint64 blockNumber = 12;
         uint64 bid = 200;
-        uint256 slashAmt = 0;
+        uint256 slashAmt = 200;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
 
@@ -308,8 +308,8 @@ contract OracleTest is Test {
 
         // Verify the provider’s stake decreased appropriately.
         assertEq(
-            providerRegistry.getProviderStake(provider) + ((bid * 55) / 100),
-            250 ether
+            providerRegistry.getProviderStake(provider),
+            250 ether - slashAmt - slashAmt / 10 // provider loses: slashAmt + 10%*slashAmt, see feePercent above
         );
     }
 
@@ -322,7 +322,7 @@ contract OracleTest is Test {
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
         uint64 blockNumber = 12;
         uint64 bid = 100;
-        uint256 slashAmt = 0;
+        uint256 slashAmt = 150;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
 
@@ -395,7 +395,7 @@ contract OracleTest is Test {
 
         assertEq(
             providerRegistry.getProviderStake(provider),
-            250 ether - ((bid * 110) / 100)
+            250 ether - slashAmt - slashAmt / 10 // single slash
         );
         assertEq(
             bidderRegistry.getProviderAmount(provider),
@@ -418,7 +418,7 @@ contract OracleTest is Test {
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
         uint64 blockNumber = 201;
         uint64 bid = 5;
-        uint256 slashAmt = 0;
+        uint256 slashAmt = 20;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
 
@@ -533,9 +533,10 @@ contract OracleTest is Test {
             bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.stopPrank();
+        uint256 amountLostPerSlash = slashAmt + slashAmt / 10; // slashAmt + 10%*slashAmt, see feePercent above
         assertEq(
             providerRegistry.getProviderStake(provider),
-            250 ether - bid * 4
+            250 ether - amountLostPerSlash * 4
         );
         assertEq(bidderRegistry.getProviderAmount(provider), 0);
     }

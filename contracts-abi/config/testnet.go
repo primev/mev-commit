@@ -5,11 +5,11 @@ import "math/big"
 var TestnetChainID = big.NewInt(141414)
 
 var TestnetContracts = Contracts{
-	BidderRegistry:    "0x948eCD70FaeF6746A30a00F30f8b9fB2659e4062",
-	ProviderRegistry:  "0x1C2a592950E5dAd49c0E2F3A402DCF496bdf7b67",
-	PreconfManager:    "0xa254D1A10777e358B0c2e945343664c7309A0D9d",
-	Oracle:            "0xCd27C2Dc26d37Bb17686F709Db438D3Dc546437C",
-	BlockTracker:      "0x0b3b6Cf113959214E313d6Ad37Ad56831acb1776",
+	BidderRegistry:    "0xf960f272e6Cb64b2BDe29c2174ce6BEA998Aa067",
+	ProviderRegistry:  "0xF62064943680487916558743c26D928Fb162cf5d",
+	PreconfManager:    "0x911B08cb805E737DE3ea4E2326CD951E9EfCe39A",
+	Oracle:            "0xedD0CCe91ac7e39E3Dda071881311858EC6d0085",
+	BlockTracker:      "0x535F5204cFc8A52297dFA3CBe572869b6294f88E",
 	SettlementGateway: "0xFaF6F0d4bbc7bC33a4b403b274aBb82d0E794202",
 }
 

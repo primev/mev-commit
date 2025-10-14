@@ -1,10 +1,14 @@
 genesis:
   accountGeneration:
     enabled: false
+    count: 10
+    balance: "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD4A51000FDA0FFFF"
+    password: "password123"
+    timestamp: "0x0"
   url: "https://storage.googleapis.com/devnet-artifacts/devnet-genesis/genesis.json"
 
 erigon:
-  networkId: 10025
+  networkId: 141414
   datadir: "/data/erigon"
   ports:
     http: 8545
@@ -12,6 +16,7 @@ erigon:
     authrpc: 8551
     metrics: 6061
     privateApi: 9095
+    p2p: 30303
   api:
     http:
       enabled: true
@@ -28,34 +33,74 @@ erigon:
       addr: "0.0.0.0"
   zeroFeeTxList:
     - "0x421657a89f467ac04c542e46645a7752e199b5e6"  # Contracts Deployer Keystore
-    - "0x1c533735c11dd317bc816629f86e00f479d097a3"  # Orcale Keystore
+    - "0x1c533735c11dd317bc816629f86e00f479d097a3"  # Oracle Keystore
     #- "0x929f3b326ea399cb953c18854733d6b894b9e819"  # Bridge Relayer Keystore
   pruneMode: "archive"
   nodiscover: true
   # Additional arguments to pass to erigon
-  extraArgs: []
-  # Example:
-  # extraArgs:
-  #   - "--trace.config=/path/to/trace.json"
-  #   - "--state.scheme=path"
+  extraArgs:
+    common: []  # Args applied to both leader and follower
+    leader:
+      - "--port=30303"
+    follower:
+      - "--port=30304"
+      - "--staticpeers=enode://674ce5dc5c6862ed6a91b32bbd196753a3ab329032a9a549a0cb3a20ab97da1ccae40ff6ef1bbab6e8bba62fc5924b9346354c5d63a5874522a2bc884c24a098@erigon-snode-leader-erigon.default.svc.cluster.local:30303"
+      - "--trustedpeers=enode://674ce5dc5c6862ed6a91b32bbd196753a3ab329032a9a549a0cb3a20ab97da1ccae40ff6ef1bbab6e8bba62fc5924b9346354c5d63a5874522a2bc884c24a098@erigon-snode-leader-erigon.default.svc.cluster.local:30303"
 
-snode:
-  instanceId: "snode1"
-  priorityFeeRecipient: "0xcEc94aeB187321262BA8Ae5BB0A9D79EAd56da92"
-  ports:
-    api: 9090
-    health: 8080
-  logLevel: "info"
-  # Additional arguments to pass to snode
-  extraArgs: []
-  # Example:
-  # extraArgs:
-  #   - "--metrics-enabled"
+consensus:
+  leader:
+    # Leader node configuration
+    instanceId: "snode-leader"
+    apiAddr: ":9090"                    # Address for member node API endpoint
+    healthAddr: ":8080"                 # Address for health check endpoint  
+    priorityFeeRecipient: "0xcEc94aeB187321262BA8Ae5BB0A9D79EAd56da92"  # Ethereum address for receiving priority fees
+    nonAuthRpcUrl: "http://localhost:8545"  # Non-authenticated Ethereum RPC URL
+    
+    # JWT secret for leader's Ethereum Execution client Engine API
+    jwtSecret: "32c2902cc88b19b1c775ffef7e67673f296beb2e610f93230b40e5ef822ae9d4"
+    
+    # EVM build configuration
+    evmBuildDelay: "1ms"                # Delay after initiating payload construction before calling getPayload
+    evmBuildDelayEmptyBlock: "1m0s"     # Minimum time since last block to build an empty block
+    txPoolPollingInterval: "5ms"        # Wait interval for polling the tx pool while there are no pending transactions
+    
+    # Database configuration (optional for leader)
+    postgresDb:
+      dsn: "postgres://mev_commit_consensus:FlYvDD9hwHwHn6c0ncXpEKXA6xefcZcJVqEjk7RSEeCMeZQbRr69p2sN6bjcQGi2@mev-commit-consensus-postgresql.default.svc.cluster.local:5432/mev_commit_consensus?sslmode=disable"  # PostgreSQL DSN - if empty, saving to DB is disabled
+    
+    # Logging configuration
+    logLevel: "info"     # Log level ('debug', 'info', 'warn', 'error')
+    logFmt: "text"       # Log format ('text' or 'json')
+    logTags: ""          # Comma-separated <name:value> log tags (e.g., env:prod,service:snode)
+    
+    # Additional arguments
+    extraArgs: []
 
-
-jwt:
-  token: "32c2902cc88b19b1c775ffef7e67673f296beb2e610f93230b40e5ef822ae9d4"
-
+  follower:
+    enabled: true
+    replicaCount: 1
+    
+    # Follower node configuration
+    instanceId: "snode-follower"
+    healthAddr: ":8080"                 # Address for health check endpoint
+    
+    # JWT secret for follower's Ethereum Execution client Engine API  
+    jwtSecret: "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c"
+    
+    # Database configuration (REQUIRED for followers)
+    postgresDb:
+      dsn: "postgres://mev_commit_consensus:FlYvDD9hwHwHn6c0ncXpEKXA6xefcZcJVqEjk7RSEeCMeZQbRr69p2sN6bjcQGi2@mev-commit-consensus-postgresql.default.svc.cluster.local:5432/mev_commit_consensus?sslmode=disable"  # REQUIRED: PostgreSQL DSN for follower
+    
+    # Sync configuration  
+    syncBatchSize: 100                  # Number of payloads per request to the EL during sync
+    
+    # Logging configuration
+    logLevel: "info"     # Log level ('debug', 'info', 'warn', 'error')
+    logFmt: "text"       # Log format ('text' or 'json')
+    logTags: ""          # Comma-separated <name:value> log tags (e.g., env:prod,service:snode)
+    
+    # Additional arguments
+    extraArgs: []
 
 image:
   erigon:
@@ -64,12 +109,12 @@ image:
     pullPolicy: IfNotPresent
   snode:
     repository: primev/primev
-    tag: amd64-erigon-v3.0.7-simplify-cl
+    tag: snode-consensus-v3.0.7-retry-fix
     pullPolicy: IfNotPresent
 
 storage:
   size: 100Gi
-  storageClassName: premium-rwo #erigon-hyperdisk-extreme (for testnet)
+  storageClassName: openebs-nvme-disk2
   accessMode: ReadWriteOnce
 
 security:
@@ -79,7 +124,7 @@ security:
   fsGroup: 0
 
 replicaCount: 1
-terminationGracePeriodSeconds: 60
+terminationGracePeriodSeconds: 300
 
 # Resource requests and limits
 resources:
@@ -107,7 +152,6 @@ initContainerResources:
     cpu: "1000m"
     memory: "1Gi"
 
-
 service:
   erigon:
     type: LoadBalancer
@@ -116,95 +160,91 @@ service:
       ws: 8546
       authrpc: 8551
       metrics: 6061
-    # Custom selector for erigon service - if provided, overrides default selector
     customSelector: {}
-    # Example:
-    # customSelector:
-    #   app: erigon
-    #   version: v1.0.0
   snode:
     type: ClusterIP
     ports:
       api: 9090
       health: 8080
-    # Custom selector for snode service - if provided, overrides default selector  
     customSelector: {}
-    # Example:
-    # customSelector:
-    #   app: snode
-    #   component: consensus-layer
 
-#nodeSelector:
-#   workload-type: erigon
-
-
+nodeSelector: {}
 tolerations: []
-# Example:
-# tolerations:
-#   - key: "erigon-dedicated"
-#     operator: "Equal"
-#     value: "true"
-#     effect: "NoSchedule"
-#   - key: "node.kubernetes.io/disk-pressure"
-#     operator: "Exists"
-#     effect: "NoSchedule"
-
 affinity: {}
-# Example:
-# affinity:
-#   nodeAffinity:
-#     requiredDuringSchedulingIgnoredDuringExecution:
-#       nodeSelectorTerms:
-#       - matchExpressions:
-#         - key: node-type
-#           operator: In
-#           values:
-#           - high-memory
-#     preferredDuringSchedulingIgnoredDuringExecution:
-#     - weight: 100
-#       preference:
-#         matchExpressions:
-#         - key: zone
-#           operator: In
-#           values:
-#           - zone-1
-#   podAntiAffinity:
-#     preferredDuringSchedulingIgnoredDuringExecution:
-#     - weight: 100
-#       podAffinityTerm:
-#         labelSelector:
-#           matchExpressions:
-#           - key: app.kubernetes.io/name
-#             operator: In
-#             values:
-#             - erigon-snode
-#         topologyKey: kubernetes.io/hostname
-
 topologySpreadConstraints: []
-# Example:
-# topologySpreadConstraints:
-#   - maxSkew: 1
-#     topologyKey: topology.kubernetes.io/zone
-#     whenUnsatisfiable: DoNotSchedule
-#     labelSelector:
-#       matchLabels:
-#         app.kubernetes.io/name: erigon-snode
-
-
-# podDisruptionBudget:
-#   enabled: false
-#   minAvailable: 1
-#   maxUnavailable: 1
 
 # Additional labels for StatefulSet
 additionalLabels: {}
-# Example:
-# additionalLabels:
-#   environment: production
-#   team: blockchain
-#   version: v1.0.0
 
 ingress:
-  enabled: false
-
-
+  enabled: true
+  className: "nginx"
+  
+  # Leader RPC Configuration
+  rpc:
+    host: dev-test.mev-commit.xyz
+    path: /
+    pathType: Prefix
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "1200"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "1200"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  
+  # Leader WebSocket Configuration  
+  websocket:
+    host: dev-test-wss.mev-commit.xyz
+    path: /
+    pathType: Prefix
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "36h00"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+      nginx.ingress.kubernetes.io/proxy-set-headers: |
+        Connection "upgrade"
+        Upgrade $http_upgrade
+  
+  # TLS Configuration
+  tls:
+    secretName: mev-commit-tls
+  
+  # Follower ingress (when follower.enabled=true)
+  follower:
+    enabled: false  # Set to true to expose follower via ingress
+    
+    rpc:
+      host: "test-dev.mev-commit.xyz"
+      path: /
+      pathType: Prefix
+      annotations:
+        nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "1200"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "1200"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    
+    websocket:
+      host: "test-dev.mev-commit.xyz"
+      path: /
+      pathType: Prefix
+      annotations:
+        nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "36h00"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+        nginx.ingress.kubernetes.io/proxy-set-headers: |
+          Connection "upgrade"
+          Upgrade $http_upgrade
+    
+    tls:
+      secretName: "mev-commit-tls"

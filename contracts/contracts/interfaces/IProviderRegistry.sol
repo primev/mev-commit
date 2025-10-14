@@ -39,13 +39,15 @@ interface IProviderRegistry {
     /// @dev Event emitted when a BLS key is added
     event BLSKeyAdded(address indexed provider, bytes blsPublicKey);
 
+    /// @dev Event emitted when a BLS key is removed
+    event BLSKeyRemoved(address indexed provider, bytes blsPublicKey);
+
     /// @dev Event emitted when there are insufficient funds to slash
     event InsufficientFundsToSlash(
         address indexed provider,
         uint256 providerStake,
-        uint256 residualAmount,
         uint256 penaltyFee,
-        uint256 slashAmt
+        uint256 bidderPortion
     );
 
     /// @dev Event emitted when transfer to bidder fails
@@ -67,6 +69,8 @@ interface IProviderRegistry {
     error InsufficientStake(uint256 stake, uint256 minStake);
     error InvalidBLSPublicKeyLength(uint256 length, uint256 expectedLength);
     error ProviderNotRegistered(address sender);
+    error BLSKeyAlreadyExists(bytes blsPublicKey);
+    error BLSKeyDoesNotExist(bytes blsPublicKey);
     error AtLeastOneBLSKeyRequired();
     error PendingWithdrawalRequest(address sender);
     error BidderAmountIsZero(address sender);
@@ -80,11 +84,9 @@ interface IProviderRegistry {
     function stake() external payable;
 
     function slash(
-        uint256 amt,
         uint256 slashAmt,
         address provider,
-        address payable bidder,
-        uint256 residualBidPercentAfterDecay
+        address payable bidder
     ) external;
 
     function addVerifiedBLSKey(bytes calldata blsPublicKey, bytes calldata signature) external;

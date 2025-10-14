@@ -39,12 +39,13 @@ contract ProviderRegistryTest is Test {
     event InsufficientFundsToSlash(
         address indexed provider,
         uint256 providerStake,
-        uint256 residualAmt,
         uint256 penaltyFee,
         uint256 slashAmt
     );
     event FundsSlashed(address indexed provider, uint256 totalSlash);
     event TransferToBidderFailed(address indexed bidder, uint256 amount);
+    event BLSKeyAdded(address indexed provider, bytes blsPublicKey);
+    event BLSKeyRemoved(address indexed provider, bytes blsPublicKey);
 
     function setUp() public {
         address BLS_VERIFY_ADDRESS = address(0xf0);
@@ -52,7 +53,7 @@ contract ProviderRegistryTest is Test {
         vm.etch(BLS_VERIFY_ADDRESS, code);
 
         testNumber = 42;
-        feePercent = 10 * 1e16;
+        feePercent = 10 * 1e16; // 10%
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         withdrawalDelay = 24 hours; // 24 hours
@@ -289,7 +290,7 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(4);
 
         vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
-        providerRegistry.slash(1 ether, 0, provider, payable(bidder), 1e18);
+        providerRegistry.slash(1 ether, provider, payable(bidder));
 
         assertEq(bidder.balance, 1000000000000000000 wei);
         assertEq(
@@ -313,10 +314,8 @@ contract ProviderRegistryTest is Test {
         vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
         providerRegistry.slash(
             1 ether,
-            0,
             provider,
-            payable(bidder),
-            providerRegistry.ONE_HUNDRED_PERCENT()
+            payable(bidder)
         );
 
         assertEq(bidder.balance, 1000000000000000000 wei);
@@ -329,14 +328,11 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}();
 
         address bidder = vm.addr(4);
-        uint256 residualBidPercentAfterDecay = providerRegistry.ONE_HUNDRED_PERCENT();
         vm.expectRevert();
         providerRegistry.slash(
-            1 ether,
             0,
             provider,
-            payable(bidder),
-            residualBidPercentAfterDecay
+            payable(bidder)
         );
     }
 
@@ -351,18 +347,21 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(4);
         vm.prank(address(this));
 
+        uint256 bidderBefore = bidder.balance;
+
+        uint256 slashAmt = 3 ether; // greater than provider stake
+
         vm.expectEmit(true, true, true, true);
-        emit InsufficientFundsToSlash(provider, 2 ether, 3 ether, 0.3 ether, 0);
+        emit InsufficientFundsToSlash(provider, 2 ether, 0.3 ether, slashAmt);
         providerRegistry.slash(
-            3 ether,
-            0,
+            slashAmt,
             provider,
-            payable(bidder),
-            providerRegistry.ONE_HUNDRED_PERCENT()
+            payable(bidder)
         );
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
         assertEq(providerRegistry.providerStakes(provider), 0 ether);
+        assertEq(bidder.balance - bidderBefore, 2 ether); // bidder should receive the entire provider stake
     }
 
     function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStakePenaltyNotCovered()
@@ -378,18 +377,21 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(4);
         vm.prank(address(this));
 
+        uint256 bidderBefore = bidder.balance;
+
+        uint256 slashAmt = 3 ether;
+
         vm.expectEmit(true, true, true, true);
-        emit InsufficientFundsToSlash(provider, 3 ether, 3 ether, 0.3 ether, 0);
+        emit InsufficientFundsToSlash(provider, 3 ether, 0.3 ether, slashAmt);
         providerRegistry.slash(
-            3 ether,
-            0,
+            slashAmt,
             provider,
-            payable(bidder),
-            providerRegistry.ONE_HUNDRED_PERCENT()
+            payable(bidder)
         );
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
         assertEq(providerRegistry.providerStakes(provider), 0 ether);
+        assertEq(bidder.balance - bidderBefore, 3 ether); // bidder should receive the entire provider stake
     }
 
     function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStakePenaltyNotFullyCovered()
@@ -405,24 +407,26 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(4);
         vm.prank(address(this));
 
+        uint256 bidderBefore = bidder.balance;
+
+        uint256 slashAmt = 3 ether;
+
         vm.expectEmit(true, true, true, true);
         emit InsufficientFundsToSlash(
             provider,
             3.1 ether,
-            3 ether,
             0.3 ether,
-            0
+            slashAmt
         );
         providerRegistry.slash(
-            3 ether,
-            0,
+            slashAmt,
             provider,
-            payable(bidder),
-            providerRegistry.ONE_HUNDRED_PERCENT()
+            payable(bidder)
         );
 
-        assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0.1 ether);
+        assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0.1 ether); // Only part of the penalty fee is covered
         assertEq(providerRegistry.providerStakes(provider), 0 ether);
+        assertEq(bidder.balance - bidderBefore, 3 ether); // bidder should receive the entire provider stake
     }
 
     function test_PenaltyFeeBehavior() public {
@@ -435,16 +439,16 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}();
 
         providerRegistry.setPreconfManager(address(this));
+        uint256 slashAmt = 1e18 wei;
         providerRegistry.slash(
-            1e18 wei,
-            0,
+            slashAmt,
             provider,
-            payable(bidder),
-            50 * providerRegistry.PRECISION()
+            payable(bidder)
         );
+
         assertEq(
             providerRegistry.getAccumulatedPenaltyFee(),
-            5e16 wei,
+            slashAmt / 10, // since feePercent is 10%
             "FeeRecipientAmount should match"
         );
 
@@ -458,11 +462,9 @@ contract ProviderRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit FeeTransfer(1e17 wei, vm.addr(6));
         providerRegistry.slash(
-            1e18 wei,
-            0,
+            0, // slashAmt is zero
             newProvider,
-            payable(bidder),
-            50 * providerRegistry.PRECISION()
+            payable(bidder)
         );
 
         assertEq(
@@ -472,7 +474,7 @@ contract ProviderRegistryTest is Test {
         );
         assertEq(
             vm.addr(6).balance,
-            1e17 wei,
+            slashAmt / 10,
             "FeeRecipient should have received 1e17 wei"
         );
     }
@@ -481,7 +483,6 @@ contract ProviderRegistryTest is Test {
         providerRegistry.setNewPenaltyFeeRecipient(address(0));
         address newProvider = vm.addr(8);
         address bidder = vm.addr(9);
-        uint256 percent = providerRegistry.ONE_HUNDRED_PERCENT();
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
@@ -490,10 +491,8 @@ contract ProviderRegistryTest is Test {
         vm.prank(address(preconfManager));
         providerRegistry.slash(
             1e18 wei,
-            0,
             newProvider,
-            payable(bidder),
-            percent
+            payable(bidder)
         );
         vm.prank(newProvider);
         providerRegistry.unstake();
@@ -581,7 +580,6 @@ contract ProviderRegistryTest is Test {
     function test_WithdrawStakedAmount() public {
         address newProvider = vm.addr(8);
         address bidder = vm.addr(9);
-        uint256 percent = providerRegistry.ONE_HUNDRED_PERCENT();
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
@@ -590,10 +588,8 @@ contract ProviderRegistryTest is Test {
         vm.prank(address(preconfManager));
         providerRegistry.slash(
             1e18 wei,
-            0,
             newProvider,
-            payable(bidder),
-            percent
+            payable(bidder)
         );
         vm.prank(newProvider);
         providerRegistry.unstake();
@@ -685,21 +681,16 @@ contract ProviderRegistryTest is Test {
         uint256 initialStake = providerRegistry.getProviderStake(testProvider);
 
         // With the parameters below:
-        //   amt = 1 ether
-        //   slashAmt = 0
-        //   residualBidPercentAfterDecay = ONE_HUNDRED_PERCENT
+        //   slashAmt = 1 ether
         // we have:
-        //   residualAmt = 1 ether,
-        //   penaltyFee = (1 ether * feePercent / ONE_HUNDRED_PERCENT) (e.g. 0.1 ether for feePercent = 10*1e16),
+        //   penaltyFee = 0.1 ether,
         //   bidderPortion = 1 ether,
-        //   totalSlash = 1 ether + penaltyFee.
+        //   totalSlash = 1 ether + 0.1 ether.
         vm.prank(address(this));
         providerRegistry.slash(
             1 ether,
-            0,
             testProvider,
-            payable(revertingBidder),
-            providerRegistry.ONE_HUNDRED_PERCENT()
+            payable(revertingBidder)
         );
 
         assertEq(
@@ -739,63 +730,57 @@ contract ProviderRegistryTest is Test {
         emit FundsSlashed(testProvider, expectedTotalSlash);
         providerRegistry.slash(
             1 ether,
-            0,
             testProvider,
-            payable(bidder),
-            providerRegistry.ONE_HUNDRED_PERCENT()
+            payable(bidder)
         );
     }
 
     /// @dev Test the branch where providerStake is less than bidderPortion.
     /// In this case, with:
-    ///   - amt = 1 ether,
-    ///   - slashAmt = 0.5 ether, and
-    ///   - residualBidPercentAfterDecay = ONE_HUNDRED_PERCENT,
+    ///   - slashAmt = 0.5 ether,
     /// we have:
-    ///   residualAmt = 1 ether,
-    ///   penaltyFee = (1 ether * feePercent)/ONE_HUNDRED_PERCENT (≈0.1 ether for feePercent = 10%),
-    ///   bidderPortion = 1 ether + 0.5 ether = 1.5 ether, and
-    ///   totalSlash = 1.5 + 0.1 = 1.6 ether.
-    /// If we register the provider with a stake less than bidderPortion (e.g. 1.4 ether),
+    ///   penaltyFee = 0.05 ether,
+    ///   bidderPortion = 0.5 ether,
+    ///   totalSlash = 0.5 ether + 0.05 ether = 0.55 ether.
+    /// If we register the provider with a stake less than bidderPortion (e.g. 0.4 ether),
     /// the branch sets bidderPortion to the entire stake and penaltyFee to 0.
     function test_SlashInsufficientFunds_Branch1() public {
         providerRegistry.setPreconfManager(address(this));
 
+        vm.prank(address(this));
+        providerRegistry.setMinStake(0.4 ether);
+
         address testProvider = vm.addr(400);
         vm.deal(testProvider, 3 ether);
         vm.prank(testProvider);
-        providerRegistry.registerAndStake{value: 1.4 ether}();
+        providerRegistry.registerAndStake{value: 0.4 ether}();
 
         address bidder = vm.addr(401);
         uint256 initialBidderBalance = bidder.balance;
 
-        uint256 feePercentValue = providerRegistry.feePercent();
-        uint256 residualAmt = 1 ether;
-        uint256 expectedInitialPenaltyFee = (residualAmt * feePercentValue) /
-            providerRegistry.ONE_HUNDRED_PERCENT(); // ≈0.1 ether
         uint256 slashAmt = 0.5 ether;
+        uint256 feePercentValue = providerRegistry.feePercent();
+        uint256 expectedPenaltyFee = (slashAmt * feePercentValue) /
+            providerRegistry.ONE_HUNDRED_PERCENT(); // ≈0.05 ether
 
         vm.startPrank(address(this));
         vm.expectEmit(true, true, true, true);
         emit InsufficientFundsToSlash(
             testProvider,
-            1.4 ether,
-            residualAmt,
-            expectedInitialPenaltyFee,
+            0.4 ether,
+            expectedPenaltyFee,
             slashAmt
         );
         providerRegistry.slash(
-            1 ether, // amt
-            slashAmt, // slashAmt = 0.5 ether
+            slashAmt,
             testProvider,
-            payable(bidder),
-            providerRegistry.ONE_HUNDRED_PERCENT()
+            payable(bidder)
         );
         vm.stopPrank();
 
         // In this branch, the code sets:
-        //   bidderPortion = providerStake (1.4 ether),
-        //   penaltyFee = 0, and totalSlash = 1.4 ether.
+        //   bidderPortion = providerStake (0.4 ether),
+        //   penaltyFee = 0, and totalSlash = 0.4 ether.
         // Thus, provider stake should drop to zero.
         assertEq(
             providerRegistry.providerStakes(testProvider),
@@ -803,11 +788,11 @@ contract ProviderRegistryTest is Test {
             "Provider stake should be 0"
         );
 
-        // The bidder receives the entire (adjusted) bidderPortion (1.4 ether).
+        // The bidder receives the entire (adjusted) bidderPortion (0.4 ether).
         assertEq(
             bidder.balance - initialBidderBalance,
-            1.4 ether,
-            "Bidder should receive 1.4 ether"
+            0.4 ether,
+            "Bidder should receive 0.4 ether"
         );
 
         // The accumulated penalty fee should remain unchanged (0).
@@ -820,14 +805,11 @@ contract ProviderRegistryTest is Test {
 
     /// @dev Test the branch where providerStake is at least bidderPortion but still less than totalSlash.
     /// For inputs:
-    ///   - amt = 1 ether,
-    ///   - slashAmt = 0.5 ether, and
-    ///   - residualBidPercentAfterDecay = ONE_HUNDRED_PERCENT,
+    ///   - slashAmt = 1.5 ether, and
     /// we get:
-    ///   residualAmt = 1 ether,
-    ///   penaltyFee = (1 ether * feePercent)/ONE_HUNDRED_PERCENT (≈0.1 ether),
-    ///   bidderPortion = 1 ether + 0.5 ether = 1.5 ether,
-    ///   totalSlash = 1.6 ether.
+    ///   penaltyFee = (1.5 ether * feePercent)/ONE_HUNDRED_PERCENT (≈0.15 ether),
+    ///   bidderPortion = 1.5 ether,
+    ///   totalSlash = 1.5 ether + 0.15 ether = 1.65 ether.
     /// By registering a provider with 1.55 ether (which is ≥ bidderPortion but less than totalSlash),
     /// the code subtracts bidderPortion (1.5 ether), then finds leftover = 0.05 ether (which is less than penaltyFee),
     /// so it sets penaltyFee = leftover (0.05 ether) and totalSlash = 1.5 + 0.05 = 1.55 ether.
@@ -843,26 +825,22 @@ contract ProviderRegistryTest is Test {
         uint256 initialBidderBalance = bidder.balance;
 
         uint256 feePercentValue = providerRegistry.feePercent();
-        uint256 residualAmt = 1 ether;
-        uint256 expectedInitialPenaltyFee = (residualAmt * feePercentValue) /
-            providerRegistry.ONE_HUNDRED_PERCENT(); // ≈0.1 ether
-        uint256 slashAmt = 0.5 ether;
+        uint256 slashAmt = 1.5 ether;
+        uint256 expectedInitialPenaltyFee = (slashAmt * feePercentValue) /
+            providerRegistry.ONE_HUNDRED_PERCENT(); // ≈0.15 ether
 
         vm.startPrank(address(this));
         vm.expectEmit(true, true, true, true);
         emit InsufficientFundsToSlash(
             testProvider,
             1.55 ether,
-            residualAmt,
             expectedInitialPenaltyFee,
             slashAmt
         );
         providerRegistry.slash(
-            1 ether, // amt
-            slashAmt, // slashAmt = 0.5 ether
+            slashAmt,
             testProvider,
-            payable(bidder),
-            providerRegistry.ONE_HUNDRED_PERCENT()
+            payable(bidder)
         );
         vm.stopPrank();
 
@@ -890,5 +868,109 @@ contract ProviderRegistryTest is Test {
             0.05 ether,
             "Penalty fee should be 0.05 ether"
         );
+    }
+
+    function test_OverrideAddBLSKey() public {
+        address testProvider = vm.addr(420);
+        vm.deal(testProvider, 3 ether);
+        vm.prank(testProvider);
+        providerRegistry.registerAndStake{value: 2 ether}();
+
+        bytes memory newBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyAdded(testProvider, newBLSKey);
+        providerRegistry.overrideAddBLSKey(testProvider, newBLSKey);
+
+        bytes[] memory storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 1, "Should have 1 BLS key");
+        assertEq(storedBLSKeys[0], newBLSKey, "BLS key should match");
+
+        address mappedProvider = providerRegistry.getEoaFromBLSKey(newBLSKey);
+        assertEq(mappedProvider, testProvider, "BLS key should map to correct provider");
+    }
+
+    function test_RevertWhen_OverrideAddBLSKey_NotOwner() public {
+        address testProvider = vm.addr(421);
+        vm.deal(testProvider, 3 ether);
+        vm.prank(testProvider);
+        providerRegistry.registerAndStake{value: 2 ether}();
+
+        bytes memory newBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        vm.prank(testProvider);
+        vm.expectRevert(); // Not owner
+        providerRegistry.overrideAddBLSKey(testProvider, newBLSKey);
+    }
+
+    function test_RevertWhen_OverrideAddBLSKey_ProviderNotRegistered() public {
+        address unregisteredProvider = vm.addr(422);
+        bytes memory newBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        vm.prank(address(this));
+        vm.expectRevert(abi.encodeWithSelector(IProviderRegistry.ProviderNotRegistered.selector, unregisteredProvider));
+        providerRegistry.overrideAddBLSKey(unregisteredProvider, newBLSKey);
+    }
+
+    function test_OverrideAddBLSKey_MultipleKeys() public {
+        address testProvider = vm.addr(423);
+        vm.deal(testProvider, 3 ether);
+        vm.prank(testProvider);
+        vm.expectEmit(true, true, true, true);
+        emit ProviderRegistered(testProvider, 2 ether);
+        providerRegistry.registerAndStake{value: 2 ether}();
+
+        bytes memory firstBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+        
+        vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyAdded(testProvider, firstBLSKey);
+        providerRegistry.overrideAddBLSKey(testProvider, firstBLSKey);
+
+        bytes memory secondBLSKey = hex"a0000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+        
+        vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyAdded(testProvider, secondBLSKey);
+        providerRegistry.overrideAddBLSKey(testProvider, secondBLSKey);
+
+        bytes[] memory storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 2, "Should have 2 BLS keys");
+
+        assertEq(providerRegistry.getEoaFromBLSKey(firstBLSKey), testProvider, "First BLS key should map to provider");
+        assertEq(providerRegistry.getEoaFromBLSKey(secondBLSKey), testProvider, "Second BLS key should map to provider");
+    }
+
+    function test_OverrideRemoveBLSKey_MultipleKeys() public {
+        test_OverrideAddBLSKey_MultipleKeys();
+
+        address testProvider = vm.addr(423);
+        bytes memory firstBLSKey = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+        bytes memory secondBLSKey = hex"a0000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+
+        bytes[] memory storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 2, "Should have 2 BLS keys before removal");
+
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyRemoved(testProvider, secondBLSKey);
+        vm.prank(address(this));
+        providerRegistry.overrideRemoveBLSKey(testProvider, secondBLSKey);
+
+        storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 1, "Should have 1 BLS key after removing one");
+        assertEq(providerRegistry.getEoaFromBLSKey(secondBLSKey), address(0), "Removed BLS key should not map to any provider");
+
+        assertEq(providerRegistry.getEoaFromBLSKey(firstBLSKey), testProvider, "First BLS key should still map to provider");
+
+        vm.expectEmit(true, true, true, true);
+        emit BLSKeyRemoved(testProvider, firstBLSKey);
+        vm.prank(address(this));
+        providerRegistry.overrideRemoveBLSKey(testProvider, firstBLSKey);
+
+        storedBLSKeys = providerRegistry.getBLSKeys(testProvider);
+        assertEq(storedBLSKeys.length, 0, "Should have 0 BLS keys after removing both");
+        assertEq(providerRegistry.getEoaFromBLSKey(firstBLSKey), address(0), "Removed BLS key should not map to any provider");
+        assertEq(providerRegistry.getEoaFromBLSKey(secondBLSKey), address(0), "Removed BLS key should not map to any provider");
     }
 }

@@ -617,11 +617,6 @@
         "name": "commitmentIndex",
         "type": "bytes32",
         "internalType": "bytes32"
-      },
-      {
-        "name": "residualBidPercentAfterDecay",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "outputs": [],

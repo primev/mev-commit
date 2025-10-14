@@ -6,19 +6,27 @@ global:
     disabled: false
     selfSigned: true
 
+  # Contract addresses
   contracts:
-    bidderRegistry: "0x00000000000000000000000000000000000000"
-    blockTracker: "0x00000000000000000000000000000000000000"
-    # oracle: "0x00000000000000000000000000000000000000"
-    preconfStore: "0x00000000000000000000000000000000000000"
-    providerRegistry: "0x00000000000000000000000000000000000000"
+    bidderRegistry: "0x6092Da89AEbC654436e040Aaae155f9ABFC78AD5"
+    blockTracker: "0xD56D08FcDB654C110C2b4951b5D0eE20ad982320"
+    # oracle: "0xB241520A1a049e16Dd9193B1FCE23cB458f1f676"
+    preconfStore: "0xD1306A917EF2c1915209de38F2860300DE83835d" 
+    providerRegistry: "0x4cbDB65b9a8B742f4d77d7E6C5cf5C616dF0fa73"
+    #validatorRouter: "0x6c7A44A9A1836EF14129261D23166F7BD0196fb8"
 
+  # Gas settings for transactions
+  gas:
+    limit: "2000000"
+    tipCap: "50000000"
+    feeCap: "60000000"
 
   # RPC endpoints
   rpc:
-    settlementEndpoint: ""
-    settlementWsEndpoint: ""
-    l1Endpoint: "" # mock L1
+    settlementEndpoint: "http://erigon-snode-leader-erigon.default.svc.cluster.local:8545"
+    settlementWsEndpoint: "ws://erigon-snode-leader-erigon.default.svc.cluster.local:8546"
+    l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
+
  
 node:
   type: "bidder"
@@ -36,7 +44,7 @@ node:
   defaultKeystorePassword: "CXBMf4xEDO0I"
   defaultP2PSecret: ""
 
-  bootnodeConnectionString: "/ip4/109.94.98.75/tcp/13522/p2p/16Uiu2HAmBEYHm37swRU5aphvX7AXxtpFE6kGCkWvgBoRML4FtmyW"
+  bootnodeConnectionString: "/ip4/45.250.253.23/tcp/13522/p2p/16Uiu2HAmKxA6EYiYo6EUo91uAATGmMKjNydKVXhP2gTW6jPvyHN7"
   resources:
     limits:
       cpu: 6000m

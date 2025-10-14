@@ -276,7 +276,7 @@ func NewNode(opts *Options) (*Node, error) {
 		txmonitor.NewEVMHelperWithLogger(contractRPC, opts.Logger.With("component", "txmonitor"), contracts),
 		txnStore,
 		opts.Logger.With("component", "txmonitor"),
-		1024,
+		2048,
 	)
 	startables = append(
 		startables,
@@ -927,6 +927,7 @@ type noOpBidProcessor struct{}
 func (noOpBidProcessor) ProcessBid(
 	_ context.Context,
 	_ *preconfpb.Bid,
+	_ common.Address,
 ) (chan providerapi.ProcessedBidResponse, error) {
 	statusC := make(chan providerapi.ProcessedBidResponse, 5)
 	statusC <- providerapi.ProcessedBidResponse{Status: providerapiv1.BidResponse_STATUS_ACCEPTED, DispatchTimestamp: time.Now().UnixMilli()}

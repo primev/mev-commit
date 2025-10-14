@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: primev/primev
-  tag:
+  tag: "rc-1.2.0-mev-commit-dashboard"
   pullPolicy: Always
 
 nameOverride: ""
@@ -42,18 +42,18 @@ resources:
     cpu: "100m"
     memory: "50Mi"
   limits:
-    cpu: "500m"
-    memory: "100Mi"
+    cpu: "1000m"
+    memory: "256Mi"
 
 # Configuration for the Dashboard
 config:
-  rpcUrl: "ws://<settlement-rpc>:8546"
+  rpcUrl: "ws://erigon-snode-leader-erigon.default.svc.cluster.local:8546"
   httpPort: "8080"
   startBlock: "0"
   logFormat: "json"
   logLevel: "info"
-  bidderregistryContractAddr: ""
-  blocktrackerContractAddr: ""
-  oracleContractAddr: ""
-  preconfContractAddr: ""
-  providerregistryContractAddr: ""
+  bidderregistryContractAddr: "0x6092Da89AEbC654436e040Aaae155f9ABFC78AD5"
+  blocktrackerContractAddr: "0xD56D08FcDB654C110C2b4951b5D0eE20ad982320"
+  oracleContractAddr: "0x6b40dd5e7Bc93EA6802c9294eC2c29Cc360cfd16"
+  preconfContractAddr: "0xD1306A917EF2c1915209de38F2860300DE83835d"
+  providerregistryContractAddr: "0x4cbDB65b9a8B742f4d77d7E6C5cf5C616dF0fa73"

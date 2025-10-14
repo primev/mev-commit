@@ -5,15 +5,15 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
 	"github.com/primev/mev-commit/cl/types" // Import shared types
 )
 
 // PostgresRepository implements the types.PayloadRepository interface using PostgreSQL.
 type PostgresRepository struct {
-	db     *sql.DB
+	pool   *pgxpool.Pool
 	logger *slog.Logger
 }
 
@@ -22,22 +22,23 @@ type PostgresRepository struct {
 func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger) (*PostgresRepository, error) {
 	l := logger.With("component", "PostgresRepository")
 
-	db, err := sql.Open("postgres", dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	cfg.MaxConns = 25
+	cfg.MaxConnLifetime = 0
+	cfg.MaxConnIdleTime = 0
 
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if err := db.PingContext(pingCtx); err != nil {
-		err := db.Close()
-		if err != nil {
-			l.Error("Failed to close database connection after error", "error", err)
-		}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create postgres connection pool: %w", err)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		l.Error("Failed to close database connection after error", "error", err)
 		return nil, fmt.Errorf("failed to ping postgres: %w", err)
 	}
 
@@ -45,7 +46,7 @@ func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger)
 	schemaCreationQuery := `
 		CREATE TABLE IF NOT EXISTS execution_payloads (
 			id SERIAL PRIMARY KEY,
-			payload_id VARCHAR(66) UNIQUE NOT NULL, -- e.g., 0x... (32 bytes hex + 0x prefix)
+			payload_id VARCHAR(66) NOT NULL, -- e.g., 0x... (32 bytes hex + 0x prefix)
 			raw_execution_payload TEXT NOT NULL,
 			block_height BIGINT NOT NULL,
 			inserted_at TIMESTAMPTZ DEFAULT NOW(),
@@ -58,17 +59,30 @@ func NewPostgresRepository(ctx context.Context, dsn string, logger *slog.Logger)
 		CREATE INDEX IF NOT EXISTS idx_block_height ON execution_payloads(block_height);
 		CREATE INDEX IF NOT EXISTS idx_inserted_at ON execution_payloads(inserted_at);
 	`
-	execCtx, execCancel := context.WithTimeout(ctx, 10*time.Second)
-	defer execCancel()
-	if _, err := db.ExecContext(execCtx, schemaCreationQuery); err != nil {
-		err := db.Close()
-		if err != nil {
-			l.Error("Failed to close database connection after error", "error", err)
-		}
+	if _, err := pool.Exec(ctx, schemaCreationQuery); err != nil {
+		pool.Close()
+		l.Error("Failed to close database connection after error", "error", err)
 		return nil, fmt.Errorf("failed to create execution_payloads table: %w", err)
 	}
 	l.Info("Successfully connected to PostgreSQL and ensured table exists.")
-	return &PostgresRepository{db: db, logger: l}, nil
+	return &PostgresRepository{pool: pool, logger: l}, nil
+}
+
+func NewPostgresFollower(ctx context.Context, dsn string, logger *slog.Logger) (*PostgresRepository, error) {
+	l := logger.With("component", "postgresFollower")
+
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to ping postgres: %w", err)
+	}
+
+	l.Info("Connected to PostgreSQL")
+	return &PostgresRepository{pool: pool, logger: l}, nil
 }
 
 // SavePayload saves the payload information to the database.
@@ -76,31 +90,32 @@ func (r *PostgresRepository) SavePayload(ctx context.Context, info *types.Payloa
 	query := `
 		INSERT INTO execution_payloads (payload_id, raw_execution_payload, block_height)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (payload_id) DO NOTHING;
-	` // ON CONFLICT DO NOTHING will silently ignore duplicates by payload_id
+		ON CONFLICT (block_height) DO UPDATE
+		SET payload_id = EXCLUDED.payload_id,
+		    raw_execution_payload = EXCLUDED.raw_execution_payload,
+		    inserted_at = NOW();
+	`
 
-	insertCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	result, err := r.db.ExecContext(insertCtx, query, info.PayloadID, info.ExecutionPayload, info.BlockHeight)
+	result, err := r.pool.Exec(ctx, query, info.PayloadID, info.ExecutionPayload, info.BlockHeight)
 	if err != nil {
 		r.logger.Error(
 			"Failed to insert payload into postgres",
 			"payload_id", info.PayloadID,
 			"block_height", info.BlockHeight,
+			"dbStats", r.pool.Stat(),
 			"error", err,
 		)
 		return fmt.Errorf("failed to insert payload into postgres: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err == nil && rowsAffected > 0 {
+	rowsAffected := result.RowsAffected()
+	if rowsAffected > 0 {
 		r.logger.Debug(
 			"Payload saved to database",
 			"payload_id", info.PayloadID,
 			"block_height", info.BlockHeight,
 		)
-	} else if err == nil && rowsAffected == 0 {
+	} else if rowsAffected == 0 {
 		r.logger.Debug(
 			"Payload already exists in database or no rows affected",
 			"payload_id", info.PayloadID,
@@ -121,10 +136,7 @@ func (r *PostgresRepository) GetPayloadsSince(ctx context.Context, sinceHeight u
 		LIMIT $2;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	rows, err := r.db.QueryContext(queryCtx, query, sinceHeight, limit)
+	rows, err := r.pool.Query(ctx, query, sinceHeight, limit)
 	if err != nil {
 		r.logger.Error(
 			"Failed to query payloads since height",
@@ -182,11 +194,8 @@ func (r *PostgresRepository) GetPayloadByHeight(ctx context.Context, height uint
 		WHERE block_height = $1;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
 	var payload types.PayloadInfo
-	err := r.db.QueryRowContext(queryCtx, query, height).Scan(
+	err := r.pool.QueryRow(ctx, query, height).Scan(
 		&payload.PayloadID,
 		&payload.ExecutionPayload,
 		&payload.BlockHeight,
@@ -224,11 +233,8 @@ func (r *PostgresRepository) GetLatestPayload(ctx context.Context) (*types.Paylo
 		LIMIT 1;
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
 	var payload types.PayloadInfo
-	err := r.db.QueryRowContext(queryCtx, query).Scan(
+	err := r.pool.QueryRow(ctx, query).Scan(
 		&payload.PayloadID,
 		&payload.ExecutionPayload,
 		&payload.BlockHeight,
@@ -256,11 +262,33 @@ func (r *PostgresRepository) GetLatestPayload(ctx context.Context) (*types.Paylo
 	return &payload, nil
 }
 
+func (r *PostgresRepository) GetLatestHeight(ctx context.Context) (uint64, error) {
+	query := `
+		SELECT block_height
+		FROM execution_payloads
+		ORDER BY block_height DESC
+		LIMIT 1;
+	`
+
+	var h int64
+	err := r.pool.QueryRow(ctx, query).Scan(&h)
+	if err != nil {
+		if err == sql.ErrNoRows { // Empty table -> new chain
+			return 0, nil
+		}
+		return 0, err
+	}
+	if h < 0 {
+		return 0, fmt.Errorf("returned block height is negative: %d", h)
+	}
+	return uint64(h), nil
+}
+
 // Close closes the database connection.
 func (r *PostgresRepository) Close() error {
-	if r.db != nil {
+	if r.pool != nil {
 		r.logger.Info("Closing PostgreSQL connection")
-		return r.db.Close()
+		r.pool.Close()
 	}
 	return nil
 }

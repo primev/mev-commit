@@ -7,7 +7,7 @@ global:
   # Docker image configuration
   image:
     repository: primev/primev
-    tag:
+    tag: "rc-1.2.0-mev-commit"
     pullPolicy: Always
 
   # TLS certificate configuration
@@ -28,7 +28,7 @@ global:
   # Persistence configuration
   persistence:
     enabled: true
-    storageClass: "premium-rwo"
+    storageClass: "openebs-nvme-disk1"
     dataSize: "10Gi"
     keystoreSize: "2Mi"
 
@@ -40,11 +40,11 @@ global:
 
   # Contract addresses
   contracts:
-    bidderRegistry: "0x3B6fE9ea4421c303FD83795D294b8222ff2d9EB3"
-    blockTracker: "0xFF7cF3A4B4b2acdf426D813e76aa11946bb5329b"
+    bidderRegistry: "0x6092Da89AEbC654436e040Aaae155f9ABFC78AD5"
+    blockTracker: "0xD56D08FcDB654C110C2b4951b5D0eE20ad982320"
     # oracle: "0xB241520A1a049e16Dd9193B1FCE23cB458f1f676"
-    preconfStore: "0x16A76F15335e61a04f1aD13858c2383Cb9d14057" 
-    providerRegistry: "0x2B8ff90eAD0069fd6286ca389457bf58107971fe"
+    preconfStore: "0xD1306A917EF2c1915209de38F2860300DE83835d" 
+    providerRegistry: "0x4cbDB65b9a8B742f4d77d7E6C5cf5C616dF0fa73"
     #validatorRouter: "0x6c7A44A9A1836EF14129261D23166F7BD0196fb8"
 
   # Gas settings for transactions
@@ -55,9 +55,9 @@ global:
 
   # RPC endpoints
   rpc:
-    settlementEndpoint: "http://erigon-snode-erigon.hoodie-testnet.svc.cluster.local:8545"
-    settlementWsEndpoint: "ws://erigon-snode-erigon.hoodie-testnet.svc.cluster.local:8546"
-    l1Endpoint: "https://ethereum-hoodi-rpc.publicnode.com"
+    settlementEndpoint: "http://erigon-snode-leader-erigon.default.svc.cluster.local:8545"
+    settlementWsEndpoint: "ws://erigon-snode-leader-erigon.default.svc.cluster.local:8546"
+    l1Endpoint: "http://erigon-mev-commit-mock-l1.default.svc.cluster.local:8545"
 
   # Notifications
   notifications:
@@ -72,7 +72,7 @@ node:
   replicas: 1
 
   service:
-    type: ClusterIP
+    type: LoadBalancer
     annotations: {}
     nodePorts:
       http: null

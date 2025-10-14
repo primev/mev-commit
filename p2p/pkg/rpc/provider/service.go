@@ -115,6 +115,7 @@ func toString(bid *providerapiv1.Bid) string {
 func (s *Service) ProcessBid(
 	ctx context.Context,
 	bid *preconfpb.Bid,
+	bidderAddr common.Address,
 ) (chan ProcessedBidResponse, error) {
 	if s.activeReceivers.Load() == 0 {
 		return nil, status.Error(codes.Internal, "no active receivers")
@@ -129,7 +130,7 @@ func (s *Service) ProcessBid(
 		if err := proto.Unmarshal(bid.BidOptions, bidderOpts); err != nil {
 			return nil, fmt.Errorf("unmarshalling bid options: %w", err)
 		}
-		opts := new(providerapiv1.BidOptions)
+		opts = new(providerapiv1.BidOptions)
 		for _, bOpt := range bidderOpts.Options {
 			switch {
 			case bOpt.GetPositionConstraint() != nil:
@@ -169,6 +170,7 @@ func (s *Service) ProcessBid(
 		RevertingTxHashes:   revertingTxnHashes,
 		RawTransactions:     bid.RawTransactions,
 		BidOptions:          opts,
+		BidderAddress:       bidderAddr.Hex(),
 	}
 
 	err := s.validator.Validate(bidMsg)

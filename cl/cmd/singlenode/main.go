@@ -13,8 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/primev/mev-commit/cl/blockbuilder"
+	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/singlenode"
-	"github.com/primev/mev-commit/cl/singlenode/membernode"
+	"github.com/primev/mev-commit/cl/singlenode/follower"
+	"github.com/primev/mev-commit/cl/singlenode/payloadstore"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
@@ -188,6 +191,15 @@ var (
 		Category: categoryDatabase,
 	})
 
+	redisURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:  "redis-url",
+		Usage: "Redis URL for storing payloads. If empty, saving to Redis is disabled. (e.g., 'redis://localhost:6379/2')",
+
+		EnvVars:  []string{"LEADER_REDIS_URL"},
+		Value:    "",
+		Category: categoryDatabase,
+	})
+
 	apiAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "api-addr",
 		Usage:   "Address for member node API endpoint (e.g., ':9090'). If empty, API is disabled.",
@@ -211,29 +223,12 @@ var (
 		Value:   5 * time.Millisecond,
 	})
 
-	// Member node specific flags
-	leaderAPIURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:     "leader-api-url",
-		Usage:    "Leader node API URL for member nodes (e.g., 'http://leader:9090')",
-		EnvVars:  []string{"MEMBER_LEADER_API_URL"},
-		Category: categoryMember,
-		Action: func(_ *cli.Context, s string) error {
-			if s == "" {
-				return nil // Will be validated in member command
-			}
-			if _, err := url.Parse(s); err != nil {
-				return fmt.Errorf("invalid leader-api-url: %v", err)
-			}
-			return nil
-		},
-	})
-
-	pollIntervalFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
-		Name:     "poll-interval",
-		Usage:    "Interval for polling leader node for new payloads (e.g., '1s')",
-		EnvVars:  []string{"MEMBER_POLL_INTERVAL"},
-		Value:    1 * time.Second,
-		Category: categoryMember,
+	// Follower node specific flags
+	syncBatchSizeFlag = altsrc.NewUint64Flag(&cli.Uint64Flag{
+		Name:    "sync-batch-size",
+		Usage:   "Number of payloads per request to the EL during sync",
+		EnvVars: []string{"FOLLOWER_SYNC_BATCH_SIZE"},
+		Value:   100,
 	})
 )
 
@@ -251,12 +246,13 @@ func main() {
 		priorityFeeReceiptFlag,
 		healthAddrPortFlag,
 		postgresDSNFlag,
+		redisURLFlag,
 		apiAddrFlag,
 		nonAuthRpcUrlFlag,
 		txPoolPollingIntervalFlag,
 	}
 
-	memberFlags := []cli.Flag{
+	followerFlags := []cli.Flag{
 		configFlag,
 		instanceIDFlag,
 		ethClientURLFlag,
@@ -265,8 +261,9 @@ func main() {
 		logLevelFlag,
 		logTagsFlag,
 		healthAddrPortFlag,
-		leaderAPIURLFlag,
-		pollIntervalFlag,
+		postgresDSNFlag,
+		redisURLFlag,
+		syncBatchSizeFlag,
 	}
 
 	app := &cli.App{
@@ -290,10 +287,10 @@ func main() {
 				},
 			},
 			{
-				Name:  "member",
+				Name:  "follower",
 				Usage: "Start as member node (follows leader)",
-				Flags: memberFlags,
-				Before: altsrc.InitInputSourceWithContext(memberFlags,
+				Flags: followerFlags,
+				Before: altsrc.InitInputSourceWithContext(followerFlags,
 					func(c *cli.Context) (altsrc.InputSourceContext, error) {
 						configFile := c.String(configFlag.Name)
 						if configFile != "" {
@@ -302,7 +299,7 @@ func main() {
 						return &altsrc.MapInputSource{}, nil
 					}),
 				Action: func(c *cli.Context) error {
-					return startMemberNode(c)
+					return startFollowerNode(c)
 				},
 			},
 			// Keep the old "start" command for backward compatibility
@@ -352,6 +349,7 @@ func startLeaderNode(c *cli.Context) error {
 		PriorityFeeReceipt:       c.String(priorityFeeReceiptFlag.Name),
 		HealthAddr:               c.String(healthAddrPortFlag.Name),
 		PostgresDSN:              c.String(postgresDSNFlag.Name),
+		RedisURL:                 c.String(redisURLFlag.Name),
 		APIAddr:                  c.String(apiAddrFlag.Name),
 		NonAuthRpcURL:            c.String(nonAuthRpcUrlFlag.Name),
 		TxPoolPollingInterval:    c.Duration(txPoolPollingIntervalFlag.Name),
@@ -380,12 +378,7 @@ func startLeaderNode(c *cli.Context) error {
 	return nil
 }
 
-func startMemberNode(c *cli.Context) error {
-	leaderURL := c.String(leaderAPIURLFlag.Name)
-	if leaderURL == "" {
-		return fmt.Errorf("leader-api-url is required for member nodes")
-	}
-
+func startFollowerNode(c *cli.Context) error {
 	logger, err := util.NewLogger(
 		c.String(logLevelFlag.Name),
 		c.String(logFmtFlag.Name),
@@ -395,36 +388,78 @@ func startMemberNode(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
-	logger = logger.With("app", "snode", "role", "member")
+	logger = logger.With("app", "snode", "role", "follower")
 
-	cfg := membernode.Config{
-		InstanceID:   c.String(instanceIDFlag.Name),
-		LeaderAPIURL: leaderURL,
-		EthClientURL: c.String(ethClientURLFlag.Name),
-		JWTSecret:    c.String(jwtSecretFlag.Name),
-		HealthAddr:   c.String(healthAddrPortFlag.Name),
-		PollInterval: c.Duration(pollIntervalFlag.Name),
-	}
+	logger.Info("Starting follower node")
 
-	logger.Info("Starting member node", "config", cfg)
-
-	// Create a root context that can be cancelled for graceful shutdown
 	rootCtx, rootCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer rootCancel()
 
-	memberNode, err := membernode.NewMemberNodeApp(rootCtx, cfg, logger)
+	postgresDSN := c.String(postgresDSNFlag.Name)
+	redisURL := c.String(redisURLFlag.Name)
+	var sharedDB follower.PayloadDB
+	if postgresDSN != "" {
+		pgRepo, err := payloadstore.NewPostgresFollower(rootCtx, postgresDSN, logger)
+		if err != nil {
+			return fmt.Errorf("failed to create postgres repository: %w", err)
+		}
+		sharedDB = pgRepo
+	} else if redisURL != "" {
+		redisRepo, err := payloadstore.NewRedisRepositoryFromURL(rootCtx, redisURL, logger)
+		if err != nil {
+			return fmt.Errorf("failed to create redis repository: %w", err)
+		}
+		sharedDB = redisRepo
+	} else {
+		return fmt.Errorf("postgresDSN or redisURL must be provided")
+	}
+
+	syncBatchSize := c.Uint64(syncBatchSizeFlag.Name)
+	if syncBatchSize == 0 {
+		return fmt.Errorf("sync-batch-size is required")
+	}
+	ethClientURL := c.String(ethClientURLFlag.Name)
+	if ethClientURL == "" {
+		return fmt.Errorf("eth-client-url is required")
+	}
+	jwtSecret := c.String(jwtSecretFlag.Name)
+	if jwtSecret == "" {
+		return fmt.Errorf("jwt-secret is required")
+	}
+	jwtBytes, err := hex.DecodeString(jwtSecret)
 	if err != nil {
-		logger.Error("Failed to initialize MemberNodeApp", "error", err)
+		return fmt.Errorf("failed to decode JWT secret: %w", err)
+	}
+	engineCL, err := ethclient.NewAuthClient(rootCtx, ethClientURL, jwtBytes)
+	if err != nil {
+		return fmt.Errorf("failed to create Ethereum engine client: %w", err)
+	}
+	bb := blockbuilder.NewMemberBlockBuilder(engineCL, logger.With("component", "BlockBuilder"))
+
+	healthAddr := c.String(healthAddrPortFlag.Name)
+	if healthAddr == "" {
+		return fmt.Errorf("health-addr is required")
+	}
+
+	followerNode, err := follower.NewFollower(
+		logger,
+		sharedDB,
+		syncBatchSize,
+		bb,
+		healthAddr,
+	)
+	if err != nil {
+		logger.Error("Failed to initialize Follower", "error", err)
 		return err
 	}
 
-	memberNode.Start()
-
-	<-rootCtx.Done()
-
-	logger.Info("Shutdown signal received, stopping member node...")
-	memberNode.Stop()
-
-	logger.Info("Member node shutdown completed.")
-	return nil
+	done := followerNode.Start(rootCtx)
+	select {
+	case <-done:
+		logger.Info("Follower node shutdown completed.")
+		return nil
+	case <-rootCtx.Done():
+		logger.Info("Follower node shutdown completed.")
+		return nil
+	}
 }

@@ -18,11 +18,24 @@ import (
 	"github.com/primev/mev-commit/cl/singlenode/payloadstore"
 	localstate "github.com/primev/mev-commit/cl/singlenode/state"
 	"github.com/primev/mev-commit/cl/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
 	// Stop Function
 	shutdownTimeout = 5 * time.Second
+)
+
+var (
+	snDBDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "mev_commit",
+		Subsystem: "singlenode",
+		Name:      "db_duration_seconds",
+		Help:      "Duration of save payload DB operation in singlenode",
+		Buckets:   prometheus.DefBuckets,
+	}, []string{"op"})
 )
 
 // Config holds the configuration for the SingleNodeApp.
@@ -35,6 +48,7 @@ type Config struct {
 	PriorityFeeReceipt       string
 	HealthAddr               string
 	PostgresDSN              string
+	RedisURL                 string
 	APIAddr                  string
 	NonAuthRpcURL            string
 	TxPoolPollingInterval    time.Duration
@@ -62,6 +76,7 @@ type SingleNodeApp struct {
 	connectionStatus  sync.Mutex
 	connectionRefused bool
 	rpcClient         *rpc.Client
+	runLoopStopped    chan struct{}
 }
 
 // NewSingleNodeApp creates and initializes a new SingleNodeApp.
@@ -126,8 +141,20 @@ func NewSingleNodeApp(
 		}
 		pRepo = repo
 		logger.Info("Payload repository initialized, payloads will be saved to PostgreSQL.")
+	} else if cfg.RedisURL != "" {
+		repo, err := payloadstore.NewRedisRepositoryFromURL(ctx, cfg.RedisURL, logger)
+		if err != nil {
+			cancel()
+			logger.Error(
+				"failed to create payload repository",
+				"error", err,
+			)
+			return nil, fmt.Errorf("failed to initialize payload repository: %w", err)
+		}
+		pRepo = repo
+		logger.Info("Payload repository initialized, payloads will be saved to Redis.")
 	} else {
-		logger.Info("PostgresDSN not provided, payload saving to DB is disabled.")
+		logger.Info("PostgresDSN or RedisURL not provided, payload saving to DB is disabled.")
 	}
 
 	var payloadServer *api.PayloadServer
@@ -154,6 +181,7 @@ func NewSingleNodeApp(
 		cancel:            cancel,
 		connectionRefused: false,
 		rpcClient:         rpcClient,
+		runLoopStopped:    make(chan struct{}),
 	}, nil
 }
 
@@ -201,6 +229,13 @@ func (app *SingleNodeApp) healthHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	select {
+	case <-app.runLoopStopped:
+		http.Error(w, "run loop has stopped", http.StatusServiceUnavailable)
+		return
+	default:
+	}
+
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 }
@@ -215,6 +250,7 @@ func (app *SingleNodeApp) Start() {
 		defer app.wg.Done()
 		mux := http.NewServeMux()
 		mux.HandleFunc("/health", app.healthHandler)
+		mux.Handle("/metrics", promhttp.Handler())
 		addr := app.cfg.HealthAddr
 		server := &http.Server{Addr: addr, Handler: mux}
 		app.logger.Info("Health endpoint listening", "address", addr)
@@ -247,6 +283,7 @@ func (app *SingleNodeApp) Start() {
 	go func() {
 		defer app.wg.Done()
 		defer app.logger.Info("SingleNodeApp run loop finished.")
+		defer close(app.runLoopStopped)
 		app.runLoop()
 	}()
 }
@@ -286,7 +323,6 @@ func (app *SingleNodeApp) runLoop() {
 
 			if err != nil {
 				if errors.Is(err, blockbuilder.ErrEmptyBlock) {
-					app.logger.Debug("no pending transactions, will try again after timeout", "timeout", app.cfg.TxPoolPollingInterval)
 					time.Sleep(app.cfg.TxPoolPollingInterval)
 					continue
 				} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -330,24 +366,25 @@ func (app *SingleNodeApp) produceBlock() error {
 	}
 
 	if app.payloadRepo != nil {
-		payloadInfo := &types.PayloadInfo{
+		// Save payload to repository
+		saveCtx, saveCancel := context.WithTimeout(app.appCtx, 30*time.Second)
+		defer saveCancel()
+
+		saveStart := time.Now()
+		if err := app.payloadRepo.SavePayload(saveCtx, &types.PayloadInfo{
 			PayloadID:        currentState.PayloadID,
 			ExecutionPayload: currentState.ExecutionPayload,
 			BlockHeight:      blockHeight,
+		}); err != nil {
+			return fmt.Errorf("failed to save payload: %w", err)
 		}
-		saveCtx, saveCancel := context.WithTimeout(app.appCtx, 200*time.Millisecond)
-		defer saveCancel()
-
-		if err := app.payloadRepo.SavePayload(saveCtx, payloadInfo); err != nil {
-			app.logger.Error(
-				"Failed to save payload to database",
-				"payload_id", currentState.PayloadID,
-				"error", err,
-			)
-			return fmt.Errorf("failed to save payload to database: %w", err)
-		} else {
-			app.logger.Info("Payload details submitted to database for saving", "payload_id", currentState.PayloadID)
-		}
+		saveDuration := time.Since(saveStart)
+		snDBDuration.WithLabelValues("save_payload").Observe(float64(saveDuration.Seconds()))
+		app.logger.Info(
+			"payload saved to repository",
+			"payload_id", currentState.PayloadID,
+			"block_height", blockHeight,
+		)
 	}
 
 	// Step 2: Finalize the block
@@ -359,6 +396,7 @@ func (app *SingleNodeApp) produceBlock() error {
 	if err := app.blockBuilder.FinalizeBlock(app.appCtx, currentState.PayloadID, currentState.ExecutionPayload, ""); err != nil {
 		return fmt.Errorf("failed to finalize block: %w", err)
 	}
+
 	return nil
 }
 

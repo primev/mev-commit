@@ -1,0 +1,139 @@
+{{- if .Values.ingress.enabled }}
+# Leader RPC Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}-leader-rpc
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+    app.kubernetes.io/component: leader-rpc-ingress
+  {{- with .Values.ingress.rpc.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls.secretName }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.rpc.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.rpc.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.rpc.path }}
+            pathType: {{ .Values.ingress.rpc.pathType }}
+            backend:
+              service:
+                name: {{ include "erigon-snode.fullname" . }}-leader-erigon
+                port:
+                  name: http
+---
+# Leader WebSocket Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}-leader-websocket
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+    app.kubernetes.io/component: leader-websocket-ingress
+  {{- with .Values.ingress.websocket.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls.secretName }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.websocket.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.websocket.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.websocket.path }}
+            pathType: {{ .Values.ingress.websocket.pathType }}
+            backend:
+              service:
+                name: {{ include "erigon-snode.fullname" . }}-leader-erigon
+                port:
+                  name: ws
+{{- end }}
+---
+{{- if and .Values.consensus.follower.enabled .Values.ingress.follower.enabled }}
+# Follower RPC Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}-follower-rpc
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+    app.kubernetes.io/component: follower-rpc-ingress
+  {{- with .Values.ingress.follower.rpc.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.follower.tls.secretName }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.follower.rpc.host | quote }}
+      secretName: {{ .Values.ingress.follower.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.follower.rpc.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.follower.rpc.path }}
+            pathType: {{ .Values.ingress.follower.rpc.pathType }}
+            backend:
+              service:
+                name: {{ include "erigon-snode.fullname" . }}-follower-erigon
+                port:
+                  name: http
+---
+# Follower WebSocket Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "erigon-snode.fullname" . }}-follower-websocket
+  labels:
+    {{- include "erigon-snode.labels" . | nindent 4 }}
+    app.kubernetes.io/component: follower-websocket-ingress
+  {{- with .Values.ingress.follower.websocket.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.follower.tls.secretName }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.follower.websocket.host | quote }}
+      secretName: {{ .Values.ingress.follower.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.follower.websocket.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.follower.websocket.path }}
+            pathType: {{ .Values.ingress.follower.websocket.pathType }}
+            backend:
+              service:
+                name: {{ include "erigon-snode.fullname" . }}-follower-erigon
+                port:
+                  name: ws
+{{- end }}

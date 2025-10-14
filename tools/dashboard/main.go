@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	depositmanager "github.com/primev/mev-commit/contracts-abi/clients/DepositManager"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
@@ -191,6 +192,20 @@ func main() {
 				settlementClient,
 				evtMgr,
 			)
+
+			dynSub, err := evtMgr.Subscribe(
+				events.NewEventHandler(
+					"BidderDeposited",
+					func(upd *bidderregistry.BidderregistryBidderDeposited) {
+						// Register deposited bidder as a contract in case it has enabled deposit manager
+						pb.AddContracts(upd.Bidder)
+					},
+				),
+			)
+			if err != nil {
+				return err
+			}
+			defer dynSub.Unsubscribe()
 
 			statHdlr, err := newStatHandler(evtMgr)
 			if err != nil {
@@ -388,6 +403,15 @@ func registerRoutes(mux *http.ServeMux, statHdlr *statHandler) {
 			return
 		}
 	})
+
+	mux.HandleFunc("GET /dmcounts", func(w http.ResponseWriter, r *http.Request) {
+		dout := struct {
+			DMCounts []*DepositManagerEventCounts `json:"deposit_manager_counts"`
+		}{
+			DMCounts: statHdlr.getDMCounts(),
+		}
+		_ = json.NewEncoder(w).Encode(dout)
+	})
 }
 
 func parsePagination(r *http.Request) (int, int) {
@@ -437,11 +461,17 @@ func getContractABIs() ([]*abi.ABI, error) {
 		return nil, err
 	}
 
+	dmABI, err := abi.JSON(strings.NewReader(depositmanager.DepositmanagerABI))
+	if err != nil {
+		return nil, err
+	}
+
 	return []*abi.ABI{
 		&btABI,
 		&pcABI,
 		&bidderRegistry,
 		&providerRegistry,
 		&orABI,
+		&dmABI,
 	}, nil
 }

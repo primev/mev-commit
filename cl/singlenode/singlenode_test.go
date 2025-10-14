@@ -315,12 +315,13 @@ func TestStartStop(t *testing.T) {
 
 	// Create app with minimal configuration for testing
 	app := &SingleNodeApp{
-		logger:       logger,
-		cfg:          Config{HealthAddr: ":0"},
-		appCtx:       ctx,
-		cancel:       cancel,
-		blockBuilder: mockBuilder,
-		stateManager: stateMgr,
+		logger:         logger,
+		cfg:            Config{HealthAddr: ":0"},
+		appCtx:         ctx,
+		cancel:         cancel,
+		blockBuilder:   mockBuilder,
+		stateManager:   stateMgr,
+		runLoopStopped: make(chan struct{}),
 	}
 
 	app.Start()
