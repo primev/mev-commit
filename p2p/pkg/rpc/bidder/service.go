@@ -177,7 +177,7 @@ func (s *Service) SendBid(
 			for _, option := range bid.BidOptions.Options {
 				if option.GetShutterisedBidOption() != nil {
 					c := option.GetShutterisedBidOption()
-					if len(c.GetIdentityPrefix()) != 64 || len(c.GetEncryptedTx()) == 0 {
+					if len(strings.TrimPrefix(c.GetIdentityPrefix(), "0x")) != 64 || len(strings.TrimPrefix(c.GetEncryptedTx(), "0x")) == 0 {
 						s.logger.Error("shutterised bid option identity prefix or encrypted tx is invalid", "option", option)
 						return status.Errorf(codes.InvalidArgument, "shutterised bid option identity prefix or encrypted tx is invalid")
 					}

@@ -868,8 +868,8 @@ func TestShutterisedBidOptions(t *testing.T) {
 					{
 						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
-								IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-								EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+								IdentityPrefix: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+								EncryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 							},
 						},
 					},
@@ -936,7 +936,7 @@ func TestShutterisedBidOptions(t *testing.T) {
 						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 								IdentityPrefix: "",
-								EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+								EncryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 							},
 						},
 					},
@@ -965,7 +965,7 @@ func TestShutterisedBidOptions(t *testing.T) {
 					{
 						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
-								IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+								IdentityPrefix: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 								EncryptedTx:    "",
 							},
 						},
@@ -1028,8 +1028,8 @@ func TestShutterisedBidOptions(t *testing.T) {
 					{
 						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
-								IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-								EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+								IdentityPrefix: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+								EncryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 							},
 						},
 					},
@@ -1079,8 +1079,8 @@ func TestShutterisedBidOptions(t *testing.T) {
 					{
 						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
-								IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-								EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+								IdentityPrefix: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+								EncryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 							},
 						},
 					},
@@ -1088,7 +1088,7 @@ func TestShutterisedBidOptions(t *testing.T) {
 						Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 								IdentityPrefix: "",
-								EncryptedTx:    "0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+								EncryptedTx:    "0x0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
 							},
 						},
 					},
@@ -1104,6 +1104,8 @@ func TestShutterisedBidOptions(t *testing.T) {
 			t.Fatalf("expected error about invalid shutterised option, got %v", err)
 		}
 	})
+}
+
 type dmTestSub struct{ ch chan error }
 
 func (s *dmTestSub) Unsubscribe()      {}
