@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -186,11 +187,37 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	handleProxy := func() {
+		out, statusCode, err := s.proxyRequest(r.Context(), body)
+		if err != nil {
+			http.Error(w, err.Error(), statusCode)
+			return
+		}
+		var resp jsonRPCResponse
+		if err := json.Unmarshal(out, &resp); err != nil {
+			http.Error(w, "Failed to parse proxy response", http.StatusInternalServerError)
+			return
+		}
+		if resp.Error != nil {
+			s.writeError(w, req.ID, resp.Error.Code, resp.Error.Message)
+			return
+		}
+		if cacheMethods[req.Method] && resp.Result != nil {
+			key := cacheKey(req.Method, req.Params)
+			s.cache.Add(key, cacheEntry{
+				untill: time.Now().Add(pickTTL(req.Method, *resp.Result)),
+				data:   *resp.Result,
+			})
+			s.logger.Debug("Cache store", "method", req.Method, "id", req.ID)
+		}
+		s.writeResponse(w, req.ID, resp.Result)
+	}
+
 	s.rwLock.RLock()
 	handler, ok := s.methods[req.Method]
 	s.rwLock.RUnlock()
 	if !ok {
-		s.proxyRequest(r.Context(), w, body)
+		handleProxy()
 		return
 	}
 
@@ -206,7 +233,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, req.ID, CodeCustomError, err.Error())
 		return
 	case proxy:
-		s.proxyRequest(r.Context(), w, body)
+		handleProxy()
 		return
 	case resp == nil:
 		s.writeError(w, req.ID, CodeCustomError, "No response")
@@ -252,37 +279,32 @@ func (s *JSONRPCServer) writeError(w http.ResponseWriter, id any, code int, mess
 	}
 }
 
-func (s *JSONRPCServer) proxyRequest(ctx context.Context, w http.ResponseWriter, body []byte) {
+func (s *JSONRPCServer) proxyRequest(ctx context.Context, body []byte) ([]byte, int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.proxyURL, bytes.NewReader(body))
 	if err != nil {
-		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
-		return
+		return nil, http.StatusInternalServerError, fmt.Errorf("failed to create proxy request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	s.logger.Debug("Proxying request", "url", s.proxyURL, "body", string(body))
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		http.Error(w, "Failed to execute proxy request", http.StatusInternalServerError)
-		return
+		return nil, http.StatusInternalServerError, fmt.Errorf("proxy request failed: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 
-	setCorsHeaders(w)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(resp.StatusCode)
-	rdr := io.LimitReader(resp.Body, defaultMaxBodySize)
-	n, err := io.Copy(w, rdr)
+	if resp.StatusCode != http.StatusOK {
+		return nil, resp.StatusCode, fmt.Errorf("proxy request returned status %d", resp.StatusCode)
+	}
+
+	out, err := io.ReadAll(io.LimitReader(resp.Body, defaultMaxBodySize))
 	if err != nil {
-		http.Error(w, "Failed to copy proxy response", http.StatusInternalServerError)
-		return
+		return nil, http.StatusInternalServerError, fmt.Errorf("failed to read proxy response: %w", err)
 	}
-	if n == 0 {
-		http.Error(w, "Empty response from proxy", http.StatusInternalServerError)
-		return
-	}
+
+	return out, resp.StatusCode, nil
 }
 
 func setCorsHeaders(w http.ResponseWriter) {
@@ -322,5 +344,32 @@ func maybeStubERC20Meta(method string, params []any) (stubbed bool, resp json.Ra
 		return true, json.RawMessage(`"` + enc + `"`)
 	default:
 		return false, nil
+	}
+}
+
+func pickTTL(method string, params json.RawMessage) time.Duration {
+	switch method {
+	case "net_version":
+		return 24 * time.Hour
+	case "eth_getCode":
+		return 24 * time.Hour
+	case "eth_getBlockByNumber":
+		// immutable if first param is a hex number (not "latest")
+		if strings.Contains(string(params), "\"0x") && !strings.Contains(string(params), "\"latest\"") {
+			return 24 * time.Hour
+		}
+		return 2 * time.Second
+	case "eth_feeHistory":
+		return 3 * time.Second
+	case "eth_call":
+		// if block tag provided and hex number → immutable
+		if strings.HasSuffix(string(params), "\"") { // cheap check
+			if strings.Contains(string(params), "\"0x") && !strings.Contains(string(params), "\"latest\"") {
+				return 24 * time.Hour
+			}
+		}
+		return 1 * time.Second
+	default:
+		return 2 * time.Second
 	}
 }
