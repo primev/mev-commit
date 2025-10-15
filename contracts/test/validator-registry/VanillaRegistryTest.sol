@@ -164,7 +164,10 @@ contract VanillaRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit Staked(owner, user1, user2BLSKey, MIN_STAKE);
         validatorRegistry.delegateStake{value: 2*MIN_STAKE}(validators, user1); // Both validators are opted-in on user1's behalf
-
+        address[] memory stakers = new address[](2);
+        stakers[0] = user1;
+        stakers[1] = user2;
+        validatorRegistry.whitelistStakers(stakers);
         vm.stopPrank();
 
         assertEq(address(owner).balance, 7 ether);
@@ -1183,5 +1186,72 @@ contract VanillaRegistryTest is Test {
         stakers[0] = user1;
         vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakerNotWhitelisted.selector, user1));
         validatorRegistry.removeWhitelistedStakers(stakers);
+    }
+
+    function testMinStakeZeroRegisterUnregister() public {
+        // Allow minStake = 0
+        vm.prank(owner);
+        validatorRegistry.setMinStake(0);
+        assertEq(validatorRegistry.minStake(), 0);
+
+        // Whitelist user1 (if already whitelisted in other flows, this test runs in isolation)
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        validatorRegistry.whitelistStakers(stakers);
+
+        // Stake normally; with minStake=0 any positive amount should work the same
+        vm.deal(user1, MIN_STAKE);
+        vm.prank(user1);
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        // Unstake then withdraw; should work with minStake=0
+        vm.prank(user1);
+        validatorRegistry.unstake(validators);
+
+        vm.roll(block.number + UNSTAKE_PERIOD + 1);
+
+        vm.prank(user1);
+        validatorRegistry.withdraw(validators);
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 0);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+    }
+
+    function testIsValidatorOptedInRespectsWhitelist() public {
+        // Whitelist and stake
+        vm.prank(owner);
+        address[] memory stakers = new address[](1);
+        stakers[0] = user1;
+        validatorRegistry.whitelistStakers(stakers);
+
+        vm.deal(user1, MIN_STAKE);
+        vm.prank(user1);
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+
+        // With whitelist + balance >= minStake and not unstaking -> true
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        // Remove from whitelist -> should be false even with balance
+        vm.prank(owner);
+        validatorRegistry.removeWhitelistedStakers(stakers);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        // Re-whitelist -> true again
+        vm.prank(owner);
+        validatorRegistry.whitelistStakers(stakers);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        // Start unstaking -> false due to _isUnstaking()
+        vm.prank(user1);
+        validatorRegistry.unstake(validators);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 }

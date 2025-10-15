@@ -392,7 +392,6 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
 
     /// @dev Internal function to set the minimum stake parameter.
     function _setMinStake(uint256 newMinStake) internal {
-        require(newMinStake != 0, IVanillaRegistry.MinStakeMustBePositive());
         minStake = newMinStake;
         emit MinStakeSet(msg.sender, newMinStake);
     }
@@ -427,7 +426,9 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
 
     /// @dev Internal function to check if a validator is considered "opted-in" to mev-commit via this registry.
     function _isValidatorOptedIn(bytes calldata valBLSPubKey) internal view returns (bool) {
-        return !_isUnstaking(valBLSPubKey) && stakedValidators[valBLSPubKey].balance >= minStake;
+        return !_isUnstaking(valBLSPubKey) && 
+        stakedValidators[valBLSPubKey].balance >= minStake &&
+        whitelistedStakers[stakedValidators[valBLSPubKey].withdrawalAddress];
     }
 
     /// @dev Internal function to check if a validator is currently unstaking.
