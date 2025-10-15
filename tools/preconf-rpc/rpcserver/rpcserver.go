@@ -3,18 +3,24 @@ package rpcserver
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 const (
 	defaultTimeout     = 5 * time.Second
 	defaultMaxBodySize = 30 * 1024 * 1024 // 30 MB
+	cacheSize          = 10000
 
 	CodeParseError     = -32700
 	CodeInvalidRequest = -32600
@@ -59,19 +65,65 @@ type jsonRPCError struct {
 	Data    *any   `json:"data,omitempty"`
 }
 
-type JSONRPCServer struct {
-	rwLock   sync.RWMutex
-	methods  map[string]methodHandler
-	proxyURL string
-	logger   *slog.Logger
+var cacheMethods = map[string]bool{
+	"eth_call":             true,
+	"eth_estimateGas":      true,
+	"eth_getCode":          true,
+	"eth_getStorageAt":     true,
+	"eth_feeHistory":       true,
+	"eth_gasPrice":         true,
+	"eth_blockNumber":      true,
+	"eth_getBlockByNumber": true,
+	"eth_getLogs":          true,
+	"net_version":          true,
 }
 
-func NewJSONRPCServer(proxyURL string, logger *slog.Logger) *JSONRPCServer {
+type cacheEntry struct {
+	untill time.Time
+	data   json.RawMessage
+}
+
+func cacheKey(method string, params []any) string {
+	b, _ := json.Marshal(params)
+	h := sha1.Sum(append([]byte(method), b...))
+	return string(h[:])
+}
+
+type JSONRPCServer struct {
+	rwLock     sync.RWMutex
+	methods    map[string]methodHandler
+	proxyURL   string
+	httpClient *http.Client
+	cache      *lru.Cache[string, cacheEntry]
+	logger     *slog.Logger
+}
+
+func NewJSONRPCServer(proxyURL string, logger *slog.Logger) (*JSONRPCServer, error) {
+	cache, err := lru.New[string, cacheEntry](cacheSize)
+	if err != nil {
+		return nil, err
+	}
 	return &JSONRPCServer{
 		proxyURL: proxyURL,
 		methods:  make(map[string]methodHandler),
-		logger:   logger,
-	}
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				Proxy:               http.ProxyFromEnvironment,
+				MaxIdleConns:        256,
+				MaxIdleConnsPerHost: 256,
+				IdleConnTimeout:     90 * time.Second,
+				ForceAttemptHTTP2:   true,
+				DialContext: (&net.Dialer{
+					Timeout:   5 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				TLSHandshakeTimeout: 5 * time.Second,
+			},
+			Timeout: 15 * time.Second,
+		},
+		cache:  cache,
+		logger: logger,
+	}, nil
 }
 
 func (s *JSONRPCServer) RegisterHandler(method string, handler methodHandler) {
@@ -118,14 +170,27 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	defer func() {
-		s.logger.Info("Request processing time", "method", req.Method, "id", req.ID, "duration", time.Since(start))
+		s.logger.Debug("Request processing time", "method", req.Method, "id", req.ID, "duration", time.Since(start))
 	}()
+
+	if cacheMethods[req.Method] {
+		if stubbed, resp := maybeStubERC20Meta(req.Method, req.Params); stubbed {
+			s.writeResponse(w, req.ID, &resp)
+			return
+		}
+		key := cacheKey(req.Method, req.Params)
+		if entry, ok := s.cache.Get(key); ok && time.Now().Before(entry.untill) {
+			s.logger.Debug("Cache hit", "method", req.Method, "id", req.ID)
+			s.writeResponse(w, req.ID, &entry.data)
+			return
+		}
+	}
 
 	s.rwLock.RLock()
 	handler, ok := s.methods[req.Method]
 	s.rwLock.RUnlock()
 	if !ok {
-		s.proxyRequest(w, body)
+		s.proxyRequest(r.Context(), w, body)
 		return
 	}
 
@@ -141,7 +206,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, req.ID, CodeCustomError, err.Error())
 		return
 	case proxy:
-		s.proxyRequest(w, body)
+		s.proxyRequest(r.Context(), w, body)
 		return
 	case resp == nil:
 		s.writeError(w, req.ID, CodeCustomError, "No response")
@@ -187,11 +252,8 @@ func (s *JSONRPCServer) writeError(w http.ResponseWriter, id any, code int, mess
 	}
 }
 
-func (s *JSONRPCServer) proxyRequest(w http.ResponseWriter, body []byte) {
-	client := &http.Client{
-		Timeout: defaultTimeout,
-	}
-	req, err := http.NewRequest(http.MethodPost, s.proxyURL, bytes.NewReader(body))
+func (s *JSONRPCServer) proxyRequest(ctx context.Context, w http.ResponseWriter, body []byte) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.proxyURL, bytes.NewReader(body))
 	if err != nil {
 		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
 		return
@@ -199,7 +261,7 @@ func (s *JSONRPCServer) proxyRequest(w http.ResponseWriter, body []byte) {
 	req.Header.Set("Content-Type", "application/json")
 
 	s.logger.Debug("Proxying request", "url", s.proxyURL, "body", string(body))
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		http.Error(w, "Failed to execute proxy request", http.StatusInternalServerError)
 		return
@@ -227,4 +289,38 @@ func setCorsHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+}
+
+// short-circuit a few very common ERC-20 metadata calls
+// selectors: symbol 0x95d89b41, decimals 0x313ce567, name 0x06fdde03
+func maybeStubERC20Meta(method string, params []any) (stubbed bool, resp json.RawMessage) {
+	if method != "eth_call" || len(params) == 0 {
+		return false, nil
+	}
+	// parse minimal: [{"to":"0x..","data":"0x...."}, <blockTag?>]
+	callObj, ok := params[0].(map[string]any)
+	if !ok {
+		return false, nil
+	}
+	data, _ := callObj["data"].(string)
+	switch strings.ToLower(data) {
+	case "0x95d89b41": // symbol()
+		// return ABI-encoded string "TOKEN"
+		enc := "0x" +
+			"0000000000000000000000000000000000000000000000000000000000000020" + // offset
+			"0000000000000000000000000000000000000000000000000000000000000005" + // len
+			"544f4b454e000000000000000000000000000000000000000000000000000000" // "TOKEN"
+		return true, json.RawMessage(`"` + enc + `"`)
+	case "0x313ce567": // decimals()
+		enc := "0x" + "0000000000000000000000000000000000000000000000000000000000000012" // 18
+		return true, json.RawMessage(`"` + enc + `"`)
+	case "0x06fdde03": // name()
+		enc := "0x" +
+			"0000000000000000000000000000000000000000000000000000000000000020" +
+			"0000000000000000000000000000000000000000000000000000000000000005" +
+			"546f6b656e000000000000000000000000000000000000000000000000000000"
+		return true, json.RawMessage(`"` + enc + `"`)
+	default:
+		return false, nil
+	}
 }
