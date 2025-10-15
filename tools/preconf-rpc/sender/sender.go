@@ -134,6 +134,11 @@ type TxSender struct {
 	processMu         sync.RWMutex
 	txnAttemptHistory *lru.Cache[common.Hash, *txnAttempt]
 	notifier          Notifier
+	fastTrack         func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool
+}
+
+func noOpFastTrack(_ []*bidderapiv1.Commitment, _ bool) bool {
+	return false
 }
 
 func NewTxSender(
@@ -144,12 +149,17 @@ func NewTxSender(
 	transferer Transferer,
 	notifier Notifier,
 	settlementChainId *big.Int,
+	fastTrack func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool,
 	logger *slog.Logger,
 ) (*TxSender, error) {
 	txnAttemptHistory, err := lru.New[common.Hash, *txnAttempt](1000)
 	if err != nil {
 		logger.Error("Failed to create transaction attempt history cache", "error", err)
 		return nil, fmt.Errorf("failed to create transaction attempt history cache: %w", err)
+	}
+
+	if fastTrack == nil {
+		fastTrack = noOpFastTrack
 	}
 
 	return &TxSender{
@@ -166,6 +176,7 @@ func NewTxSender(
 		inflightAccount:   make(map[common.Address]struct{}),
 		txnAttemptHistory: txnAttemptHistory,
 		notifier:          notifier,
+		fastTrack:         fastTrack,
 	}, nil
 }
 
@@ -431,6 +442,20 @@ BID_LOOP:
 				continue
 			}
 			return err
+		case t.fastTrack(result.commitments, result.optedInSlot):
+			// If the commitments indicate that the transaction can be fast-tracked,
+			// we consider it pre-confirmed and skip further checks
+			txn.Status = TxStatusPreConfirmed
+			txn.BlockNumber = int64(result.blockNumber)
+			t.logger.Info(
+				"Transaction fast-tracked based on commitments",
+				"sender", txn.Sender.Hex(),
+				"type", txn.Type,
+				"blockNumber", result.blockNumber,
+				"bidAmount", result.bidAmount.String(),
+			)
+			t.clearBlockAttemptHistory(txn)
+			break BID_LOOP
 		case result.optedInSlot:
 			if result.noOfProviders == len(result.commitments) {
 				// This means that all builders have committed to the bid and it

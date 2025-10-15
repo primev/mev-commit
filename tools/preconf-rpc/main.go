@@ -203,6 +203,13 @@ var (
 		EnvVars: []string{"PRECONF_RPC_WEBHOOK_URLS"},
 	}
 
+	optionAuthToken = &cli.StringFlag{
+		Name:    "auth-token",
+		Usage:   "authentication token for securing endpoints",
+		EnvVars: []string{"PRECONF_RPC_AUTH_TOKEN"},
+		Value:   "",
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -277,6 +284,7 @@ func main() {
 			optionWebhookURLs,
 			optionBidderThreshold,
 			optionBidderTopup,
+			optionAuthToken,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -361,6 +369,7 @@ func main() {
 				BridgeAddress:          common.HexToAddress(c.String(optionBridgeAddress.Name)),
 				PricerAPIKey:           c.String(optionBlocknativeAPIKey.Name),
 				Webhooks:               c.StringSlice(optionWebhookURLs.Name),
+				Token:                  c.String(optionAuthToken.Name),
 			}
 
 			s, err := service.New(&config)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"math/big"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -35,6 +37,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
+
+const defaultMaxBodySize = 1 * 1024 * 1024 // 1 MB
 
 type Config struct {
 	Logger                 *slog.Logger
@@ -62,6 +66,7 @@ type Config struct {
 	GasFeeCap              *big.Int
 	PricerAPIKey           string
 	Webhooks               []string
+	Token                  string
 }
 
 type Service struct {
@@ -234,6 +239,25 @@ func New(config *Config) (*Service, error) {
 	blockTrackerDone := blockTracker.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
 
+	allSlots := false
+	providers := []common.Address{}
+	fastTrackFn := func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool {
+		if !allSlots && !optedInSlot {
+			return false
+		}
+		if len(providers) == 0 {
+			return false
+		}
+		for _, p := range providers {
+			if !slices.ContainsFunc(cmts, func(cmt *bidderapiv1.Commitment) bool {
+				return common.HexToAddress(cmt.ProviderAddress).Cmp(p) == 0
+			}) {
+				return false
+			}
+		}
+		return true
+	}
+
 	sndr, err := sender.NewTxSender(
 		rpcstore,
 		bidderClient,
@@ -242,6 +266,7 @@ func New(config *Config) (*Service, error) {
 		transferer,
 		notifier,
 		settlementChainID,
+		fastTrackFn,
 		config.Logger.With("module", "txsender"),
 	)
 	if err != nil {
@@ -275,6 +300,106 @@ func New(config *Config) (*Service, error) {
 		_, _ = w.Write([]byte("OK"))
 	})
 	mux.Handle("/", rpcServer)
+
+	checkAuthorization := func(r *http.Request) error {
+		if config.Token == "" {
+			return errors.New("server not configured with authorization token")
+		}
+
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			return errors.New("authorization header missing")
+		}
+
+		// Expected format "Bearer <token>"
+		headerToken, found := strings.CutPrefix(authHeader, "Bearer ")
+		if !found {
+			return errors.New("invalid authorization header format")
+		}
+
+		if headerToken != config.Token {
+			return errors.New("unauthorized: invalid token")
+		}
+
+		return nil
+	}
+
+	mux.HandleFunc("POST /fast-track/enable", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		type fastTrackReq struct {
+			AllSlots  bool
+			Providers []string
+		}
+
+		var req fastTrackReq
+
+		r.Body = http.MaxBytesReader(w, r.Body, defaultMaxBodySize)
+		defer func() {
+			_ = r.Body.Close()
+		}()
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, fmt.Sprintf("failed to decode body: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		allSlots = req.AllSlots
+		providers = make([]common.Address, 0, len(req.Providers))
+		for _, p := range req.Providers {
+			if !common.IsHexAddress(p) {
+				http.Error(w, fmt.Sprintf("invalid provider address: %s", p), http.StatusBadRequest)
+				return
+			}
+			if slices.ContainsFunc(providers, func(addr common.Address) bool {
+				return addr.Cmp(common.HexToAddress(p)) == 0
+			}) {
+				continue
+			}
+			providers = append(providers, common.HexToAddress(p))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+
+	mux.HandleFunc("POST /fast-track/disable", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		allSlots = false
+		providers = []common.Address{}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+
+	mux.HandleFunc("GET /fast-track/status", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		type fastTrackStatus struct {
+			AllSlots  bool
+			Providers []string
+		}
+		resp := fastTrackStatus{
+			AllSlots:  allSlots,
+			Providers: make([]string, 0, len(providers)),
+		}
+		for _, p := range providers {
+			resp.Providers = append(resp.Providers, p.Hex())
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(&resp); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+			return
+		}
+	})
 
 	srv := http.Server{
 		Addr:    fmt.Sprintf(":%d", config.HTTPPort),

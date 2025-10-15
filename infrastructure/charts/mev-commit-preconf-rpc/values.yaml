@@ -92,6 +92,14 @@ keystore:
     keystoreFilename: ""
     keystorePassword: ""
 
+authToken:
+  refreshInterval: 1h
+  secretStore:
+    kind: ClusterSecretStore
+    name: aws-cluster-secret-store
+  awsSecretName: ""
+  property: ""
+
 # PostgreSQL configuration
 postgresql:
   host: "preconf-rpc-pg.default.svc.cluster.local"
