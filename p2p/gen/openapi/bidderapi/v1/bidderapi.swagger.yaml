@@ -569,7 +569,7 @@ definitions:
       encryptedTx:
         type: string
         description: Hex string encoding of the encrypted transaction that the bidder wants to include in the block.
-        pattern: '[a-fA-F0-9]{64}'
+        pattern: '[a-fA-F0-9]+'
   googlerpcStatus:
     type: object
     properties:

@@ -866,582 +866,229 @@ func TestGetCommitmentInfo(t *testing.T) {
 func TestShutterisedBidOptionsProcessing(t *testing.T) {
 	t.Parallel()
 
-	t.Run("process bid with valid shutterised options", func(t *testing.T) {
-		client, svc := startServer(t)
+	type testCase struct {
+		name           string
+		identityPrefix string
+		encryptedTx    string
+		expectedStatus providerapiv1.BidResponse_Status
+		expectError    bool
+		errorContains  string
+		txHashes       []string
+	}
 
-		// Create bid options with shutterised bid option
-		bidderOpts := &bidderapiv1.BidOptions{
-			Options: []*bidderapiv1.BidOption{
-				{
-					Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
-						ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
-							IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-							EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+	for _, tc := range []testCase{
+		{
+			name:           "valid shutterised bid option",
+			identityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			encryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
+			expectError:    false,
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:]},
+		},
+		{
+			name:           "nil shutterised bid option",
+			identityPrefix: "",
+			encryptedTx:    "",
+			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
+			expectError:    false,
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:]},
+		},
+		{
+			name:           "multiple shutterised bid options",
+			identityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
+			encryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
+			expectError:    false,
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:], common.HexToHash("0x00002").Hex()[2:]},
+		},
+		{
+			name:           "mixed bid options",
+			identityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			encryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
+			expectError:    false,
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:], common.HexToHash("0x00002").Hex()[2:]},
+		},
+		{
+			name:           "invalid bid options marshaling",
+			expectedStatus: providerapiv1.BidResponse_STATUS_UNSPECIFIED,
+			expectError:    true,
+			errorContains:  "unmarshalling bid options",
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:]},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client, svc := startServer(t)
+
+			// Create bid options based on test case
+			var bidderOpts *bidderapiv1.BidOptions
+			var bidOptionsBytes []byte
+			var err error
+
+			if tc.name == "mixed bid options" {
+				// Mixed options with position constraint and shutterised option
+				bidderOpts = &bidderapiv1.BidOptions{
+					Options: []*bidderapiv1.BidOption{
+						{
+							Opt: &bidderapiv1.BidOption_PositionConstraint{
+								PositionConstraint: &bidderapiv1.PositionConstraint{
+									Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
+									Basis:  bidderapiv1.PositionConstraint_BASIS_PERCENTILE,
+									Value:  10,
+								},
+							},
+						},
+						{
+							Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+									IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+									EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+								},
+							},
 						},
 					},
-				},
-			},
-		}
-
-		// Marshal the bid options
-		bidOptionsBytes, err := proto.Marshal(bidderOpts)
-		if err != nil {
-			t.Fatalf("error marshaling bid options: %v", err)
-		}
-
-		bidCh := make(chan *providerapiv1.Bid)
-
-		rcvr, err := client.ReceiveBids(context.Background(), &providerapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error receiving bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = rcvr.CloseSend() }()
-			for {
-				bid, err := rcvr.Recv()
-				if err != nil {
-					break
 				}
-				bidCh <- bid
-			}
-		}()
+			} else if tc.name == "multiple shutterised bid options" {
+				// Multiple shutterised options - parse comma-separated values
+				identityPrefixes := strings.Split(tc.identityPrefix, ",")
+				encryptedTxs := strings.Split(tc.encryptedTx, ",")
 
-		// Wait for active receivers
-		activeReceiverTimeout := time.Now().Add(2 * time.Second)
-		for svc.ActiveReceivers() <= 0 {
-			if time.Now().After(activeReceiverTimeout) {
-				t.Fatalf("timed out waiting for active receivers")
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-
-		sndr, err := client.SendProcessedBids(context.Background())
-		if err != nil {
-			t.Fatalf("error sending processed bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = sndr.CloseSend() }()
-			for {
-				bid, more := <-bidCh
-				if !more {
-					break
-				}
-				err := sndr.Send(&providerapiv1.BidResponse{
-					BidDigest:         bid.BidDigest,
-					Status:            providerapiv1.BidResponse_STATUS_ACCEPTED,
-					DispatchTimestamp: 10,
-				})
-				if err != nil {
-					break
-				}
-			}
-		}()
-
-		// Create bid with shutterised options
-		bid := &preconfpb.Bid{
-			TxHash:              common.HexToHash("0x00001").Hex()[2:],
-			BidAmount:           "1000000000000000000",
-			SlashAmount:         "0",
-			BlockNumber:         1,
-			Digest:              []byte("digest"),
-			Signature:           []byte("signature"),
-			DecayStartTimestamp: 199,
-			DecayEndTimestamp:   299,
-			BidOptions:          bidOptionsBytes,
-		}
-
-		respC, err := svc.ProcessBid(context.Background(), bid)
-		if err != nil {
-			t.Fatalf("error processing bid: %v", err)
-		}
-
-		select {
-		case resp := <-respC:
-			if resp.Status != providerapiv1.BidResponse_STATUS_ACCEPTED {
-				t.Fatalf("expected status to be ACCEPTED, got %v", resp.Status)
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("expected status to be ACCEPTED, got timeout")
-		}
-	})
-
-	t.Run("process bid with nil shutterised option", func(t *testing.T) {
-		client, svc := startServer(t)
-
-		// Create bid options with nil shutterised bid option
-		bidderOpts := &bidderapiv1.BidOptions{
-			Options: []*bidderapiv1.BidOption{
-				{
-					Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
-						ShutterisedBidOption: nil,
-					},
-				},
-			},
-		}
-
-		// Marshal the bid options
-		bidOptionsBytes, err := proto.Marshal(bidderOpts)
-		if err != nil {
-			t.Fatalf("error marshaling bid options: %v", err)
-		}
-
-		bidCh := make(chan *providerapiv1.Bid)
-
-		rcvr, err := client.ReceiveBids(context.Background(), &providerapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error receiving bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = rcvr.CloseSend() }()
-			for {
-				bid, err := rcvr.Recv()
-				if err != nil {
-					break
-				}
-				bidCh <- bid
-			}
-		}()
-
-		// Wait for active receivers
-		activeReceiverTimeout := time.Now().Add(2 * time.Second)
-		for svc.ActiveReceivers() <= 0 {
-			if time.Now().After(activeReceiverTimeout) {
-				t.Fatalf("timed out waiting for active receivers")
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-
-		sndr, err := client.SendProcessedBids(context.Background())
-		if err != nil {
-			t.Fatalf("error sending processed bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = sndr.CloseSend() }()
-			for {
-				bid, more := <-bidCh
-				if !more {
-					break
-				}
-				err := sndr.Send(&providerapiv1.BidResponse{
-					BidDigest:         bid.BidDigest,
-					Status:            providerapiv1.BidResponse_STATUS_ACCEPTED,
-					DispatchTimestamp: 10,
-				})
-				if err != nil {
-					break
-				}
-			}
-		}()
-
-		// Create bid with nil shutterised options
-		bid := &preconfpb.Bid{
-			TxHash:              common.HexToHash("0x00001").Hex()[2:],
-			BidAmount:           "1000000000000000000",
-			SlashAmount:         "0",
-			BlockNumber:         1,
-			Digest:              []byte("digest"),
-			Signature:           []byte("signature"),
-			DecayStartTimestamp: 199,
-			DecayEndTimestamp:   299,
-			BidOptions:          bidOptionsBytes,
-		}
-
-		respC, err := svc.ProcessBid(context.Background(), bid)
-		if err != nil {
-			t.Fatalf("error processing bid: %v", err)
-		}
-
-		select {
-		case resp := <-respC:
-			if resp.Status != providerapiv1.BidResponse_STATUS_ACCEPTED {
-				t.Fatalf("expected status to be ACCEPTED, got %v", resp.Status)
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("expected status to be ACCEPTED, got timeout")
-		}
-	})
-
-	t.Run("process bid with multiple shutterised options", func(t *testing.T) {
-		client, svc := startServer(t)
-
-		// Create bid options with multiple shutterised bid options
-		bidderOpts := &bidderapiv1.BidOptions{
-			Options: []*bidderapiv1.BidOption{
-				{
-					Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
-						ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
-							IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-							EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+				bidderOpts = &bidderapiv1.BidOptions{
+					Options: []*bidderapiv1.BidOption{
+						{
+							Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+									IdentityPrefix: identityPrefixes[0],
+									EncryptedTx:    encryptedTxs[0],
+								},
+							},
+						},
+						{
+							Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+									IdentityPrefix: identityPrefixes[1],
+									EncryptedTx:    encryptedTxs[1],
+								},
+							},
 						},
 					},
-				},
-				{
-					Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
-						ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
-							IdentityPrefix: "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
-							EncryptedTx:    "0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+				}
+			} else if tc.name == "invalid bid options marshaling" {
+				// Invalid protobuf data
+				bidOptionsBytes = []byte("invalid protobuf data")
+			} else if tc.name == "nil shutterised bid option" {
+				// Nil bid options for nil case
+				bidderOpts = nil
+			} else {
+				// Single valid shutterised option
+				bidderOpts = &bidderapiv1.BidOptions{
+					Options: []*bidderapiv1.BidOption{
+						{
+							Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+									IdentityPrefix: tc.identityPrefix,
+									EncryptedTx:    tc.encryptedTx,
+								},
+							},
 						},
 					},
-				},
-			},
-		}
+				}
+			}
 
-		// Marshal the bid options
-		bidOptionsBytes, err := proto.Marshal(bidderOpts)
-		if err != nil {
-			t.Fatalf("error marshaling bid options: %v", err)
-		}
-
-		bidCh := make(chan *providerapiv1.Bid)
-
-		rcvr, err := client.ReceiveBids(context.Background(), &providerapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error receiving bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = rcvr.CloseSend() }()
-			for {
-				bid, err := rcvr.Recv()
+			// Marshal bid options if not already set
+			if tc.name != "invalid bid options marshaling" && bidderOpts != nil {
+				bidOptionsBytes, err = proto.Marshal(bidderOpts)
 				if err != nil {
-					break
-				}
-				bidCh <- bid
-			}
-		}()
-
-		// Wait for active receivers
-		activeReceiverTimeout := time.Now().Add(2 * time.Second)
-		for svc.ActiveReceivers() <= 0 {
-			if time.Now().After(activeReceiverTimeout) {
-				t.Fatalf("timed out waiting for active receivers")
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-
-		sndr, err := client.SendProcessedBids(context.Background())
-		if err != nil {
-			t.Fatalf("error sending processed bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = sndr.CloseSend() }()
-			for {
-				bid, more := <-bidCh
-				if !more {
-					break
-				}
-				err := sndr.Send(&providerapiv1.BidResponse{
-					BidDigest:         bid.BidDigest,
-					Status:            providerapiv1.BidResponse_STATUS_ACCEPTED,
-					DispatchTimestamp: 10,
-				})
-				if err != nil {
-					break
+					t.Fatalf("error marshaling bid options: %v", err)
 				}
 			}
-		}()
 
-		// Create bid with multiple shutterised options
-		bid := &preconfpb.Bid{
-			TxHash:              strings.Join([]string{common.HexToHash("0x00001").Hex()[2:], common.HexToHash("0x00002").Hex()[2:]}, ","),
-			BidAmount:           "1000000000000000000",
-			SlashAmount:         "0",
-			BlockNumber:         1,
-			Digest:              []byte("digest"),
-			Signature:           []byte("signature"),
-			DecayStartTimestamp: 199,
-			DecayEndTimestamp:   299,
-			BidOptions:          bidOptionsBytes,
-		}
+			bidCh := make(chan *providerapiv1.Bid)
 
-		respC, err := svc.ProcessBid(context.Background(), bid)
-		if err != nil {
-			t.Fatalf("error processing bid: %v", err)
-		}
-
-		select {
-		case resp := <-respC:
-			if resp.Status != providerapiv1.BidResponse_STATUS_ACCEPTED {
-				t.Fatalf("expected status to be ACCEPTED, got %v", resp.Status)
+			rcvr, err := client.ReceiveBids(context.Background(), &providerapiv1.EmptyMessage{})
+			if err != nil {
+				t.Fatalf("error receiving bids: %v", err)
 			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("expected status to be ACCEPTED, got timeout")
-		}
-	})
-
-	t.Run("process bid with mixed bid options", func(t *testing.T) {
-		client, svc := startServer(t)
-
-		// Create bid options with both position constraint and shutterised bid option
-		bidderOpts := &bidderapiv1.BidOptions{
-			Options: []*bidderapiv1.BidOption{
-				{
-					Opt: &bidderapiv1.BidOption_PositionConstraint{
-						PositionConstraint: &bidderapiv1.PositionConstraint{
-							Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
-							Basis:  bidderapiv1.PositionConstraint_BASIS_PERCENTILE,
-							Value:  10,
-						},
-					},
-				},
-				{
-					Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
-						ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
-							IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-							EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-						},
-					},
-				},
-			},
-		}
-
-		// Marshal the bid options
-		bidOptionsBytes, err := proto.Marshal(bidderOpts)
-		if err != nil {
-			t.Fatalf("error marshaling bid options: %v", err)
-		}
-
-		bidCh := make(chan *providerapiv1.Bid)
-
-		rcvr, err := client.ReceiveBids(context.Background(), &providerapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error receiving bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = rcvr.CloseSend() }()
-			for {
-				bid, err := rcvr.Recv()
-				if err != nil {
-					break
+			go func() {
+				defer func() { _ = rcvr.CloseSend() }()
+				for {
+					bid, err := rcvr.Recv()
+					if err != nil {
+						break
+					}
+					bidCh <- bid
 				}
-				bidCh <- bid
-			}
-		}()
+			}()
 
-		// Wait for active receivers
-		activeReceiverTimeout := time.Now().Add(2 * time.Second)
-		for svc.ActiveReceivers() <= 0 {
-			if time.Now().After(activeReceiverTimeout) {
-				t.Fatalf("timed out waiting for active receivers")
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-
-		sndr, err := client.SendProcessedBids(context.Background())
-		if err != nil {
-			t.Fatalf("error sending processed bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = sndr.CloseSend() }()
-			for {
-				bid, more := <-bidCh
-				if !more {
-					break
+			// Wait for active receivers
+			activeReceiverTimeout := time.Now().Add(2 * time.Second)
+			for svc.ActiveReceivers() <= 0 {
+				if time.Now().After(activeReceiverTimeout) {
+					t.Fatalf("timed out waiting for active receivers")
 				}
-				err := sndr.Send(&providerapiv1.BidResponse{
-					BidDigest:         bid.BidDigest,
-					Status:            providerapiv1.BidResponse_STATUS_ACCEPTED,
-					DispatchTimestamp: 10,
-				})
-				if err != nil {
-					break
+				time.Sleep(10 * time.Millisecond)
+			}
+
+			sndr, err := client.SendProcessedBids(context.Background())
+			if err != nil {
+				t.Fatalf("error sending processed bids: %v", err)
+			}
+			go func() {
+				defer func() { _ = sndr.CloseSend() }()
+				for {
+					bid, more := <-bidCh
+					if !more {
+						break
+					}
+					err := sndr.Send(&providerapiv1.BidResponse{
+						BidDigest:         bid.BidDigest,
+						Status:            tc.expectedStatus,
+						DispatchTimestamp: 10,
+					})
+					if err != nil {
+						break
+					}
 				}
+			}()
+
+			// Create bid
+			txHash := strings.Join(tc.txHashes, ",")
+			bid := &preconfpb.Bid{
+				TxHash:              txHash,
+				BidAmount:           "1000000000000000000",
+				SlashAmount:         "0",
+				BlockNumber:         1,
+				Digest:              []byte("digest"),
+				Signature:           []byte("signature"),
+				DecayStartTimestamp: 199,
+				DecayEndTimestamp:   299,
+				BidOptions:          bidOptionsBytes,
 			}
-		}()
 
-		// Create bid with mixed options
-		bid := &preconfpb.Bid{
-			TxHash:              strings.Join([]string{common.HexToHash("0x00001").Hex()[2:], common.HexToHash("0x00002").Hex()[2:]}, ","),
-			BidAmount:           "1000000000000000000",
-			SlashAmount:         "0",
-			BlockNumber:         1,
-			Digest:              []byte("digest"),
-			Signature:           []byte("signature"),
-			DecayStartTimestamp: 199,
-			DecayEndTimestamp:   299,
-			BidOptions:          bidOptionsBytes,
-		}
+			respC, err := svc.ProcessBid(context.Background(), bid, common.HexToAddress("0xe3f21915b2C9745aB383925533b7f6aC35c409f5"))
 
-		respC, err := svc.ProcessBid(context.Background(), bid)
-		if err != nil {
-			t.Fatalf("error processing bid: %v", err)
-		}
-
-		select {
-		case resp := <-respC:
-			if resp.Status != providerapiv1.BidResponse_STATUS_ACCEPTED {
-				t.Fatalf("expected status to be ACCEPTED, got %v", resp.Status)
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("expected status to be ACCEPTED, got timeout")
-		}
-	})
-
-	t.Run("process bid with invalid bid options marshaling", func(t *testing.T) {
-		client, svc := startServer(t)
-
-		bidCh := make(chan *providerapiv1.Bid)
-
-		rcvr, err := client.ReceiveBids(context.Background(), &providerapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error receiving bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = rcvr.CloseSend() }()
-			for {
-				bid, err := rcvr.Recv()
-				if err != nil {
-					break
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("expected error processing bid")
 				}
-				bidCh <- bid
-			}
-		}()
-
-		// Wait for active receivers
-		activeReceiverTimeout := time.Now().Add(2 * time.Second)
-		for svc.ActiveReceivers() <= 0 {
-			if time.Now().After(activeReceiverTimeout) {
-				t.Fatalf("timed out waiting for active receivers")
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-
-		sndr, err := client.SendProcessedBids(context.Background())
-		if err != nil {
-			t.Fatalf("error sending processed bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = sndr.CloseSend() }()
-			for {
-				bid, more := <-bidCh
-				if !more {
-					break
+				if tc.errorContains != "" && !strings.Contains(err.Error(), tc.errorContains) {
+					t.Fatalf("expected error to contain '%s', got %v", tc.errorContains, err)
 				}
-				err := sndr.Send(&providerapiv1.BidResponse{
-					BidDigest:         bid.BidDigest,
-					Status:            providerapiv1.BidResponse_STATUS_ACCEPTED,
-					DispatchTimestamp: 10,
-				})
-				if err != nil {
-					break
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("error processing bid: %v", err)
+			}
+
+			select {
+			case resp := <-respC:
+				if resp.Status != tc.expectedStatus {
+					t.Fatalf("expected status to be %v, got %v", tc.expectedStatus, resp.Status)
 				}
+			case <-time.After(2 * time.Second):
+				t.Fatalf("expected status to be %v, got timeout", tc.expectedStatus)
 			}
-		}()
-
-		// Create bid with invalid bid options bytes
-		bid := &preconfpb.Bid{
-			TxHash:              common.HexToHash("0x00001").Hex()[2:],
-			BidAmount:           "1000000000000000000",
-			SlashAmount:         "0",
-			BlockNumber:         1,
-			Digest:              []byte("digest"),
-			Signature:           []byte("signature"),
-			DecayStartTimestamp: 199,
-			DecayEndTimestamp:   299,
-			BidOptions:          []byte("invalid protobuf data"),
-		}
-
-		_, err = svc.ProcessBid(context.Background(), bid)
-		if err == nil || !strings.Contains(err.Error(), "unmarshalling bid options") {
-			t.Fatalf("expected error about unmarshalling bid options, got %v", err)
-		}
-	})
-
-	t.Run("process bid with empty shutterised option fields", func(t *testing.T) {
-		client, svc := startServer(t)
-
-		// Create bid options with empty shutterised bid option fields
-		bidderOpts := &bidderapiv1.BidOptions{
-			Options: []*bidderapiv1.BidOption{
-				{
-					Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
-						ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
-							IdentityPrefix: "",
-							EncryptedTx:    "",
-						},
-					},
-				},
-			},
-		}
-
-		// Marshal the bid options
-		bidOptionsBytes, err := proto.Marshal(bidderOpts)
-		if err != nil {
-			t.Fatalf("error marshaling bid options: %v", err)
-		}
-
-		bidCh := make(chan *providerapiv1.Bid)
-
-		rcvr, err := client.ReceiveBids(context.Background(), &providerapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error receiving bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = rcvr.CloseSend() }()
-			for {
-				bid, err := rcvr.Recv()
-				if err != nil {
-					break
-				}
-				bidCh <- bid
-			}
-		}()
-
-		// Wait for active receivers
-		activeReceiverTimeout := time.Now().Add(2 * time.Second)
-		for svc.ActiveReceivers() <= 0 {
-			if time.Now().After(activeReceiverTimeout) {
-				t.Fatalf("timed out waiting for active receivers")
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-
-		sndr, err := client.SendProcessedBids(context.Background())
-		if err != nil {
-			t.Fatalf("error sending processed bids: %v", err)
-		}
-		go func() {
-			defer func() { _ = sndr.CloseSend() }()
-			for {
-				bid, more := <-bidCh
-				if !more {
-					break
-				}
-				err := sndr.Send(&providerapiv1.BidResponse{
-					BidDigest:         bid.BidDigest,
-					Status:            providerapiv1.BidResponse_STATUS_ACCEPTED,
-					DispatchTimestamp: 10,
-				})
-				if err != nil {
-					break
-				}
-			}
-		}()
-
-		// Create bid with empty shutterised option fields
-		bid := &preconfpb.Bid{
-			TxHash:              common.HexToHash("0x00001").Hex()[2:],
-			BidAmount:           "1000000000000000000",
-			SlashAmount:         "0",
-			BlockNumber:         1,
-			Digest:              []byte("digest"),
-			Signature:           []byte("signature"),
-			DecayStartTimestamp: 199,
-			DecayEndTimestamp:   299,
-			BidOptions:          bidOptionsBytes,
-		}
-
-		respC, err := svc.ProcessBid(context.Background(), bid)
-		if err != nil {
-			t.Fatalf("error processing bid: %v", err)
-		}
-
-		select {
-		case resp := <-respC:
-			if resp.Status != providerapiv1.BidResponse_STATUS_ACCEPTED {
-				t.Fatalf("expected status to be ACCEPTED, got %v", resp.Status)
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("expected status to be ACCEPTED, got timeout")
-		}
-	})
+		})
+	}
 }
