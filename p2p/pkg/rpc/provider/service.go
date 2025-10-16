@@ -145,6 +145,17 @@ func (s *Service) ProcessBid(
 					},
 				}
 				opts.Options = append(opts.Options, opt)
+			case bOpt.GetShutterisedBidOption() != nil:
+				c := bOpt.GetShutterisedBidOption()
+				opt := &providerapiv1.BidOption{
+					Opt: &providerapiv1.BidOption_ShutterisedBidOption{
+						ShutterisedBidOption: &providerapiv1.ShutterisedBidOption{
+							IdentityPrefix: c.GetIdentityPrefix(),
+							EncryptedTx:    c.GetEncryptedTx(),
+						},
+					},
+				}
+				opts.Options = append(opts.Options, opt)
 			}
 		}
 	}
