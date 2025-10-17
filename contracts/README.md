@@ -41,6 +41,9 @@ This changelog tracks contract deployments on the mev-commit chain. This changel
 | BlockTracker          | `0x5d64b933739558101f9359e2750acc228f0cb64f` | `release/v1.2.x`    | `v1.2.0`      |
 | SettlementGateway     | `0x21f5f1142200a515248a2eef5b0654581c7f2b46` | `release/v1.2.x`    | `v1.2.0`      |
 
+
+
+
 ### Upgrade history related to current deployments
 
 | Timestamp (UTC)             | Contract            | New Impl Version      | Upgrade Tag       |
@@ -69,6 +72,18 @@ This changelog tracks deployments of **Hoodi Testnet** contracts. This changelog
 | Timestamp (UTC)             | Contract            | New Impl Version      | Commmit       |
 |-----------------------------|---------------------|-----------------------|-------------------|
 | N/A |  |  |  |
+
+
+## Hoodi ValidatorOptInHub Registry Indexes
+
+| Registry Index              | Registry Type                                |  Proxy Address           |
+|-----------------------|----------------------------------------------|---------------------|
+| 0                           | Vanilla Registry         | `0x536F0792c5D5Ed592e67a9260606c85F59C312F0` |
+| 1                           | MevCommitAVS             | `0xdF8649d298ad05f019eE4AdBD6210867B8AB225F` |
+| 2                           | MevCommitMiddleware      | `0x8E847EC4a36c8332652aB3b2B7D5c54dE29c7fde` |
+| 3                           | Vanilla Lido             | `0xEfd6333907fc73c1ac3167D843488B8899bac91b` |
+| 4                           | RocketMinipoolRegistry   | `0x82018E031cE9B4040752544BC63086b6FECFB07B` |
+| 5                           | Vanilla Reputational     | `0x1f6391d28d062acb8edb96ec94752045ca4815e5` |
 
 
 ## L1 Deployer CLI
