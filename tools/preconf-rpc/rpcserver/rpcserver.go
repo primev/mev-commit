@@ -67,21 +67,18 @@ type jsonRPCError struct {
 }
 
 var cacheMethods = map[string]bool{
-	"eth_call":             true,
-	"eth_estimateGas":      true,
-	"eth_getCode":          true,
-	"eth_getStorageAt":     true,
-	"eth_feeHistory":       true,
-	"eth_gasPrice":         true,
-	"eth_blockNumber":      true,
-	"eth_getBlockByNumber": true,
-	"eth_getLogs":          true,
-	"net_version":          true,
+	"eth_call":         true,
+	"eth_getCode":      true,
+	"eth_getStorageAt": true,
+	"eth_feeHistory":   true,
+	"eth_gasPrice":     true,
+	"eth_getLogs":      true,
+	"net_version":      true,
 }
 
 type cacheEntry struct {
-	untill time.Time
-	data   json.RawMessage
+	until time.Time
+	data  json.RawMessage
 }
 
 func cacheKey(method string, params []any) string {
@@ -180,7 +177,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		key := cacheKey(req.Method, req.Params)
-		if entry, ok := s.cache.Get(key); ok && time.Now().Before(entry.untill) {
+		if entry, ok := s.cache.Get(key); ok && time.Now().Before(entry.until) {
 			s.logger.Debug("Cache hit", "method", req.Method, "id", req.ID)
 			s.writeResponse(w, req.ID, &entry.data)
 			return
@@ -205,8 +202,8 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if cacheMethods[req.Method] && resp.Result != nil {
 			key := cacheKey(req.Method, req.Params)
 			s.cache.Add(key, cacheEntry{
-				untill: time.Now().Add(pickTTL(req.Method, *resp.Result)),
-				data:   *resp.Result,
+				until: time.Now().Add(pickTTL(req.Method, *resp.Result)),
+				data:  *resp.Result,
 			})
 			s.logger.Debug("Cache store", "method", req.Method, "id", req.ID)
 		}
@@ -353,12 +350,6 @@ func pickTTL(method string, params json.RawMessage) time.Duration {
 		return 24 * time.Hour
 	case "eth_getCode":
 		return 24 * time.Hour
-	case "eth_getBlockByNumber":
-		// immutable if first param is a hex number (not "latest")
-		if strings.Contains(string(params), "\"0x") && !strings.Contains(string(params), "\"latest\"") {
-			return 24 * time.Hour
-		}
-		return 2 * time.Second
 	case "eth_feeHistory":
 		return 3 * time.Second
 	case "eth_call":
