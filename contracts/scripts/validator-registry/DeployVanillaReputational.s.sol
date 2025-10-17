@@ -37,7 +37,7 @@ contract BaseDeploy is Script {
 
 contract DeployMainnet is BaseDeploy {
     address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
-    uint256 constant public MIN_STAKE = 0 ether;
+    uint256 constant public MIN_STAKE = 1 ether;
     address constant public SLASH_ORACLE = MainnetConstants.PRIMEV_TEAM_MULTISIG;
     address constant public SLASH_RECEIVER = MainnetConstants.COMMITMENT_HOLDINGS_MULTISIG;
     uint256 constant public UNSTAKE_PERIOD_BLOCKS = 7200; // 7200 * 12s ~= 1 day.
@@ -53,7 +53,7 @@ contract DeployMainnet is BaseDeploy {
 
 
 contract DeployHoodi is BaseDeploy {
-    uint256 constant public MIN_STAKE = 0 ether; // 10k vals = 1 ETH cost
+    uint256 constant public MIN_STAKE = 0.1 ether; // 10k vals = 1 ETH cost
     address constant public SLASH_ORACLE = 0x1623fE21185c92BB43bD83741E226288B516134a;
     address constant public SLASH_RECEIVER = 0x1623fE21185c92BB43bD83741E226288B516134a;
     uint256 constant public UNSTAKE_PERIOD_BLOCKS = 32 * 3; // 2 epoch finalization time + settlement buffer
