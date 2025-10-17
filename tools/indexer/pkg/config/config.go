@@ -50,6 +50,6 @@ type Config struct {
 	EtherscanKey     string
 	InfuraRPC        string
 	BeaconBase       string
-	RelayMode        bool
+	RelayData        bool
 	RelaysJSON       string
 }

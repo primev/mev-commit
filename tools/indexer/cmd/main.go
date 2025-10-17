@@ -110,7 +110,7 @@ func createOptionsFromCLI(c *cli.Context) *config.Config {
 		EtherscanKey:     c.String("etherscan-key"),
 		InfuraRPC:        c.String("infura-rpc"),
 		BeaconBase:       c.String("beacon-base"),
-		RelayMode:        c.Bool("relay"),
+		RelayData:        c.Bool("relay"),
 		RelaysJSON:       c.String("relays-json"),
 	}
 }
