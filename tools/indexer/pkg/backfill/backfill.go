@@ -11,8 +11,8 @@ import (
 	"github.com/primev/mev-commit/tools/indexer/pkg/config"
 	"github.com/primev/mev-commit/tools/indexer/pkg/database"
 	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
-	"github.com/primev/mev-commit/tools/indexer/pkg/relay"
 	"github.com/primev/mev-commit/tools/indexer/pkg/ingest"
+	"github.com/primev/mev-commit/tools/indexer/pkg/relay"
 )
 
 type SlotData struct {
@@ -21,7 +21,6 @@ type SlotData struct {
 	ValidatorPubkey []byte
 	ProposerIdx     *int64
 }
-
 
 func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, cfg *config.Config, relays []relay.Row) error {
 	logger := slog.With("component", "backfill")

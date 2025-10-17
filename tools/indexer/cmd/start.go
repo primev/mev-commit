@@ -14,8 +14,8 @@ import (
 	"github.com/primev/mev-commit/tools/indexer/pkg/database"
 	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
 	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
-	"github.com/primev/mev-commit/tools/indexer/pkg/relay"
 	"github.com/primev/mev-commit/tools/indexer/pkg/ingest"
+	"github.com/primev/mev-commit/tools/indexer/pkg/relay"
 	"github.com/urfave/cli/v2"
 )
 

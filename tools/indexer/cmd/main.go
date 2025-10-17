@@ -123,7 +123,6 @@ func main() {
 		optionBeaconBase,
 		optionBlockInterval,
 		optionValidatorDelay,
-
 		optionBackfillLookback,
 		optionBackfillBatch,
 		optionHTTPTimeout,
