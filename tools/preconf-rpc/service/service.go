@@ -208,10 +208,13 @@ func New(config *Config) (*Service, error) {
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
 	s.closers = append(s.closers, channelCloser(bidderDone))
 
-	rpcServer := rpcserver.NewJSONRPCServer(
+	rpcServer, err := rpcserver.NewJSONRPCServer(
 		config.L1RPCUrls[0],
 		config.Logger.With("module", "rpcserver"),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create RPC server: %w", err)
+	}
 
 	bidpricer, err := pricer.NewPricer(config.PricerAPIKey, config.Logger.With("module", "bidpricer"))
 	if err != nil {
