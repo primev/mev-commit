@@ -15,7 +15,7 @@ import (
 	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
 	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
 	"github.com/primev/mev-commit/tools/indexer/pkg/relay"
-
+	"github.com/primev/mev-commit/tools/indexer/pkg/ingest"
 	"github.com/urfave/cli/v2"
 )
 
@@ -135,12 +135,12 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 	cfg := createOptionsFromCLI(c)
 
 	if cfg.RelayData {
-		if err := backfill.ProcessBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
+		if err := ingest.ProcessBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
 			logger.Error("failed to process bids", "error", err)
 			return lastBN
 		}
 	}
-	if err := backfill.LaunchValidatorTasks(ctx, cfg, db, httpc, ei, beaconBase, logger); err != nil {
+	if err := ingest.LaunchValidatorTasks(ctx, cfg, db, httpc, ei, beaconBase, logger); err != nil {
 		logger.Error("failed to launch async validator tasks", "slot", ei.Slot, "error", err)
 		return lastBN
 	}
