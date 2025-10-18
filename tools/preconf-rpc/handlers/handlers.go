@@ -43,6 +43,7 @@ type BlockTracker interface {
 type Sender interface {
 	Enqueue(ctx context.Context, txn *sender.Transaction) error
 	CancelTransaction(ctx context.Context, txHash common.Hash) (bool, error)
+	IsTransactionInFlight(txnHash common.Hash) bool
 }
 
 type rpcMethodHandler struct {
@@ -411,7 +412,8 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		return nil, true, nil
 	}
 
-	if txn.Status != sender.TxStatusFailed && txn.Status != sender.TxStatusPreConfirmed {
+	if txn.Status != sender.TxStatusFailed &&
+		(txn.Status != sender.TxStatusPreConfirmed || !h.sndr.IsTransactionInFlight(txHash)) {
 		return nil, true, nil
 	}
 
