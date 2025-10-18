@@ -404,6 +404,35 @@ func New(config *Config) (*Service, error) {
 		}
 	})
 
+	mux.HandleFunc("POST /subsidize", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		// Get account address and amount from URL params
+		account := r.URL.Query().Get("account")
+		if account == "" || !common.IsHexAddress(account) {
+			http.Error(w, "invalid or missing account address", http.StatusBadRequest)
+			return
+		}
+
+		amountStr := r.URL.Query().Get("amount")
+		amount, ok := new(big.Int).SetString(amountStr, 10)
+		if !ok {
+			http.Error(w, "invalid amount", http.StatusBadRequest)
+			return
+		}
+
+		if err := rpcstore.AddSubsidy(r.Context(), common.HexToAddress(account), amount); err != nil {
+			http.Error(w, fmt.Sprintf("failed to add subsidy: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+
 	srv := http.Server{
 		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
 		Handler: mux,

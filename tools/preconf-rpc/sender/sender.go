@@ -234,6 +234,13 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
+func (t *TxSender) IsTransactionInflight(txnHash common.Hash) bool {
+	t.inflightMu.RLock()
+	_, found := t.inflightTxns[txnHash]
+	t.inflightMu.RUnlock()
+	return found
+}
+
 func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (bool, error) {
 	t.inflightMu.RLock()
 	cancel, found := t.inflightTxns[txnHash]
@@ -277,9 +284,7 @@ func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (
 			t.logger.Info("Context cancelled while waiting for transaction cancellation")
 			return false, ctx.Err()
 		case <-ticker.C:
-			t.inflightMu.RLock()
-			_, stillInFlight := t.inflightTxns[txnHash]
-			t.inflightMu.RUnlock()
+			stillInFlight := t.IsTransactionInflight(txnHash)
 			if !stillInFlight {
 				txn, err := t.store.GetTransactionByHash(ctx, txnHash)
 				switch {
@@ -422,6 +427,7 @@ BID_LOOP:
 		default:
 		}
 
+		preConfirmed := false
 		result, err = t.sendBid(ctx, txn)
 		switch {
 		case err != nil:
@@ -454,8 +460,10 @@ BID_LOOP:
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
-			t.clearBlockAttemptHistory(txn)
-			break BID_LOOP
+			if err := t.store.StoreTransaction(ctx, txn, result.commitments); err != nil {
+				return fmt.Errorf("failed to store fast-tracked transaction: %w", err)
+			}
+			preConfirmed = true
 		case result.optedInSlot:
 			if result.noOfProviders == len(result.commitments) {
 				// This means that all builders have committed to the bid and it
@@ -470,13 +478,15 @@ BID_LOOP:
 					"blockNumber", result.blockNumber,
 					"bidAmount", result.bidAmount.String(),
 				)
-				t.clearBlockAttemptHistory(txn)
-				break BID_LOOP
+				if err := t.store.StoreTransaction(ctx, txn, result.commitments); err != nil {
+					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
+				}
+				preConfirmed = true
 			}
 		default:
 		}
 
-		if result.noOfProviders > len(result.commitments) {
+		if !preConfirmed && result.noOfProviders > len(result.commitments) {
 			t.logger.Warn(
 				"Not all builders committed to the bid",
 				"noOfProviders", result.noOfProviders,
@@ -501,22 +511,23 @@ BID_LOOP:
 			return fmt.Errorf("failed to check transaction inclusion: %w", err)
 		}
 		if included {
-			txn.Status = TxStatusConfirmed
-			txn.BlockNumber = int64(result.blockNumber)
-			t.logger.Info(
-				"Transaction confirmed for non opted-in slot",
-				"sender", txn.Sender.Hex(),
-				"type", txn.Type,
-				"blockNumber", result.blockNumber,
-				"bidAmount", result.bidAmount.String(),
-			)
+			if !preConfirmed {
+				txn.Status = TxStatusConfirmed
+				txn.BlockNumber = int64(result.blockNumber)
+				t.logger.Info(
+					"Transaction confirmed for non opted-in slot",
+					"sender", txn.Sender.Hex(),
+					"type", txn.Type,
+					"blockNumber", result.blockNumber,
+					"bidAmount", result.bidAmount.String(),
+				)
+				if err := t.store.StoreTransaction(ctx, txn, result.commitments); err != nil {
+					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
+				}
+			}
 			t.clearBlockAttemptHistory(txn)
 			break BID_LOOP
 		}
-	}
-
-	if err := t.store.StoreTransaction(ctx, txn, result.commitments); err != nil {
-		return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 	}
 
 	switch txn.Type {

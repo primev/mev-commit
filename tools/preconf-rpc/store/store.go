@@ -48,6 +48,12 @@ CREATE TABLE IF NOT EXISTS balances (
 	balance NUMERIC(24, 0)
 );`
 
+var subsidiesTable = `
+CREATE TABLE IF NOT EXISTS subsidies (
+	account TEXT PRIMARY KEY,
+	balance NUMERIC(24, 0)
+);`
+
 type rpcstore struct {
 	db *sql.DB
 }
@@ -57,6 +63,7 @@ func New(db *sql.DB) (*rpcstore, error) {
 		transactionsTable,
 		commitmentsTable,
 		balancesTable,
+		subsidiesTable,
 	} {
 		_, err := db.Exec(table)
 		if err != nil {
@@ -279,7 +286,7 @@ func (s *rpcstore) StoreTransaction(
 			insertCommitment := `
 			INSERT INTO commitments (commitment_digest, transaction_hash, provider_address, commitment_data)
 			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (commitment_digest) DO NOTHING;
+			ON CONFLICT (commitment_digest) DO UPDATE SET;
 			`
 			commitmentData, err := proto.Marshal(commitment)
 			if err != nil {
@@ -353,7 +360,7 @@ func (s *rpcstore) GetCurrentNonce(ctx context.Context, sender common.Address) u
 	query := `
 	SELECT COALESCE(MAX(nonce), 0)
 	FROM mcTransactions
-	WHERE sender = $1 AND status = 'pending';
+	WHERE sender = $1 AND (status = 'pending' OR status = 'pre-confirmed');
 	`
 	row := s.db.QueryRowContext(ctx, query, sender.Hex())
 	var nextNonce uint64
@@ -479,4 +486,31 @@ func (s *rpcstore) GetBalance(
 	}
 
 	return balanceInt, nil
+}
+
+func (s *rpcstore) AddSubsidy(
+	ctx context.Context,
+	account common.Address,
+	amount *big.Int,
+) error {
+	if account == (common.Address{}) || amount == nil || amount.Sign() <= 0 {
+		return fmt.Errorf("invalid account or amount: account=%s, amount=%s", account.Hex(), amount.String())
+	}
+
+	query := `
+	INSERT INTO subsidies (account, balance)
+	VALUES ($1, $2)
+	ON CONFLICT (account) DO UPDATE SET balance = balances.balance + $2
+	WHERE balances.balance + $2 >= 0;
+	`
+
+	_, err := s.db.ExecContext(ctx, query, account.Hex(), amount.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("account %s not found or insufficient balance: %w", account.Hex(), ErrInsufficientBalance)
+		}
+		return fmt.Errorf("failed to add balance for account %s: %w", account.Hex(), err)
+	}
+
+	return s.AddBalance(ctx, account, amount)
 }
