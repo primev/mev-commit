@@ -161,7 +161,7 @@ func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) erro
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	var timestamp, proposerIndex, relayTag, rewardEth, builderPubkeyPrefix, feeRecHex string
+	var timestamp, proposerIndex, relayTag, builderPubkeyPrefix, proposerFeeRecHex, mevRewardEth, feeRecHex, proposerRewardEth string
 
 	if ei.Timestamp != nil {
 		timestamp = fmt.Sprintf("'%s'", ei.Timestamp.Format("2006-01-02 15:04:05"))
@@ -180,29 +180,41 @@ func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) erro
 	} else {
 		relayTag = "NULL"
 	}
-	if ei.BuilderHex != nil {
-		builderPubkeyPrefix = fmt.Sprintf("'%s'", (*ei.BuilderHex))
+	if ei.BuilderPublicKey != nil {
+		builderPubkeyPrefix = fmt.Sprintf("'%s'", (*ei.BuilderPublicKey))
 	} else {
 		builderPubkeyPrefix = "NULL"
 	}
-	if ei.FeeRecHex != nil {
-		feeRecHex = fmt.Sprintf("'%s'", (*ei.FeeRecHex))
+	if ei.ProposerFeeRecHex != nil {
+		proposerFeeRecHex = fmt.Sprintf("'%s'", (*ei.ProposerFeeRecHex))
+	} else {
+		proposerFeeRecHex = "NULL"
+	}
+	if ei.MevRewardEth != nil {
+		mevRewardEth = fmt.Sprintf("%.6f", *ei.MevRewardEth)
+	} else {
+		mevRewardEth = "NULL"
+	}
+	if ei.FeeRecipient != nil {
+		feeRecHex = fmt.Sprintf("'%s'", (*ei.FeeRecipient))
 	} else {
 		feeRecHex = "NULL"
 	}
-	if ei.RewardEth != nil {
-		rewardEth = fmt.Sprintf("%.6f", *ei.RewardEth)
+	if ei.ProposerRewardEth != nil {
+		proposerRewardEth = fmt.Sprintf("%.6f", *ei.ProposerRewardEth)
 	} else {
-		rewardEth = "NULL"
+		proposerRewardEth = "NULL"
 	}
 
 	query := fmt.Sprintf(`
 INSERT INTO blocks(
     slot, block_number, timestamp, proposer_index,
-    winning_relay, producer_reward_eth, winning_builder_pubkey, fee_recipient
-) VALUES (%d, %d, %s, %s, %s, %s, %s, %s)`,
-		ei.Slot, ei.BlockNumber, timestamp, proposerIndex, relayTag, rewardEth, builderPubkeyPrefix, feeRecHex)
-
+    winning_relay, winning_builder_pubkey, proposer_fee_recipient, mev_reward, proposer_reward_eth, fee_recipient
+) VALUES (%d, %d, %s, %s, %s, %s, %s, %s, %s, %s)`,
+		ei.Slot, ei.BlockNumber, timestamp, proposerIndex,
+		relayTag, builderPubkeyPrefix, proposerFeeRecHex,
+		mevRewardEth, proposerRewardEth, feeRecHex,
+	)
 	_, err := db.conn.ExecContext(ctx2, query)
 	if err != nil {
 		return fmt.Errorf("upsert block slot=%d: %w", ei.Slot, err)
