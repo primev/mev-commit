@@ -411,8 +411,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		return nil, true, nil
 	}
 
-	if txn.Status != sender.TxStatusFailed &&
-		(txn.Status != sender.TxStatusPreConfirmed || h.blockTracker.LatestBlockNumber() > uint64(txn.BlockNumber)) {
+	if txn.Status != sender.TxStatusFailed && txn.Status != sender.TxStatusPreConfirmed {
 		return nil, true, nil
 	}
 
