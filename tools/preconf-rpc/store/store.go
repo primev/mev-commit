@@ -286,7 +286,7 @@ func (s *rpcstore) StoreTransaction(
 			insertCommitment := `
 			INSERT INTO commitments (commitment_digest, transaction_hash, provider_address, commitment_data)
 			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (commitment_digest) DO UPDATE SET;
+			ON CONFLICT (commitment_digest) DO UPDATE SET commitment_data = EXCLUDED.commitment_data;
 			`
 			commitmentData, err := proto.Marshal(commitment)
 			if err != nil {
