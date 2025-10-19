@@ -234,7 +234,7 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func (t *TxSender) IsTransactionInflight(txnHash common.Hash) bool {
+func (t *TxSender) IsTransactionInFlight(txnHash common.Hash) bool {
 	t.inflightMu.RLock()
 	_, found := t.inflightTxns[txnHash]
 	t.inflightMu.RUnlock()
@@ -284,7 +284,7 @@ func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (
 			t.logger.Info("Context cancelled while waiting for transaction cancellation")
 			return false, ctx.Err()
 		case <-ticker.C:
-			stillInFlight := t.IsTransactionInflight(txnHash)
+			stillInFlight := t.IsTransactionInFlight(txnHash)
 			if !stillInFlight {
 				txn, err := t.store.GetTransactionByHash(ctx, txnHash)
 				switch {
