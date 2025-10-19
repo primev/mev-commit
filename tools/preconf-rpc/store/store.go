@@ -500,8 +500,8 @@ func (s *rpcstore) AddSubsidy(
 	query := `
 	INSERT INTO subsidies (account, balance)
 	VALUES ($1, $2)
-	ON CONFLICT (account) DO UPDATE SET balance = balances.balance + $2
-	WHERE balances.balance + $2 >= 0;
+	ON CONFLICT (account) DO UPDATE SET balance = subsidies.balance + $2
+	WHERE subsidies.balance + $2 >= 0;
 	`
 
 	_, err := s.db.ExecContext(ctx, query, account.Hex(), amount.String())
