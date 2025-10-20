@@ -113,7 +113,7 @@ type txnAttempt struct {
 }
 
 type Notifier interface {
-	NotifyTransactionStatus(txn *Transaction, noOfAttempts int, start time.Time)
+	NotifyTransactionStatus(txn *Transaction, noOfAttempts int, timeTaken time.Duration)
 }
 
 type TxSender struct {
@@ -237,13 +237,6 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	return nil
 }
 
-func (t *TxSender) IsTransactionInFlight(txnHash common.Hash) bool {
-	t.inflightMu.RLock()
-	_, found := t.inflightTxns[txnHash]
-	t.inflightMu.RUnlock()
-	return found
-}
-
 func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (bool, error) {
 	t.inflightMu.RLock()
 	cancel, found := t.inflightTxns[txnHash]
@@ -287,7 +280,9 @@ func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (
 			t.logger.Info("Context cancelled while waiting for transaction cancellation")
 			return false, ctx.Err()
 		case <-ticker.C:
-			stillInFlight := t.IsTransactionInFlight(txnHash)
+			t.inflightMu.RLock()
+			_, stillInFlight := t.inflightTxns[txnHash]
+			t.inflightMu.RUnlock()
 			if !stillInFlight {
 				txn, err := t.store.GetTransactionByHash(ctx, txnHash)
 				switch {
@@ -396,7 +391,7 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 		t.logger.Info("No queued transactions to process")
 		return
 	}
-	t.logger.Info("Processing queued transactions", "count", len(txns))
+	t.logger.Debug("Processing queued transactions", "count", len(txns))
 	for _, txn := range txns {
 		txn := txn // capture range variable
 		select {
@@ -420,7 +415,7 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 					t.logger.Error("Failed to process transaction", "sender", txn.Sender.Hex(), "error", err)
 					txn.Status = TxStatusFailed
 					txn.Details = err.Error()
-					t.clearBlockAttemptHistory(txn)
+					t.clearBlockAttemptHistory(txn, time.Now())
 					return t.store.StoreTransaction(ctx, txn, nil)
 				}
 				return nil
@@ -472,6 +467,7 @@ BID_LOOP:
 			txn.BlockNumber = int64(result.blockNumber)
 			t.logger.Info(
 				"Transaction fast-tracked based on commitments",
+				"transactionHash", txn.Hash().Hex(),
 				"sender", txn.Sender.Hex(),
 				"type", txn.Type,
 				"blockNumber", result.blockNumber,
@@ -490,6 +486,7 @@ BID_LOOP:
 				txn.BlockNumber = int64(result.blockNumber)
 				t.logger.Info(
 					"Transaction pre-confirmed",
+					"transactionHash", txn.Hash().Hex(),
 					"sender", txn.Sender.Hex(),
 					"type", txn.Type,
 					"blockNumber", result.blockNumber,
@@ -506,6 +503,7 @@ BID_LOOP:
 		if !preConfirmed && result.noOfProviders > len(result.commitments) {
 			t.logger.Warn(
 				"Not all builders committed to the bid",
+				"transactionHash", txn.Hash().Hex(),
 				"noOfProviders", result.noOfProviders,
 				"noOfCommitments", len(result.commitments),
 				"sender", txn.Sender.Hex(),
@@ -532,7 +530,8 @@ BID_LOOP:
 				txn.Status = TxStatusConfirmed
 				txn.BlockNumber = int64(result.blockNumber)
 				t.logger.Info(
-					"Transaction confirmed for non opted-in slot",
+					"Transaction confirmed",
+					"transactionHash", txn.Hash().Hex(),
 					"sender", txn.Sender.Hex(),
 					"type", txn.Type,
 					"blockNumber", result.blockNumber,
@@ -542,7 +541,8 @@ BID_LOOP:
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
 			}
-			t.clearBlockAttemptHistory(txn)
+			endTime := time.UnixMilli(result.commitments[len(result.commitments)-1].DispatchTimestamp)
+			t.clearBlockAttemptHistory(txn, endTime)
 			break BID_LOOP
 		}
 	}
@@ -810,7 +810,7 @@ func (t *TxSender) calculatePriceForNextBlock(
 	)
 }
 
-func (t *TxSender) clearBlockAttemptHistory(txn *Transaction) {
+func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time) {
 	attempts, found := t.txnAttemptHistory.Get(txn.Hash())
 	if !found {
 		return
@@ -824,6 +824,7 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction) {
 	t.logger.Info(
 		"Clearing block attempt history for transaction",
 		"hash", txn.Hash().Hex(),
+		"blockNumber", txn.BlockNumber,
 		"blockAttempts", len(attempts.attempts),
 		"startTime", attempts.startTime.Format(time.RFC3339),
 		"startBlockNumber", attempts.attempts[0].blockNumber,
@@ -832,5 +833,5 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction) {
 
 	_ = t.txnAttemptHistory.Remove(txn.Hash())
 
-	t.notifier.NotifyTransactionStatus(txn, totalAttempts, attempts.startTime)
+	t.notifier.NotifyTransactionStatus(txn, totalAttempts, endTime.Sub(attempts.startTime).Round(time.Millisecond))
 }
