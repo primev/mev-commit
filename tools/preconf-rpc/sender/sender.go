@@ -37,12 +37,12 @@ const (
 )
 
 const (
-	blockTime                    = 12                     // seconds, typical Ethereum block time
-	bidTimeout                   = 100 * time.Millisecond // timeout for bid operations
-	defaultConfidence            = 90                     // default confidence level for the next block
-	confidenceSecondAttempt      = 95                     // confidence level for the second attempt
-	confidenceSubsequentAttempts = 99                     // confidence level for subsequent attempts
-	transactionTimeout           = 10 * time.Minute       // timeout for transaction processing
+	blockTime                    = 12               // seconds, typical Ethereum block time
+	bidTimeout                   = 3 * time.Second  // timeout for bid operation
+	defaultConfidence            = 90               // default confidence level for the next block
+	confidenceSecondAttempt      = 95               // confidence level for the second attempt
+	confidenceSubsequentAttempts = 99               // confidence level for subsequent attempts
+	transactionTimeout           = 10 * time.Minute // timeout for transaction processing
 )
 
 var (
@@ -135,6 +135,8 @@ type TxSender struct {
 	txnAttemptHistory *lru.Cache[common.Hash, *txnAttempt]
 	notifier          Notifier
 	fastTrack         func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool
+	bidTimeout        time.Duration
+	timeoutMtx        sync.RWMutex
 }
 
 func noOpFastTrack(_ []*bidderapiv1.Commitment, _ bool) bool {
@@ -177,6 +179,7 @@ func NewTxSender(
 		txnAttemptHistory: txnAttemptHistory,
 		notifier:          notifier,
 		fastTrack:         fastTrack,
+		bidTimeout:        bidTimeout,
 	}, nil
 }
 
@@ -310,6 +313,20 @@ func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (
 			}
 		}
 	}
+}
+
+func (t *TxSender) UpdateBidTimeout(timeout time.Duration) {
+	t.timeoutMtx.Lock()
+	defer t.timeoutMtx.Unlock()
+
+	t.bidTimeout = timeout
+}
+
+func (t *TxSender) getBidTimeout() time.Duration {
+	t.timeoutMtx.RLock()
+	defer t.timeoutMtx.RUnlock()
+
+	return t.bidTimeout
 }
 
 func (t *TxSender) Start(ctx context.Context) chan struct{} {
@@ -608,7 +625,7 @@ func (t *TxSender) sendBid(
 	// Allow for certain level of tolerance w.r.t timestamps
 	optedInSlot := math.Abs(float64(timeToOptIn)-float64(timeUntilNextBlock.Seconds())) < float64(blockTime/3)
 
-	cctx, cancel := context.WithTimeout(ctx, bidTimeout)
+	cctx, cancel := context.WithTimeout(ctx, t.getBidTimeout())
 	defer cancel()
 
 	cost, err := t.calculatePriceForNextBlock(txn, bidBlockNo, prices, optedInSlot)
@@ -674,7 +691,7 @@ func (t *TxSender) sendBid(
 			WaitForOptIn:      false,
 			BlockNumber:       uint64(bidBlockNo),
 			RevertingTxHashes: []string{txn.Hash().Hex()},
-			DecayDuration:     bidTimeout * 2,
+			DecayDuration:     t.getBidTimeout() * 2,
 		},
 	)
 	if err != nil {

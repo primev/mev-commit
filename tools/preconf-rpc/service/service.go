@@ -433,6 +433,23 @@ func New(config *Config) (*Service, error) {
 		_, _ = w.Write([]byte("OK"))
 	})
 
+	mux.HandleFunc("POST /update_bid_timeout", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		timeoutStr := r.URL.Query().Get("timeout")
+		timeout, err := time.ParseDuration(timeoutStr)
+		if err != nil {
+			http.Error(w, "invalid timeout", http.StatusBadRequest)
+			return
+		}
+		sndr.UpdateBidTimeout(timeout)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+
 	srv := http.Server{
 		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
 		Handler: mux,

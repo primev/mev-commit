@@ -399,6 +399,16 @@ func TestSender(t *testing.T) {
 		t.Fatalf("expected 1 commitment, got %d", len(res.commitments))
 	}
 
+	checkOp := <-blockTracker.in
+	if checkOp.hash != tx1.Hash() {
+		t.Fatalf("expected transaction hash %s, got %s", tx1.Hash().Hex(), checkOp.hash.Hex())
+	}
+	if checkOp.block != 1 {
+		t.Fatalf("expected block number 1, got %d", checkOp.block)
+	}
+	// Simulate transaction inclusion
+	blockTracker.out <- true
+
 	tx2 := &sender.Transaction{
 		Transaction: types.NewTransaction(
 			2,
@@ -493,7 +503,7 @@ func TestSender(t *testing.T) {
 	close(resC)
 	bidder.out <- resC
 
-	checkOp := <-blockTracker.in
+	checkOp = <-blockTracker.in
 	if checkOp.hash != tx2.Hash() {
 		t.Fatalf("expected transaction hash %s, got %s", tx2.Hash().Hex(), checkOp.hash.Hex())
 	}
