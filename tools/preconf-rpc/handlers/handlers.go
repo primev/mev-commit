@@ -570,11 +570,8 @@ func (h *rpcMethodHandler) handleMevCommitGetBalance(ctx context.Context, params
 
 	balance, err := h.store.GetBalance(ctx, common.HexToAddress(account))
 	if err != nil {
-		h.logger.Error("Failed to get balance for account", "error", err, "account", account)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to get balance for account",
-		)
+		h.logger.Warn("Failed to get balance for account, returning 0", "error", err, "account", account)
+		balance = big.NewInt(0)
 	}
 
 	return json.RawMessage(fmt.Sprintf(`{"balance": "%s"}`, balance)), false, nil
