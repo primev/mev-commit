@@ -9,11 +9,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {ValidatorOptInHub} from "../../contracts/validator-registry/ValidatorOptInHub.sol";
-import {ValidatorOptInRouter} from "../../contracts/validator-registry/ValidatorOptInRouter.sol";
 import {AlwaysFalseRegistry} from "../../contracts/validator-registry/falseRegistry/AlwaysFalseRegistry.sol";
-import {IMevCommitAVS} from "../../contracts/interfaces/IMevCommitAVS.sol";
-import {IMevCommitMiddleware} from "../../contracts/interfaces/IMevCommitMiddleware.sol";
-import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
 import {MainnetConstants} from "../MainnetConstants.sol";
 
 contract BaseDeploy is Script {
