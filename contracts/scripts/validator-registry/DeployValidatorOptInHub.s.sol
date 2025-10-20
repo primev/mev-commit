@@ -19,8 +19,7 @@ import {MainnetConstants} from "../MainnetConstants.sol";
 contract BaseDeploy is Script {
     function deployValidatorOptInHub(
         address[] memory registries,
-        address owner,
-        address optinRouter
+        address owner
     ) public returns (address) {
         console.log("Deploying ValidatorOptInHub on chain:", block.chainid);
         address proxy = Upgrades.deployUUPSProxy(
@@ -37,16 +36,6 @@ contract BaseDeploy is Script {
         AlwaysFalseRegistry alwaysFalse = new AlwaysFalseRegistry();
         console.log("AlwaysFalseRegistry deployed at:", address(alwaysFalse));
 
-        address alwaysFalseAddress = address(alwaysFalse);
-        address hubAddress = address(hub);
-
-        // Make router backwards compatible by getting data from the hub
-        ValidatorOptInRouter router = ValidatorOptInRouter(payable(optinRouter));
-        router.setVanillaRegistry(IVanillaRegistry(hubAddress));
-        router.setMevCommitAVS(IMevCommitAVS(alwaysFalseAddress));
-        router.setMevCommitMiddleware(IMevCommitMiddleware(alwaysFalseAddress));
-        console.log("ValidatorOptInRouter wired to hub");
-
         return proxy;
     }
 }
@@ -58,8 +47,6 @@ contract DeployMainnet is BaseDeploy {
     
     address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
 
-    address constant public OPTIN_ROUTER = 0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64;
-
     address[] public registries = [VANILLA_REGISTRY, MEV_COMMIT_AVS, MEV_COMMIT_MIDDLEWARE];
 
     function run() external {
@@ -68,8 +55,7 @@ contract DeployMainnet is BaseDeploy {
 
         deployValidatorOptInHub(
             registries,
-            OWNER,
-            OPTIN_ROUTER
+            OWNER
         );
         vm.stopBroadcast();
     }
@@ -82,7 +68,6 @@ contract DeployHoodi is BaseDeploy {
 
     //This is the most important field. On mainnet it'll be the primev multisig.
     address constant public OWNER = 0x1623fE21185c92BB43bD83741E226288B516134a;
-    address constant public OPTIN_ROUTER = 0xa380ba6d6083a4Cb2a3B62b0a81Ea8727861c13e;
 
     address[] public registries = [VANILLA_REGISTRY, MEV_COMMIT_AVS, MEV_COMMIT_MIDDLEWARE];
 
@@ -93,8 +78,7 @@ contract DeployHoodi is BaseDeploy {
         vm.startBroadcast();
         deployValidatorOptInHub(
             registries,
-            OWNER,
-            OPTIN_ROUTER
+            OWNER
         );
         vm.stopBroadcast();
     }
