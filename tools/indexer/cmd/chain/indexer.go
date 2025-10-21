@@ -256,7 +256,7 @@ func loadABIs(db *sql.DB, abiDir, contractMapJSON string) error {
 
 func createTables(db *sql.DB) error {
 	createStatements := []string{
-		`CREATE TABLE IF NOT EXISTS index_blocks (
+		`CREATE TABLE IF NOT EXISTS blocks (
 			number BIGINT,
 			coinbase_address VARCHAR(255),
 			hash VARCHAR(255),
@@ -287,7 +287,7 @@ func createTables(db *sql.DB) error {
 		DISTRIBUTED BY HASH(number) BUCKETS 1 
 		PROPERTIES("replication_num"="1")`,
 
-		`CREATE TABLE IF NOT EXISTS index_txs (
+		`CREATE TABLE IF NOT EXISTS transactions (
 			hash VARCHAR(255),
 			block_number BIGINT,
 			block_hash VARCHAR(255),
@@ -317,7 +317,7 @@ func createTables(db *sql.DB) error {
 		DISTRIBUTED BY HASH(hash) BUCKETS 1 
 		PROPERTIES("replication_num"="1")`,
 
-		`CREATE TABLE IF NOT EXISTS index_receipts (
+		`CREATE TABLE IF NOT EXISTS receipts (
 			tx_hash VARCHAR(255),
 			status BIGINT,
 			cumulative_gas_used BIGINT,
@@ -333,7 +333,7 @@ func createTables(db *sql.DB) error {
 		DISTRIBUTED BY HASH(tx_hash) BUCKETS 1 
 		PROPERTIES("replication_num"="1")`,
 
-		`CREATE TABLE IF NOT EXISTS index_logs (
+		`CREATE TABLE IF NOT EXISTS logs (
 			tx_hash VARCHAR(255),
 			log_index INT,
 			address VARCHAR(255),
@@ -744,7 +744,7 @@ func batchInsertBlocks(tx *sql.Tx, blocks []IndexBlock) error {
 		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 		valueArgs = append(valueArgs, b.Number, b.CoinbaseAddress, b.Hash, b.ParentHash, b.Nonce, b.Sha3Uncles, b.LogsBloom, b.TransactionsRoot, b.StateRoot, b.ReceiptsRoot, b.Miner, b.Difficulty, b.ExtraData, b.Size, b.GasLimit, b.GasUsed, b.Timestamp, b.BaseFeePerGas, b.BlobGasUsed, b.ExcessBlobGas, b.WithdrawalsRoot, b.RequestsHash, b.MixHash, b.TxCount)
 	}
-	stmt := fmt.Sprintf("INSERT INTO index_blocks (number, coinbase_address, hash, parent_hash, nonce, sha3_uncles, logs_bloom, transactions_root, state_root, receipts_root, miner, difficulty, extra_data, size, gas_limit, gas_used, timestamp, base_fee_per_gas, blob_gas_used, excess_blob_gas, withdrawals_root, requests_hash, mix_hash, tx_count) VALUES %s", strings.Join(valueStrings, ", "))
+	stmt := fmt.Sprintf("INSERT INTO blocks (number, coinbase_address, hash, parent_hash, nonce, sha3_uncles, logs_bloom, transactions_root, state_root, receipts_root, miner, difficulty, extra_data, size, gas_limit, gas_used, timestamp, base_fee_per_gas, blob_gas_used, excess_blob_gas, withdrawals_root, requests_hash, mix_hash, tx_count) VALUES %s", strings.Join(valueStrings, ", "))
 	_, err := tx.Exec(stmt, valueArgs...)
 	return err
 }
@@ -759,7 +759,7 @@ func batchInsertTxs(tx *sql.Tx, txs []IndexTx) error {
 		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 		valueArgs = append(valueArgs, t.Hash, t.BlockNumber, t.BlockHash, t.TxIndex, t.From, t.To, t.Value, t.Gas, t.GasPrice, t.MaxPriorityFeePerGas, t.MaxFeePerGas, t.EffectiveGasPrice, t.Input, t.Type, t.ChainID, t.AccessListJSON, t.BlobGas, t.BlobGasFeeCap, t.BlobHashesJSON, t.V, t.R, t.S, t.DecodedJSON)
 	}
-	stmt := fmt.Sprintf("INSERT INTO index_txs (hash, block_number, block_hash, tx_index, from_address, to_address, value, gas, gas_price, max_priority_fee_per_gas, max_fee_per_gas, effective_gas_price, input, type, chain_id, access_list_json, blob_gas, blob_gas_fee_cap, blob_hashes_json, v, r, s, decoded) VALUES %s", strings.Join(valueStrings, ", "))
+	stmt := fmt.Sprintf("INSERT INTO transactions (hash, block_number, block_hash, tx_index, from_address, to_address, value, gas, gas_price, max_priority_fee_per_gas, max_fee_per_gas, effective_gas_price, input, type, chain_id, access_list_json, blob_gas, blob_gas_fee_cap, blob_hashes_json, v, r, s, decoded) VALUES %s", strings.Join(valueStrings, ", "))
 	_, err := tx.Exec(stmt, valueArgs...)
 	return err
 }
@@ -774,7 +774,7 @@ func batchInsertReceipts(tx *sql.Tx, receipts []IndexReceipt) error {
 		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?)")
 		valueArgs = append(valueArgs, r.TxHash, r.Status, r.CumulativeGasUsed, r.GasUsed, r.ContractAddress, r.LogsBloom, r.Type, r.BlobGasUsed, r.BlobGasPrice)
 	}
-	stmt := fmt.Sprintf("INSERT INTO index_receipts (tx_hash, status, cumulative_gas_used, gas_used, contract_address, logs_bloom, type, blob_gas_used, blob_gas_price) VALUES %s", strings.Join(valueStrings, ", "))
+	stmt := fmt.Sprintf("INSERT INTO receipts (tx_hash, status, cumulative_gas_used, gas_used, contract_address, logs_bloom, type, blob_gas_used, blob_gas_price) VALUES %s", strings.Join(valueStrings, ", "))
 	_, err := tx.Exec(stmt, valueArgs...)
 	return err
 }
@@ -789,14 +789,14 @@ func batchInsertLogs(tx *sql.Tx, logs []IndexLog) error {
 		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 		valueArgs = append(valueArgs, l.TxHash, l.LogIndex, l.Address, l.BlockNumber, l.BlockHash, l.TxIndex, l.BlockTimestamp, l.TopicsJSON, l.Data, l.Removed, l.DecodedJSON)
 	}
-	stmt := fmt.Sprintf("INSERT INTO index_logs (tx_hash, log_index, address, block_number, block_hash, tx_index, block_timestamp, topics, data, removed, decoded) VALUES %s", strings.Join(valueStrings, ", "))
+	stmt := fmt.Sprintf("INSERT INTO logs (tx_hash, log_index, address, block_number, block_hash, tx_index, block_timestamp, topics, data, removed, decoded) VALUES %s", strings.Join(valueStrings, ", "))
 	_, err := tx.Exec(stmt, valueArgs...)
 	return err
 }
 
 func getMaxIndexedBlock(db *sql.DB) (int64, error) {
 	var max sql.NullInt64
-	err := db.QueryRow("SELECT MAX(number) FROM index_blocks").Scan(&max)
+	err := db.QueryRow("SELECT MAX(number) FROM blocks").Scan(&max)
 	if err != nil {
 		return 0, err
 	}
@@ -808,7 +808,7 @@ func getMaxIndexedBlock(db *sql.DB) (int64, error) {
 
 func blockExists(db *sql.DB, number int64) (bool, error) {
 	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM index_blocks WHERE number = ?", number).Scan(&count)
+	err := db.QueryRow("SELECT COUNT(*) FROM blocks WHERE number = ?", number).Scan(&count)
 	if err != nil {
 		return false, err
 	}
