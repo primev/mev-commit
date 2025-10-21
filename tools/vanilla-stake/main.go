@@ -115,7 +115,7 @@ func stakeVanilla(c *cli.Context) error {
 		return fmt.Errorf("failed to check if whitelisted: %w", err)
 	}
 	if !isWhitelisted {
-		return fmt.Errorf("caller is not whitelisted")
+		return fmt.Errorf("caller %v is not whitelisted", signer.GetAddress())
 	}
 
 	vrt, err := vanillaregistry.NewVanillaregistryTransactor(common.HexToAddress(vanillaRegistryAddress), client)
@@ -150,7 +150,7 @@ func stakeVanilla(c *cli.Context) error {
 
 		amountPerValidator := new(big.Int)
 		amountPerValidator.Set(minStake)
-		totalAmount := new(big.Int).Mul(amountPerValidator, big.NewInt(int64(batchSize)))
+		totalAmount := new(big.Int).Mul(amountPerValidator, big.NewInt(int64(len(batch.pubKeys))))
 		opts.Value = totalAmount
 
 		balance, err := client.BalanceAt(ctx, signer.GetAddress(), nil)
