@@ -2,8 +2,10 @@
 
 deploy_all_flag=false
 deploy_vanilla_flag=false
+deploy_vanilla_rep_flag=false
 deploy_avs_flag=false
 deploy_middleware_flag=false
+deploy_rocketpool_flag=false
 deploy_opt_in_hub_flag=false
 deploy_block_rewards_flag=false
 deploy_reward_distributor_flag=false
@@ -23,8 +25,10 @@ help() {
     echo "Commands (one required):"
     echo "  deploy-all          Deploy all components (vanilla, AVS, middleware, opt-in-hub)."
     echo "  deploy-vanilla      Deploy and verify the VanillaRegistry contract to L1."
+    echo "  deploy-vanilla-rep  Deploy and verify the Reputational VanillaRegistry contract to L1."
     echo "  deploy-avs          Deploy and verify the MevCommitAVS contract to L1."
     echo "  deploy-middleware   Deploy and verify the MevCommitMiddleware contract to L1."
+    echo "  deploy-rocketpool   Deploy and verify the RocketMinipoolRegistry contract to L1."
     echo "  deploy-opt-in-hub       Deploy and verify the ValidatorOptInHub contract to L1."
     echo "  deploy-block-rewards      Deploy and verify the BlockRewardManager contract to L1."
     echo "  deploy-reward-distributor      Deploy and verify the RewardDistributor contract to L1."
@@ -114,12 +118,20 @@ parse_args() {
                 deploy_vanilla_flag=true
                 shift
                 ;;
+            deploy-vanilla-rep)
+                deploy_vanilla_rep_flag=true
+                shift
+                ;;
             deploy-avs)
                 deploy_avs_flag=true
                 shift
                 ;;
             deploy-middleware)
                 deploy_middleware_flag=true
+                shift
+                ;;
+            deploy-rocketpool)
+                deploy_rocketpool_flag=true
                 shift
                 ;;
             deploy-opt-in-hub)
@@ -215,7 +227,7 @@ parse_args() {
     fi
 
     commands_specified=0
-    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_opt_in_hub_flag deploy_block_rewards_flag deploy_reward_distributor_flag; do
+    for flag in deploy_all_flag deploy_vanilla_flag deploy_vanilla_rep_flag deploy_avs_flag deploy_middleware_flag deploy_rocketpool_flag deploy_opt_in_hub_flag deploy_block_rewards_flag deploy_reward_distributor_flag; do
         if [[ "${!flag}" == true ]]; then
             ((commands_specified++))
         fi
@@ -267,14 +279,16 @@ get_chain_params() {
 }
 
 check_git_status() {
-    if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
-        echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
-        exit 1
-    fi
+    if [[ ${chain_id:-0} -eq 1 ]]; then
+        if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
+            echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
+            exit 1
+        fi
 
-    if [[ -n "$(git status --porcelain)" ]]; then
-        echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
-        exit 1
+        if [[ -n "$(git status --porcelain)" ]]; then
+            echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
+            exit 1
+        fi
     fi
 
     if [[ "$skip_release_verification_flag" != true ]]; then
@@ -325,7 +339,7 @@ check_rpc_url() {
 }
 
 check_etherscan_api_key() {
-    response=$(curl -s "https://api.etherscan.io/api?module=account&action=balance&address=${SENDER}&tag=latest&apikey=${ETHERSCAN_API_KEY}")
+    response=$(curl -s "https://api.etherscan.io/v2/api?chainid=${chain_id}&module=account&action=balance&address=${SENDER}&tag=latest&apikey=${ETHERSCAN_API_KEY}")
 
     status=$(echo "$response" | grep -o '"status":"[0-9]"' | cut -d':' -f2 | tr -d '"')
 
@@ -386,12 +400,20 @@ deploy_vanilla() {
     deploy_contract_generic "scripts/validator-registry/DeployVanillaRegistry.s.sol"
 }
 
+deploy_vanilla_rep() {
+    deploy_contract_generic "scripts/validator-registry/DeployVanillaReputational.s.sol"
+}
+
 deploy_avs() {
     deploy_contract_generic "scripts/validator-registry/avs/DeployAVS.s.sol"
 }
 
 deploy_middleware() {
     deploy_contract_generic "scripts/validator-registry/middleware/DeployMiddleware.s.sol"
+}
+
+deploy_rocketpool() {
+    deploy_contract_generic "scripts/validator-registry/rocketpool/DeployRocketMinipoolRegistry.s.sol"
 }
 
 deploy_opt_in_hub() {
@@ -418,15 +440,21 @@ main() {
     if [[ "${deploy_all_flag}" == true ]]; then
         echo "Deploying all contracts to $chain using $wallet_type..."
         deploy_vanilla
+        deploy_vanilla_rep
         deploy_avs
         deploy_middleware
+        deploy_rocketpool
         deploy_opt_in_hub
     elif [[ "${deploy_vanilla_flag}" == true ]]; then
         deploy_vanilla
+    elif [[ "${deploy_vanilla_rep_flag}" == true ]]; then
+        deploy_vanilla_rep
     elif [[ "${deploy_avs_flag}" == true ]]; then
         deploy_avs
     elif [[ "${deploy_middleware_flag}" == true ]]; then
         deploy_middleware
+    elif [[ "${deploy_rocketpool_flag}" == true ]]; then
+        deploy_rocketpool
     elif [[ "${deploy_opt_in_hub_flag}" == true ]]; then
         deploy_opt_in_hub
     elif [[ "${deploy_block_rewards_flag}" == true ]]; then

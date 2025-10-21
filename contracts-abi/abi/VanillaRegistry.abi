@@ -1210,11 +1210,6 @@
   },
   {
     "type": "error",
-    "name": "MinStakeMustBePositive",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "MustUnstakeToWithdraw",
     "inputs": []
   },

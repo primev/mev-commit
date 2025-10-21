@@ -69,7 +69,6 @@ interface IVanillaRegistry {
     error WithdrawalFailed();
     error NoFundsToWithdraw();
     error SlashingTransferFailed();
-    error MinStakeMustBePositive();
     error SlashAmountMustBePositive();
     error SlashAmountMustBeLessThanMinStake();
     error SlashOracleMustBeSet();
