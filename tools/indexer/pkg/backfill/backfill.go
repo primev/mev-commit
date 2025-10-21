@@ -86,7 +86,7 @@ func (r *RatedAPIClient) FetchSlotsBatch(ctx context.Context, startSlot, endSlot
 	if err != nil {
 		return nil, fmt.Errorf("executing request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
@@ -232,7 +232,7 @@ func (q *QuickNodeClient) FetchValidatorPubkeysBatch(
 				resCh <- chunkRes{err: err, seen: ch}
 				return
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			body, rerr := io.ReadAll(resp.Body)
 			if rerr != nil {

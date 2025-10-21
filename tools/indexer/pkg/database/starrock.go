@@ -183,7 +183,7 @@ func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) erro
 	if ei.ProposerRewardEth != nil {
 		proposerRewardEth = fmt.Sprintf("%.6f", *ei.ProposerRewardEth)
 	} else {
-		proposerRewardEth = "''"
+		proposerRewardEth = "NULL"
 	}
 
 	query := fmt.Sprintf(`
@@ -404,10 +404,8 @@ func (db *DB) UpdateValidatorOptInStatus(ctx context.Context, slot int64, opted 
 	if opted {
 		v = 1
 	}
-	q := fmt.Sprintf(
-		"UPDATE blocks SET validator_opted_in=%d WHERE slot=%d",
-		v, slot,
-	)
+
+	q := fmt.Sprintf("INSERT INTO blocks (slot, validator_opted_in) VALUES (%d, %d)", slot, v)
 	_, err := db.conn.ExecContext(ctx2, q)
 	return err
 }
@@ -479,7 +477,7 @@ func (db *DB) BatchUpsertBlocksFromExec(ctx context.Context, execInfos []*beacon
 		if ei.MevRewardEth != nil {
 			mevRewardEth = fmt.Sprintf("%.6f", *ei.MevRewardEth)
 		} else {
-			mevRewardEth = "''"
+			mevRewardEth = "NULL"
 		}
 		if ei.FeeRecipient != nil {
 			feeRecHex = fmt.Sprintf("'%s'", *ei.FeeRecipient)
@@ -489,7 +487,7 @@ func (db *DB) BatchUpsertBlocksFromExec(ctx context.Context, execInfos []*beacon
 		if ei.ProposerRewardEth != nil {
 			proposerRewardEth = fmt.Sprintf("%.6f", *ei.ProposerRewardEth)
 		} else {
-			proposerRewardEth = "''"
+			proposerRewardEth = "NULL"
 		}
 
 		value := fmt.Sprintf("(%d, %d, %s, %s, %s, %s, %s, %s, %s, %s)",
