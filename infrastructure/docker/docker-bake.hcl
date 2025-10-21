@@ -151,6 +151,18 @@ target "realbidder-emulator" {
   labels = get_labels("realbidder-emulator")
 }
 
+target "indexer" {
+  inherits   = ["_common"]
+  context    = "./"
+  dockerfile = "Dockerfile.indexer"
+  contexts = {
+    builder_ctx = "target:mev-commit-builder"
+  }
+  tags   = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-indexer" : "${REGISTRY}/indexer:${TAG}"]
+  labels = get_labels("indexer")
+}
+
+
 group "all" {
   targets = [
     "mev-commit-builder",
@@ -163,6 +175,7 @@ group "all" {
     "provider-emulator",
     "realbidder-emulator",
     "relay-emulator",
+    "indexer",
     "snode"
   ]
 }

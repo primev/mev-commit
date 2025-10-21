@@ -1,0 +1,9 @@
+# syntax=docker/dockerfile:1.4
+FROM alpine:3.10
+
+COPY --from=builder_ctx /go/bin/chain /usr/local/bin/indexer
+COPY --from=builder_ctx /ws/contracts-abi/abi /contracts-abi/abi
+
+EXPOSE 8080
+
+ENTRYPOINT ["indexer"]

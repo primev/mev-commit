@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chain-indexer.fullname" . }}
+  labels:
+    {{- include "chain-indexer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "chain-indexer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "chain-indexer.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["indexer"]
+        args:
+          - "-mode={{ .Values.indexer.mode }}"
+          - "-rpc={{ .Values.indexer.rpcUrl }}"
+          - "-dsn={{ .Values.indexer.dsn }}"
+          - "-abi-dir={{ .Values.indexer.abiDir }}"
+          - "-batch-size={{ .Values.indexer.batchSize }}"
+          - "-poll={{ .Values.indexer.pollInterval }}"
+          {{- if eq .Values.indexer.mode "backfill" }}
+          - "-from={{ .Values.indexer.backfill.fromBlock }}"
+          - "-to={{ .Values.indexer.backfill.toBlock }}"
+          {{- end }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

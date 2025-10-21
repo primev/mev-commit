@@ -1,0 +1,52 @@
+replicaCount: 1
+
+image:
+  repository: primev/primev
+  pullPolicy: IfNotPresent
+  tag: "1.2.0-indexer"
+
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Indexer configuration
+indexer:
+  # Mode: forward or backfill
+  mode: "forward"
+  rpcUrl: "" # follower node rpc url
+  
+  # StarRocks DSN
+  dsn: "root:@tcp(starrocks-cluster-fe-service.starrocks.svc.cluster.local:9030)/<DB_NAME>>?parseTime=true&interpolateParams=true"
+  
+  # ABI directory (built into the image at /contracts-abi/abi)
+  abiDir: "/contracts-abi/abi"
+  
+  # Batch size for RPC calls
+  batchSize: 25
+  
+  # Poll interval for forward mode
+  pollInterval: "100ms"
+  
+  # Backfill settings (only used when mode is "backfill")
+  backfill:
+    fromBlock: 0
+    toBlock: 0

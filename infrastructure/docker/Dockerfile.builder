@@ -39,6 +39,8 @@ ARG TARGETS="./oracle/cmd \
              ./tools/relay-emulator \
              ./tools/validators-monitor \
              ./tools/points-service \
+             ./tools/indexer/cmd/chain \
+             ./tools/indexer/cmd/relay \
              ./p2p/integrationtest/provider \
              ./p2p/integrationtest/real-bidder \
              ./cl/cmd/singlenode"
