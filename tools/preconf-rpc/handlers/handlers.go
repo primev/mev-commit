@@ -83,7 +83,7 @@ func NewRPCMethodHandler(
 
 func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	// Ethereum JSON-RPC methods overridden
-	server.RegisterHandler("eth_getBlockNumber", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+	server.RegisterHandler("eth_blockNumber", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
 		blockNumber := h.blockTracker.LatestBlockNumber()
 
 		blockNumberJSON, err := json.Marshal(hexutil.Uint64(blockNumber))
