@@ -195,10 +195,10 @@ func readBLSPublicKeysFromFile(filePath string) ([][]byte, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		key := scanner.Text()
-		if len(key) > 2 && key[:2] == "0x" {
-			key = key[2:]
+		if len(key) != 98 && len(key) != 96 {
+			return nil, fmt.Errorf("invalid BLS public key: %s - ensure there are no extra characters, commas, or spaces besides the pubkey and a trailing newline", key)
 		}
-		keyBytes := common.Hex2Bytes(key)
+		keyBytes := common.FromHex(key)
 		keys = append(keys, keyBytes)
 	}
 
