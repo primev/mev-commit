@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"log"
 	"math/big"
 	"os"
 	"time"
@@ -72,7 +71,8 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
 	}
 }
 
@@ -109,6 +109,14 @@ func stakeVanilla(c *cli.Context) error {
 		return fmt.Errorf("failed to get min stake: %w", err)
 	}
 	fmt.Println("Min stake: ", minStake)
+
+	isWhitelisted, err := vrc.WhitelistedStakers(&bind.CallOpts{Context: ctx}, signer.GetAddress())
+	if err != nil {
+		return fmt.Errorf("failed to check if whitelisted: %w", err)
+	}
+	if !isWhitelisted {
+		return fmt.Errorf("caller is not whitelisted")
+	}
 
 	vrt, err := vanillaregistry.NewVanillaregistryTransactor(common.HexToAddress(vanillaRegistryAddress), client)
 	if err != nil {
@@ -170,7 +178,7 @@ func stakeVanilla(c *cli.Context) error {
 		if receipt.Status != types.ReceiptStatusSuccessful {
 			return fmt.Errorf("stake tx included, but failed")
 		}
-		fmt.Println("Batch ", idx+1, " completed")
+		fmt.Println("Batch", idx+1, "completed")
 	}
 	fmt.Println("All staking batches completed successfully")
 	return nil
