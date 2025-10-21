@@ -195,7 +195,11 @@ func readBLSPublicKeysFromFile(filePath string) ([][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "error closing file: %v\n", err)
+		}
+	}()
 
 	var keys [][]byte
 	scanner := bufio.NewScanner(file)
