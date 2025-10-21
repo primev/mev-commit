@@ -60,7 +60,6 @@ func LaunchValidatorTasks(ctx context.Context, cfg *config.Config, db *database.
 		logger.Info("validator opt-in status", "slot", ei.Slot, "opted_in", opted)
 	}
 	return nil
-
 }
 
 func ProcessBidsForBlock(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, ei *beacon.ExecInfo, logger *slog.Logger) error {

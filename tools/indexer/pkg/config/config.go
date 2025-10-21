@@ -3,23 +3,23 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/urfave/cli/v2"
 	"strings"
 	"time"
+
+	"github.com/urfave/cli/v2"
 )
 
 type Relay struct {
 	Relay_id int64
-	Name     string
-	Tag      string
-	URL      string
+
+	URL string
 }
 
 var RelaysDefault = []Relay{
-	{Relay_id: 1, Name: "Titan", Tag: "titan-relay", URL: "https://regional.titanrelay.xyz"},
-	{Relay_id: 2, Name: "Aestus", Tag: "aestus-relay", URL: "https://aestus.live"},
-	{Relay_id: 3, Name: "Bloxroute Max Profit", Tag: "bloxroute-max-profit-relay", URL: "https://bloxroute.max-profit.blxrbdn.com"},
-	{Relay_id: 4, Name: "Bloxroute Regulated", Tag: "bloxroute-regulated-relay", URL: "https://bloxroute.regulated.blxrbdn.com"},
+	{Relay_id: 1, URL: "https://regional.titanrelay.xyz"},
+	{Relay_id: 2, URL: "https://aestus.live"},
+	{Relay_id: 3, URL: "https://bloxroute.max-profit.blxrbdn.com"},
+	{Relay_id: 4, URL: "https://bloxroute.regulated.blxrbdn.com"},
 }
 
 func ResolveRelays(c *cli.Context) ([]Relay, error) {
@@ -47,9 +47,10 @@ type Config struct {
 	BaseRetryDelay   time.Duration
 	HTTPTimeout      time.Duration
 	OptInContract    string
-	EtherscanKey     string
-	InfuraRPC        string
+	AlchemyRPC       string
 	BeaconBase       string
 	RelayData        bool
 	RelaysJSON       string
+	RatedAPIKey      string
+	QuickNodeBase    string
 }

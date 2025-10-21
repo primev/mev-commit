@@ -2,18 +2,16 @@ package ethereum
 
 import (
 	"bytes"
-
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/http"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/primev/mev-commit/tools/indexer/pkg/config"
-
-	"net/http"
-	"strconv"
 
 	"github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 )
@@ -22,7 +20,7 @@ func CallAreOptedInAtBlock(httpc *http.Client, cfg *config.Config, blockNum int6
 	if len(pubkey) == 0 {
 		return false, fmt.Errorf("empty pubkey")
 	}
-	client, err := ethclient.Dial(cfg.InfuraRPC)
+	client, err := ethclient.Dial(cfg.AlchemyRPC)
 	if err != nil {
 		return false, err
 	}

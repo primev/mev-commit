@@ -27,6 +27,7 @@ type ExecInfo struct {
 	MevRewardEth      *float64
 	ProposerRewardEth *float64
 	FeeRecipient      *string
+	ValidatorPubkey   []byte
 }
 
 func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client, beaconBase string, blockNum int64) (*ExecInfo, error) {
@@ -237,6 +238,7 @@ func fetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber i
 	}
 	return out, nil
 }
+
 func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rpcURL, beaconBase string, blockNumber int64) (*ExecInfo, error) {
 	execBlock, err := fetchBlockFromRPC(httpc, rpcURL, blockNumber)
 	if err != nil {

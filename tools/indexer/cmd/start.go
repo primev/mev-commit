@@ -16,6 +16,7 @@ import (
 	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
 	"github.com/primev/mev-commit/tools/indexer/pkg/ingest"
 	"github.com/primev/mev-commit/tools/indexer/pkg/relay"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -70,7 +71,7 @@ func runBackfillIfConfigured(ctx context.Context, c *cli.Context, db *database.D
 		logger.Info("running one-time backfill",
 			"lookback", c.Int("backfill-lookback"),
 			"batch", c.Int("backfill-batch"))
-		if err := backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays); err != nil {
+		if err := backfill.RunAllWithRatedAPI(ctx, db, httpc, createOptionsFromCLI(c)); err != nil {
 			logger.Error("failed to backfill", "error", err)
 		} else {
 			logger.Info("completed startup backfill")
@@ -101,6 +102,7 @@ func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *re
 		}
 	}
 }
+
 func safe(p interface{}) interface{} {
 	v := reflect.ValueOf(p)
 	if !v.IsValid() || v.IsNil() {
@@ -108,6 +110,7 @@ func safe(p interface{}) interface{} {
 	}
 	return v.Elem().Interface()
 }
+
 func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, infuraRPC, beaconBase string, lastBN int64, logger *slog.Logger) int64 {
 	nextBN := lastBN + 1
 
@@ -158,15 +161,13 @@ func saveBlockProgress(db *database.DB, blockNum int64, logger *slog.Logger) {
 	} else {
 		logger.Info("progress advanced to block", "block", blockNum)
 	}
-
 }
 
 func startIndexer(c *cli.Context) error {
-
 	initLogger := slog.With("component", "init")
 
 	dbURL := c.String(optionDatabaseURL.Name)
-	infuraRPC := c.String(optionInfuraRPC.Name)
+	alchemyRPC := c.String(optionAlchemyRPC.Name)
 	beaconBase := c.String(optionBeaconBase.Name)
 
 	initLogger.Info("starting blockchain indexer with StarRocks database")
@@ -207,7 +208,7 @@ func startIndexer(c *cli.Context) error {
 	initLogger.Info("http client initialized", "timeout", c.Duration("http-timeout"))
 
 	// Get starting block number
-	lastBN, err := getStartingBlockNumber(ctx, db, httpc, infuraRPC, initLogger)
+	lastBN, err := getStartingBlockNumber(ctx, db, httpc, alchemyRPC, initLogger)
 	if err != nil {
 		return err
 	}
@@ -217,5 +218,5 @@ func startIndexer(c *cli.Context) error {
 
 	// Run backfill if configured
 	go runBackfillIfConfigured(ctx, c, db, httpc, relays, initLogger)
-	return runMainLoop(ctx, c, db, httpc, relays, infuraRPC, beaconBase, lastBN, initLogger)
+	return runMainLoop(ctx, c, db, httpc, relays, alchemyRPC, beaconBase, lastBN, initLogger)
 }
