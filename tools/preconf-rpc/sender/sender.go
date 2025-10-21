@@ -541,7 +541,10 @@ BID_LOOP:
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
 			}
-			endTime := time.UnixMilli(result.commitments[len(result.commitments)-1].DispatchTimestamp)
+			endTime := time.Now()
+			if len(result.commitments) > 0 {
+				endTime = time.UnixMilli(result.commitments[len(result.commitments)-1].DispatchTimestamp)
+			}
 			t.clearBlockAttemptHistory(txn, endTime)
 			break BID_LOOP
 		}
