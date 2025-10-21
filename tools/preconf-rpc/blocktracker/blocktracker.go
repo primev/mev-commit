@@ -90,6 +90,9 @@ func (b *blockTracker) NextBlockNumber() (uint64, time.Duration, error) {
 		return 0, 0, errors.New("latest block not found in cache")
 	}
 	blockTime := time.Unix(int64(block.Time()), 0)
+	if time.Since(blockTime) >= 12*time.Second {
+		return b.latestBlockNo.Load() + 2, time.Until(blockTime.Add(24 * time.Second)), nil
+	}
 	return b.latestBlockNo.Load() + 1, time.Until(blockTime.Add(12 * time.Second)), nil
 }
 
