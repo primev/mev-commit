@@ -59,10 +59,11 @@ func main() {
 		optionKeystorePassword,
 		optionL1RPCURL,
 		optionPubkeyFilePath,
+		optionVanillaRegistryAddress,
 	}
 
 	app := &cli.App{
-		Name:  "vanill-stake",
+		Name:  "vanilla-stake",
 		Usage: "Stake validators programmatically with the mev-commit vanilla registry",
 		Flags: flags,
 		Action: func(c *cli.Context) error {
@@ -99,6 +100,16 @@ func stakeVanilla(c *cli.Context) error {
 		return fmt.Errorf("failed to get chain ID: %w", err)
 	}
 
+	vrc, err := vanillaregistry.NewVanillaregistryCaller(common.HexToAddress(vanillaRegistryAddress), client)
+	if err != nil {
+		return fmt.Errorf("failed to create Vanilla Registry caller: %w", err)
+	}
+	minStake, err := vrc.MinStake(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get min stake: %w", err)
+	}
+	fmt.Println("Min stake: ", minStake)
+
 	vrt, err := vanillaregistry.NewVanillaregistryTransactor(common.HexToAddress(vanillaRegistryAddress), client)
 	if err != nil {
 		return fmt.Errorf("failed to create Vanilla Registry transactor: %w", err)
@@ -130,9 +141,19 @@ func stakeVanilla(c *cli.Context) error {
 		}
 
 		amountPerValidator := new(big.Int)
-		amountPerValidator.SetString("100000000000000", 10) // TODO: make configurable
+		amountPerValidator.Set(minStake)
 		totalAmount := new(big.Int).Mul(amountPerValidator, big.NewInt(int64(batchSize)))
 		opts.Value = totalAmount
+
+		balance, err := client.BalanceAt(ctx, signer.GetAddress(), nil)
+		if err != nil {
+			return fmt.Errorf("failed to get balance: %w", err)
+		}
+		if balance.Cmp(totalAmount) < 0 {
+			return fmt.Errorf("balance is less than total amount")
+		}
+
+		fmt.Println("Staking batch", idx+1, "with total amount", totalAmount, "and", len(batch.pubKeys), "validators")
 
 		tx, err := vrt.Stake(opts, batch.pubKeys)
 		if err != nil {
@@ -149,12 +170,9 @@ func stakeVanilla(c *cli.Context) error {
 		if receipt.Status != types.ReceiptStatusSuccessful {
 			return fmt.Errorf("stake tx included, but failed")
 		}
-
-		fmt.Println("-------------------")
-		fmt.Printf("Batch %d completed\n", idx+1)
-		fmt.Println("-------------------")
+		fmt.Println("Batch ", idx+1, " completed")
 	}
-	fmt.Println("All staking batches completed!")
+	fmt.Println("All staking batches completed successfully")
 	return nil
 }
 
