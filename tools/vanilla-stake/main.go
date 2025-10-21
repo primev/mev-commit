@@ -104,12 +104,16 @@ func stakeVanilla(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create Vanilla Registry caller: %w", err)
 	}
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	minStake, err := vrc.MinStake(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get min stake: %w", err)
 	}
 	fmt.Println("Min stake: ", minStake)
 
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	isWhitelisted, err := vrc.WhitelistedStakers(&bind.CallOpts{Context: ctx}, signer.GetAddress())
 	if err != nil {
 		return fmt.Errorf("failed to check if whitelisted: %w", err)
@@ -153,6 +157,8 @@ func stakeVanilla(c *cli.Context) error {
 		totalAmount := new(big.Int).Mul(amountPerValidator, big.NewInt(int64(len(batch.pubKeys))))
 		opts.Value = totalAmount
 
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 		balance, err := client.BalanceAt(ctx, signer.GetAddress(), nil)
 		if err != nil {
 			return fmt.Errorf("failed to get balance: %w", err)
@@ -195,6 +201,9 @@ func readBLSPublicKeysFromFile(filePath string) ([][]byte, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		key := scanner.Text()
+		if key == "" {
+			continue // Empty lines skipped
+		}
 		if len(key) != 98 && len(key) != 96 {
 			return nil, fmt.Errorf("invalid BLS public key: %s - ensure there are no extra characters, commas, or spaces besides the pubkey and a trailing newline", key)
 		}
