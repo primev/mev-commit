@@ -450,10 +450,32 @@ message PositionConstraint {
   }];
 };
 
+message ShutterisedBidOption {
+  string identity_prefix = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the identity prefix of the transaction that the bidder wants to include in the block."
+    pattern: "[a-fA-F0-9]{64}"
+  }, (buf.validate.field).cel = {
+    id: "identity_prefix",
+    message: "identity_prefix must be a valid 32 bytes hex string.",
+    expression: "this.matches('^(0x)?[a-fA-F0-9]{64}$')"
+  }];
+  string encrypted_tx = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the encrypted transaction that the bidder wants to include in the block."
+    pattern: "[a-fA-F0-9]+"
+  }, (buf.validate.field).cel = {
+    id: "encrypted_tx",
+    message: "encrypted_tx must be a valid hex string.",
+    expression: "this.matches('^(0x)?[a-fA-F0-9]+$')"
+  }];
+};
+
 message BidOption {
   oneof opt {
     PositionConstraint position_constraint = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Position constraint for the transaction in the block."
+    }];
+    ShutterisedBidOption shutterised_bid_option = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Shutterised bid option for the transaction in the block."
     }];
   }
 };

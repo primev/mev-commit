@@ -177,6 +177,7 @@ func (s *Service) SendBid(
 	case len(bid.RawTransactions) > 0:
 		strBuilder := new(strings.Builder)
 		for i, rawTx := range bid.RawTransactions {
+
 			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
 			if err != nil {
 				s.logger.Error("decoding raw transaction", "error", err)
