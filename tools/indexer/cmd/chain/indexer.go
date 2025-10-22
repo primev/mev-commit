@@ -290,6 +290,7 @@ func createTables(db *sql.DB) error {
 
 		`CREATE TABLE IF NOT EXISTS transactions (
 			hash VARCHAR(255),
+    		nonce BIGINT,
 			block_number BIGINT,
 			block_hash VARCHAR(255),
 			tx_index INT,
