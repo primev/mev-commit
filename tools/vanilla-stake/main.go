@@ -93,7 +93,7 @@ func stakeVanilla(c *cli.Context) error {
 	if batchSize <= 0 {
 		return fmt.Errorf("batch size must be greater than 0")
 	}
-	if batchSize > 150 {
+	if batchSize > 250 {
 		return fmt.Errorf("batch size must be less than 150")
 	}
 
