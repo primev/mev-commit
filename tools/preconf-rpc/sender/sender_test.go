@@ -294,7 +294,6 @@ func TestSender(t *testing.T) {
 		&mockTransferer{},
 		notifier,
 		big.NewInt(1), // Settlement chain ID
-		nil,
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -573,7 +572,6 @@ func TestCancelTransaction(t *testing.T) {
 		&mockTransferer{},
 		&mockNotifier{},
 		big.NewInt(1), // Settlement chain ID
-		nil,
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {

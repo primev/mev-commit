@@ -56,6 +56,8 @@ var (
 	ErrTimeoutExceeded          = errors.New("timeout exceeded while waiting for transaction to be processed")
 )
 
+type PositionConstraintKey struct{}
+
 type Transaction struct {
 	*types.Transaction
 	Sender      common.Address
@@ -151,17 +153,12 @@ func NewTxSender(
 	transferer Transferer,
 	notifier Notifier,
 	settlementChainId *big.Int,
-	fastTrack func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool,
 	logger *slog.Logger,
 ) (*TxSender, error) {
 	txnAttemptHistory, err := lru.New[common.Hash, *txnAttempt](1000)
 	if err != nil {
 		logger.Error("Failed to create transaction attempt history cache", "error", err)
 		return nil, fmt.Errorf("failed to create transaction attempt history cache: %w", err)
-	}
-
-	if fastTrack == nil {
-		fastTrack = noOpFastTrack
 	}
 
 	return &TxSender{
@@ -178,7 +175,7 @@ func NewTxSender(
 		inflightAccount:   make(map[common.Address]struct{}),
 		txnAttemptHistory: txnAttemptHistory,
 		notifier:          notifier,
-		fastTrack:         fastTrack,
+		fastTrack:         noOpFastTrack,
 		bidTimeout:        bidTimeout,
 	}, nil
 }
@@ -205,6 +202,17 @@ func validateTransaction(tx *Transaction) error {
 	return nil
 }
 
+func getConstraintFromCtx(ctx context.Context) *bidderapiv1.PositionConstraint {
+	optVal := ctx.Value(PositionConstraintKey{})
+	if optVal != nil {
+		constraint, ok := optVal.(*bidderapiv1.PositionConstraint)
+		if ok {
+			return constraint
+		}
+	}
+	return nil
+}
+
 func (t *TxSender) hasLowerNonce(ctx context.Context, tx *Transaction) bool {
 	currentNonce := t.store.GetCurrentNonce(ctx, tx.Sender)
 	return tx.Nonce() < currentNonce
@@ -216,6 +224,10 @@ func (t *TxSender) triggerSender() {
 	default:
 		// Non-blocking send, if the channel is full, we do nothing
 	}
+}
+
+func (t *TxSender) SetFastTrackFunc(fastTrack func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool) {
+	t.fastTrack = fastTrack
 }
 
 func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
@@ -695,6 +707,7 @@ func (t *TxSender) sendBid(
 			BlockNumber:       uint64(bidBlockNo),
 			RevertingTxHashes: []string{txn.Hash().Hex()},
 			DecayDuration:     t.getBidTimeout() * 2,
+			Constraint:        getConstraintFromCtx(ctx),
 		},
 	)
 	if err != nil {
