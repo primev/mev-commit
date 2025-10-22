@@ -49,6 +49,12 @@ var (
 		EnvVars: []string{"VANILLA_REGISTRY_ADDRESS"},
 		Value:   "0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9",
 	}
+	optionBatchSize = &cli.IntFlag{
+		Name:    "batch-size",
+		Usage:   "Number of pubkeys to stake with each transaction",
+		EnvVars: []string{"BATCH_SIZE"},
+		Value:   20,
+	}
 )
 
 func main() {
@@ -59,6 +65,7 @@ func main() {
 		optionL1RPCURL,
 		optionPubkeyFilePath,
 		optionVanillaRegistryAddress,
+		optionBatchSize,
 	}
 
 	app := &cli.App{
@@ -82,6 +89,13 @@ func stakeVanilla(c *cli.Context) error {
 	l1RpcUrl := c.String(optionL1RPCURL.Name)
 	pubkeyFilePath := c.String(optionPubkeyFilePath.Name)
 	vanillaRegistryAddress := c.String(optionVanillaRegistryAddress.Name)
+	batchSize := c.Int(optionBatchSize.Name)
+	if batchSize <= 0 {
+		return fmt.Errorf("batch size must be greater than 0")
+	}
+	if batchSize > 150 {
+		return fmt.Errorf("batch size must be less than 150")
+	}
 
 	signer, err := keysigner.NewKeystoreSigner(keystoreDir, keystorePassword)
 	if err != nil {
@@ -132,7 +146,6 @@ func stakeVanilla(c *cli.Context) error {
 		return fmt.Errorf("failed to read public keys from file: %w", err)
 	}
 
-	batchSize := 20
 	type Batch struct {
 		pubKeys [][]byte
 	}
