@@ -59,6 +59,7 @@ type IndexBlock struct {
 
 type IndexTx struct {
 	Hash                 string
+	Nonce                uint64
 	BlockNumber          int64
 	BlockHash            string
 	TxIndex              int
@@ -607,6 +608,7 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64) error {
 
 			indexTx := IndexTx{
 				Hash:                 txn.Hash().Hex(),
+				Nonce:                txn.Nonce(),
 				BlockNumber:          blocks[k].Number().Int64(),
 				BlockHash:            blocks[k].Hash().Hex(),
 				TxIndex:              i,
@@ -756,10 +758,10 @@ func batchInsertTxs(tx *sql.Tx, txs []IndexTx) error {
 	valueStrings := make([]string, 0, len(txs))
 	valueArgs := make([]interface{}, 0, len(txs)*23)
 	for _, t := range txs {
-		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, t.Hash, t.BlockNumber, t.BlockHash, t.TxIndex, t.From, t.To, t.Value, t.Gas, t.GasPrice, t.MaxPriorityFeePerGas, t.MaxFeePerGas, t.EffectiveGasPrice, t.Input, t.Type, t.ChainID, t.AccessListJSON, t.BlobGas, t.BlobGasFeeCap, t.BlobHashesJSON, t.V, t.R, t.S, t.DecodedJSON)
+		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		valueArgs = append(valueArgs, t.Hash, t.Nonce, t.BlockNumber, t.BlockHash, t.TxIndex, t.From, t.To, t.Value, t.Gas, t.GasPrice, t.MaxPriorityFeePerGas, t.MaxFeePerGas, t.EffectiveGasPrice, t.Input, t.Type, t.ChainID, t.AccessListJSON, t.BlobGas, t.BlobGasFeeCap, t.BlobHashesJSON, t.V, t.R, t.S, t.DecodedJSON)
 	}
-	stmt := fmt.Sprintf("INSERT INTO transactions (hash, block_number, block_hash, tx_index, from_address, to_address, value, gas, gas_price, max_priority_fee_per_gas, max_fee_per_gas, effective_gas_price, input, type, chain_id, access_list_json, blob_gas, blob_gas_fee_cap, blob_hashes_json, v, r, s, decoded) VALUES %s", strings.Join(valueStrings, ", "))
+	stmt := fmt.Sprintf("INSERT INTO transactions (hash, nonce, block_number, block_hash, tx_index, from_address, to_address, value, gas, gas_price, max_priority_fee_per_gas, max_fee_per_gas, effective_gas_price, input, type, chain_id, access_list_json, blob_gas, blob_gas_fee_cap, blob_hashes_json, v, r, s, decoded) VALUES %s", strings.Join(valueStrings, ", "))
 	_, err := tx.Exec(stmt, valueArgs...)
 	return err
 }
