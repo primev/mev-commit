@@ -327,6 +327,8 @@ func New(config *Config) (*Service, error) {
 		rpcServer.ServeHTTP(w, r)
 	})
 
+	registerAdminAPIs(mux, config.Token, sndr, rpcstore)
+
 	srv := http.Server{
 		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
 		Handler: mux,
