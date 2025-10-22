@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/primev/mev-commit/tools/indexer/pkg/beacon"
-	"github.com/primev/mev-commit/tools/indexer/pkg/config"
 )
 
 type DB struct {
@@ -47,11 +46,12 @@ func Connect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, erro
 	}
 
 	return &DB{conn: conn}, nil
-
 }
+
 func (db *DB) Close() error {
 	return db.conn.Close()
 }
+
 func (db *DB) GetMaxSlotNumber(ctx context.Context) (int64, error) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -59,6 +59,16 @@ func (db *DB) GetMaxSlotNumber(ctx context.Context) (int64, error) {
 	err := db.conn.QueryRowContext(ctx2, `SELECT COALESCE(MAX(slot),0) FROM blocks`).Scan(&slot)
 	return slot, err
 }
+
+func (db *DB) GetMinSlotNumber(ctx context.Context) (int64, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var slot int64
+	err := db.conn.QueryRowContext(ctx2, `SELECT COALESCE(MIN(slot), 0) FROM blocks`).Scan(&slot)
+	return slot, err
+}
+
 func (db *DB) EnsureStateTable(ctx context.Context) error {
 	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -90,6 +100,7 @@ func (db *DB) EnsureStateTable(ctx context.Context) error {
 
 	return nil
 }
+
 func (db *DB) GetMaxBlockNumber(ctx context.Context) (int64, error) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -98,14 +109,7 @@ func (db *DB) GetMaxBlockNumber(ctx context.Context) (int64, error) {
 	err := db.conn.QueryRowContext(ctx2, `SELECT COALESCE(MAX(block_number),0) FROM blocks`).Scan(&bn)
 	return bn, err
 }
-func (db *DB) GetValidatorPubkey(ctx context.Context, slot int64) ([]byte, error) {
-	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
 
-	var vpk []byte
-	err := db.conn.QueryRowContext(ctx2, `SELECT validator_pubkey FROM blocks WHERE slot=?`, slot).Scan(&vpk)
-	return vpk, err
-}
 func (db *DB) LoadLastBlockNumber(ctx context.Context) (int64, bool) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -131,28 +135,6 @@ func (db *DB) SaveLastBlockNumber(ctx context.Context, bn int64) error {
 	return nil
 }
 
-func (db *DB) UpsertRelays(ctx context.Context, relays []config.Relay) error {
-	if len(relays) == 0 {
-		return nil
-	}
-
-	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	// StarRocks batch insert approach
-	var values []string
-	for _, r := range relays {
-		value := fmt.Sprintf("(%d, '%s', '%s', '%s', 1)", r.Relay_id, r.Name, r.Tag, r.URL)
-		values = append(values, value)
-	}
-
-	query := fmt.Sprintf(`INSERT INTO relays (relay_id, name, tag, base_url, is_active) VALUES %s`,
-		strings.Join(values, ","))
-
-	_, err := db.conn.ExecContext(ctx2, query)
-	return err
-}
-
 func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) error {
 	if ei == nil || ei.BlockNumber == 0 {
 		return fmt.Errorf("upsert block: nil exec info or block_number=0")
@@ -161,48 +143,58 @@ func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) erro
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	var timestamp, proposerIndex, relayTag, rewardEth, builderPubkeyPrefix, feeRecHex string
+	var timestamp, proposerIndex, relayTag, builderPubkeyPrefix, proposerFeeRecHex, mevRewardEth, feeRecHex, proposerRewardEth string
 
 	if ei.Timestamp != nil {
 		timestamp = fmt.Sprintf("'%s'", ei.Timestamp.Format("2006-01-02 15:04:05"))
 	} else {
 		timestamp = "NULL"
 	}
-
 	if ei.ProposerIdx != nil {
 		proposerIndex = fmt.Sprintf("%d", *ei.ProposerIdx)
 	} else {
 		proposerIndex = "NULL"
 	}
-
 	if ei.RelayTag != nil {
 		relayTag = fmt.Sprintf("'%s'", *ei.RelayTag)
 	} else {
-		relayTag = "NULL"
+		relayTag = "''"
 	}
-	if ei.BuilderHex != nil {
-		builderPubkeyPrefix = fmt.Sprintf("'%s'", (*ei.BuilderHex))
+	if ei.BuilderPublicKey != nil {
+		builderPubkeyPrefix = fmt.Sprintf("'%s'", (*ei.BuilderPublicKey))
 	} else {
-		builderPubkeyPrefix = "NULL"
+		builderPubkeyPrefix = "''"
 	}
-	if ei.FeeRecHex != nil {
-		feeRecHex = fmt.Sprintf("'%s'", (*ei.FeeRecHex))
+	if ei.ProposerFeeRecHex != nil {
+		proposerFeeRecHex = fmt.Sprintf("'%s'", (*ei.ProposerFeeRecHex))
 	} else {
-		feeRecHex = "NULL"
+		proposerFeeRecHex = "''"
 	}
-	if ei.RewardEth != nil {
-		rewardEth = fmt.Sprintf("%.6f", *ei.RewardEth)
+	if ei.MevRewardEth != nil {
+		mevRewardEth = fmt.Sprintf("%.6f", *ei.MevRewardEth)
 	} else {
-		rewardEth = "NULL"
+		mevRewardEth = "NULL"
+	}
+	if ei.FeeRecipient != nil {
+		feeRecHex = fmt.Sprintf("'%s'", (*ei.FeeRecipient))
+	} else {
+		feeRecHex = "''"
+	}
+	if ei.ProposerRewardEth != nil {
+		proposerRewardEth = fmt.Sprintf("%.6f", *ei.ProposerRewardEth)
+	} else {
+		proposerRewardEth = "NULL"
 	}
 
 	query := fmt.Sprintf(`
 INSERT INTO blocks(
     slot, block_number, timestamp, proposer_index,
-    winning_relay, producer_reward_eth, winning_builder_pubkey, fee_recipient
-) VALUES (%d, %d, %s, %s, %s, %s, %s, %s)`,
-		ei.Slot, ei.BlockNumber, timestamp, proposerIndex, relayTag, rewardEth, builderPubkeyPrefix, feeRecHex)
-
+    winning_relay, winning_builder_pubkey, proposer_fee_recipient, mev_reward, proposer_reward_eth, fee_recipient
+) VALUES (%d, %d, %s, %s, %s, %s, %s, %s, %s, %s)`,
+		ei.Slot, ei.BlockNumber, timestamp, proposerIndex,
+		relayTag, builderPubkeyPrefix, proposerFeeRecHex,
+		mevRewardEth, proposerRewardEth, feeRecHex,
+	)
 	_, err := db.conn.ExecContext(ctx2, query)
 	if err != nil {
 		return fmt.Errorf("upsert block slot=%d: %w", ei.Slot, err)
@@ -259,12 +251,10 @@ func (db *DB) InsertBidsBatch(ctx context.Context, rows []BidRow) error {
 		if i > 0 {
 			sb.WriteString(",")
 		}
-
 		blockNumSQL := "NULL"
 		if r.BlockNum != nil {
 			blockNumSQL = fmt.Sprintf("%d", *r.BlockNum)
 		}
-
 		tsMSSQL := "NULL"
 		if r.TsMS != nil {
 			tsMSSQL = fmt.Sprintf("%d", *r.TsMS)
@@ -278,41 +268,11 @@ func (db *DB) InsertBidsBatch(ctx context.Context, rows []BidRow) error {
 	return err
 }
 
-func (db *DB) GetActiveRelays(ctx context.Context) ([]struct {
-	ID  int64
-	URL string
-}, error) {
-	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	rows, err := db.conn.QueryContext(ctx2, `SELECT relay_id, base_url FROM relays WHERE is_active = 1`)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	var results []struct {
-		ID  int64
-		URL string
-	}
-	for rows.Next() {
-		var id int64
-		var url string
-		if err := rows.Scan(&id, &url); err != nil {
-			continue // Skip bad rows
-		}
-		results = append(results, struct {
-			ID  int64
-			URL string
-		}{ID: id, URL: url})
-	}
-	return results, rows.Err()
-}
-
 func (db *DB) GetRecentMissingBlocks(ctx context.Context, lookback int64, batch int) ([]struct {
 	Slot        int64
 	BlockNumber int64
-}, error) {
+}, error,
+) {
 	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -393,7 +353,8 @@ func (db *DB) GetValidatorsNeedingOptInCheck(ctx context.Context, lookback int64
 	Slot            int64
 	BlockNumber     int64
 	ValidatorPubkey []byte
-}, error) {
+}, error,
+) {
 	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -442,11 +403,9 @@ func (db *DB) UpdateValidatorOptInStatus(ctx context.Context, slot int64, opted 
 	v := 0
 	if opted {
 		v = 1
-	} // TINYINT(1) in StarRocks
-	q := fmt.Sprintf(
-		"UPDATE blocks SET validator_opted_in=%d WHERE slot=%d",
-		v, slot,
-	)
+	}
+
+	q := fmt.Sprintf("INSERT INTO blocks (slot, validator_opted_in) VALUES (%d, %d)", slot, v)
 	_, err := db.conn.ExecContext(ctx2, q)
 	return err
 }
@@ -467,4 +426,155 @@ func (db *DB) GetValidatorPubkeyWithRetry(ctx context.Context, slot int64, retri
 		}
 	}
 	return nil, fmt.Errorf("validator pubkey not available after %d retries", retries)
+}
+
+func (db *DB) BatchUpsertBlocksFromExec(ctx context.Context, execInfos []*beacon.ExecInfo) error {
+	if len(execInfos) == 0 {
+		return nil
+	}
+
+	const maxRowsPerInsert = 500
+
+	type row struct {
+		sql string
+	}
+
+	rows := make([]row, 0, len(execInfos))
+
+	for _, ei := range execInfos {
+		if ei == nil || ei.BlockNumber == 0 {
+			continue
+		}
+
+		var timestamp, proposerIndex, relayTag, builderPubkeyPrefix,
+			proposerFeeRecHex, mevRewardEth, feeRecHex, proposerRewardEth string
+
+		if ei.Timestamp != nil {
+			timestamp = fmt.Sprintf("'%s'", ei.Timestamp.Format("2006-01-02 15:04:05"))
+		} else {
+			timestamp = "NULL"
+		}
+		if ei.ProposerIdx != nil {
+			proposerIndex = fmt.Sprintf("%d", *ei.ProposerIdx)
+		} else {
+			proposerIndex = "NULL"
+		}
+		if ei.RelayTag != nil {
+			relayTag = fmt.Sprintf("'%s'", *ei.RelayTag)
+		} else {
+			relayTag = "''"
+		}
+		if ei.BuilderPublicKey != nil {
+			builderPubkeyPrefix = fmt.Sprintf("'%s'", *ei.BuilderPublicKey)
+		} else {
+			builderPubkeyPrefix = "''"
+		}
+		if ei.ProposerFeeRecHex != nil {
+			proposerFeeRecHex = fmt.Sprintf("'%s'", *ei.ProposerFeeRecHex)
+		} else {
+			proposerFeeRecHex = "''"
+		}
+		if ei.MevRewardEth != nil {
+			mevRewardEth = fmt.Sprintf("%.6f", *ei.MevRewardEth)
+		} else {
+			mevRewardEth = "NULL"
+		}
+		if ei.FeeRecipient != nil {
+			feeRecHex = fmt.Sprintf("'%s'", *ei.FeeRecipient)
+		} else {
+			feeRecHex = "''"
+		}
+		if ei.ProposerRewardEth != nil {
+			proposerRewardEth = fmt.Sprintf("%.6f", *ei.ProposerRewardEth)
+		} else {
+			proposerRewardEth = "NULL"
+		}
+
+		value := fmt.Sprintf("(%d, %d, %s, %s, %s, %s, %s, %s, %s, %s)",
+			ei.Slot,
+			ei.BlockNumber,
+			timestamp,
+			proposerIndex,
+			relayTag,
+			builderPubkeyPrefix,
+			proposerFeeRecHex,
+			mevRewardEth,
+			proposerRewardEth,
+			feeRecHex,
+		)
+
+		rows = append(rows, row{sql: value})
+	}
+
+	if len(rows) == 0 {
+		return nil
+	}
+
+	// Insert in chunks
+	for i := 0; i < len(rows); i += maxRowsPerInsert {
+		j := i + maxRowsPerInsert
+		if j > len(rows) {
+			j = len(rows)
+		}
+
+		query := `
+INSERT INTO blocks(
+    slot, block_number, timestamp, proposer_index,
+    winning_relay, winning_builder_pubkey, proposer_fee_recipient,
+    mev_reward, proposer_reward_eth, fee_recipient
+) VALUES ` + strings.Join(func(ss []row) []string {
+			out := make([]string, len(ss))
+			for k := range ss {
+				out[k] = ss[k].sql
+			}
+			return out
+		}(rows[i:j]), ",")
+
+		// short timeout per batch
+		ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+		_, err := db.conn.ExecContext(ctx2, query)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("batch upsert blocks [%d:%d]: %w", i, j, err)
+		}
+	}
+
+	return nil
+}
+
+// INSERT into StarRocks PK table acts as UPSERT on slot
+func (db *DB) UpsertBlockPubkeysDirect(ctx context.Context, pairs []struct {
+	Slot   int64
+	Pubkey string
+},
+) error {
+	if len(pairs) == 0 {
+		return nil
+	}
+	const maxRows = 1000
+	vals := make([]string, 0, len(pairs))
+	for _, p := range pairs {
+		if p.Slot == 0 || p.Pubkey == "" {
+			continue
+		}
+		vals = append(vals, fmt.Sprintf("(%d, '%s')", p.Slot, p.Pubkey))
+	}
+	if len(vals) == 0 {
+		return nil
+	}
+
+	for i := 0; i < len(vals); i += maxRows {
+		j := i + maxRows
+		if j > len(vals) {
+			j = len(vals)
+		}
+		q := "INSERT INTO blocks (slot, validator_pubkey) VALUES " + strings.Join(vals[i:j], ",")
+		ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+		_, err := db.conn.ExecContext(ctx2, q)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("upsert block pubkeys [%d:%d]: %w", i, j, err)
+		}
+	}
+	return nil
 }
