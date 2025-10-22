@@ -83,7 +83,7 @@ func NewRPCMethodHandler(
 
 func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	// Ethereum JSON-RPC methods overridden
-	server.RegisterHandler("eth_getBlockNumber", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+	server.RegisterHandler("eth_blockNumber", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
 		blockNumber := h.blockTracker.LatestBlockNumber()
 
 		blockNumberJSON, err := json.Marshal(hexutil.Uint64(blockNumber))
@@ -411,8 +411,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		return nil, true, nil
 	}
 
-	if txn.Status != sender.TxStatusFailed &&
-		(txn.Status != sender.TxStatusPreConfirmed || h.blockTracker.LatestBlockNumber() > uint64(txn.BlockNumber)) {
+	if txn.Status != sender.TxStatusFailed && txn.Status != sender.TxStatusPreConfirmed {
 		return nil, true, nil
 	}
 
@@ -571,11 +570,8 @@ func (h *rpcMethodHandler) handleMevCommitGetBalance(ctx context.Context, params
 
 	balance, err := h.store.GetBalance(ctx, common.HexToAddress(account))
 	if err != nil {
-		h.logger.Error("Failed to get balance for account", "error", err, "account", account)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to get balance for account",
-		)
+		h.logger.Warn("Failed to get balance for account, returning 0", "error", err, "account", account)
+		balance = big.NewInt(0)
 	}
 
 	return json.RawMessage(fmt.Sprintf(`{"balance": "%s"}`, balance)), false, nil

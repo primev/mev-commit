@@ -282,7 +282,7 @@ func (n *Notifier) StartTransactionNotifier(
 func (n *Notifier) NotifyTransactionStatus(
 	txn *sender.Transaction,
 	noOfAttempts int,
-	start time.Time,
+	timeTaken time.Duration,
 ) {
 	n.queuedMu.Lock()
 	defer n.queuedMu.Unlock()
@@ -290,7 +290,7 @@ func (n *Notifier) NotifyTransactionStatus(
 	n.queuedTxns = append(n.queuedTxns, txnInfo{
 		txn:          txn,
 		noOfAttempts: noOfAttempts,
-		timeTaken:    time.Since(start).Round(time.Millisecond),
+		timeTaken:    timeTaken,
 	})
 }
 
