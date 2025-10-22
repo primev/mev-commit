@@ -94,7 +94,7 @@ func stakeVanilla(c *cli.Context) error {
 		return fmt.Errorf("batch size must be greater than 0")
 	}
 	if batchSize > 250 {
-		return fmt.Errorf("batch size must be less than 150")
+		return fmt.Errorf("batch size must be less than 250")
 	}
 
 	signer, err := keysigner.NewKeystoreSigner(keystoreDir, keystorePassword)
