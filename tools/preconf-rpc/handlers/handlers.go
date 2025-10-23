@@ -125,6 +125,7 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	server.RegisterHandler("eth_getTransactionReceipt", h.handleGetTxReceipt)
 	server.RegisterHandler("eth_getTransactionCount", h.handleGetTxCount)
 	server.RegisterHandler("eth_getBlockByHash", h.handleGetBlockByHash)
+	server.RegisterHandler("eth_cancelTransaction", h.handleCancelTransaction)
 	// Custom methods for MEV Commit
 	server.RegisterHandler("mevcommit_optInBlock", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
 		timeToOptIn, err := h.bidder.Estimate()
