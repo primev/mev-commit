@@ -47,7 +47,7 @@ indexer:
   # For l1, override to: "/l1-abi"
 
   # DB for mevcommit or eth
-  dsn: "root:4NbvoV1yw0ONZpzd4DHSVGWE2oeBTReiTaDfDsvLvSgH7v7bl9MQib9fgyeVCjZB@tcp(starrocks-cluster-fe-service.starrocks.svc.cluster.local:9030)/eth?parseTime=true&interpolateParams=true"
+  dsn: "root:@tcp(starrocks-cluster-fe-service.starrocks.svc.cluster.local:9030)/eth?parseTime=true&interpolateParams=true"
   
   batchSize: 50
 
