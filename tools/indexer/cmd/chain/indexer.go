@@ -800,12 +800,12 @@ func batchInsertTxs(tx *sql.Tx, txs []IndexTx) error {
 	valueStrings := make([]string, 0, len(txs))
 	valueArgs := make([]interface{}, 0, len(txs)*23)
 	for _, t := range txs {
-		inputBytes, err := hexStringToBytes(t.Input)
+		normalizedInput, err := normalizeHexString(t.Input)
 		if err != nil {
-			return fmt.Errorf("failed to convert tx input to binary for %s: %w", t.Hash, err)
+			return fmt.Errorf("failed to normalize tx input for %s: %w", t.Hash, err)
 		}
-		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, t.Hash, t.Nonce, t.BlockNumber, t.BlockHash, t.TxIndex, t.From, t.To, t.Value, t.Gas, t.GasPrice, t.MaxPriorityFeePerGas, t.MaxFeePerGas, t.EffectiveGasPrice, inputBytes, t.Type, t.ChainID, t.AccessListJSON, t.BlobGas, t.BlobGasFeeCap, t.BlobHashesJSON, t.V, t.R, t.S, t.DecodedJSON)
+		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UNHEX(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		valueArgs = append(valueArgs, t.Hash, t.Nonce, t.BlockNumber, t.BlockHash, t.TxIndex, t.From, t.To, t.Value, t.Gas, t.GasPrice, t.MaxPriorityFeePerGas, t.MaxFeePerGas, t.EffectiveGasPrice, normalizedInput, t.Type, t.ChainID, t.AccessListJSON, t.BlobGas, t.BlobGasFeeCap, t.BlobHashesJSON, t.V, t.R, t.S, t.DecodedJSON)
 	}
 	stmt := fmt.Sprintf("INSERT INTO transactions (hash, nonce, block_number, block_hash, tx_index, from_address, to_address, value, gas, gas_price, max_priority_fee_per_gas, max_fee_per_gas, effective_gas_price, input, type, chain_id, access_list_json, blob_gas, blob_gas_fee_cap, blob_hashes_json, v, r, s, decoded) VALUES %s", strings.Join(valueStrings, ", "))
 	_, err := tx.Exec(stmt, valueArgs...)
@@ -834,12 +834,12 @@ func batchInsertLogs(tx *sql.Tx, logs []IndexLog) error {
 	valueStrings := make([]string, 0, len(logs))
 	valueArgs := make([]interface{}, 0, len(logs)*11)
 	for _, l := range logs {
-		dataBytes, err := hexStringToBytes(l.Data)
+		normalizedData, err := normalizeHexString(l.Data)
 		if err != nil {
-			return fmt.Errorf("failed to convert log data to binary for tx %s index %d: %w", l.TxHash, l.LogIndex, err)
+			return fmt.Errorf("failed to normalize log data for tx %s index %d: %w", l.TxHash, l.LogIndex, err)
 		}
-		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, l.TxHash, l.LogIndex, l.Address, l.BlockNumber, l.BlockHash, l.TxIndex, l.BlockTimestamp, l.TopicsJSON, dataBytes, l.Removed, l.DecodedJSON)
+		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, UNHEX(?), ?, ?)")
+		valueArgs = append(valueArgs, l.TxHash, l.LogIndex, l.Address, l.BlockNumber, l.BlockHash, l.TxIndex, l.BlockTimestamp, l.TopicsJSON, normalizedData, l.Removed, l.DecodedJSON)
 	}
 	stmt := fmt.Sprintf("INSERT INTO logs (tx_hash, log_index, address, block_number, block_hash, tx_index, block_timestamp, topics, data, removed, decoded) VALUES %s", strings.Join(valueStrings, ", "))
 	_, err := tx.Exec(stmt, valueArgs...)
@@ -945,15 +945,19 @@ func formatValue(value interface{}) interface{} {
 	}
 }
 
-func hexStringToBytes(input string) ([]byte, error) {
-	if input == "" {
-		return nil, nil
+func normalizeHexString(input string) (string, error) {
+	trimmed := strings.TrimSpace(strings.ToLower(input))
+	trimmed = strings.TrimPrefix(trimmed, "0x")
+	if trimmed == "" {
+		return "", nil
 	}
-	s := strings.TrimPrefix(strings.ToLower(input), "0x")
-	if len(s)%2 == 1 {
-		s = "0" + s
+	if len(trimmed)%2 == 1 {
+		trimmed = "0" + trimmed
 	}
-	return hex.DecodeString(s)
+	if _, err := hex.DecodeString(trimmed); err != nil {
+		return "", err
+	}
+	return trimmed, nil
 }
 
 func decodeTxInput(input string, abiObj abi.ABI) *Decoded {
