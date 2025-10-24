@@ -144,7 +144,6 @@ func main() {
 	batchSize := flag.Int("batch-size", 25, "Batch size for RPC calls")
 	abiDir := flag.String("abi-dir", "./contracts-abi/abi", "Directory containing ABI files")
 	abiConfig := flag.String("abi-config", "", "Optional path to ABI manifest JSON")
-	contractMapRaw := flag.String("contract-map", `BidderRegistry:0x145a9f4cbae2ec281f417195ea3464dbd04289a2,BlockTracker:0x5d64b933739558101f9359e2750acc228f0cb64f,L1Gateway:0x5d64b933739558101f9359e2750acc228f0cb64f,Oracle:0x37a037d2423221f403cfa146f5fb962e19582d90,PreconfManager:0x2ee9e88f57a7db801e114a4df7a99eb7257871e2,ProviderRegistry:0xeb6d22309062a86fa194520344530874221ef48c,SettlementGateway:0x21f5f1142200a515248a2eef5b0654581c7f2b46`, "Comma-separated mapping like Name:0xabc123")
 	flag.Parse()
 
 	if *mode != "forward" && *mode != "backfill" {
@@ -201,7 +200,7 @@ func main() {
 	}
 
 	// Load ABIs
-	if err := loadABIs(db, *abiDir, *contractMapRaw, *abiConfig); err != nil {
+	if err := loadABIs(db, *abiDir, *abiConfig); err != nil {
 		logger.Error("Failed to load ABIs", "err", err)
 		// Continue or exit based on preference; here continue
 	}
@@ -213,51 +212,13 @@ func main() {
 	}
 }
 
-func loadABIs(db *sql.DB, abiDir, contractMapRaw, abiConfig string) error {
-	if abiConfig != "" {
-		return loadABIsFromManifest(db, abiDir, abiConfig)
+func loadABIs(db *sql.DB, abiDir, abiConfig string) error {
+	if abiConfig == "" {
+		slog.Warn("No ABI manifest provided; contract ABI decoding will be skipped")
+		return nil
 	}
 
-	contractMap, err := parseContractMap(contractMapRaw)
-	if err != nil {
-		return err
-	}
-
-	files, err := os.ReadDir(abiDir)
-	if err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".abi") {
-			name := strings.TrimSuffix(file.Name(), ".abi")
-			address, ok := contractMap[name]
-			if !ok {
-				continue
-			}
-			path := filepath.Join(abiDir, file.Name())
-			abiBytes, err := os.ReadFile(path)
-			if err != nil {
-				slog.Error("Failed to read ABI file", "path", path, "err", err)
-				continue
-			}
-			abiStr := string(abiBytes)
-
-			_, err = db.Exec("INSERT INTO contract_abis (address, name, abi) VALUES (?, ?, parse_json(?))", strings.ToLower(address), name, abiStr)
-			if err != nil {
-				slog.Error("Failed to insert ABI", "name", name, "err", err)
-				continue
-			}
-
-			abiObj, err := abi.JSON(strings.NewReader(abiStr))
-			if err != nil {
-				slog.Error("Failed to parse ABI", "name", name, "err", err)
-				continue
-			}
-			abiCache[strings.ToLower(address)] = abiObj
-		}
-	}
-	return nil
+	return loadABIsFromManifest(db, abiDir, abiConfig)
 }
 
 func loadABIsFromManifest(db *sql.DB, abiDir, abiConfig string) error {
@@ -318,43 +279,6 @@ func loadABIsFromManifest(db *sql.DB, abiDir, abiConfig string) error {
 	return nil
 }
 
-func parseContractMap(raw string) (map[string]string, error) {
-	result := make(map[string]string)
-
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return result, nil
-	}
-
-	if strings.HasPrefix(trimmed, "{") {
-		if err := json.Unmarshal([]byte(trimmed), &result); err != nil {
-			return nil, err
-		}
-		return result, nil
-	}
-
-	pairs := strings.Split(trimmed, ",")
-	for _, pair := range pairs {
-		entry := strings.TrimSpace(pair)
-		if entry == "" {
-			continue
-		}
-
-		parts := strings.SplitN(entry, ":", 2)
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid contract entry %q", entry)
-		}
-
-		name := strings.TrimSpace(parts[0])
-		address := strings.TrimSpace(parts[1])
-		if name == "" || address == "" {
-			return nil, fmt.Errorf("invalid contract entry %q", entry)
-		}
-		result[name] = address
-	}
-
-	return result, nil
-}
 func createTables(db *sql.DB) error {
 	createStatements := []string{
 		`CREATE TABLE IF NOT EXISTS blocks (
