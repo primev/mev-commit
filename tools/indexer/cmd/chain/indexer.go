@@ -330,7 +330,7 @@ func createTables(db *sql.DB) error {
 			max_priority_fee_per_gas VARCHAR(255),
 			max_fee_per_gas VARCHAR(255),
 			effective_gas_price VARCHAR(255),
-			input STRING,
+			input VARBINARY(1048576),
 			type TINYINT,
 			chain_id BIGINT,
 			access_list_json JSON,
@@ -372,7 +372,7 @@ func createTables(db *sql.DB) error {
 			tx_index INT,
 			block_timestamp BIGINT,
 			topics JSON,
-			data STRING,
+			data VARBINARY(1048576),
 			removed BOOLEAN,
 			decoded JSON
 		) 
@@ -800,8 +800,12 @@ func batchInsertTxs(tx *sql.Tx, txs []IndexTx) error {
 	valueStrings := make([]string, 0, len(txs))
 	valueArgs := make([]interface{}, 0, len(txs)*23)
 	for _, t := range txs {
+		inputBytes, err := hexStringToBytes(t.Input)
+		if err != nil {
+			return fmt.Errorf("failed to convert tx input to binary for %s: %w", t.Hash, err)
+		}
 		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, t.Hash, t.Nonce, t.BlockNumber, t.BlockHash, t.TxIndex, t.From, t.To, t.Value, t.Gas, t.GasPrice, t.MaxPriorityFeePerGas, t.MaxFeePerGas, t.EffectiveGasPrice, t.Input, t.Type, t.ChainID, t.AccessListJSON, t.BlobGas, t.BlobGasFeeCap, t.BlobHashesJSON, t.V, t.R, t.S, t.DecodedJSON)
+		valueArgs = append(valueArgs, t.Hash, t.Nonce, t.BlockNumber, t.BlockHash, t.TxIndex, t.From, t.To, t.Value, t.Gas, t.GasPrice, t.MaxPriorityFeePerGas, t.MaxFeePerGas, t.EffectiveGasPrice, inputBytes, t.Type, t.ChainID, t.AccessListJSON, t.BlobGas, t.BlobGasFeeCap, t.BlobHashesJSON, t.V, t.R, t.S, t.DecodedJSON)
 	}
 	stmt := fmt.Sprintf("INSERT INTO transactions (hash, nonce, block_number, block_hash, tx_index, from_address, to_address, value, gas, gas_price, max_priority_fee_per_gas, max_fee_per_gas, effective_gas_price, input, type, chain_id, access_list_json, blob_gas, blob_gas_fee_cap, blob_hashes_json, v, r, s, decoded) VALUES %s", strings.Join(valueStrings, ", "))
 	_, err := tx.Exec(stmt, valueArgs...)
@@ -830,8 +834,12 @@ func batchInsertLogs(tx *sql.Tx, logs []IndexLog) error {
 	valueStrings := make([]string, 0, len(logs))
 	valueArgs := make([]interface{}, 0, len(logs)*11)
 	for _, l := range logs {
+		dataBytes, err := hexStringToBytes(l.Data)
+		if err != nil {
+			return fmt.Errorf("failed to convert log data to binary for tx %s index %d: %w", l.TxHash, l.LogIndex, err)
+		}
 		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, l.TxHash, l.LogIndex, l.Address, l.BlockNumber, l.BlockHash, l.TxIndex, l.BlockTimestamp, l.TopicsJSON, l.Data, l.Removed, l.DecodedJSON)
+		valueArgs = append(valueArgs, l.TxHash, l.LogIndex, l.Address, l.BlockNumber, l.BlockHash, l.TxIndex, l.BlockTimestamp, l.TopicsJSON, dataBytes, l.Removed, l.DecodedJSON)
 	}
 	stmt := fmt.Sprintf("INSERT INTO logs (tx_hash, log_index, address, block_number, block_hash, tx_index, block_timestamp, topics, data, removed, decoded) VALUES %s", strings.Join(valueStrings, ", "))
 	_, err := tx.Exec(stmt, valueArgs...)
@@ -935,6 +943,17 @@ func formatValue(value interface{}) interface{} {
 	default:
 		return fmt.Sprintf("%v", v)
 	}
+}
+
+func hexStringToBytes(input string) ([]byte, error) {
+	if input == "" {
+		return nil, nil
+	}
+	s := strings.TrimPrefix(strings.ToLower(input), "0x")
+	if len(s)%2 == 1 {
+		s = "0" + s
+	}
+	return hex.DecodeString(s)
 }
 
 func decodeTxInput(input string, abiObj abi.ABI) *Decoded {
