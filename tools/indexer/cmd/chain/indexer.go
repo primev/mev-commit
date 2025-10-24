@@ -143,7 +143,8 @@ func main() {
 	pollInterval := flag.Duration("poll", 100*time.Millisecond, "Poll interval for forward mode")
 	batchSize := flag.Int("batch-size", 25, "Batch size for RPC calls")
 	abiDir := flag.String("abi-dir", "./contracts-abi/abi", "Directory containing ABI files")
-	contractMapJSON := flag.String("contract-map", `{"BidderRegistry": "0x145a9f4cbae2ec281f417195ea3464dbd04289a2", "BlockTracker": "0x5d64b933739558101f9359e2750acc228f0cb64f", "L1Gateway": "0x5d64b933739558101f9359e2750acc228f0cb64f", "Oracle": "0x37a037d2423221f403cfa146f5fb962e19582d90", "PreconfManager": "0x2ee9e88f57a7db801e114a4df7a99eb7257871e2", "ProviderRegistry": "0xeb6d22309062a86fa194520344530874221ef48c", "SettlementGateway": "0x21f5f1142200a515248a2eef5b0654581c7f2b46"}`, "JSON mapping contract names to addresses")
+	abiConfig := flag.String("abi-config", "", "Optional path to ABI manifest JSON")
+	contractMapRaw := flag.String("contract-map", `BidderRegistry:0x145a9f4cbae2ec281f417195ea3464dbd04289a2,BlockTracker:0x5d64b933739558101f9359e2750acc228f0cb64f,L1Gateway:0x5d64b933739558101f9359e2750acc228f0cb64f,Oracle:0x37a037d2423221f403cfa146f5fb962e19582d90,PreconfManager:0x2ee9e88f57a7db801e114a4df7a99eb7257871e2,ProviderRegistry:0xeb6d22309062a86fa194520344530874221ef48c,SettlementGateway:0x21f5f1142200a515248a2eef5b0654581c7f2b46`, "Comma-separated mapping like Name:0xabc123")
 	flag.Parse()
 
 	if *mode != "forward" && *mode != "backfill" {
@@ -200,7 +201,7 @@ func main() {
 	}
 
 	// Load ABIs
-	if err := loadABIs(db, *abiDir, *contractMapJSON); err != nil {
+	if err := loadABIs(db, *abiDir, *contractMapRaw, *abiConfig); err != nil {
 		logger.Error("Failed to load ABIs", "err", err)
 		// Continue or exit based on preference; here continue
 	}
@@ -212,9 +213,13 @@ func main() {
 	}
 }
 
-func loadABIs(db *sql.DB, abiDir, contractMapJSON string) error {
-	contractMap := make(map[string]string)
-	if err := json.Unmarshal([]byte(contractMapJSON), &contractMap); err != nil {
+func loadABIs(db *sql.DB, abiDir, contractMapRaw, abiConfig string) error {
+	if abiConfig != "" {
+		return loadABIsFromManifest(db, abiDir, abiConfig)
+	}
+
+	contractMap, err := parseContractMap(contractMapRaw)
+	if err != nil {
 		return err
 	}
 
@@ -255,6 +260,101 @@ func loadABIs(db *sql.DB, abiDir, contractMapJSON string) error {
 	return nil
 }
 
+func loadABIsFromManifest(db *sql.DB, abiDir, abiConfig string) error {
+	configBytes, err := os.ReadFile(abiConfig)
+	if err != nil {
+		return err
+	}
+
+	var manifest struct {
+		Contracts []struct {
+			Address string `json:"address"`
+			Name    string `json:"name"`
+			ABIPath string `json:"abi_path"`
+		} `json:"contracts"`
+	}
+	if err := json.Unmarshal(configBytes, &manifest); err != nil {
+		return err
+	}
+
+	for _, entry := range manifest.Contracts {
+		if entry.Address == "" || entry.ABIPath == "" {
+			slog.Error("Skipping ABI manifest entry, missing address or abi_path", "entry", entry)
+			continue
+		}
+
+		path := entry.ABIPath
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(abiDir, path)
+		}
+
+		abiBytes, err := os.ReadFile(path)
+		if err != nil {
+			slog.Error("Failed to read ABI file from manifest", "path", path, "err", err)
+			continue
+		}
+		abiStr := string(abiBytes)
+
+		name := entry.Name
+		if name == "" {
+			base := filepath.Base(entry.ABIPath)
+			name = strings.TrimSuffix(base, filepath.Ext(base))
+		}
+
+		address := strings.ToLower(entry.Address)
+		if _, err := db.Exec("INSERT INTO contract_abis (address, name, abi) VALUES (?, ?, parse_json(?))", address, name, abiStr); err != nil {
+			slog.Error("Failed to insert ABI from manifest", "address", address, "err", err)
+			continue
+		}
+
+		abiObj, err := abi.JSON(strings.NewReader(abiStr))
+		if err != nil {
+			slog.Error("Failed to parse ABI from manifest", "address", address, "err", err)
+			continue
+		}
+		abiCache[address] = abiObj
+	}
+
+	return nil
+}
+
+func parseContractMap(raw string) (map[string]string, error) {
+	result := make(map[string]string)
+
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return result, nil
+	}
+
+	if strings.HasPrefix(trimmed, "{") {
+		if err := json.Unmarshal([]byte(trimmed), &result); err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+
+	pairs := strings.Split(trimmed, ",")
+	for _, pair := range pairs {
+		entry := strings.TrimSpace(pair)
+		if entry == "" {
+			continue
+		}
+
+		parts := strings.SplitN(entry, ":", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid contract entry %q", entry)
+		}
+
+		name := strings.TrimSpace(parts[0])
+		address := strings.TrimSpace(parts[1])
+		if name == "" || address == "" {
+			return nil, fmt.Errorf("invalid contract entry %q", entry)
+		}
+		result[name] = address
+	}
+
+	return result, nil
+}
 func createTables(db *sql.DB) error {
 	createStatements := []string{
 		`CREATE TABLE IF NOT EXISTS blocks (
