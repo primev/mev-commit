@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"math/big"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -432,6 +435,7 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 			}
 			if err := processBatch(client, db, blockNums); err != nil {
 				logger.Error("Failed to process batch", "from", start, "to", end, "err", err)
+				logLoadTrackingDetails(logger, db, err)
 				break
 			}
 			start = end + 1
@@ -455,6 +459,7 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int,
 				sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
 				if err := processBatch(client, db, pending); err != nil {
 					logger.Error("Failed to process batch", "err", err)
+					logLoadTrackingDetails(logger, db, err)
 				}
 				pending = pending[:0]
 			}
@@ -464,6 +469,7 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int,
 		sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
 		if err := processBatch(client, db, pending); err != nil {
 			logger.Error("Failed to process batch", "err", err)
+			logLoadTrackingDetails(logger, db, err)
 		}
 	}
 }
@@ -842,6 +848,45 @@ func getMaxIndexedBlock(db *sql.DB) (int64, bool, error) {
 		return max.Int64, true, nil
 	}
 	return 0, false, nil
+}
+
+var loadTrackingJobIDRegexp = regexp.MustCompile(`job_id=([0-9]+)`)
+
+func logLoadTrackingDetails(logger *slog.Logger, db *sql.DB, err error) {
+	var mysqlErr *mysql.MySQLError
+	if !errors.As(err, &mysqlErr) {
+		return
+	}
+	if mysqlErr.Number != 1064 {
+		return
+	}
+	matches := loadTrackingJobIDRegexp.FindStringSubmatch(mysqlErr.Message)
+	if len(matches) != 2 {
+		return
+	}
+	jobID := matches[1]
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, queryErr := db.QueryContext(ctx, "SELECT tracking_log FROM information_schema.load_tracking_logs WHERE job_id = ?", jobID)
+	if queryErr != nil {
+		logger.Error("Failed to fetch load tracking log", "job_id", jobID, "err", queryErr)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var logEntry string
+		if scanErr := rows.Scan(&logEntry); scanErr != nil {
+			logger.Error("Failed to scan load tracking log", "job_id", jobID, "err", scanErr)
+			return
+		}
+		logger.Error("StarRocks load detail", "job_id", jobID, "log", logEntry)
+	}
+	if err := rows.Err(); err != nil {
+		logger.Error("Load tracking log iteration failed", "job_id", jobID, "err", err)
+	}
 }
 
 func blockExists(db *sql.DB, number int64) (bool, error) {
