@@ -145,6 +145,7 @@ func main() {
 	toBlock := flag.Int64("to", 0, "Ending block for backfill (highest)")
 	pollInterval := flag.Duration("poll", 100*time.Millisecond, "Poll interval for forward mode")
 	batchSize := flag.Int("batch-size", 25, "Batch size for RPC calls")
+	insertChunkSize := flag.Int("insert-chunk-size", 1000, "Max rows per multi-value INSERT (per table)")
 	startBlock := flag.Int64("start-block", 0, "Starting block for forward mode when no history exists")
 	abiDir := flag.String("abi-dir", "./contracts-abi/abi", "Directory containing ABI files")
 	abiConfig := flag.String("abi-config", "", "Optional path to ABI manifest JSON")
@@ -210,9 +211,9 @@ func main() {
 	}
 
 	if *mode == "forward" {
-		forwardIndex(client, db, *pollInterval, *batchSize, *startBlock, logger)
+		forwardIndex(client, db, *pollInterval, *batchSize, *insertChunkSize, *startBlock, logger)
 	} else {
-		backfillIndex(client, db, *fromBlock, *toBlock, *batchSize, logger)
+		backfillIndex(client, db, *fromBlock, *toBlock, *batchSize, *insertChunkSize, logger)
 	}
 }
 
@@ -401,7 +402,7 @@ func createTables(db *sql.DB) error {
 	return nil
 }
 
-func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize int, startBlock int64, logger *slog.Logger) {
+func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize, insertChunkSize int, startBlock int64, logger *slog.Logger) {
 	for {
 		var latest *big.Int
 		if err := client.Call(eth.BlockNumber().Returns(&latest)); err != nil {
@@ -433,7 +434,7 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 			for i := start; i <= end; i++ {
 				blockNums = append(blockNums, i)
 			}
-			if err := processBatch(client, db, blockNums); err != nil {
+			if err := processBatch(client, db, blockNums, insertChunkSize); err != nil {
 				logger.Error("Failed to process batch", "from", start, "to", end, "err", err)
 				logLoadTrackingDetails(logger, db, err)
 				break
@@ -445,7 +446,7 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 	}
 }
 
-func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int, logger *slog.Logger) {
+func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize, insertChunkSize int, logger *slog.Logger) {
 	var pending []int64
 	for i := to; i >= from; i-- {
 		exists, err := blockExists(db, i)
@@ -457,7 +458,7 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int,
 			pending = append(pending, i)
 			if len(pending) == batchSize {
 				sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
-				if err := processBatch(client, db, pending); err != nil {
+				if err := processBatch(client, db, pending, insertChunkSize); err != nil {
 					logger.Error("Failed to process batch", "err", err)
 					logLoadTrackingDetails(logger, db, err)
 				}
@@ -467,14 +468,14 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int,
 	}
 	if len(pending) > 0 {
 		sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
-		if err := processBatch(client, db, pending); err != nil {
+		if err := processBatch(client, db, pending, insertChunkSize); err != nil {
 			logger.Error("Failed to process batch", "err", err)
 			logLoadTrackingDetails(logger, db, err)
 		}
 	}
 }
 
-func processBatch(client *w3.Client, db *sql.DB, blockNums []int64) error {
+func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, insertChunkSize int) error {
 	n := len(blockNums)
 	blocks := make([]*types.Block, n)
 	receipts := make([]types.Receipts, n)
@@ -762,80 +763,132 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64) error {
 		}
 	}
 
-	if err := batchInsertBlocks(tx, indexBlocks); err != nil {
+	if err := batchInsertBlocks(tx, indexBlocks, insertChunkSize); err != nil {
 		return err
 	}
-	if err := batchInsertTxs(tx, indexTxs); err != nil {
+	if err := batchInsertTxs(tx, indexTxs, insertChunkSize); err != nil {
 		return err
 	}
-	if err := batchInsertReceipts(tx, indexReceipts); err != nil {
+	if err := batchInsertReceipts(tx, indexReceipts, insertChunkSize); err != nil {
 		return err
 	}
-	if err := batchInsertLogs(tx, indexLogs); err != nil {
+	if err := batchInsertLogs(tx, indexLogs, insertChunkSize); err != nil {
 		return err
 	}
 
 	return tx.Commit()
 }
 
-func batchInsertBlocks(tx *sql.Tx, blocks []IndexBlock) error {
+func batchInsertBlocks(tx *sql.Tx, blocks []IndexBlock, chunkSize int) error {
 	if len(blocks) == 0 {
 		return nil
 	}
-	valueStrings := make([]string, 0, len(blocks))
-	valueArgs := make([]interface{}, 0, len(blocks)*24)
-	for _, b := range blocks {
-		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, b.Number, b.CoinbaseAddress, b.Hash, b.ParentHash, b.Nonce, b.Sha3Uncles, b.LogsBloom, b.TransactionsRoot, b.StateRoot, b.ReceiptsRoot, b.Miner, b.Difficulty, b.ExtraData, b.Size, b.GasLimit, b.GasUsed, b.Timestamp, b.BaseFeePerGas, b.BlobGasUsed, b.ExcessBlobGas, b.WithdrawalsRoot, b.RequestsHash, b.MixHash, b.TxCount)
+	actualChunk := chunkSize
+	if actualChunk <= 0 {
+		actualChunk = 500
 	}
-	stmt := fmt.Sprintf("INSERT INTO blocks (number, coinbase_address, hash, parent_hash, nonce, sha3_uncles, logs_bloom, transactions_root, state_root, receipts_root, miner, difficulty, extra_data, size, gas_limit, gas_used, timestamp, base_fee_per_gas, blob_gas_used, excess_blob_gas, withdrawals_root, requests_hash, mix_hash, tx_count) VALUES %s", strings.Join(valueStrings, ", "))
-	_, err := tx.Exec(stmt, valueArgs...)
-	return err
+	for start := 0; start < len(blocks); start += actualChunk {
+		end := start + actualChunk
+		if end > len(blocks) {
+			end = len(blocks)
+		}
+		batch := blocks[start:end]
+		valueStrings := make([]string, 0, len(batch))
+		valueArgs := make([]interface{}, 0, len(batch)*24)
+		for _, b := range batch {
+			valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			valueArgs = append(valueArgs, b.Number, b.CoinbaseAddress, b.Hash, b.ParentHash, b.Nonce, b.Sha3Uncles, b.LogsBloom, b.TransactionsRoot, b.StateRoot, b.ReceiptsRoot, b.Miner, b.Difficulty, b.ExtraData, b.Size, b.GasLimit, b.GasUsed, b.Timestamp, b.BaseFeePerGas, b.BlobGasUsed, b.ExcessBlobGas, b.WithdrawalsRoot, b.RequestsHash, b.MixHash, b.TxCount)
+		}
+		stmt := fmt.Sprintf("INSERT INTO blocks (number, coinbase_address, hash, parent_hash, nonce, sha3_uncles, logs_bloom, transactions_root, state_root, receipts_root, miner, difficulty, extra_data, size, gas_limit, gas_used, timestamp, base_fee_per_gas, blob_gas_used, excess_blob_gas, withdrawals_root, requests_hash, mix_hash, tx_count) VALUES %s", strings.Join(valueStrings, ", "))
+		if _, err := tx.Exec(stmt, valueArgs...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func batchInsertTxs(tx *sql.Tx, txs []IndexTx) error {
+func batchInsertTxs(tx *sql.Tx, txs []IndexTx, chunkSize int) error {
 	if len(txs) == 0 {
 		return nil
 	}
-	valueStrings := make([]string, 0, len(txs))
-	valueArgs := make([]interface{}, 0, len(txs)*23)
-	for _, t := range txs {
-		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, t.Hash, t.Nonce, t.BlockNumber, t.BlockHash, t.TxIndex, t.From, t.To, t.Value, t.Gas, t.GasPrice, t.MaxPriorityFeePerGas, t.MaxFeePerGas, t.EffectiveGasPrice, t.Input, t.Type, t.ChainID, t.AccessListJSON, t.BlobGas, t.BlobGasFeeCap, t.BlobHashesJSON, t.V, t.R, t.S, t.DecodedJSON)
+	actualChunk := chunkSize
+	if actualChunk <= 0 {
+		actualChunk = 1000
 	}
-	stmt := fmt.Sprintf("INSERT INTO transactions (hash, nonce, block_number, block_hash, tx_index, from_address, to_address, value, gas, gas_price, max_priority_fee_per_gas, max_fee_per_gas, effective_gas_price, input, type, chain_id, access_list_json, blob_gas, blob_gas_fee_cap, blob_hashes_json, v, r, s, decoded) VALUES %s", strings.Join(valueStrings, ", "))
-	_, err := tx.Exec(stmt, valueArgs...)
-	return err
+	for start := 0; start < len(txs); start += actualChunk {
+		end := start + actualChunk
+		if end > len(txs) {
+			end = len(txs)
+		}
+		batch := txs[start:end]
+		valueStrings := make([]string, 0, len(batch))
+		valueArgs := make([]interface{}, 0, len(batch)*23)
+		for _, t := range batch {
+			valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			valueArgs = append(valueArgs, t.Hash, t.Nonce, t.BlockNumber, t.BlockHash, t.TxIndex, t.From, t.To, t.Value, t.Gas, t.GasPrice, t.MaxPriorityFeePerGas, t.MaxFeePerGas, t.EffectiveGasPrice, t.Input, t.Type, t.ChainID, t.AccessListJSON, t.BlobGas, t.BlobGasFeeCap, t.BlobHashesJSON, t.V, t.R, t.S, t.DecodedJSON)
+		}
+		stmt := fmt.Sprintf("INSERT INTO transactions (hash, nonce, block_number, block_hash, tx_index, from_address, to_address, value, gas, gas_price, max_priority_fee_per_gas, max_fee_per_gas, effective_gas_price, input, type, chain_id, access_list_json, blob_gas, blob_gas_fee_cap, blob_hashes_json, v, r, s, decoded) VALUES %s", strings.Join(valueStrings, ", "))
+		if _, err := tx.Exec(stmt, valueArgs...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func batchInsertReceipts(tx *sql.Tx, receipts []IndexReceipt) error {
+func batchInsertReceipts(tx *sql.Tx, receipts []IndexReceipt, chunkSize int) error {
 	if len(receipts) == 0 {
 		return nil
 	}
-	valueStrings := make([]string, 0, len(receipts))
-	valueArgs := make([]interface{}, 0, len(receipts)*9)
-	for _, r := range receipts {
-		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, r.TxHash, r.Status, r.CumulativeGasUsed, r.GasUsed, r.ContractAddress, r.LogsBloom, r.Type, r.BlobGasUsed, r.BlobGasPrice)
+	actualChunk := chunkSize
+	if actualChunk <= 0 {
+		actualChunk = 2000
 	}
-	stmt := fmt.Sprintf("INSERT INTO receipts (tx_hash, status, cumulative_gas_used, gas_used, contract_address, logs_bloom, type, blob_gas_used, blob_gas_price) VALUES %s", strings.Join(valueStrings, ", "))
-	_, err := tx.Exec(stmt, valueArgs...)
-	return err
+	for start := 0; start < len(receipts); start += actualChunk {
+		end := start + actualChunk
+		if end > len(receipts) {
+			end = len(receipts)
+		}
+		batch := receipts[start:end]
+		valueStrings := make([]string, 0, len(batch))
+		valueArgs := make([]interface{}, 0, len(batch)*9)
+		for _, r := range batch {
+			valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			valueArgs = append(valueArgs, r.TxHash, r.Status, r.CumulativeGasUsed, r.GasUsed, r.ContractAddress, r.LogsBloom, r.Type, r.BlobGasUsed, r.BlobGasPrice)
+		}
+		stmt := fmt.Sprintf("INSERT INTO receipts (tx_hash, status, cumulative_gas_used, gas_used, contract_address, logs_bloom, type, blob_gas_used, blob_gas_price) VALUES %s", strings.Join(valueStrings, ", "))
+		if _, err := tx.Exec(stmt, valueArgs...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func batchInsertLogs(tx *sql.Tx, logs []IndexLog) error {
+func batchInsertLogs(tx *sql.Tx, logs []IndexLog, chunkSize int) error {
 	if len(logs) == 0 {
 		return nil
 	}
-	valueStrings := make([]string, 0, len(logs))
-	valueArgs := make([]interface{}, 0, len(logs)*11)
-	for _, l := range logs {
-		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		valueArgs = append(valueArgs, l.TxHash, l.LogIndex, l.Address, l.BlockNumber, l.BlockHash, l.TxIndex, l.BlockTimestamp, l.TopicsJSON, l.Data, l.Removed, l.DecodedJSON)
+	actualChunk := chunkSize
+	if actualChunk <= 0 {
+		actualChunk = 1000
 	}
-	stmt := fmt.Sprintf("INSERT INTO logs (tx_hash, log_index, address, block_number, block_hash, tx_index, block_timestamp, topics, data, removed, decoded) VALUES %s", strings.Join(valueStrings, ", "))
-	_, err := tx.Exec(stmt, valueArgs...)
-	return err
+	for start := 0; start < len(logs); start += actualChunk {
+		end := start + actualChunk
+		if end > len(logs) {
+			end = len(logs)
+		}
+		batch := logs[start:end]
+		valueStrings := make([]string, 0, len(batch))
+		valueArgs := make([]interface{}, 0, len(batch)*11)
+		for _, l := range batch {
+			valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			valueArgs = append(valueArgs, l.TxHash, l.LogIndex, l.Address, l.BlockNumber, l.BlockHash, l.TxIndex, l.BlockTimestamp, l.TopicsJSON, l.Data, l.Removed, l.DecodedJSON)
+		}
+		stmt := fmt.Sprintf("INSERT INTO logs (tx_hash, log_index, address, block_number, block_hash, tx_index, block_timestamp, topics, data, removed, decoded) VALUES %s", strings.Join(valueStrings, ", "))
+		if _, err := tx.Exec(stmt, valueArgs...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getMaxIndexedBlock(db *sql.DB) (int64, bool, error) {
