@@ -142,6 +142,7 @@ func main() {
 	toBlock := flag.Int64("to", 0, "Ending block for backfill (highest)")
 	pollInterval := flag.Duration("poll", 100*time.Millisecond, "Poll interval for forward mode")
 	batchSize := flag.Int("batch-size", 25, "Batch size for RPC calls")
+	startBlock := flag.Int64("start-block", 0, "Starting block for forward mode when no history exists")
 	abiDir := flag.String("abi-dir", "./contracts-abi/abi", "Directory containing ABI files")
 	abiConfig := flag.String("abi-config", "", "Optional path to ABI manifest JSON")
 	flag.Parse()
@@ -206,7 +207,7 @@ func main() {
 	}
 
 	if *mode == "forward" {
-		forwardIndex(client, db, *pollInterval, *batchSize, logger)
+		forwardIndex(client, db, *pollInterval, *batchSize, *startBlock, logger)
 	} else {
 		backfillIndex(client, db, *fromBlock, *toBlock, *batchSize, logger)
 	}
@@ -397,7 +398,7 @@ func createTables(db *sql.DB) error {
 	return nil
 }
 
-func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize int, logger *slog.Logger) {
+func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize int, startBlock int64, logger *slog.Logger) {
 	for {
 		var latest *big.Int
 		if err := client.Call(eth.BlockNumber().Returns(&latest)); err != nil {
@@ -406,15 +407,18 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 			continue
 		}
 
-		maxIndexed, err := getMaxIndexedBlock(db)
+		maxIndexed, hasIndexed, err := getMaxIndexedBlock(db)
 		if err != nil {
 			logger.Error("Failed to get max indexed block", "err", err)
 			time.Sleep(pollInterval)
 			continue
 		}
-		start := int64(0)
-		if maxIndexed > 0 {
+		start := startBlock
+		if hasIndexed {
 			start = maxIndexed + 1
+			if start < startBlock {
+				start = startBlock
+			}
 		}
 
 		for start <= latest.Int64() {
@@ -548,8 +552,16 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64) error {
 
 		txs := blocks[k].Transactions()
 		for i, txn := range txs {
-			chainID := txn.ChainId().Int64()
-			chainIDPtr := &chainID
+			chainIDBig := txn.ChainId()
+			var chainIDPtr *int64
+			var signer types.Signer
+			if chainIDBig != nil && chainIDBig.Sign() > 0 {
+				chainID := chainIDBig.Int64()
+				chainIDPtr = &chainID
+				signer = types.LatestSignerForChainID(chainIDBig)
+			} else {
+				signer = types.HomesteadSigner{}
+			}
 			var to *string
 			if txn.To() != nil {
 				s := txn.To().Hex()
@@ -618,7 +630,6 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64) error {
 				sStr = &ss
 			}
 
-			signer := types.LatestSignerForChainID(txn.ChainId())
 			from, err := types.Sender(signer, txn)
 			if err != nil {
 				return fmt.Errorf("failed to recover sender for tx %s: %w", txn.Hash().Hex(), err)
@@ -821,16 +832,16 @@ func batchInsertLogs(tx *sql.Tx, logs []IndexLog) error {
 	return err
 }
 
-func getMaxIndexedBlock(db *sql.DB) (int64, error) {
+func getMaxIndexedBlock(db *sql.DB) (int64, bool, error) {
 	var max sql.NullInt64
 	err := db.QueryRow("SELECT MAX(number) FROM blocks").Scan(&max)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	if max.Valid {
-		return max.Int64, nil
+		return max.Int64, true, nil
 	}
-	return 0, nil
+	return 0, false, nil
 }
 
 func blockExists(db *sql.DB, number int64) (bool, error) {
