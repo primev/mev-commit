@@ -43,17 +43,19 @@ const (
 	confidenceSecondAttempt      = 95               // confidence level for the second attempt
 	confidenceSubsequentAttempts = 99               // confidence level for subsequent attempts
 	transactionTimeout           = 10 * time.Minute // timeout for transaction processing
+	maxAttemptsPerBlock          = 10               // maximum attempts per block
 )
 
 var (
-	ErrInvalidTransaction       = errors.New("invalid transaction")
-	ErrUnsupportedTxType        = errors.New("unsupported transaction type")
-	ErrEmptyRawTransaction      = errors.New("empty raw transaction")
-	ErrEmptyTransactionTo       = errors.New("empty transaction 'to' address")
-	ErrNegativeTransactionValue = errors.New("negative transaction value")
-	ErrZeroGasLimit             = errors.New("zero gas limit")
-	ErrTransactionCancelled     = errors.New("transaction cancelled by user")
-	ErrTimeoutExceeded          = errors.New("timeout exceeded while waiting for transaction to be processed")
+	ErrInvalidTransaction          = errors.New("invalid transaction")
+	ErrUnsupportedTxType           = errors.New("unsupported transaction type")
+	ErrEmptyRawTransaction         = errors.New("empty raw transaction")
+	ErrEmptyTransactionTo          = errors.New("empty transaction 'to' address")
+	ErrNegativeTransactionValue    = errors.New("negative transaction value")
+	ErrZeroGasLimit                = errors.New("zero gas limit")
+	ErrTransactionCancelled        = errors.New("transaction cancelled by user")
+	ErrTimeoutExceeded             = errors.New("timeout exceeded while waiting for transaction to be processed")
+	ErrMaxAttemptsPerBlockExceeded = errors.New("maximum attempts exceeded for transaction in the current block")
 )
 
 type PositionConstraintKey struct{}
@@ -103,6 +105,10 @@ type Transferer interface {
 	Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error
 }
 
+type Simulator interface {
+	Simulate(ctx context.Context, txRaw string) ([][]byte, error)
+}
+
 type blockAttempt struct {
 	blockNumber uint64
 	attempts    int
@@ -136,6 +142,7 @@ type TxSender struct {
 	processMu         sync.RWMutex
 	txnAttemptHistory *lru.Cache[common.Hash, *txnAttempt]
 	notifier          Notifier
+	simulator         Simulator
 	fastTrack         func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool
 	bidTimeout        time.Duration
 	timeoutMtx        sync.RWMutex
@@ -441,6 +448,11 @@ func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction, can
 		result bidResult
 		err    error
 	)
+	logger := t.logger.With(
+		"transactionHash", txn.Hash().Hex(),
+		"sender", txn.Sender.Hex(),
+		"type", txn.Type,
+	)
 BID_LOOP:
 	for {
 		select {
@@ -452,11 +464,13 @@ BID_LOOP:
 		}
 
 		preConfirmed := false
+		maxAttemptsPerBlockExceeded := false
+
 		result, err = t.sendBid(ctx, txn)
 		switch {
 		case err != nil:
 			if retryErr, ok := err.(*errRetry); ok {
-				t.logger.Warn(
+				logger.Warn(
 					"Retrying bid due to error",
 					"error", retryErr.err,
 					"retryAfter", retryErr.retryAfter,
@@ -471,17 +485,20 @@ BID_LOOP:
 				}
 				continue
 			}
-			return err
+			// If we exceeded max attempts per block, we retry for the next block but
+			// also check for inclusion in case the transaction got included
+			if !errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
+				return err
+			} else {
+				maxAttemptsPerBlockExceeded = true
+			}
 		case t.fastTrack(result.commitments, result.optedInSlot):
 			// If the commitments indicate that the transaction can be fast-tracked,
 			// we consider it pre-confirmed and skip further checks
 			txn.Status = TxStatusPreConfirmed
 			txn.BlockNumber = int64(result.blockNumber)
-			t.logger.Info(
+			logger.Info(
 				"Transaction fast-tracked based on commitments",
-				"transactionHash", txn.Hash().Hex(),
-				"sender", txn.Sender.Hex(),
-				"type", txn.Type,
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
@@ -496,11 +513,8 @@ BID_LOOP:
 				// user that the txn was successfully sent and will be processed
 				txn.Status = TxStatusPreConfirmed
 				txn.BlockNumber = int64(result.blockNumber)
-				t.logger.Info(
+				logger.Info(
 					"Transaction pre-confirmed",
-					"transactionHash", txn.Hash().Hex(),
-					"sender", txn.Sender.Hex(),
-					"type", txn.Type,
 					"blockNumber", result.blockNumber,
 					"bidAmount", result.bidAmount.String(),
 				)
@@ -512,20 +526,17 @@ BID_LOOP:
 		default:
 		}
 
-		if !preConfirmed && result.noOfProviders > len(result.commitments) {
-			t.logger.Warn(
+		if !preConfirmed && result.noOfProviders > len(result.commitments) && !maxAttemptsPerBlockExceeded {
+			logger.Warn(
 				"Not all builders committed to the bid",
-				"transactionHash", txn.Hash().Hex(),
 				"noOfProviders", result.noOfProviders,
 				"noOfCommitments", len(result.commitments),
-				"sender", txn.Sender.Hex(),
-				"type", txn.Type,
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
-			if (result.timeUntillNextBlock - time.Second) > time.Since(result.startTime) {
+			if (result.timeUntillNextBlock - 2*time.Second) > time.Since(result.startTime) {
 				// If not all builders committed, we will retry the bid process
-				// immediately if we have atleast 1 second left before the next block
+				// immediately if we have atleast 2 seconds left before the next block
 				continue
 			}
 		}
@@ -534,18 +545,15 @@ BID_LOOP:
 		// we will retry the bid process till user cancels the operation
 		included, err := t.blockTracker.CheckTxnInclusion(ctx, txn.Hash(), result.blockNumber)
 		if err != nil {
-			t.logger.Error("Failed to check transaction inclusion", "error", err)
+			logger.Error("Failed to check transaction inclusion", "error", err)
 			return fmt.Errorf("failed to check transaction inclusion: %w", err)
 		}
 		if included {
 			if !preConfirmed {
 				txn.Status = TxStatusConfirmed
 				txn.BlockNumber = int64(result.blockNumber)
-				t.logger.Info(
+				logger.Info(
 					"Transaction confirmed",
-					"transactionHash", txn.Hash().Hex(),
-					"sender", txn.Sender.Hex(),
-					"type", txn.Type,
 					"blockNumber", result.blockNumber,
 					"bidAmount", result.bidAmount.String(),
 				)
@@ -565,19 +573,19 @@ BID_LOOP:
 	switch txn.Type {
 	case TxTypeRegular:
 		if err := t.store.DeductBalance(ctx, txn.Sender, result.bidAmount); err != nil {
-			t.logger.Error("Failed to deduct balance for sender", "sender", txn.Sender.Hex(), "error", err)
+			logger.Error("Failed to deduct balance for sender", "sender", txn.Sender.Hex(), "error", err)
 			return fmt.Errorf("failed to deduct balance for sender: %w", err)
 		}
 	case TxTypeDeposit:
 		balanceToAdd := new(big.Int).Sub(txn.Value(), result.bidAmount)
 		if err := t.store.AddBalance(ctx, txn.Sender, balanceToAdd); err != nil {
-			t.logger.Error("Failed to add balance for sender", "sender", txn.Sender.Hex(), "error", err)
+			logger.Error("Failed to add balance for sender", "sender", txn.Sender.Hex(), "error", err)
 			return fmt.Errorf("failed to add balance for sender: %w", err)
 		}
 	case TxTypeInstantBridge:
 		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(result.bidAmount, big.NewInt(2)))
 		if err := t.transferer.Transfer(ctx, txn.Sender, t.settlementChainId, amountToBridge); err != nil {
-			t.logger.Error("Failed to transfer funds for instant bridge", "sender", txn.Sender.Hex(), "error", err)
+			logger.Error("Failed to transfer funds for instant bridge", "sender", txn.Sender.Hex(), "error", err)
 			return fmt.Errorf("failed to transfer funds for instant bridge: %w", err)
 		}
 	}
@@ -602,12 +610,15 @@ type bidResult struct {
 	optedInSlot         bool
 	bidAmount           *big.Int
 	commitments         []*bidderapiv1.Commitment
+	logs                [][]byte
 }
 
 func (t *TxSender) sendBid(
 	ctx context.Context,
 	txn *Transaction,
 ) (bidResult, error) {
+	start := time.Now()
+
 	timeToOptIn, err := t.bidder.Estimate()
 	if err != nil {
 		t.logger.Warn("Failed to estimate time to opt-in", "error", err)
@@ -617,7 +628,12 @@ func (t *TxSender) sendBid(
 		timeToOptIn = blockTime * 32
 	}
 
-	start := time.Now()
+	logs, err := t.simulator.Simulate(ctx, txn.Raw)
+	if err != nil {
+		t.logger.Error("Failed to simulate transaction", "error", err)
+		return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
+	}
+
 	bidBlockNo, timeUntilNextBlock, err := t.blockTracker.NextBlockNumber()
 	if err != nil {
 		t.logger.Error("Failed to get next block number", "error", err)
@@ -649,6 +665,9 @@ func (t *TxSender) sendBid(
 		if errors.Is(err, ErrTimeoutExceeded) {
 			t.logger.Warn("Timeout exceeded while trying to process transaction", "txnHash", txn.Hash().Hex())
 			return bidResult{}, ErrTimeoutExceeded
+		}
+		if errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
+			return bidResult{}, err
 		}
 		return bidResult{}, &errRetry{
 			err:        fmt.Errorf("failed to calculate price: %w", err),
@@ -720,6 +739,7 @@ func (t *TxSender) sendBid(
 		bidAmount:           cost,
 		startTime:           start,
 		timeUntillNextBlock: timeUntilNextBlock,
+		logs:                logs,
 	}
 BID_LOOP:
 	for {
@@ -794,6 +814,8 @@ func (t *TxSender) calculatePriceForNextBlock(
 				confidence = confidenceSecondAttempt
 			case attempts.attempts[i].attempts > 2:
 				confidence = confidenceSubsequentAttempts
+			case attempts.attempts[i].attempts > maxAttemptsPerBlock:
+				return nil, fmt.Errorf("%w: block %d", ErrMaxAttemptsPerBlockExceeded, bidBlockNo)
 			}
 			break // No need to check further attempts for the same block
 		}
