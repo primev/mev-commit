@@ -330,7 +330,7 @@ func createTables(db *sql.DB) error {
 			max_priority_fee_per_gas VARCHAR(255),
 			max_fee_per_gas VARCHAR(255),
 			effective_gas_price VARCHAR(255),
-			input VARCHAR(65535),
+			input STRING,
 			type TINYINT,
 			chain_id BIGINT,
 			access_list_json JSON,
@@ -372,7 +372,7 @@ func createTables(db *sql.DB) error {
 			tx_index INT,
 			block_timestamp BIGINT,
 			topics JSON,
-			data VARCHAR(65535),
+			data STRING,
 			removed BOOLEAN,
 			decoded JSON
 		) 
