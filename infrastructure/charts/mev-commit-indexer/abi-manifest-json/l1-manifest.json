@@ -1,0 +1,50 @@
+{
+    "contracts": [
+      {
+        "address": "0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64",
+        "name": "ValidatorOptInRouter",
+        "abi_path": "/l1-abi/ValidatorOptInRouter.abi"
+      },
+      {
+        "address": "0xBc77233855e3274E1903771675Eb71E602D9DC2e",
+        "name": "MevCommitAVS",
+        "abi_path": "/l1-abi/MevCommitAVS.abi"
+      },
+      {
+        "address": "0x5d64B933739558101F9359E2750ACC228f0CB64F",
+        "name": "L1Gateway",
+        "abi_path": "/l1-abi/L1Gateway.abi"
+      },
+      {
+        "address": "0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9",
+        "name": "VanillaRegistry",
+        "abi_path": "/l1-abi/VanillaRegistry_v1.1.0.abi"
+      },
+      {
+        "address": "0x21fD239311B050bbeE7F32850d99ADc224761382",
+        "name": "MevCommitMiddleware",
+        "abi_path": "/l1-abi/MevCommitMiddleware.abi"
+      },
+      {
+        "address": "0x129ee03bdea0e35c077cf918e72ca1036bbe6f4c",
+        "name": "VanillaRegistry",
+        "abi_path": "/l1-abi/VanillaRegistry_v1.2.3.abi"
+      },
+      {
+        "address": "0x1059155bD5854224bF58e43CD3EEC6B07b4F30Ad",
+        "name": "ValidatorOptInHub",
+        "abi_path": "/l1-abi/ValidatorOptInHub.abi"
+      },
+      {
+        "address": "0x531D19cFEB3e685745DA1e1897485E9F351e7Aa0",
+        "name": "BlockRewardsManager",
+        "abi_path": "/l1-abi/BlockRewardManager.abi"
+      },
+      {
+        "address": "0xccf10d9911c2e1b2d589cbc8a3878d1b138aa2c2",
+        "name": "RewardDistributor",
+        "abi_path": "/l1-abi/RewardDistributor.abi"
+      }
+    ]
+  }
+  

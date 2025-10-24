@@ -12,6 +12,7 @@ spec:
   template:
     metadata:
       annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -28,18 +29,40 @@ spec:
           - "-rpc={{ .Values.indexer.rpcUrl }}"
           - "-dsn={{ .Values.indexer.dsn }}"
           - "-abi-dir={{ .Values.indexer.abiDir }}"
+          - "-abi-config=/config/manifest.json"
           - "-batch-size={{ .Values.indexer.batchSize }}"
           - "-poll={{ .Values.indexer.pollInterval }}"
           {{- if eq .Values.indexer.mode "backfill" }}
           - "-from={{ .Values.indexer.backfill.fromBlock }}"
           - "-to={{ .Values.indexer.backfill.toBlock }}"
           {{- end }}
+          {{- range .Values.indexer.extraArgs }}
+          - {{ . | quote }}
+          {{- end }}
         ports:
         - name: http
           containerPort: 8080
           protocol: TCP
+        volumeMounts:
+        - name: manifest
+          mountPath: /config
+          readOnly: true
+        {{- if eq .Values.indexer.chainType "l1" }}
+        - name: l1-abi
+          mountPath: /l1-abi
+          readOnly: true
+        {{- end }}
         resources:
           {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+      - name: manifest
+        configMap:
+          name: {{ include "chain-indexer.fullname" . }}-manifest
+      {{- if eq .Values.indexer.chainType "l1" }}
+      - name: l1-abi
+        configMap:
+          name: {{ include "chain-indexer.fullname" . }}-l1-abi
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
