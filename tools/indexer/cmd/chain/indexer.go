@@ -115,6 +115,8 @@ type IndexLog struct {
 
 var abiCache = make(map[string]abi.ABI)
 
+const maxRowsPerInsert = 10_000
+
 func isDynamicType(t *abi.Type) bool {
 	switch t.T {
 	case abi.TupleTy:
@@ -144,8 +146,8 @@ func main() {
 	fromBlock := flag.Int64("from", 0, "Starting block for backfill (lowest)")
 	toBlock := flag.Int64("to", 0, "Ending block for backfill (highest)")
 	pollInterval := flag.Duration("poll", 100*time.Millisecond, "Poll interval for forward mode")
-	batchSize := flag.Int("batch-size", 25, "Batch size for RPC calls")
-	insertChunkSize := flag.Int("insert-chunk-size", 1000, "Max rows per multi-value INSERT (per table)")
+	batchSize := flag.Int("batch-size", 35, "Batch size for RPC calls")
+	flushInterval := flag.Duration("flush-interval", 2*time.Second, "Maximum time to buffer rows before flushing to the database")
 	startBlock := flag.Int64("start-block", 0, "Starting block for forward mode when no history exists")
 	abiDir := flag.String("abi-dir", "./contracts-abi/abi", "Directory containing ABI files")
 	abiConfig := flag.String("abi-config", "", "Optional path to ABI manifest JSON")
@@ -211,11 +213,13 @@ func main() {
 	}
 
 	if *mode == "forward" {
-		forwardIndex(client, db, *pollInterval, *batchSize, *insertChunkSize, *startBlock, logger)
+		forwardIndex(client, db, *pollInterval, *batchSize, *flushInterval, *startBlock, logger)
 	} else {
-		backfillIndex(client, db, *fromBlock, *toBlock, *batchSize, *insertChunkSize, logger)
+		backfillIndex(client, db, *fromBlock, *toBlock, *batchSize, *flushInterval, logger)
 	}
 }
+
+// removed chunk config heuristics; real-time thresholds used instead
 
 func loadABIs(db *sql.DB, abiDir, abiConfig string) error {
 	if abiConfig == "" {
@@ -402,7 +406,7 @@ func createTables(db *sql.DB) error {
 	return nil
 }
 
-func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize, insertChunkSize int, startBlock int64, logger *slog.Logger) {
+func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize int, flushInterval time.Duration, startBlock int64, logger *slog.Logger) {
 	for {
 		var latest *big.Int
 		if err := client.Call(eth.BlockNumber().Returns(&latest)); err != nil {
@@ -434,7 +438,7 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 			for i := start; i <= end; i++ {
 				blockNums = append(blockNums, i)
 			}
-			if err := processBatch(client, db, blockNums, insertChunkSize); err != nil {
+			if err := processBatch(client, db, blockNums, flushInterval); err != nil {
 				logger.Error("Failed to process batch", "from", start, "to", end, "err", err)
 				logLoadTrackingDetails(logger, db, err)
 				break
@@ -446,7 +450,7 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 	}
 }
 
-func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize, insertChunkSize int, logger *slog.Logger) {
+func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int, flushInterval time.Duration, logger *slog.Logger) {
 	var pending []int64
 	for i := to; i >= from; i-- {
 		exists, err := blockExists(db, i)
@@ -458,7 +462,7 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize, ins
 			pending = append(pending, i)
 			if len(pending) == batchSize {
 				sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
-				if err := processBatch(client, db, pending, insertChunkSize); err != nil {
+				if err := processBatch(client, db, pending, flushInterval); err != nil {
 					logger.Error("Failed to process batch", "err", err)
 					logLoadTrackingDetails(logger, db, err)
 				}
@@ -468,14 +472,14 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize, ins
 	}
 	if len(pending) > 0 {
 		sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
-		if err := processBatch(client, db, pending, insertChunkSize); err != nil {
+		if err := processBatch(client, db, pending, flushInterval); err != nil {
 			logger.Error("Failed to process batch", "err", err)
 			logLoadTrackingDetails(logger, db, err)
 		}
 	}
 }
 
-func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, insertChunkSize int) error {
+func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, flushInterval time.Duration) error {
 	startBatch := time.Now()
 	n := len(blockNums)
 	blocks := make([]*types.Block, n)
@@ -810,13 +814,13 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, insertChunkS
 			}
 		}
 
-		if shouldFlushChunk(chunkBlocks, chunkTxs, chunkReceipts, chunkLogs, insertChunkSize) {
+		if shouldFlushChunk(chunkBlocks, chunkTxs, chunkReceipts, chunkLogs, chunkStart, flushInterval) {
 			slog.Debug("Chunk threshold reached",
 				"blocks", len(chunkBlocks),
 				"txs", len(chunkTxs),
 				"receipts", len(chunkReceipts),
 				"logs", len(chunkLogs),
-				"insertChunkSize", insertChunkSize,
+				"elapsed", time.Since(chunkStart),
 			)
 			if err := flushChunk(); err != nil {
 				return err
@@ -887,21 +891,23 @@ func batchInsertLogs(tx *sql.Tx, logs []IndexLog) error {
 	return err
 }
 
-func shouldFlushChunk(blocks []IndexBlock, txs []IndexTx, receipts []IndexReceipt, logs []IndexLog, limit int) bool {
-	effective := limit
-	if effective <= 0 {
-		effective = 1000
-	}
-	if len(blocks) >= effective {
+func shouldFlushChunk(blocks []IndexBlock, txs []IndexTx, receipts []IndexReceipt, logs []IndexLog, chunkStart time.Time, flushInterval time.Duration) bool {
+	if len(blocks) >= maxRowsPerInsert {
 		return true
 	}
-	if len(txs) >= effective {
+	if len(txs) >= maxRowsPerInsert {
 		return true
 	}
-	if len(receipts) >= effective {
+	if len(receipts) >= maxRowsPerInsert {
 		return true
 	}
-	if len(logs) >= effective {
+	if len(logs) >= maxRowsPerInsert {
+		return true
+	}
+	if flushInterval <= 0 {
+		flushInterval = 2 * time.Second
+	}
+	if !chunkStart.IsZero() && time.Since(chunkStart) >= flushInterval {
 		return true
 	}
 	return false
