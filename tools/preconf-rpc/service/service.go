@@ -290,7 +290,7 @@ func New(config *Config) (*Service, error) {
 		_, _ = w.Write([]byte("OK"))
 	})
 	mux.Handle("/", rpcServer)
-	mux.HandleFunc("/{option...}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/opt/{option...}", func(w http.ResponseWriter, r *http.Request) {
 		options := r.PathValue("option")
 
 		splits := strings.Split(options, "/")
