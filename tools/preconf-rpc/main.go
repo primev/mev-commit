@@ -292,6 +292,7 @@ func main() {
 			optionBidderThreshold,
 			optionBidderTopup,
 			optionAuthToken,
+			optionSimulationURL,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -377,6 +378,7 @@ func main() {
 				PricerAPIKey:           c.String(optionBlocknativeAPIKey.Name),
 				Webhooks:               c.StringSlice(optionWebhookURLs.Name),
 				Token:                  c.String(optionAuthToken.Name),
+				SimulatorURL:           c.String(optionSimulationURL.Name),
 			}
 
 			s, err := service.New(&config)

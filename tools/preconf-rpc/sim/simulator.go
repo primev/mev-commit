@@ -156,9 +156,7 @@ func parseResponse(body []byte) ([]*types.Log, error) {
 }
 
 func collectLogs(n *SimCall, acc *[]*types.Log) {
-	for _, log := range n.Logs {
-		*acc = append(*acc, log)
-	}
+	*acc = append(*acc, n.Logs...)
 	for i := range n.Calls {
 		collectLogs(&n.Calls[i], acc)
 	}

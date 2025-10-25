@@ -925,7 +925,8 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 			var bidOptionsBytes []byte
 			var err error
 
-			if tc.name == "mixed bid options" {
+			switch tc.name {
+			case "mixed bid options":
 				// Mixed options with position constraint and shutterised option
 				bidderOpts = &bidderapiv1.BidOptions{
 					Options: []*bidderapiv1.BidOption{
@@ -948,7 +949,7 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 						},
 					},
 				}
-			} else if tc.name == "multiple shutterised bid options" {
+			case "multiple shutterised bid options":
 				// Multiple shutterised options - parse comma-separated values
 				identityPrefixes := strings.Split(tc.identityPrefix, ",")
 				encryptedTxs := strings.Split(tc.encryptedTx, ",")
@@ -973,13 +974,13 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 						},
 					},
 				}
-			} else if tc.name == "invalid bid options marshaling" {
+			case "invalid bid options marshaling":
 				// Invalid protobuf data
 				bidOptionsBytes = []byte("invalid protobuf data")
-			} else if tc.name == "nil shutterised bid option" {
+			case "nil shutterised bid option":
 				// Nil bid options for nil case
 				bidderOpts = nil
-			} else {
+			default:
 				// Single valid shutterised option
 				bidderOpts = &bidderapiv1.BidOptions{
 					Options: []*bidderapiv1.BidOption{

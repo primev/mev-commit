@@ -36,7 +36,7 @@ func TestSimulator(t *testing.T) {
 				rawTx := req["raw"].(string)
 				if resp, ok := txns[rawTx]; ok {
 					w.Header().Set("Content-Type", "application/json")
-					w.Write(resp)
+					_, _ = w.Write(resp)
 					return
 				}
 				http.Error(w, "transaction not found", http.StatusNotFound)
