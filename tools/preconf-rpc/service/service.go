@@ -29,6 +29,7 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
+	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 	"github.com/primev/mev-commit/x/accountsync"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
@@ -69,6 +70,7 @@ type Config struct {
 	PricerAPIKey           string
 	Webhooks               []string
 	Token                  string
+	SimulatorURL           string
 }
 
 type Service struct {
@@ -244,6 +246,8 @@ func New(config *Config) (*Service, error) {
 	blockTrackerDone := blockTracker.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
 
+	simulator := sim.NewSimulator(config.SimulatorURL)
+
 	sndr, err := sender.NewTxSender(
 		rpcstore,
 		bidderClient,
@@ -251,6 +255,7 @@ func New(config *Config) (*Service, error) {
 		blockTracker,
 		transferer,
 		notifier,
+		simulator,
 		settlementChainID,
 		config.Logger.With("module", "txsender"),
 	)

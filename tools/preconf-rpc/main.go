@@ -210,6 +210,13 @@ var (
 		Value:   "",
 	}
 
+	optionSimulationURL = &cli.StringFlag{
+		Name:     "simulation-url",
+		Usage:    "URL for the transaction simulation service",
+		EnvVars:  []string{"PRECONF_RPC_SIMULATION_URL"},
+		Required: true,
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",

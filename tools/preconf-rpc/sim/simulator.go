@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type SimLog struct {
@@ -28,11 +30,11 @@ type SimLog struct {
 }
 
 type SimCall struct {
-	Status     string    `json:"status"`
-	GasUsed    string    `json:"gasUsed"`
-	ReturnData string    `json:"returnData"`
-	Logs       []SimLog  `json:"logs"`
-	Calls      []SimCall `json:"calls,omitempty"`
+	Status     string       `json:"status"`
+	GasUsed    string       `json:"gasUsed"`
+	ReturnData string       `json:"returnData"`
+	Logs       []*types.Log `json:"logs"`
+	Calls      []SimCall    `json:"calls,omitempty"`
 }
 
 type SimBlock struct {
@@ -75,7 +77,7 @@ type reqBody struct {
 	Block string `json:"block,omitempty"`
 }
 
-func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([][]byte, error) {
+func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, error) {
 	body := reqBody{
 		TxRaw: txRaw,
 		Block: "latest",
@@ -114,7 +116,7 @@ func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([][]byte, error
 	return parseResponse(respBody)
 }
 
-func parseResponse(body []byte) ([][]byte, error) {
+func parseResponse(body []byte) ([]*types.Log, error) {
 	trim := strings.TrimSpace(string(body))
 	if len(trim) == 0 {
 		return nil, errors.New("empty response")
@@ -148,15 +150,14 @@ func parseResponse(body []byte) ([][]byte, error) {
 	}
 
 	// Success → collect all logs (depth-first, execution order)
-	var out [][]byte
+	var out []*types.Log
 	collectLogs(&root, &out)
 	return out, nil
 }
 
-func collectLogs(n *SimCall, acc *[][]byte) {
-	for i := range n.Logs {
-		b, _ := json.Marshal(n.Logs[i]) // preserve original shape
-		*acc = append(*acc, b)
+func collectLogs(n *SimCall, acc *[]*types.Log) {
+	for _, log := range n.Logs {
+		*acc = append(*acc, log)
 	}
 	for i := range n.Calls {
 		collectLogs(&n.Calls[i], acc)

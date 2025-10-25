@@ -21,6 +21,7 @@ type result struct {
 	txn         *sender.Transaction
 	commitments []*bidderapiv1.Commitment
 	blockNumber int64
+	logs        []*types.Log
 }
 
 type mockStore struct {
@@ -123,11 +124,13 @@ func (m *mockStore) StoreTransaction(
 	ctx context.Context,
 	txn *sender.Transaction,
 	commitments []*bidderapiv1.Commitment,
+	logs []*types.Log,
 ) error {
 	m.preconfirmedTxns <- result{
 		txn:         txn,
 		commitments: commitments,
 		blockNumber: txn.BlockNumber,
+		logs:        logs,
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -265,6 +268,12 @@ func (m *mockNotifier) NotifyTransactionStatus(txn *sender.Transaction, attempts
 	m.notifications = append(m.notifications, txn.Hash().Hex())
 }
 
+type mockSimulator struct{}
+
+func (m *mockSimulator) Simulate(ctx context.Context, rawTx string) ([]*types.Log, error) {
+	return []*types.Log{}, nil
+}
+
 func TestSender(t *testing.T) {
 	t.Parallel()
 
@@ -293,6 +302,7 @@ func TestSender(t *testing.T) {
 		blockTracker,
 		&mockTransferer{},
 		notifier,
+		&mockSimulator{},
 		big.NewInt(1), // Settlement chain ID
 		util.NewTestLogger(os.Stdout),
 	)
@@ -571,6 +581,7 @@ func TestCancelTransaction(t *testing.T) {
 		blockTracker,
 		&mockTransferer{},
 		&mockNotifier{},
+		&mockSimulator{},
 		big.NewInt(1), // Settlement chain ID
 		util.NewTestLogger(os.Stdout),
 	)
