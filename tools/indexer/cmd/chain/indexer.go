@@ -1131,10 +1131,8 @@ func streamLoadRequest(opts ingestOptions, table string, columns []string, rows 
 	req.Header.Set("columns", strings.Join(columns, ","))
 	req.Header.Set("Expect", "100-continue")
 	req.SetBasicAuth(opts.streamUsername, opts.streamPassword)
-	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
-		if dump, err := httputil.DumpRequestOut(req, false); err == nil {
-			slog.Debug("stream load request", "table", table, "request", string(dump))
-		}
+	if dump, err := httputil.DumpRequestOut(req, false); err == nil {
+		slog.Debug("stream load request", "table", table, "request", string(dump))
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
