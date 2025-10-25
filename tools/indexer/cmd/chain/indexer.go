@@ -1,19 +1,24 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/big"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -117,6 +122,14 @@ var abiCache = make(map[string]abi.ABI)
 
 const maxRowsPerInsert = 10_000
 
+type ingestOptions struct {
+	useStreamLoad  bool
+	streamLoadURL  string
+	streamUsername string
+	streamPassword string
+	database       string
+}
+
 func isDynamicType(t *abi.Type) bool {
 	switch t.T {
 	case abi.TupleTy:
@@ -151,6 +164,8 @@ func main() {
 	startBlock := flag.Int64("start-block", 0, "Starting block for forward mode when no history exists")
 	abiDir := flag.String("abi-dir", "./contracts-abi/abi", "Directory containing ABI files")
 	abiConfig := flag.String("abi-config", "", "Optional path to ABI manifest JSON")
+	useStreamLoad := flag.Bool("use-stream-load", false, "Use StarRocks stream load for ingestion")
+	streamLoadURL := flag.String("stream-load-url", "http://starrocks-cluster-fe-service.starrocks.svc.cluster.local:8030", "StarRocks FE stream load base URL")
 	flag.Parse()
 
 	if *mode != "forward" && *mode != "backfill" {
@@ -206,6 +221,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	ingestOpts := ingestOptions{
+		useStreamLoad:  *useStreamLoad,
+		streamLoadURL:  strings.TrimRight(*streamLoadURL, "/"),
+		streamUsername: cfg.User,
+		streamPassword: cfg.Passwd,
+		database:       dbName,
+	}
+	if ingestOpts.useStreamLoad {
+		if ingestOpts.streamLoadURL == "" {
+			logger.Error("Stream load enabled but stream-load-url not provided")
+			os.Exit(1)
+		}
+		if ingestOpts.database == "" {
+			logger.Error("Stream load requires database name in DSN")
+			os.Exit(1)
+		}
+	}
+
 	// Load ABIs
 	if err := loadABIs(db, *abiDir, *abiConfig); err != nil {
 		logger.Error("Failed to load ABIs", "err", err)
@@ -213,9 +246,9 @@ func main() {
 	}
 
 	if *mode == "forward" {
-		forwardIndex(client, db, *pollInterval, *batchSize, *flushInterval, *startBlock, logger)
+		forwardIndex(client, db, *pollInterval, *batchSize, *flushInterval, ingestOpts, *startBlock, logger)
 	} else {
-		backfillIndex(client, db, *fromBlock, *toBlock, *batchSize, *flushInterval, logger)
+		backfillIndex(client, db, *fromBlock, *toBlock, *batchSize, *flushInterval, ingestOpts, logger)
 	}
 }
 
@@ -406,7 +439,7 @@ func createTables(db *sql.DB) error {
 	return nil
 }
 
-func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize int, flushInterval time.Duration, startBlock int64, logger *slog.Logger) {
+func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize int, flushInterval time.Duration, ingestOpts ingestOptions, startBlock int64, logger *slog.Logger) {
 	for {
 		var latest *big.Int
 		if err := client.Call(eth.BlockNumber().Returns(&latest)); err != nil {
@@ -438,7 +471,7 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 			for i := start; i <= end; i++ {
 				blockNums = append(blockNums, i)
 			}
-			if err := processBatch(client, db, blockNums, flushInterval); err != nil {
+			if err := processBatch(client, db, blockNums, flushInterval, ingestOpts); err != nil {
 				logger.Error("Failed to process batch", "from", start, "to", end, "err", err)
 				logLoadTrackingDetails(logger, db, err)
 				break
@@ -450,7 +483,7 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 	}
 }
 
-func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int, flushInterval time.Duration, logger *slog.Logger) {
+func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int, flushInterval time.Duration, ingestOpts ingestOptions, logger *slog.Logger) {
 	var pending []int64
 	for i := to; i >= from; i-- {
 		exists, err := blockExists(db, i)
@@ -462,7 +495,7 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int,
 			pending = append(pending, i)
 			if len(pending) == batchSize {
 				sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
-				if err := processBatch(client, db, pending, flushInterval); err != nil {
+				if err := processBatch(client, db, pending, flushInterval, ingestOpts); err != nil {
 					logger.Error("Failed to process batch", "err", err)
 					logLoadTrackingDetails(logger, db, err)
 				}
@@ -472,14 +505,14 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int,
 	}
 	if len(pending) > 0 {
 		sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
-		if err := processBatch(client, db, pending, flushInterval); err != nil {
+		if err := processBatch(client, db, pending, flushInterval, ingestOpts); err != nil {
 			logger.Error("Failed to process batch", "err", err)
 			logLoadTrackingDetails(logger, db, err)
 		}
 	}
 }
 
-func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, flushInterval time.Duration) error {
+func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, flushInterval time.Duration, ingestOpts ingestOptions) error {
 	startBatch := time.Now()
 	n := len(blockNums)
 	blocks := make([]*types.Block, n)
@@ -510,38 +543,49 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, flushInterva
 			return nil
 		}
 
-		tx, err := db.Begin()
-		if err != nil {
-			return err
+		if ingestOpts.useStreamLoad {
+			if err := streamLoadChunk(ingestOpts, chunkBlocks, chunkTxs, chunkReceipts, chunkLogs); err != nil {
+				return err
+			}
+		} else {
+			tx, err := db.Begin()
+			if err != nil {
+				return err
+			}
+
+			if err := batchInsertBlocks(tx, chunkBlocks); err != nil {
+				tx.Rollback()
+				return err
+			}
+			if err := batchInsertTxs(tx, chunkTxs); err != nil {
+				tx.Rollback()
+				return err
+			}
+			if err := batchInsertReceipts(tx, chunkReceipts); err != nil {
+				tx.Rollback()
+				return err
+			}
+			if err := batchInsertLogs(tx, chunkLogs); err != nil {
+				tx.Rollback()
+				return err
+			}
+
+			if err := tx.Commit(); err != nil {
+				return err
+			}
 		}
 
-		if err := batchInsertBlocks(tx, chunkBlocks); err != nil {
-			tx.Rollback()
-			return err
+		mode := "sql"
+		if ingestOpts.useStreamLoad {
+			mode = "stream_load"
 		}
-		if err := batchInsertTxs(tx, chunkTxs); err != nil {
-			tx.Rollback()
-			return err
-		}
-		if err := batchInsertReceipts(tx, chunkReceipts); err != nil {
-			tx.Rollback()
-			return err
-		}
-		if err := batchInsertLogs(tx, chunkLogs); err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		if err := tx.Commit(); err != nil {
-			return err
-		}
-
 		slog.Info("Flushed chunk",
 			"blocks", len(chunkBlocks),
 			"txs", len(chunkTxs),
 			"receipts", len(chunkReceipts),
 			"logs", len(chunkLogs),
 			"duration", time.Since(chunkStart),
+			"mode", mode,
 		)
 
 		chunkBlocks = chunkBlocks[:0]
@@ -891,6 +935,33 @@ func batchInsertLogs(tx *sql.Tx, logs []IndexLog) error {
 	return err
 }
 
+func streamLoadChunk(opts ingestOptions, blocks []IndexBlock, txs []IndexTx, receipts []IndexReceipt, logs []IndexLog) error {
+	if len(blocks) == 0 && len(txs) == 0 && len(receipts) == 0 && len(logs) == 0 {
+		return nil
+	}
+	if len(blocks) > 0 {
+		if err := streamLoadBlocks(opts, blocks); err != nil {
+			return err
+		}
+	}
+	if len(txs) > 0 {
+		if err := streamLoadTransactions(opts, txs); err != nil {
+			return err
+		}
+	}
+	if len(receipts) > 0 {
+		if err := streamLoadReceipts(opts, receipts); err != nil {
+			return err
+		}
+	}
+	if len(logs) > 0 {
+		if err := streamLoadLogs(opts, logs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func shouldFlushChunk(blocks []IndexBlock, txs []IndexTx, receipts []IndexReceipt, logs []IndexLog, chunkStart time.Time, flushInterval time.Duration) bool {
 	if len(blocks) >= maxRowsPerInsert {
 		return true
@@ -911,6 +982,169 @@ func shouldFlushChunk(blocks []IndexBlock, txs []IndexTx, receipts []IndexReceip
 		return true
 	}
 	return false
+}
+
+func streamLoadBlocks(opts ingestOptions, blocks []IndexBlock) error {
+	columns := []string{"number", "coinbase_address", "hash", "parent_hash", "nonce", "sha3_uncles", "logs_bloom", "transactions_root", "state_root", "receipts_root", "miner", "difficulty", "extra_data", "size", "gas_limit", "gas_used", "timestamp", "base_fee_per_gas", "blob_gas_used", "excess_blob_gas", "withdrawals_root", "requests_hash", "mix_hash", "tx_count"}
+	rows := make([][]string, 0, len(blocks))
+	for _, b := range blocks {
+		rows = append(rows, []string{
+			strconv.FormatInt(b.Number, 10),
+			b.CoinbaseAddress,
+			b.Hash,
+			b.ParentHash,
+			b.Nonce,
+			b.Sha3Uncles,
+			b.LogsBloom,
+			b.TransactionsRoot,
+			b.StateRoot,
+			b.ReceiptsRoot,
+			b.Miner,
+			b.Difficulty,
+			b.ExtraData,
+			strconv.FormatInt(b.Size, 10),
+			strconv.FormatInt(b.GasLimit, 10),
+			strconv.FormatInt(b.GasUsed, 10),
+			strconv.FormatInt(b.Timestamp, 10),
+			nullableString(b.BaseFeePerGas),
+			nullableInt64(b.BlobGasUsed),
+			nullableInt64(b.ExcessBlobGas),
+			nullableString(b.WithdrawalsRoot),
+			nullableString(b.RequestsHash),
+			nullableString(b.MixHash),
+			strconv.Itoa(b.TxCount),
+		})
+	}
+	return streamLoadRequest(opts, "blocks", columns, rows)
+}
+
+func streamLoadTransactions(opts ingestOptions, txs []IndexTx) error {
+	columns := []string{"hash", "nonce", "block_number", "block_hash", "tx_index", "from_address", "to_address", "value", "gas", "gas_price", "max_priority_fee_per_gas", "max_fee_per_gas", "effective_gas_price", "input", "type", "chain_id", "access_list_json", "blob_gas", "blob_gas_fee_cap", "blob_hashes_json", "v", "r", "s", "decoded"}
+	rows := make([][]string, 0, len(txs))
+	for _, t := range txs {
+		rows = append(rows, []string{
+			t.Hash,
+			strconv.FormatUint(t.Nonce, 10),
+			strconv.FormatInt(t.BlockNumber, 10),
+			t.BlockHash,
+			strconv.Itoa(t.TxIndex),
+			t.From,
+			nullableString(t.To),
+			t.Value,
+			strconv.FormatInt(t.Gas, 10),
+			nullableString(t.GasPrice),
+			nullableString(t.MaxPriorityFeePerGas),
+			nullableString(t.MaxFeePerGas),
+			nullableString(t.EffectiveGasPrice),
+			t.Input,
+			strconv.Itoa(int(t.Type)),
+			nullableInt64(t.ChainID),
+			nullableString(t.AccessListJSON),
+			nullableInt64(t.BlobGas),
+			nullableString(t.BlobGasFeeCap),
+			nullableString(t.BlobHashesJSON),
+			nullableString(t.V),
+			nullableString(t.R),
+			nullableString(t.S),
+			t.DecodedJSON,
+		})
+	}
+	return streamLoadRequest(opts, "transactions", columns, rows)
+}
+
+func streamLoadReceipts(opts ingestOptions, receipts []IndexReceipt) error {
+	columns := []string{"tx_hash", "status", "cumulative_gas_used", "gas_used", "contract_address", "logs_bloom", "type", "blob_gas_used", "blob_gas_price"}
+	rows := make([][]string, 0, len(receipts))
+	for _, r := range receipts {
+		rows = append(rows, []string{
+			r.TxHash,
+			strconv.FormatUint(r.Status, 10),
+			strconv.FormatInt(r.CumulativeGasUsed, 10),
+			strconv.FormatInt(r.GasUsed, 10),
+			nullableString(r.ContractAddress),
+			r.LogsBloom,
+			strconv.Itoa(int(r.Type)),
+			strconv.FormatUint(r.BlobGasUsed, 10),
+			nullableString(r.BlobGasPrice),
+		})
+	}
+	return streamLoadRequest(opts, "receipts", columns, rows)
+}
+
+func streamLoadLogs(opts ingestOptions, logs []IndexLog) error {
+	columns := []string{"tx_hash", "log_index", "address", "block_number", "block_hash", "tx_index", "block_timestamp", "topics", "data", "removed", "decoded"}
+	rows := make([][]string, 0, len(logs))
+	for _, l := range logs {
+		rows = append(rows, []string{
+			l.TxHash,
+			strconv.Itoa(l.LogIndex),
+			l.Address,
+			nullableInt64Ptr(l.BlockNumber),
+			nullableString(l.BlockHash),
+			strconv.Itoa(l.TxIndex),
+			nullableInt64Ptr(l.BlockTimestamp),
+			l.TopicsJSON,
+			l.Data,
+			strconv.FormatBool(l.Removed),
+			l.DecodedJSON,
+		})
+	}
+	return streamLoadRequest(opts, "logs", columns, rows)
+}
+
+func streamLoadRequest(opts ingestOptions, table string, columns []string, rows [][]string) error {
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+	for _, row := range rows {
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return err
+	}
+	url := fmt.Sprintf("%s/api/%s/%s/_stream_load", strings.TrimRight(opts.streamLoadURL, "/"), opts.database, table)
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "text/csv")
+	req.Header.Set("label", fmt.Sprintf("%s-%d", table, time.Now().UnixNano()))
+	req.Header.Set("column_separator", ",")
+	req.Header.Set("columns", strings.Join(columns, ","))
+	req.SetBasicAuth(opts.streamUsername, opts.streamPassword)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode/100 != 2 || !bytes.Contains(body, []byte("\"Status\":\"Success\"")) {
+		return fmt.Errorf("stream load %s failed: status=%s body=%s", table, resp.Status, string(body))
+	}
+	return nil
+}
+
+func nullableString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func nullableInt64(v *int64) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatInt(*v, 10)
+}
+
+func nullableInt64Ptr(v *int64) string {
+	return nullableInt64(v)
 }
 
 func getMaxIndexedBlock(db *sql.DB) (int64, bool, error) {
