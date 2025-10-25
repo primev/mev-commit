@@ -476,6 +476,7 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize, ins
 }
 
 func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, insertChunkSize int) error {
+	startBatch := time.Now()
 	n := len(blockNums)
 	blocks := make([]*types.Block, n)
 	receipts := make([]types.Receipts, n)
@@ -488,11 +489,17 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, insertChunkS
 	if err := client.Call(calls...); err != nil {
 		return err
 	}
+	fetchDuration := time.Since(startBatch)
+	slog.Info("Fetched batch", "blocks", len(blockNums), "duration", fetchDuration)
 
 	var chunkBlocks []IndexBlock
 	var chunkTxs []IndexTx
 	var chunkReceipts []IndexReceipt
 	var chunkLogs []IndexLog
+
+	var chunkStart time.Time
+	resetChunkTimer := func() { chunkStart = time.Now() }
+	resetChunkTimer()
 
 	flushChunk := func() error {
 		if len(chunkBlocks) == 0 && len(chunkTxs) == 0 && len(chunkReceipts) == 0 && len(chunkLogs) == 0 {
@@ -525,10 +532,19 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, insertChunkS
 			return err
 		}
 
+		slog.Info("Flushed chunk",
+			"blocks", len(chunkBlocks),
+			"txs", len(chunkTxs),
+			"receipts", len(chunkReceipts),
+			"logs", len(chunkLogs),
+			"duration", time.Since(chunkStart),
+		)
+
 		chunkBlocks = chunkBlocks[:0]
 		chunkTxs = chunkTxs[:0]
 		chunkReceipts = chunkReceipts[:0]
 		chunkLogs = chunkLogs[:0]
+		resetChunkTimer()
 		return nil
 	}
 
@@ -795,6 +811,13 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, insertChunkS
 		}
 
 		if shouldFlushChunk(chunkBlocks, chunkTxs, chunkReceipts, chunkLogs, insertChunkSize) {
+			slog.Debug("Chunk threshold reached",
+				"blocks", len(chunkBlocks),
+				"txs", len(chunkTxs),
+				"receipts", len(chunkReceipts),
+				"logs", len(chunkLogs),
+				"insertChunkSize", insertChunkSize,
+			)
 			if err := flushChunk(); err != nil {
 				return err
 			}
