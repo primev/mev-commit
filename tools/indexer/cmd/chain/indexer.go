@@ -1113,6 +1113,7 @@ func streamLoadRequest(opts ingestOptions, table string, columns []string, rows 
 	req.Header.Set("label", fmt.Sprintf("%s-%d", table, time.Now().UnixNano()))
 	req.Header.Set("column_separator", ",")
 	req.Header.Set("columns", strings.Join(columns, ","))
+	req.Header.Set("Expect", "100-continue")
 	req.SetBasicAuth(opts.streamUsername, opts.streamPassword)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
