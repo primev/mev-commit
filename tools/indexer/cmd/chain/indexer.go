@@ -166,6 +166,8 @@ func main() {
 	abiConfig := flag.String("abi-config", "", "Optional path to ABI manifest JSON")
 	useStreamLoad := flag.Bool("use-stream-load", false, "Use StarRocks stream load for ingestion")
 	streamLoadURL := flag.String("stream-load-url", "http://starrocks-cluster-fe-service.starrocks.svc.cluster.local:8030", "StarRocks FE stream load base URL")
+	streamLoadUser := flag.String("stream-load-user", "", "Username for StarRocks stream load (defaults to DSN user)")
+	streamLoadPassword := flag.String("stream-load-password", "", "Password for StarRocks stream load (defaults to DSN password)")
 	flag.Parse()
 
 	if *mode != "forward" && *mode != "backfill" {
@@ -221,11 +223,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	streamUser := *streamLoadUser
+	if streamUser == "" {
+		streamUser = cfg.User
+	}
+	streamPass := *streamLoadPassword
+	if streamPass == "" {
+		streamPass = cfg.Passwd
+	}
+
 	ingestOpts := ingestOptions{
 		useStreamLoad:  *useStreamLoad,
 		streamLoadURL:  strings.TrimRight(*streamLoadURL, "/"),
-		streamUsername: cfg.User,
-		streamPassword: cfg.Passwd,
+		streamUsername: streamUser,
+		streamPassword: streamPass,
 		database:       dbName,
 	}
 	if ingestOpts.useStreamLoad {
@@ -235,6 +246,10 @@ func main() {
 		}
 		if ingestOpts.database == "" {
 			logger.Error("Stream load requires database name in DSN")
+			os.Exit(1)
+		}
+		if ingestOpts.streamUsername == "" {
+			logger.Error("Stream load requires credentials; set -stream-load-user/-stream-load-password")
 			os.Exit(1)
 		}
 	}
