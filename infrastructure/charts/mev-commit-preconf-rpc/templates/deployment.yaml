@@ -34,6 +34,7 @@ spec:
             - --log-tags={{ .Values.config.logTags }}
             {{- end }}
             - --keystore-dir={{ .Values.keystore.dir }}
+            - --simulation-url={{ .Values.config.simulationUrl }}
             - --keystore-password=$(KEYSTORE_PASSWORD)
             - --l1-rpc-urls={{ .Values.config.l1RpcUrls | join "," }}
             - --settlement-rpc-url={{ .Values.config.settlementRpcUrl }}

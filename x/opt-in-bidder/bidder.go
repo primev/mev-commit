@@ -189,6 +189,7 @@ type BidOpts struct {
 	BlockNumber       uint64
 	RevertingTxHashes []string
 	DecayDuration     time.Duration
+	Constraint        *bidderapiv1.PositionConstraint
 }
 
 var defaultBidOpts = &BidOpts{
@@ -283,6 +284,18 @@ func (b *BidderClient) Bid(
 			bidReq.DecayEndTimestamp = time.UnixMilli(bidReq.DecayStartTimestamp).Add(opts.DecayDuration).UnixMilli()
 		} else {
 			bidReq.DecayEndTimestamp = time.UnixMilli(bidReq.DecayStartTimestamp).Add(12 * time.Second).UnixMilli()
+		}
+
+		if opts.Constraint != nil {
+			bidReq.BidOptions = &bidderapiv1.BidOptions{
+				Options: []*bidderapiv1.BidOption{
+					{
+						Opt: &bidderapiv1.BidOption_PositionConstraint{
+							PositionConstraint: opts.Constraint,
+						},
+					},
+				},
+			}
 		}
 
 		pc, err := b.bidderClient.SendBid(ctx, bidReq)

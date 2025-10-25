@@ -32,6 +32,7 @@ type Store interface {
 	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error)
 	GetTransactionsForBlock(ctx context.Context, blockNumber int64) ([]*sender.Transaction, error)
 	GetTransactionCommitments(ctx context.Context, txnHash common.Hash) ([]*bidderapiv1.Commitment, error)
+	GetTransactionLogs(ctx context.Context, txnHash common.Hash) ([]*types.Log, error)
 	GetBalance(ctx context.Context, account common.Address) (*big.Int, error)
 	GetCurrentNonce(ctx context.Context, account common.Address) uint64
 }
@@ -415,6 +416,15 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		return nil, true, nil
 	}
 
+	logs, err := h.store.GetTransactionLogs(ctx, txHash)
+	if err != nil {
+		h.logger.Error("Failed to get transaction logs", "error", err, "txHash", txHash)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to get transaction logs",
+		)
+	}
+
 	result := map[string]interface{}{
 		"type":              hexutil.Uint(txn.Transaction.Type()),
 		"transactionHash":   txn.Hash().Hex(),
@@ -424,7 +434,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		"contractAddress":   (common.Address{}).Hex(),
 		"gasUsed":           hexutil.Uint64(0),
 		"cumulativeGasUsed": hexutil.Uint64(1),
-		"logs":              []*types.Log{}, // should be [] not null
+		"logs":              logs,
 		"logsBloom":         hexutil.Bytes(types.Bloom{}.Bytes()),
 		"effectiveGasPrice": hexutil.EncodeBig(big.NewInt(0)),
 	}

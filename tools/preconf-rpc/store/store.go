@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -54,6 +55,13 @@ CREATE TABLE IF NOT EXISTS subsidies (
 	balance NUMERIC(24, 0)
 );`
 
+var simulationLogs = `
+CREATE TABLE IF NOT EXISTS simulationLogs (
+	transaction_hash TEXT PRIMARY KEY,
+	logs TEXT,
+	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
+);`
+
 type rpcstore struct {
 	db *sql.DB
 }
@@ -64,6 +72,7 @@ func New(db *sql.DB) (*rpcstore, error) {
 		commitmentsTable,
 		balancesTable,
 		subsidiesTable,
+		simulationLogs,
 	} {
 		_, err := db.Exec(table)
 		if err != nil {
@@ -255,6 +264,7 @@ func (s *rpcstore) StoreTransaction(
 	ctx context.Context,
 	txn *sender.Transaction,
 	commitments []*bidderapiv1.Commitment,
+	logs []*types.Log,
 ) error {
 	if txn.Status == sender.TxStatusPending {
 		return fmt.Errorf("transaction must not be in pending status, got %s", txn.Status)
@@ -309,11 +319,53 @@ func (s *rpcstore) StoreTransaction(
 		}
 	}
 
+	if logs != nil {
+		logBuf, err := json.Marshal(logs)
+		if err != nil {
+			_ = dbTxn.Rollback()
+			return fmt.Errorf("failed to marshal simulation logs for transaction %s: %w", txn.Hash().Hex(), err)
+		}
+		insertLogs := `
+		INSERT INTO simulationLogs (transaction_hash, logs)
+		VALUES ($1, $2)
+		ON CONFLICT (transaction_hash) DO UPDATE SET logs = EXCLUDED.logs;
+		`
+		_, err = dbTxn.ExecContext(ctx, insertLogs, txn.Hash().Hex(), string(logBuf))
+		if err != nil {
+			_ = dbTxn.Rollback()
+			return fmt.Errorf("failed to insert simulation logs for transaction %s: %w", txn.Hash().Hex(), err)
+		}
+	}
+
 	if err := dbTxn.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
+}
+
+func (s *rpcstore) GetTransactionLogs(ctx context.Context, txnHash common.Hash) ([]*types.Log, error) {
+	query := `
+	SELECT logs
+	FROM simulationLogs
+	WHERE transaction_hash = $1;
+	`
+	row := s.db.QueryRowContext(ctx, query, txnHash.Hex())
+	var logsData string
+	err := row.Scan(&logsData)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []*types.Log{}, nil // No logs found, return empty slice
+		}
+		return nil, fmt.Errorf("failed to get logs for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	var logs []*types.Log
+	if err := json.Unmarshal([]byte(logsData), &logs); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal logs for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	return logs, nil
 }
 
 func (s *rpcstore) GetTransactionCommitments(ctx context.Context, txnHash common.Hash) ([]*bidderapiv1.Commitment, error) {
