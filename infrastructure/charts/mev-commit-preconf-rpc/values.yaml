@@ -63,6 +63,7 @@ config:
   httpPort: 8080
   logLevel: "info"
   logFormat: "json"
+  simulationUrl: http://1.2.3.4
   logTags: ""
   l1RpcUrls:
     - ""
