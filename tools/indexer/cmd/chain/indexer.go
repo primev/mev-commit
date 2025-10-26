@@ -242,10 +242,11 @@ func main() {
 
 		client, err := kgo.NewClient(
 			kgo.SeedBrokers(brokers...),
-			kgo.RequiredAcks(kgo.AllISRAcks()),      // Wait for all replicas (durability)
-			kgo.ProducerBatchMaxBytes(10485760),     // 10MB batches (allow large messages)
-			kgo.ProducerLinger(10*time.Millisecond), // Batch records for throughput
-			kgo.RequestRetries(3),                   // Retry on transient failures
+			kgo.RequiredAcks(kgo.AllISRAcks()), // Wait for all replicas (durability)
+			kgo.ProducerBatchMaxBytes(900_000),
+			kgo.ProducerBatchCompression(kgo.ZstdCompression()),
+			kgo.ProducerLinger(100*time.Millisecond), // Batch records for throughput
+			kgo.RequestRetries(3),                    // Retry on transient failures
 			kgo.RetryBackoffFn(func(attempts int) time.Duration {
 				return time.Duration(attempts) * 100 * time.Millisecond
 			}),
@@ -715,6 +716,9 @@ func produceToKafka(opts kafkaOptions, blocks []IndexBlock, txs []IndexTx, recei
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	// Timing: JSON marshaling phase
+	marshalStart := time.Now()
+
 	// Collect all records to produce
 	var records []*kgo.Record
 
@@ -774,6 +778,11 @@ func produceToKafka(opts kafkaOptions, blocks []IndexBlock, txs []IndexTx, recei
 		return nil
 	}
 
+	marshalDuration := time.Since(marshalStart)
+
+	// Timing: Enqueue phase (calling .Produce on all records)
+	enqueueStart := time.Now()
+
 	// Produce with callbacks (async pattern from the example)
 	var (
 		wg                   sync.WaitGroup
@@ -789,7 +798,6 @@ func produceToKafka(opts kafkaOptions, blocks []IndexBlock, txs []IndexTx, recei
 	)
 
 	wg.Add(len(records))
-	produceStart := time.Now()
 
 	for i, record := range records {
 		index := i
@@ -833,9 +841,15 @@ func produceToKafka(opts kafkaOptions, blocks []IndexBlock, txs []IndexTx, recei
 		})
 	}
 
+	enqueueDuration := time.Since(enqueueStart)
+
+	// Timing: Wait phase (waiting for all ACKs from Kafka)
+	waitStart := time.Now()
+
 	// Wait for all callbacks to complete
 	wg.Wait()
-	produceDuration := time.Since(produceStart)
+
+	waitDuration := time.Since(waitStart)
 
 	// Report results
 	success := successCount.Load()
@@ -857,21 +871,33 @@ func produceToKafka(opts kafkaOptions, blocks []IndexBlock, txs []IndexTx, recei
 		return fmt.Errorf("%s", errMsg)
 	}
 
+	// Detailed timing breakdown for produceToKafka
+	totalProduceDuration := marshalDuration + enqueueDuration + waitDuration
+	slog.Info("produceToKafka timing breakdown",
+		"total_duration", totalProduceDuration,
+		"marshal_duration", marshalDuration,
+		"marshal_pct", fmt.Sprintf("%.1f%%", 100*marshalDuration.Seconds()/totalProduceDuration.Seconds()),
+		"enqueue_duration", enqueueDuration,
+		"enqueue_pct", fmt.Sprintf("%.1f%%", 100*enqueueDuration.Seconds()/totalProduceDuration.Seconds()),
+		"wait_duration", waitDuration,
+		"wait_pct", fmt.Sprintf("%.1f%%", 100*waitDuration.Seconds()/totalProduceDuration.Seconds()),
+		"total_records", success,
+	)
+
 	// Calculate and log throughput metrics (only count successful ACKs)
-	durationSec := produceDuration.Seconds()
+	durationSec := waitDuration.Seconds()
 	if durationSec > 0 {
 		blocksPerSec := float64(blocksSuccessCount.Load()) / durationSec
 		txsPerSec := float64(txsSuccessCount.Load()) / durationSec
 		receiptsPerSec := float64(receiptsSuccessCount.Load()) / durationSec
 		logsPerSec := float64(logsSuccessCount.Load()) / durationSec
 
-		slog.Info("Kafka throughput metrics",
-			"total_records", success,
-			"duration", produceDuration,
-			"blocks_sent", blocksSuccessCount.Load(),
-			"txs_sent", txsSuccessCount.Load(),
-			"receipts_sent", receiptsSuccessCount.Load(),
-			"logs_sent", logsSuccessCount.Load(),
+		slog.Info("Kafka ACK throughput (broker speed)",
+			"wait_duration", waitDuration,
+			"blocks_acked", blocksSuccessCount.Load(),
+			"txs_acked", txsSuccessCount.Load(),
+			"receipts_acked", receiptsSuccessCount.Load(),
+			"logs_acked", logsSuccessCount.Load(),
 			"blocks_per_sec", fmt.Sprintf("%.2f", blocksPerSec),
 			"txs_per_sec", fmt.Sprintf("%.2f", txsPerSec),
 			"receipts_per_sec", fmt.Sprintf("%.2f", receiptsPerSec),
@@ -970,19 +996,9 @@ func getParsedABI(db *sql.DB, address string) (abi.ABI, error) {
 		return obj, nil
 	}
 
-	var abiStr string
-	err := db.QueryRow("SELECT abi FROM contract_abis WHERE address = ?", lowAddr).Scan(&abiStr)
-	if err != nil {
-		return abi.ABI{}, err
-	}
-
-	obj, err := abi.JSON(strings.NewReader(abiStr))
-	if err != nil {
-		return abi.ABI{}, err
-	}
-
-	abiCache[lowAddr] = obj
-	return obj, nil
+	// If not in cache, we don't have the ABI - skip decoding
+	// All ABIs are loaded into abiCache at startup, so no need to query database
+	return abi.ABI{}, sql.ErrNoRows
 }
 
 // formatValue converts values to human-readable format
