@@ -20,6 +20,8 @@ const (
 	bridgeLimitWei = 1000000000000000000 // 1 ETH
 )
 
+type positionConstraintKey struct{}
+
 type Bidder interface {
 	Estimate() (int64, error)
 }
@@ -44,6 +46,15 @@ type BlockTracker interface {
 type Sender interface {
 	Enqueue(ctx context.Context, txn *sender.Transaction) error
 	CancelTransaction(ctx context.Context, txHash common.Hash) (bool, error)
+}
+
+func SetPositionConstraint(ctx context.Context, constraint *bidderapiv1.PositionConstraint) context.Context {
+	return context.WithValue(ctx, positionConstraintKey{}, constraint)
+}
+
+func getPositionConstraint(ctx context.Context) (*bidderapiv1.PositionConstraint, bool) {
+	value, ok := ctx.Value(positionConstraintKey{}).(*bidderapiv1.PositionConstraint)
+	return value, ok
 }
 
 type rpcMethodHandler struct {
@@ -357,12 +368,18 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		}
 	}
 
-	err = h.sndr.Enqueue(ctx, &sender.Transaction{
+	txnToEnqueue := &sender.Transaction{
 		Transaction: txn,
 		Raw:         rawTxHex,
 		Sender:      txSender,
 		Type:        txType,
-	})
+	}
+	constraint, ok := getPositionConstraint(ctx)
+	if ok {
+		txnToEnqueue.Constraint = constraint
+	}
+
+	err = h.sndr.Enqueue(ctx, txnToEnqueue)
 	if err != nil {
 		h.logger.Error("Failed to enqueue transaction for sending", "error", err, "sender", txSender.Hex())
 		return nil, false, rpcserver.NewJSONErr(

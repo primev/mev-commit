@@ -289,46 +289,47 @@ func New(config *Config) (*Service, error) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
 	})
-	mux.Handle("/", rpcServer)
-	mux.HandleFunc("/opt/{option...}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/{option...}", func(w http.ResponseWriter, r *http.Request) {
 		options := r.PathValue("option")
 
-		splits := strings.Split(options, "/")
-		if len(splits) != 3 {
-			http.Error(w, "invalid position constraint format", http.StatusBadRequest)
-			return
-		}
-		constraint := new(bidderapiv1.PositionConstraint)
-		switch splits[0] {
-		case "top":
-			constraint.Anchor = bidderapiv1.PositionConstraint_ANCHOR_TOP
-		case "bottom":
-			constraint.Anchor = bidderapiv1.PositionConstraint_ANCHOR_BOTTOM
-		default:
-			http.Error(w, "invalid position constraint", http.StatusBadRequest)
-			return
-		}
+		if options != "" {
+			splits := strings.Split(options, "/")
+			if len(splits) != 3 {
+				http.Error(w, "invalid position constraint format", http.StatusBadRequest)
+				return
+			}
+			constraint := new(bidderapiv1.PositionConstraint)
+			switch splits[0] {
+			case "top":
+				constraint.Anchor = bidderapiv1.PositionConstraint_ANCHOR_TOP
+			case "bottom":
+				constraint.Anchor = bidderapiv1.PositionConstraint_ANCHOR_BOTTOM
+			default:
+				http.Error(w, "invalid position constraint", http.StatusBadRequest)
+				return
+			}
 
-		switch splits[1] {
-		case "absolute":
-			constraint.Basis = bidderapiv1.PositionConstraint_BASIS_ABSOLUTE
-		case "percentile":
-			constraint.Basis = bidderapiv1.PositionConstraint_BASIS_PERCENTILE
-		case "gas_percentile":
-			constraint.Basis = bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE
-		default:
-			http.Error(w, "invalid position constraint type", http.StatusBadRequest)
-			return
-		}
+			switch splits[1] {
+			case "absolute":
+				constraint.Basis = bidderapiv1.PositionConstraint_BASIS_ABSOLUTE
+			case "percentile":
+				constraint.Basis = bidderapiv1.PositionConstraint_BASIS_PERCENTILE
+			case "gas_percentile":
+				constraint.Basis = bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE
+			default:
+				http.Error(w, "invalid position constraint type", http.StatusBadRequest)
+				return
+			}
 
-		value, err := strconv.Atoi(splits[2])
-		if err != nil {
-			http.Error(w, "invalid position constraint value", http.StatusBadRequest)
-			return
-		}
-		constraint.Value = int32(value)
+			value, err := strconv.Atoi(splits[2])
+			if err != nil {
+				http.Error(w, "invalid position constraint value", http.StatusBadRequest)
+				return
+			}
+			constraint.Value = int32(value)
 
-		r = r.WithContext(context.WithValue(r.Context(), sender.PositionConstraintKey{}, constraint))
+			r = r.WithContext(handlers.SetPositionConstraint(r.Context(), constraint))
+		}
 		rpcServer.ServeHTTP(w, r)
 	})
 

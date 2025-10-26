@@ -58,8 +58,6 @@ var (
 	ErrMaxAttemptsPerBlockExceeded = errors.New("maximum attempts exceeded for transaction in the current block")
 )
 
-type PositionConstraintKey struct{}
-
 type Transaction struct {
 	*types.Transaction
 	Sender      common.Address
@@ -68,6 +66,7 @@ type Transaction struct {
 	Status      TxStatus
 	Details     string
 	BlockNumber int64
+	Constraint  *bidderapiv1.PositionConstraint
 }
 
 type Store interface {
@@ -207,17 +206,6 @@ func validateTransaction(tx *Transaction) error {
 	}
 	if tx.Gas() == 0 {
 		return ErrZeroGasLimit
-	}
-	return nil
-}
-
-func getConstraintFromCtx(ctx context.Context) *bidderapiv1.PositionConstraint {
-	optVal := ctx.Value(PositionConstraintKey{})
-	if optVal != nil {
-		constraint, ok := optVal.(*bidderapiv1.PositionConstraint)
-		if ok {
-			return constraint
-		}
 	}
 	return nil
 }
@@ -669,11 +657,8 @@ func (t *TxSender) sendBid(
 	cost, err := t.calculatePriceForNextBlock(txn, bidBlockNo, prices, optedInSlot)
 	if err != nil {
 		logger.Error("Failed to calculate price for next block", "error", err)
-		if errors.Is(err, ErrTimeoutExceeded) {
-			logger.Warn("Timeout exceeded while trying to process transaction")
-			return bidResult{}, ErrTimeoutExceeded
-		}
-		if errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
+		if errors.Is(err, ErrTimeoutExceeded) || errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
+			// We propagate these errors as is
 			return bidResult{}, err
 		}
 		return bidResult{}, &errRetry{
@@ -731,7 +716,7 @@ func (t *TxSender) sendBid(
 			BlockNumber:       uint64(bidBlockNo),
 			RevertingTxHashes: []string{txn.Hash().Hex()},
 			DecayDuration:     t.getBidTimeout() * 2,
-			Constraint:        getConstraintFromCtx(ctx),
+			Constraint:        txn.Constraint,
 		},
 	)
 	if err != nil {
