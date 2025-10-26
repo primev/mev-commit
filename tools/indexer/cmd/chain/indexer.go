@@ -1,26 +1,25 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log/slog"
 	"math/big"
-	"net/http"
-	"net/http/httputil"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -31,6 +30,8 @@ import (
 	w3 "github.com/lmittmann/w3"
 	eth "github.com/lmittmann/w3/module/eth"
 	w3types "github.com/lmittmann/w3/w3types"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 type Decoded struct {
@@ -40,95 +41,93 @@ type Decoded struct {
 }
 
 type IndexBlock struct {
-	Number           int64
-	CoinbaseAddress  string
-	Hash             string
-	ParentHash       string
-	Nonce            string
-	Sha3Uncles       string
-	LogsBloom        string
-	TransactionsRoot string
-	StateRoot        string
-	ReceiptsRoot     string
-	Miner            string
-	Difficulty       string
-	ExtraData        string
-	Size             int64
-	GasLimit         int64
-	GasUsed          int64
-	Timestamp        int64
-	BaseFeePerGas    *string
-	BlobGasUsed      *int64
-	ExcessBlobGas    *int64
-	WithdrawalsRoot  *string
-	RequestsHash     *string
-	MixHash          *string
-	TxCount          int
+	Number           int64   `json:"number"`
+	CoinbaseAddress  string  `json:"coinbase_address"`
+	Hash             string  `json:"hash"`
+	ParentHash       string  `json:"parent_hash"`
+	Nonce            string  `json:"nonce"`
+	Sha3Uncles       string  `json:"sha3_uncles"`
+	LogsBloom        string  `json:"logs_bloom"`
+	TransactionsRoot string  `json:"transactions_root"`
+	StateRoot        string  `json:"state_root"`
+	ReceiptsRoot     string  `json:"receipts_root"`
+	Miner            string  `json:"miner"`
+	Difficulty       string  `json:"difficulty"`
+	ExtraData        string  `json:"extra_data"`
+	Size             int64   `json:"size"`
+	GasLimit         int64   `json:"gas_limit"`
+	GasUsed          int64   `json:"gas_used"`
+	Timestamp        int64   `json:"timestamp"`
+	BaseFeePerGas    *string `json:"base_fee_per_gas,omitempty"`
+	BlobGasUsed      *int64  `json:"blob_gas_used,omitempty"`
+	ExcessBlobGas    *int64  `json:"excess_blob_gas,omitempty"`
+	WithdrawalsRoot  *string `json:"withdrawals_root,omitempty"`
+	RequestsHash     *string `json:"requests_hash,omitempty"`
+	MixHash          *string `json:"mix_hash,omitempty"`
+	TxCount          int     `json:"tx_count"`
 }
 
 type IndexTx struct {
-	Hash                 string
-	Nonce                uint64
-	BlockNumber          int64
-	BlockHash            string
-	TxIndex              int
-	From                 string
-	To                   *string
-	Value                string
-	Gas                  int64
-	GasPrice             *string
-	MaxPriorityFeePerGas *string
-	MaxFeePerGas         *string
-	EffectiveGasPrice    *string
-	Input                string
-	Type                 uint8
-	ChainID              *int64
-	AccessListJSON       *string
-	BlobGas              *int64
-	BlobGasFeeCap        *string
-	BlobHashesJSON       *string
-	V                    *string
-	R                    *string
-	S                    *string
-	DecodedJSON          string
+	Hash                 string  `json:"hash"`
+	Nonce                uint64  `json:"nonce"`
+	BlockNumber          int64   `json:"block_number"`
+	BlockHash            string  `json:"block_hash"`
+	TxIndex              int     `json:"tx_index"`
+	From                 string  `json:"from_address"`
+	To                   *string `json:"to_address,omitempty"`
+	Value                string  `json:"value"`
+	Gas                  int64   `json:"gas"`
+	GasPrice             *string `json:"gas_price,omitempty"`
+	MaxPriorityFeePerGas *string `json:"max_priority_fee_per_gas,omitempty"`
+	MaxFeePerGas         *string `json:"max_fee_per_gas,omitempty"`
+	EffectiveGasPrice    *string `json:"effective_gas_price,omitempty"`
+	Input                string  `json:"input"`
+	Type                 uint8   `json:"type"`
+	ChainID              *int64  `json:"chain_id,omitempty"`
+	AccessListJSON       *string `json:"access_list_json,omitempty"`
+	BlobGas              *int64  `json:"blob_gas,omitempty"`
+	BlobGasFeeCap        *string `json:"blob_gas_fee_cap,omitempty"`
+	BlobHashesJSON       *string `json:"blob_hashes_json,omitempty"`
+	V                    *string `json:"v,omitempty"`
+	R                    *string `json:"r,omitempty"`
+	S                    *string `json:"s,omitempty"`
+	DecodedJSON          string  `json:"decoded,omitempty"`
 }
 
 type IndexReceipt struct {
-	TxHash            string
-	Status            uint64
-	CumulativeGasUsed int64
-	GasUsed           int64
-	ContractAddress   *string
-	LogsBloom         string
-	Type              uint8
-	BlobGasUsed       uint64
-	BlobGasPrice      *string
+	TxHash            string  `json:"tx_hash"`
+	Status            uint64  `json:"status"`
+	CumulativeGasUsed int64   `json:"cumulative_gas_used"`
+	GasUsed           int64   `json:"gas_used"`
+	ContractAddress   *string `json:"contract_address,omitempty"`
+	LogsBloom         string  `json:"logs_bloom"`
+	Type              uint8   `json:"type"`
+	BlobGasUsed       uint64  `json:"blob_gas_used"`
+	BlobGasPrice      *string `json:"blob_gas_price,omitempty"`
 }
 
 type IndexLog struct {
-	TxHash         string
-	LogIndex       int
-	Address        string
-	BlockNumber    *int64
-	BlockHash      *string
-	TxIndex        int
-	BlockTimestamp *int64
-	TopicsJSON     string
-	Data           string
-	Removed        bool
-	DecodedJSON    string
+	TxHash         string  `json:"tx_hash"`
+	LogIndex       int     `json:"log_index"`
+	Address        string  `json:"address"`
+	BlockNumber    *int64  `json:"block_number,omitempty"`
+	BlockHash      *string `json:"block_hash,omitempty"`
+	TxIndex        int     `json:"tx_index"`
+	BlockTimestamp *int64  `json:"block_timestamp,omitempty"`
+	TopicsJSON     string  `json:"topics"`
+	Data           string  `json:"data"`
+	Removed        bool    `json:"removed"`
+	DecodedJSON    string  `json:"decoded,omitempty"`
 }
 
 var abiCache = make(map[string]abi.ABI)
 
 const maxRowsPerInsert = 10_000
 
-type ingestOptions struct {
-	useStreamLoad  bool
-	streamLoadURL  string
-	streamUsername string
-	streamPassword string
-	database       string
+type kafkaOptions struct {
+	enabled   bool
+	chainName string
+	client    *kgo.Client
 }
 
 func isDynamicType(t *abi.Type) bool {
@@ -165,18 +164,26 @@ func main() {
 	startBlock := flag.Int64("start-block", 0, "Starting block for forward mode when no history exists")
 	abiDir := flag.String("abi-dir", "./contracts-abi/abi", "Directory containing ABI files")
 	abiConfig := flag.String("abi-config", "", "Optional path to ABI manifest JSON")
-	useStreamLoad := flag.Bool("use-stream-load", false, "Use StarRocks stream load for ingestion")
-	streamLoadURL := flag.String("stream-load-url", "http://starrocks-cluster-fe-service.starrocks.svc.cluster.local:8030", "StarRocks FE stream load base URL")
-	streamLoadUser := flag.String("stream-load-user", "", "Username for StarRocks stream load (defaults to DSN user)")
-	streamLoadPassword := flag.String("stream-load-password", "", "Password for StarRocks stream load (defaults to DSN password)")
+	enableKafka := flag.Bool("enable-kafka", true, "Enable Kafka output")
+	kafkaBrokers := flag.String("kafka-brokers", "mevcommit-message-queue-cluster-kafka-bootstrap.kafka.svc:9092", "Comma-separated list of Kafka brokers")
+	chainName := flag.String("chain-name", "eth-mainnet", "Chain name to use as topic prefix (e.g., 'mevcommit', 'eth-mainnet')")
 	flag.Parse()
 
+	// Validate inputs
 	if *mode != "forward" && *mode != "backfill" {
 		logger.Error("Invalid mode", "mode", *mode)
 		os.Exit(1)
 	}
 	if *mode == "backfill" && (*fromBlock >= *toBlock || *toBlock == 0) {
 		logger.Error("Invalid backfill range", "from", *fromBlock, "to", *toBlock)
+		os.Exit(1)
+	}
+	if *enableKafka && strings.TrimSpace(*chainName) == "" {
+		logger.Error("Chain name cannot be empty when Kafka is enabled")
+		os.Exit(1)
+	}
+	if *enableKafka && strings.TrimSpace(*kafkaBrokers) == "" {
+		logger.Error("Kafka brokers cannot be empty when Kafka is enabled")
 		os.Exit(1)
 	}
 
@@ -218,41 +225,70 @@ func main() {
 	}
 	defer db.Close()
 
-	// Create tables if they do not exist
+	// Create tables if they do not exist (always done regardless of output mode)
 	if err := createTables(db); err != nil {
 		logger.Error("Failed to create tables", "err", err)
 		os.Exit(1)
 	}
 
-	streamUser := *streamLoadUser
-	if streamUser == "" {
-		streamUser = cfg.User
-	}
-	streamPass := *streamLoadPassword
-	if streamPass == "" {
-		streamPass = cfg.Passwd
-	}
+	// Initialize Kafka client if enabled
+	var kafkaOpts kafkaOptions
+	if *enableKafka {
+		brokers := strings.Split(*kafkaBrokers, ",")
+		// Trim whitespace from broker addresses
+		for i := range brokers {
+			brokers[i] = strings.TrimSpace(brokers[i])
+		}
 
-	ingestOpts := ingestOptions{
-		useStreamLoad:  *useStreamLoad,
-		streamLoadURL:  strings.TrimRight(*streamLoadURL, "/"),
-		streamUsername: streamUser,
-		streamPassword: streamPass,
-		database:       dbName,
-	}
-	if ingestOpts.useStreamLoad {
-		if ingestOpts.streamLoadURL == "" {
-			logger.Error("Stream load enabled but stream-load-url not provided")
+		client, err := kgo.NewClient(
+			kgo.SeedBrokers(brokers...),
+			kgo.RequiredAcks(kgo.AllISRAcks()),      // Wait for all replicas (durability)
+			kgo.ProducerBatchMaxBytes(10485760),     // 10MB batches (allow large messages)
+			kgo.ProducerLinger(10*time.Millisecond), // Batch records for throughput
+			kgo.RequestRetries(3),                   // Retry on transient failures
+			kgo.RetryBackoffFn(func(attempts int) time.Duration {
+				return time.Duration(attempts) * 100 * time.Millisecond
+			}),
+		)
+		if err != nil {
+			logger.Error("Failed to create Kafka client", "err", err)
 			os.Exit(1)
 		}
-		if ingestOpts.database == "" {
-			logger.Error("Stream load requires database name in DSN")
-			os.Exit(1)
+
+		// Create topics if they don't exist
+		topics := []string{
+			fmt.Sprintf("%s-blocks", *chainName),
+			fmt.Sprintf("%s-transactions", *chainName),
+			fmt.Sprintf("%s-receipts", *chainName),
+			fmt.Sprintf("%s-logs", *chainName),
 		}
-		if ingestOpts.streamUsername == "" {
-			logger.Error("Stream load requires credentials; set -stream-load-user/-stream-load-password")
-			os.Exit(1)
+		adminClient := kadm.NewClient(client)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		for _, topic := range topics {
+			_, err := adminClient.CreateTopic(ctx, 1, -1, nil, topic)
+			if err != nil {
+				logger.Warn("Failed to create topic (may already exist)", "topic", topic, "err", err)
+			}
 		}
+		cancel()
+
+		kafkaOpts = kafkaOptions{
+			enabled:   true,
+			chainName: *chainName,
+			client:    client,
+		}
+
+		// Graceful shutdown handler
+		defer func() {
+			logger.Info("Shutting down Kafka client...")
+			flushCtx, flushCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer flushCancel()
+			if err := client.Flush(flushCtx); err != nil {
+				logger.Error("Failed to flush Kafka client", "err", err)
+			}
+			client.Close()
+			logger.Info("Kafka client closed")
+		}()
 	}
 
 	// Load ABIs
@@ -261,14 +297,41 @@ func main() {
 		// Continue or exit based on preference; here continue
 	}
 
+	// Log startup configuration
+	outputMode := "sql"
+	if *enableKafka {
+		outputMode = "kafka"
+	}
+	logger.Info("Starting indexer",
+		"mode", *mode,
+		"output", outputMode,
+		"rpc", *rpcURL,
+		"database", dbName,
+		"chain_name", *chainName,
+		"batch_size", *batchSize,
+		"flush_interval", *flushInterval,
+	)
+	if *enableKafka {
+		logger.Info("Kafka configuration", "brokers", *kafkaBrokers, "topics_prefix", *chainName)
+	}
+
+	// Setup signal handling for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigChan
+		logger.Info("Received shutdown signal", "signal", sig)
+		cancel()
+	}()
+
 	if *mode == "forward" {
-		forwardIndex(client, db, *pollInterval, *batchSize, *flushInterval, ingestOpts, *startBlock, logger)
+		forwardIndex(ctx, client, db, *pollInterval, *batchSize, *flushInterval, kafkaOpts, *startBlock, logger)
 	} else {
-		backfillIndex(client, db, *fromBlock, *toBlock, *batchSize, *flushInterval, ingestOpts, logger)
+		backfillIndex(ctx, client, db, *fromBlock, *toBlock, *batchSize, *flushInterval, kafkaOpts, logger)
 	}
 }
-
-// removed chunk config heuristics; real-time thresholds used instead
 
 func loadABIs(db *sql.DB, abiDir, abiConfig string) error {
 	if abiConfig == "" {
@@ -455,8 +518,14 @@ func createTables(db *sql.DB) error {
 	return nil
 }
 
-func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize int, flushInterval time.Duration, ingestOpts ingestOptions, startBlock int64, logger *slog.Logger) {
+func forwardIndex(ctx context.Context, client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize int, flushInterval time.Duration, kafkaOpts kafkaOptions, startBlock int64, logger *slog.Logger) {
 	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("Forward indexing stopped due to context cancellation")
+			return
+		default:
+		}
 		var latest *big.Int
 		if err := client.Call(eth.BlockNumber().Returns(&latest)); err != nil {
 			logger.Error("Failed to get latest block", "err", err)
@@ -464,12 +533,26 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 			continue
 		}
 
-		maxIndexed, hasIndexed, err := getMaxIndexedBlock(db)
-		if err != nil {
-			logger.Error("Failed to get max indexed block", "err", err)
-			time.Sleep(pollInterval)
-			continue
+		// Get checkpoint from Kafka if enabled, otherwise use SQL
+		var maxIndexed int64
+		var hasIndexed bool
+		var err error
+		if kafkaOpts.enabled {
+			maxIndexed, hasIndexed, err = getKafkaCheckpoint(kafkaOpts)
+			if err != nil {
+				logger.Error("Failed to get Kafka checkpoint", "err", err)
+				time.Sleep(pollInterval)
+				continue
+			}
+		} else {
+			maxIndexed, hasIndexed, err = getMaxIndexedBlock(db)
+			if err != nil {
+				logger.Error("Failed to get max indexed block from database", "err", err)
+				time.Sleep(pollInterval)
+				continue
+			}
 		}
+
 		start := startBlock
 		if hasIndexed {
 			start = maxIndexed + 1
@@ -487,7 +570,7 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 			for i := start; i <= end; i++ {
 				blockNums = append(blockNums, i)
 			}
-			if err := processBatch(client, db, blockNums, flushInterval, ingestOpts); err != nil {
+			if err := processBatch(client, db, blockNums, flushInterval, kafkaOpts); err != nil {
 				logger.Error("Failed to process batch", "from", start, "to", end, "err", err)
 				logLoadTrackingDetails(logger, db, err)
 				break
@@ -499,19 +582,33 @@ func forwardIndex(client *w3.Client, db *sql.DB, pollInterval time.Duration, bat
 	}
 }
 
-func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int, flushInterval time.Duration, ingestOpts ingestOptions, logger *slog.Logger) {
+func backfillIndex(ctx context.Context, client *w3.Client, db *sql.DB, from, to int64, batchSize int, flushInterval time.Duration, kafkaOpts kafkaOptions, logger *slog.Logger) {
 	var pending []int64
 	for i := to; i >= from; i-- {
-		exists, err := blockExists(db, i)
-		if err != nil {
-			logger.Error("Failed to check if block exists", "block", i, "err", err)
-			continue
+		select {
+		case <-ctx.Done():
+			logger.Info("Backfill indexing stopped due to context cancellation")
+			return
+		default:
 		}
-		if !exists {
+
+		// In Kafka mode, skip existence check (Kafka will deduplicate by key)
+		// In SQL mode, check if block exists to avoid reprocessing
+		shouldProcess := kafkaOpts.enabled
+		if !kafkaOpts.enabled {
+			exists, err := blockExists(db, i)
+			if err != nil {
+				logger.Error("Failed to check if block exists", "block", i, "err", err)
+				continue
+			}
+			shouldProcess = !exists
+		}
+
+		if shouldProcess {
 			pending = append(pending, i)
 			if len(pending) == batchSize {
 				sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
-				if err := processBatch(client, db, pending, flushInterval, ingestOpts); err != nil {
+				if err := processBatch(client, db, pending, flushInterval, kafkaOpts); err != nil {
 					logger.Error("Failed to process batch", "err", err)
 					logLoadTrackingDetails(logger, db, err)
 				}
@@ -521,14 +618,14 @@ func backfillIndex(client *w3.Client, db *sql.DB, from, to int64, batchSize int,
 	}
 	if len(pending) > 0 {
 		sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
-		if err := processBatch(client, db, pending, flushInterval, ingestOpts); err != nil {
+		if err := processBatch(client, db, pending, flushInterval, kafkaOpts); err != nil {
 			logger.Error("Failed to process batch", "err", err)
 			logLoadTrackingDetails(logger, db, err)
 		}
 	}
 }
 
-func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, flushInterval time.Duration, ingestOpts ingestOptions) error {
+func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, flushInterval time.Duration, kafkaOpts kafkaOptions) error {
 	startBatch := time.Now()
 	n := len(blockNums)
 	blocks := make([]*types.Block, n)
@@ -545,350 +642,13 @@ func processBatch(client *w3.Client, db *sql.DB, blockNums []int64, flushInterva
 	fetchDuration := time.Since(startBatch)
 	slog.Info("Fetched batch", "blocks", len(blockNums), "duration", fetchDuration)
 
-	var chunkBlocks []IndexBlock
-	var chunkTxs []IndexTx
-	var chunkReceipts []IndexReceipt
-	var chunkLogs []IndexLog
-
-	var chunkStart time.Time
-	resetChunkTimer := func() { chunkStart = time.Now() }
-	resetChunkTimer()
-
-	flushChunk := func() error {
-		if len(chunkBlocks) == 0 && len(chunkTxs) == 0 && len(chunkReceipts) == 0 && len(chunkLogs) == 0 {
-			return nil
-		}
-
-		if ingestOpts.useStreamLoad {
-			if err := streamLoadChunk(ingestOpts, chunkBlocks, chunkTxs, chunkReceipts, chunkLogs); err != nil {
-				return err
-			}
-		} else {
-			tx, err := db.Begin()
-			if err != nil {
-				return err
-			}
-
-			if err := batchInsertBlocks(tx, chunkBlocks); err != nil {
-				tx.Rollback()
-				return err
-			}
-			if err := batchInsertTxs(tx, chunkTxs); err != nil {
-				tx.Rollback()
-				return err
-			}
-			if err := batchInsertReceipts(tx, chunkReceipts); err != nil {
-				tx.Rollback()
-				return err
-			}
-			if err := batchInsertLogs(tx, chunkLogs); err != nil {
-				tx.Rollback()
-				return err
-			}
-
-			if err := tx.Commit(); err != nil {
-				return err
-			}
-		}
-
-		mode := "sql"
-		if ingestOpts.useStreamLoad {
-			mode = "stream_load"
-		}
-		slog.Info("Flushed chunk",
-			"blocks", len(chunkBlocks),
-			"txs", len(chunkTxs),
-			"receipts", len(chunkReceipts),
-			"logs", len(chunkLogs),
-			"duration", time.Since(chunkStart),
-			"mode", mode,
-		)
-
-		chunkBlocks = chunkBlocks[:0]
-		chunkTxs = chunkTxs[:0]
-		chunkReceipts = chunkReceipts[:0]
-		chunkLogs = chunkLogs[:0]
-		resetChunkTimer()
-		return nil
+	if kafkaOpts.enabled {
+		// Kafka mode: process and send immediately (no chunking)
+		return processBatchKafka(blocks, receipts, kafkaOpts, db)
+	} else {
+		// SQL mode: use chunking for efficient batch inserts
+		return processBatchSQL(blocks, receipts, db, flushInterval)
 	}
-
-	for k := range blockNums {
-		header := blocks[k].Header()
-		var baseFeePerGas *string
-		if header.BaseFee != nil {
-			s := header.BaseFee.String()
-			baseFeePerGas = &s
-		}
-		var blobGasUsed *int64
-		if header.BlobGasUsed != nil {
-			u := int64(*header.BlobGasUsed)
-			blobGasUsed = &u
-		}
-		var excessBlobGas *int64
-		if header.ExcessBlobGas != nil {
-			u := int64(*header.ExcessBlobGas)
-			excessBlobGas = &u
-		}
-		var withdrawalsRoot *string
-		if header.WithdrawalsHash != nil {
-			s := header.WithdrawalsHash.Hex()
-			withdrawalsRoot = &s
-		}
-		var requestsHash *string // Set to nil if not applicable
-		var mixHash *string
-		if header.MixDigest != (common.Hash{}) {
-			s := header.MixDigest.Hex()
-			mixHash = &s
-		}
-
-		indexBlock := IndexBlock{
-			Number:           blocks[k].Number().Int64(),
-			CoinbaseAddress:  header.Coinbase.Hex(),
-			Hash:             blocks[k].Hash().Hex(),
-			ParentHash:       header.ParentHash.Hex(),
-			Nonce:            "0x" + hex.EncodeToString(header.Nonce[:]),
-			Sha3Uncles:       header.UncleHash.Hex(),
-			LogsBloom:        "0x" + hex.EncodeToString(header.Bloom[:]),
-			TransactionsRoot: header.TxHash.Hex(),
-			StateRoot:        header.Root.Hex(),
-			ReceiptsRoot:     header.ReceiptHash.Hex(),
-			Miner:            header.Coinbase.Hex(),
-			Difficulty:       header.Difficulty.String(),
-			ExtraData:        "0x" + hex.EncodeToString(header.Extra),
-			Size:             int64(blocks[k].Size()),
-			GasLimit:         int64(header.GasLimit),
-			GasUsed:          int64(header.GasUsed),
-			Timestamp:        int64(header.Time),
-			BaseFeePerGas:    baseFeePerGas,
-			BlobGasUsed:      blobGasUsed,
-			ExcessBlobGas:    excessBlobGas,
-			WithdrawalsRoot:  withdrawalsRoot,
-			RequestsHash:     requestsHash,
-			MixHash:          mixHash,
-			TxCount:          len(blocks[k].Transactions()),
-		}
-		chunkBlocks = append(chunkBlocks, indexBlock)
-
-		txs := blocks[k].Transactions()
-		for i, txn := range txs {
-			chainIDBig := txn.ChainId()
-			var chainIDPtr *int64
-			var signer types.Signer
-			if chainIDBig != nil && chainIDBig.Sign() > 0 {
-				chainID := chainIDBig.Int64()
-				chainIDPtr = &chainID
-				signer = types.LatestSignerForChainID(chainIDBig)
-			} else {
-				signer = types.HomesteadSigner{}
-			}
-			var to *string
-			if txn.To() != nil {
-				s := txn.To().Hex()
-				to = &s
-			}
-			var gasPrice *string
-			gp := txn.GasPrice()
-			if gp != nil {
-				s := gp.String()
-				gasPrice = &s
-			}
-			var maxPriorityFeePerGas *string
-			var maxFeePerGas *string
-			if txn.Type() == types.DynamicFeeTxType || txn.Type() == types.BlobTxType {
-				mp := txn.GasTipCap()
-				if mp != nil {
-					s := mp.String()
-					maxPriorityFeePerGas = &s
-				}
-				mf := txn.GasFeeCap()
-				if mf != nil {
-					s := mf.String()
-					maxFeePerGas = &s
-				}
-			}
-			var accessListJSON *string
-			al := txn.AccessList()
-			if len(al) > 0 {
-				alBytes, _ := json.Marshal(al)
-				s := string(alBytes)
-				accessListJSON = &s
-			}
-			var blobGas *int64
-			bg := txn.BlobGas()
-			if bg != 0 {
-				bi := int64(bg)
-				blobGas = &bi
-			}
-			var blobGasFeeCap *string
-			if txn.Type() == types.BlobTxType {
-				bgfc := txn.BlobGasFeeCap()
-				if bgfc != nil {
-					s := bgfc.String()
-					blobGasFeeCap = &s
-				}
-			}
-			var blobHashesJSON *string
-			bh := txn.BlobHashes()
-			if len(bh) > 0 {
-				bhBytes, _ := json.Marshal(bh)
-				s := string(bhBytes)
-				blobHashesJSON = &s
-			}
-			v, r, s := txn.RawSignatureValues()
-			var vStr, rStr, sStr *string
-			if v != nil {
-				vs := v.String()
-				vStr = &vs
-			}
-			if r != nil {
-				rs := r.String()
-				rStr = &rs
-			}
-			if s != nil {
-				ss := s.String()
-				sStr = &ss
-			}
-
-			from, err := types.Sender(signer, txn)
-			if err != nil {
-				return fmt.Errorf("failed to recover sender for tx %s: %w", txn.Hash().Hex(), err)
-			}
-
-			receipt := receipts[k][i]
-			var effectiveGasPrice *string
-			if receipt.EffectiveGasPrice != nil {
-				s := receipt.EffectiveGasPrice.String()
-				effectiveGasPrice = &s
-			}
-
-			indexTx := IndexTx{
-				Hash:                 txn.Hash().Hex(),
-				Nonce:                txn.Nonce(),
-				BlockNumber:          blocks[k].Number().Int64(),
-				BlockHash:            blocks[k].Hash().Hex(),
-				TxIndex:              i,
-				From:                 from.Hex(),
-				To:                   to,
-				Value:                txn.Value().String(),
-				Gas:                  int64(txn.Gas()),
-				GasPrice:             gasPrice,
-				MaxPriorityFeePerGas: maxPriorityFeePerGas,
-				MaxFeePerGas:         maxFeePerGas,
-				EffectiveGasPrice:    effectiveGasPrice,
-				Input:                "0x" + hex.EncodeToString(txn.Data()),
-				Type:                 txn.Type(),
-				ChainID:              chainIDPtr,
-				AccessListJSON:       accessListJSON,
-				BlobGas:              blobGas,
-				BlobGasFeeCap:        blobGasFeeCap,
-				BlobHashesJSON:       blobHashesJSON,
-				V:                    vStr,
-				R:                    rStr,
-				S:                    sStr,
-				DecodedJSON:          "",
-			}
-
-			// Attempt to decode tx input if To is set
-			if indexTx.To != nil {
-				abiObj, err := getParsedABI(db, *indexTx.To)
-				if err == nil {
-					decoded := decodeTxInput(indexTx.Input, abiObj)
-					if decoded != nil {
-						decodedJSON, _ := json.Marshal(decoded)
-						indexTx.DecodedJSON = string(decodedJSON)
-					}
-				}
-			}
-
-			chunkTxs = append(chunkTxs, indexTx)
-
-			var contractAddress *string
-			if receipt.ContractAddress != (common.Address{}) {
-				s := receipt.ContractAddress.Hex()
-				contractAddress = &s
-			}
-			var blobGasPrice *string
-			if receipt.BlobGasPrice != nil {
-				s := receipt.BlobGasPrice.String()
-				blobGasPrice = &s
-			}
-
-			indexReceipt := IndexReceipt{
-				TxHash:            receipt.TxHash.Hex(),
-				Status:            receipt.Status,
-				CumulativeGasUsed: int64(receipt.CumulativeGasUsed),
-				GasUsed:           int64(receipt.GasUsed),
-				ContractAddress:   contractAddress,
-				LogsBloom:         "0x" + hex.EncodeToString(receipt.Bloom[:]),
-				Type:              receipt.Type,
-				BlobGasUsed:       receipt.BlobGasUsed,
-				BlobGasPrice:      blobGasPrice,
-			}
-
-			chunkReceipts = append(chunkReceipts, indexReceipt)
-
-			for _, l := range receipt.Logs {
-				var blockNumber *int64
-				bn := int64(l.BlockNumber)
-				blockNumber = &bn
-				var blockHash *string
-				bh := l.BlockHash.Hex()
-				blockHash = &bh
-				var blockTimestamp *int64
-				ts := int64(header.Time)
-				blockTimestamp = &ts
-
-				topics := make([]string, len(l.Topics))
-				for j, topic := range l.Topics {
-					topics[j] = topic.Hex()
-				}
-
-				indexLog := IndexLog{
-					TxHash:         l.TxHash.Hex(),
-					LogIndex:       int(l.Index),
-					Address:        l.Address.Hex(),
-					BlockNumber:    blockNumber,
-					BlockHash:      blockHash,
-					TxIndex:        int(l.TxIndex),
-					BlockTimestamp: blockTimestamp,
-					TopicsJSON:     "",
-					Data:           "0x" + hex.EncodeToString(l.Data),
-					Removed:        l.Removed,
-					DecodedJSON:    "",
-				}
-
-				// Attempt to decode log
-				abiObj, err := getParsedABI(db, indexLog.Address)
-				if err == nil && len(topics) > 0 {
-					decoded := decodeLog(topics, indexLog.Data, abiObj)
-					if decoded != nil {
-						decodedJSON, _ := json.Marshal(decoded)
-						indexLog.DecodedJSON = string(decodedJSON)
-					}
-				}
-
-				topicsJSON, _ := json.Marshal(topics)
-				indexLog.TopicsJSON = string(topicsJSON)
-
-				chunkLogs = append(chunkLogs, indexLog)
-			}
-		}
-
-		if shouldFlushChunk(chunkBlocks, chunkTxs, chunkReceipts, chunkLogs, chunkStart, flushInterval) {
-			slog.Debug("Chunk threshold reached",
-				"blocks", len(chunkBlocks),
-				"txs", len(chunkTxs),
-				"receipts", len(chunkReceipts),
-				"logs", len(chunkLogs),
-				"elapsed", time.Since(chunkStart),
-			)
-			if err := flushChunk(); err != nil {
-				return err
-			}
-		}
-	}
-
-	return flushChunk()
 }
 
 func batchInsertBlocks(tx *sql.Tx, blocks []IndexBlock) error {
@@ -951,30 +711,174 @@ func batchInsertLogs(tx *sql.Tx, logs []IndexLog) error {
 	return err
 }
 
-func streamLoadChunk(opts ingestOptions, blocks []IndexBlock, txs []IndexTx, receipts []IndexReceipt, logs []IndexLog) error {
-	if len(blocks) == 0 && len(txs) == 0 && len(receipts) == 0 && len(logs) == 0 {
+func produceToKafka(opts kafkaOptions, blocks []IndexBlock, txs []IndexTx, receipts []IndexReceipt, logs []IndexLog) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Collect all records to produce
+	var records []*kgo.Record
+
+	// Add blocks
+	for _, block := range blocks {
+		data, err := json.Marshal(block)
+		if err != nil {
+			return fmt.Errorf("failed to marshal block %d: %w", block.Number, err)
+		}
+		records = append(records, &kgo.Record{
+			Key:   []byte(strconv.FormatInt(block.Number, 10)),
+			Topic: fmt.Sprintf("%s-blocks", opts.chainName),
+			Value: data,
+		})
+	}
+
+	// Add transactions
+	for _, tx := range txs {
+		data, err := json.Marshal(tx)
+		if err != nil {
+			return fmt.Errorf("failed to marshal transaction %s: %w", tx.Hash, err)
+		}
+		records = append(records, &kgo.Record{
+			Key:   []byte(tx.Hash),
+			Topic: fmt.Sprintf("%s-transactions", opts.chainName),
+			Value: data,
+		})
+	}
+
+	// Add receipts
+	for _, receipt := range receipts {
+		data, err := json.Marshal(receipt)
+		if err != nil {
+			return fmt.Errorf("failed to marshal receipt %s: %w", receipt.TxHash, err)
+		}
+		records = append(records, &kgo.Record{
+			Key:   []byte(receipt.TxHash),
+			Topic: fmt.Sprintf("%s-receipts", opts.chainName),
+			Value: data,
+		})
+	}
+
+	// Add logs
+	for _, log := range logs {
+		data, err := json.Marshal(log)
+		if err != nil {
+			return fmt.Errorf("failed to marshal log %s:%d: %w", log.TxHash, log.LogIndex, err)
+		}
+		records = append(records, &kgo.Record{
+			Key:   []byte(fmt.Sprintf("%s:%d", log.TxHash, log.LogIndex)),
+			Topic: fmt.Sprintf("%s-logs", opts.chainName),
+			Value: data,
+		})
+	}
+
+	if len(records) == 0 {
 		return nil
 	}
-	if len(blocks) > 0 {
-		if err := streamLoadBlocks(opts, blocks); err != nil {
-			return err
-		}
+
+	// Produce with callbacks (async pattern from the example)
+	var (
+		wg                   sync.WaitGroup
+		mu                   sync.Mutex
+		errorCount           atomic.Int32
+		successCount         atomic.Int32
+		blocksSuccessCount   atomic.Int32
+		txsSuccessCount      atomic.Int32
+		receiptsSuccessCount atomic.Int32
+		logsSuccessCount     atomic.Int32
+		errors               []error
+		maxErrors            = 10 // Store first N errors for debugging
+	)
+
+	wg.Add(len(records))
+	produceStart := time.Now()
+
+	for i, record := range records {
+		index := i
+		rec := record
+
+		opts.client.Produce(ctx, rec, func(r *kgo.Record, err error) {
+			defer wg.Done()
+
+			if err != nil {
+				errorCount.Add(1)
+
+				// Log detailed information about the failed record
+				slog.Error("Failed to produce Kafka record",
+					"topic", r.Topic,
+					"key", string(r.Key),
+					"value_size_bytes", len(r.Value),
+					"error", err.Error(),
+				)
+
+				// Store first few errors for reporting
+				mu.Lock()
+				if len(errors) < maxErrors {
+					errors = append(errors, fmt.Errorf("record %d (topic=%s, key=%s, size=%d bytes): %w",
+						index, r.Topic, string(r.Key), len(r.Value), err))
+				}
+				mu.Unlock()
+			} else {
+				successCount.Add(1)
+
+				// Track per-entity-type metrics based on topic suffix
+				if strings.HasSuffix(r.Topic, "-blocks") {
+					blocksSuccessCount.Add(1)
+				} else if strings.HasSuffix(r.Topic, "-transactions") {
+					txsSuccessCount.Add(1)
+				} else if strings.HasSuffix(r.Topic, "-receipts") {
+					receiptsSuccessCount.Add(1)
+				} else if strings.HasSuffix(r.Topic, "-logs") {
+					logsSuccessCount.Add(1)
+				}
+			}
+		})
 	}
-	if len(txs) > 0 {
-		if err := streamLoadTransactions(opts, txs); err != nil {
-			return err
+
+	// Wait for all callbacks to complete
+	wg.Wait()
+	produceDuration := time.Since(produceStart)
+
+	// Report results
+	success := successCount.Load()
+	failed := errorCount.Load()
+	total := int32(len(records))
+
+	if failed > 0 {
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Return combined error with details
+		errMsg := fmt.Sprintf("failed to produce %d/%d records to Kafka", failed, total)
+		for i, err := range errors {
+			errMsg += fmt.Sprintf("\n  [%d] %v", i+1, err)
 		}
-	}
-	if len(receipts) > 0 {
-		if err := streamLoadReceipts(opts, receipts); err != nil {
-			return err
+		if int(failed) > len(errors) {
+			errMsg += fmt.Sprintf("\n  ... and %d more errors", int(failed)-len(errors))
 		}
+		return fmt.Errorf("%s", errMsg)
 	}
-	if len(logs) > 0 {
-		if err := streamLoadLogs(opts, logs); err != nil {
-			return err
-		}
+
+	// Calculate and log throughput metrics (only count successful ACKs)
+	durationSec := produceDuration.Seconds()
+	if durationSec > 0 {
+		blocksPerSec := float64(blocksSuccessCount.Load()) / durationSec
+		txsPerSec := float64(txsSuccessCount.Load()) / durationSec
+		receiptsPerSec := float64(receiptsSuccessCount.Load()) / durationSec
+		logsPerSec := float64(logsSuccessCount.Load()) / durationSec
+
+		slog.Info("Kafka throughput metrics",
+			"total_records", success,
+			"duration", produceDuration,
+			"blocks_sent", blocksSuccessCount.Load(),
+			"txs_sent", txsSuccessCount.Load(),
+			"receipts_sent", receiptsSuccessCount.Load(),
+			"logs_sent", logsSuccessCount.Load(),
+			"blocks_per_sec", fmt.Sprintf("%.2f", blocksPerSec),
+			"txs_per_sec", fmt.Sprintf("%.2f", txsPerSec),
+			"receipts_per_sec", fmt.Sprintf("%.2f", receiptsPerSec),
+			"logs_per_sec", fmt.Sprintf("%.2f", logsPerSec),
+		)
 	}
+
 	return nil
 }
 
@@ -998,173 +902,6 @@ func shouldFlushChunk(blocks []IndexBlock, txs []IndexTx, receipts []IndexReceip
 		return true
 	}
 	return false
-}
-
-func streamLoadBlocks(opts ingestOptions, blocks []IndexBlock) error {
-	columns := []string{"number", "coinbase_address", "hash", "parent_hash", "nonce", "sha3_uncles", "logs_bloom", "transactions_root", "state_root", "receipts_root", "miner", "difficulty", "extra_data", "size", "gas_limit", "gas_used", "timestamp", "base_fee_per_gas", "blob_gas_used", "excess_blob_gas", "withdrawals_root", "requests_hash", "mix_hash", "tx_count"}
-	rows := make([][]string, 0, len(blocks))
-	for _, b := range blocks {
-		rows = append(rows, []string{
-			strconv.FormatInt(b.Number, 10),
-			b.CoinbaseAddress,
-			b.Hash,
-			b.ParentHash,
-			b.Nonce,
-			b.Sha3Uncles,
-			b.LogsBloom,
-			b.TransactionsRoot,
-			b.StateRoot,
-			b.ReceiptsRoot,
-			b.Miner,
-			b.Difficulty,
-			b.ExtraData,
-			strconv.FormatInt(b.Size, 10),
-			strconv.FormatInt(b.GasLimit, 10),
-			strconv.FormatInt(b.GasUsed, 10),
-			strconv.FormatInt(b.Timestamp, 10),
-			nullableString(b.BaseFeePerGas),
-			nullableInt64(b.BlobGasUsed),
-			nullableInt64(b.ExcessBlobGas),
-			nullableString(b.WithdrawalsRoot),
-			nullableString(b.RequestsHash),
-			nullableString(b.MixHash),
-			strconv.Itoa(b.TxCount),
-		})
-	}
-	return streamLoadRequest(opts, "blocks", columns, rows)
-}
-
-func streamLoadTransactions(opts ingestOptions, txs []IndexTx) error {
-	columns := []string{"hash", "nonce", "block_number", "block_hash", "tx_index", "from_address", "to_address", "value", "gas", "gas_price", "max_priority_fee_per_gas", "max_fee_per_gas", "effective_gas_price", "input", "type", "chain_id", "access_list_json", "blob_gas", "blob_gas_fee_cap", "blob_hashes_json", "v", "r", "s", "decoded"}
-	rows := make([][]string, 0, len(txs))
-	for _, t := range txs {
-		rows = append(rows, []string{
-			t.Hash,
-			strconv.FormatUint(t.Nonce, 10),
-			strconv.FormatInt(t.BlockNumber, 10),
-			t.BlockHash,
-			strconv.Itoa(t.TxIndex),
-			t.From,
-			nullableString(t.To),
-			t.Value,
-			strconv.FormatInt(t.Gas, 10),
-			nullableString(t.GasPrice),
-			nullableString(t.MaxPriorityFeePerGas),
-			nullableString(t.MaxFeePerGas),
-			nullableString(t.EffectiveGasPrice),
-			t.Input,
-			strconv.Itoa(int(t.Type)),
-			nullableInt64(t.ChainID),
-			nullableString(t.AccessListJSON),
-			nullableInt64(t.BlobGas),
-			nullableString(t.BlobGasFeeCap),
-			nullableString(t.BlobHashesJSON),
-			nullableString(t.V),
-			nullableString(t.R),
-			nullableString(t.S),
-			t.DecodedJSON,
-		})
-	}
-	return streamLoadRequest(opts, "transactions", columns, rows)
-}
-
-func streamLoadReceipts(opts ingestOptions, receipts []IndexReceipt) error {
-	columns := []string{"tx_hash", "status", "cumulative_gas_used", "gas_used", "contract_address", "logs_bloom", "type", "blob_gas_used", "blob_gas_price"}
-	rows := make([][]string, 0, len(receipts))
-	for _, r := range receipts {
-		rows = append(rows, []string{
-			r.TxHash,
-			strconv.FormatUint(r.Status, 10),
-			strconv.FormatInt(r.CumulativeGasUsed, 10),
-			strconv.FormatInt(r.GasUsed, 10),
-			nullableString(r.ContractAddress),
-			r.LogsBloom,
-			strconv.Itoa(int(r.Type)),
-			strconv.FormatUint(r.BlobGasUsed, 10),
-			nullableString(r.BlobGasPrice),
-		})
-	}
-	return streamLoadRequest(opts, "receipts", columns, rows)
-}
-
-func streamLoadLogs(opts ingestOptions, logs []IndexLog) error {
-	columns := []string{"tx_hash", "log_index", "address", "block_number", "block_hash", "tx_index", "block_timestamp", "topics", "data", "removed", "decoded"}
-	rows := make([][]string, 0, len(logs))
-	for _, l := range logs {
-		rows = append(rows, []string{
-			l.TxHash,
-			strconv.Itoa(l.LogIndex),
-			l.Address,
-			nullableInt64Ptr(l.BlockNumber),
-			nullableString(l.BlockHash),
-			strconv.Itoa(l.TxIndex),
-			nullableInt64Ptr(l.BlockTimestamp),
-			l.TopicsJSON,
-			l.Data,
-			strconv.FormatBool(l.Removed),
-			l.DecodedJSON,
-		})
-	}
-	return streamLoadRequest(opts, "logs", columns, rows)
-}
-
-func streamLoadRequest(opts ingestOptions, table string, columns []string, rows [][]string) error {
-	var buf bytes.Buffer
-	w := csv.NewWriter(&buf)
-	for _, row := range rows {
-		if err := w.Write(row); err != nil {
-			return err
-		}
-	}
-	w.Flush()
-	if err := w.Error(); err != nil {
-		return err
-	}
-	url := fmt.Sprintf("%s/api/%s/%s/_stream_load", strings.TrimRight(opts.streamLoadURL, "/"), opts.database, table)
-	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(buf.Bytes()))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "text/csv")
-	req.Header.Set("label", fmt.Sprintf("%s-%d", table, time.Now().UnixNano()))
-	req.Header.Set("column_separator", ",")
-	req.Header.Set("columns", strings.Join(columns, ","))
-	req.Header.Set("Expect", "100-continue")
-	req.SetBasicAuth(opts.streamUsername, opts.streamPassword)
-	if dump, err := httputil.DumpRequestOut(req, false); err == nil {
-		slog.Debug("stream load request", "table", table, "request", string(dump))
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode/100 != 2 || !bytes.Contains(body, []byte("\"Status\":\"Success\"")) {
-		return fmt.Errorf("stream load %s failed: status=%s body=%s", table, resp.Status, string(body))
-	}
-	return nil
-}
-
-func nullableString(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
-func nullableInt64(v *int64) string {
-	if v == nil {
-		return ""
-	}
-	return strconv.FormatInt(*v, 10)
-}
-
-func nullableInt64Ptr(v *int64) string {
-	return nullableInt64(v)
 }
 
 func getMaxIndexedBlock(db *sql.DB) (int64, bool, error) {
