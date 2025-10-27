@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/primev/mev-commit/tools/indexer/pkg/beacon"
-	"github.com/primev/mev-commit/tools/indexer/pkg/config"
 )
 
 type DB struct {
@@ -150,31 +149,6 @@ func (db *DB) EnsureStateTable(ctx context.Context) error {
 	return nil
 }
 
-func (db *DB) EnsureRelaysTable(ctx context.Context) error {
-	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	ddl := `
-	CREATE TABLE IF NOT EXISTS relays (
-		relay_id INT,
-		name VARCHAR(255),
-		tag VARCHAR(255),
-		base_url VARCHAR(255),
-		is_active TINYINT
-	) ENGINE=OLAP
-	PRIMARY KEY(relay_id)
-	DISTRIBUTED BY HASH(relay_id) BUCKETS 1
-	PROPERTIES (
-		"replication_num" = "1"
-	)`
-
-	if _, err := db.conn.ExecContext(ctx2, ddl); err != nil {
-		return fmt.Errorf("failed to create relays table: %w", err)
-	}
-
-	return nil
-}
-
 func (db *DB) EnsureBlocksTable(ctx context.Context) error {
 	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -302,28 +276,6 @@ func (db *DB) SaveBackwardCheckpoint(ctx context.Context, bn int64) error {
 	return nil
 }
 
-func (db *DB) UpsertRelays(ctx context.Context, relays []config.Relay) error {
-	if len(relays) == 0 {
-		return nil
-	}
-
-	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	// StarRocks batch insert approach
-	var values []string
-	for _, r := range relays {
-		value := fmt.Sprintf("(%d, '%s', '%s', '%s', 1)", r.Relay_id, r.Name, r.Tag, r.URL)
-		values = append(values, value)
-	}
-
-	query := fmt.Sprintf(`INSERT INTO relays (relay_id, name, tag, base_url, is_active) VALUES %s`,
-		strings.Join(values, ","))
-
-	_, err := db.conn.ExecContext(ctx2, query)
-	return err
-}
-
 func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) error {
 	if ei == nil || ei.BlockNumber == 0 {
 		return fmt.Errorf("upsert block: nil exec info or block_number=0")
@@ -447,37 +399,6 @@ func (db *DB) InsertBidsBatch(ctx context.Context, rows []BidRow) error {
 
 	_, err := db.conn.ExecContext(ctx2, sb.String())
 	return err
-}
-
-func (db *DB) GetActiveRelays(ctx context.Context) ([]struct {
-	ID  int64
-	URL string
-}, error) {
-	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	rows, err := db.conn.QueryContext(ctx2, `SELECT relay_id, base_url FROM relays WHERE is_active = 1`)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	var results []struct {
-		ID  int64
-		URL string
-	}
-	for rows.Next() {
-		var id int64
-		var url string
-		if err := rows.Scan(&id, &url); err != nil {
-			continue // Skip bad rows
-		}
-		results = append(results, struct {
-			ID  int64
-			URL string
-		}{ID: id, URL: url})
-	}
-	return results, rows.Err()
 }
 
 func (db *DB) GetRecentMissingBlocks(ctx context.Context, lookback int64, batch int) ([]struct {

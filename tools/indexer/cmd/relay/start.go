@@ -9,6 +9,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/primev/mev-commit/tools/indexer/pkg/beacon"
+	"github.com/primev/mev-commit/tools/indexer/pkg/config"
 	"github.com/primev/mev-commit/tools/indexer/pkg/database"
 	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
 	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
@@ -32,12 +33,6 @@ func initializeDatabase(ctx context.Context, dbURL string, logger *slog.Logger) 
 	}
 	logger.Info("[DB] state table ready")
 
-	if err := db.EnsureRelaysTable(ctx); err != nil {
-		logger.Error("[DB] failed to ensure relays table", "error", err)
-		return nil, err
-	}
-	logger.Info("[DB] relays table ready")
-
 	if err := db.EnsureBlocksTable(ctx); err != nil {
 		logger.Error("[DB] failed to ensure blocks table", "error", err)
 		return nil, err
@@ -51,21 +46,6 @@ func initializeDatabase(ctx context.Context, dbURL string, logger *slog.Logger) 
 	logger.Info("[DB] bids table ready")
 
 	return db, nil
-}
-
-func loadRelays(ctx context.Context, db *database.DB, logger *slog.Logger) ([]relay.Row, error) {
-	relays, err := relay.UpsertRelaysAndLoad(ctx, db)
-	if err != nil {
-		logger.Error("[RELAY] failed to load", "error", err)
-		return nil, err
-	}
-
-	logger.Info("[RELAY] loaded active relays", "count", len(relays))
-	for _, r := range relays {
-		logger.Info("[RELAY] relay found", "id", r.ID, "url", r.URL)
-	}
-
-	return relays, nil
 }
 
 // getStartingPoints returns the forward and backward starting block numbers
@@ -165,10 +145,11 @@ func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc
 					logger.Error("[BACKWARD] failed to upsert block", "block", bn, "error", err)
 					continue
 				}
-
-				// Process bids for this block
-				if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
-					logger.Error("[BACKWARD] failed to process bids", "block", bn, "error", err)
+				if cfg.RelayData {
+					// Process bids for this block
+					if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
+						logger.Error("[BACKWARD] failed to process bids", "block", bn, "error", err)
+					}
 				}
 
 				// Process validator tasks
@@ -250,10 +231,11 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 					logger.Error("[FORWARD] failed to upsert block", "block", bn, "error", err)
 					continue
 				}
-
-				// Process bids for this block
-				if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
-					logger.Error("[FORWARD] failed to process bids", "block", bn, "error", err)
+				if cfg.RelayData {
+					// Process bids for this block
+					if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
+						logger.Error("[FORWARD] failed to process bids", "block", bn, "error", err)
+					}
 				}
 
 				// Process validator tasks
@@ -406,7 +388,24 @@ func startIndexer(c *cli.Context) error {
 		"block_interval", c.Duration("block-interval"),
 		"validator_delay", c.Duration("validator-delay"))
 	ctx := c.Context
-
+	var relays []relay.Row
+	if c.Bool(optionRelayFlag.Name) {
+		cfgRelays, err := config.ResolveRelays(c)
+		if err != nil {
+			return err
+		}
+		relays = make([]relay.Row, 0, len(cfgRelays))
+		for _, r := range cfgRelays {
+			relays = append(relays, relay.Row{ID: r.Relay_id, URL: r.URL})
+		}
+		initLogger.Info("relay enabled", "count", len(relays))
+	} else {
+		initLogger.Info("relay disabled")
+		relays = make([]relay.Row, 0, len(config.RelaysDefault))
+		for _, r := range config.RelaysDefault {
+			relays = append(relays, relay.Row{ID: r.Relay_id, URL: r.URL})
+		}
+	}
 	db, err := initializeDatabase(ctx, dbURL, initLogger)
 	if err != nil {
 		return err
@@ -428,12 +427,6 @@ func startIndexer(c *cli.Context) error {
 		initLogger.Info("[RATE_LIMITER] beaconcha rate limiter initialized", "rps", beaconchaRPS)
 	} else {
 		initLogger.Warn("[RATE_LIMITER] beaconcha rate limiting disabled (rps=0)")
-	}
-
-	// Load relay configurations
-	relays, err := loadRelays(ctx, db, initLogger)
-	if err != nil {
-		return err
 	}
 
 	// Get starting points for forward and backward indexers
