@@ -1,0 +1,63 @@
+replicaCount: 1
+
+image:
+  repository: primev/primev
+  pullPolicy: IfNotPresent
+  tag: "relay-indexer-rc5"
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Relay Indexer configuration
+indexer:
+  # Database connection URL
+  databaseUrl: ""
+  
+  # Ethereum RPC URL
+  rpcUrl: ""
+  
+  # Beacon API base URL
+  beaconBase: "https://beaconcha.in/api/v1"
+  
+  # Beaconcha.in API key (optional)
+  beaconchaApiKey: ""
+  
+  # Interval between block processing
+  blockInterval: "12s"
+  
+  # Delay before fetching validator data
+  validatorDelay: "1.5s"
+  
+  # Batch size for backfill operations
+  backfillBatch: 100
+  
+  # HTTP client timeout
+  httpTimeout: "15s"
+  
+  # Validator opt-in contract address
+  optInContract: "0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64"
+
+  backwardStopBlock: 21153543
+  
+  # RPS sent to beaconcha endppint
+  beaconRps: 30
+  
+  # Extra arguments to pass to the indexer
+  # Example: ["--some-flag", "--another-option=value"]
+  extraArgs: []

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: relay-indexer
+description: A Helm chart for mev-commit relay indexer
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

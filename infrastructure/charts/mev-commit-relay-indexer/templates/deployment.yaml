@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "relay-indexer.fullname" . }}
+  labels:
+    {{- include "relay-indexer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "relay-indexer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "relay-indexer.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["relay-indexer"]
+        args:
+          - "start"
+          - "--database-url={{ .Values.indexer.databaseUrl }}"
+          - "--rpc-url={{ .Values.indexer.rpcUrl }}"
+          - "--beacon-base={{ .Values.indexer.beaconBase }}"
+          {{- if .Values.indexer.beaconchaApiKey }}
+          - "--beaconcha-api-key={{ .Values.indexer.beaconchaApiKey }}"
+          {{- end }}
+          - "--block-interval={{ .Values.indexer.blockInterval }}"
+          - "--validator-delay={{ .Values.indexer.validatorDelay }}"
+          - "--batch-size={{ .Values.indexer.backfillBatch }}"
+          - "--http-timeout={{ .Values.indexer.httpTimeout }}"
+          - "--opt-in-contract={{ .Values.indexer.optInContract }}"
+          - "--backward-stop-block={{ .Values.indexer.backwardStopBlock | int64 }}"
+          - "--beaconcha-rps={{ .Values.indexer.beaconRps }}"
+          {{- range .Values.indexer.extraArgs }}
+          - {{ . | quote }}
+          {{- end }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+     
