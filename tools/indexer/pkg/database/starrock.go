@@ -148,6 +148,32 @@ func (db *DB) EnsureStateTable(ctx context.Context) error {
 
 	return nil
 }
+
+func (db *DB) EnsureRelaysTable(ctx context.Context) error {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	ddl := `
+	CREATE TABLE IF NOT EXISTS relays (
+		relay_id INT,
+		name VARCHAR(255),
+		tag VARCHAR(255),
+		base_url VARCHAR(255),
+		is_active TINYINT
+	) ENGINE=OLAP
+	DUPLICATE KEY(relay_id)
+	DISTRIBUTED BY HASH(relay_id) BUCKETS 1
+	PROPERTIES (
+		"replication_num" = "1"
+	)`
+
+	if _, err := db.conn.ExecContext(ctx2, ddl); err != nil {
+		return fmt.Errorf("failed to create relays table: %w", err)
+	}
+
+	return nil
+}
+
 func (db *DB) GetMaxBlockNumber(ctx context.Context) (int64, error) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

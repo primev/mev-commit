@@ -34,6 +34,12 @@ func initializeDatabase(ctx context.Context, dbURL string, logger *slog.Logger) 
 	}
 	logger.Info("[DB] state table ready")
 
+	if err := db.EnsureRelaysTable(ctx); err != nil {
+		logger.Error("[DB] failed to ensure relays table", "error", err)
+		return nil, err
+	}
+	logger.Info("[DB] relays table ready")
+
 	return db, nil
 }
 
