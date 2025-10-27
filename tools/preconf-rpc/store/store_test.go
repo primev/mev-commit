@@ -130,6 +130,11 @@ func TestStore(t *testing.T) {
 		Sender:      common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"),
 		Type:        sender.TxTypeRegular,
 		Status:      sender.TxStatusPending,
+		Constraint: &bidderapiv1.PositionConstraint{
+			Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
+			Basis:  bidderapiv1.PositionConstraint_BASIS_PERCENTILE,
+			Value:  10,
+		},
 	}
 
 	commitments := []*bidderapiv1.Commitment{

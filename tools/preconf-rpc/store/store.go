@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS mcTransactions (
 	sender TEXT,
 	tx_type INTEGER,
 	status TEXT,
-	details TEXT
+	details TEXT,
+	options BYTEA
 );`
 
 var commitmentsTable = `
@@ -90,11 +91,21 @@ func (s *rpcstore) Close() error {
 }
 
 func (s *rpcstore) AddQueuedTransaction(ctx context.Context, tx *sender.Transaction) error {
+	var (
+		cBuf []byte
+		err  error
+	)
+	if tx.Constraint != nil {
+		cBuf, err = proto.Marshal(tx.Constraint)
+		if err != nil {
+			return fmt.Errorf("failed to marshal transaction constraint: %w", err)
+		}
+	}
 	insertQuery := `
-	INSERT INTO mcTransactions (hash, nonce, raw_transaction, sender, tx_type, status)
-	VALUES ($1, $2, $3, $4, $5, $6);
+	INSERT INTO mcTransactions (hash, nonce, raw_transaction, sender, tx_type, status, options)
+	VALUES ($1, $2, $3, $4, $5, $6, $7);
 	`
-	_, err := s.db.ExecContext(
+	_, err = s.db.ExecContext(
 		ctx,
 		insertQuery,
 		tx.Hash().Hex(),
@@ -103,6 +114,7 @@ func (s *rpcstore) AddQueuedTransaction(ctx context.Context, tx *sender.Transact
 		tx.Sender.Hex(),
 		int(tx.Type),
 		string(sender.TxStatusPending),
+		cBuf,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to add queued transaction: %w", err)
@@ -121,8 +133,10 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 			blockNum       sql.NullInt64
 			status         string
 			details        sql.NullString
+			options        []byte
+			pbOption       *bidderapiv1.PositionConstraint
 		)
-		err := rows.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details)
+		err := rows.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details, &options)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
@@ -134,6 +148,11 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 		if err := parsedTxn.UnmarshalBinary(txStr); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
 		}
+		if len(options) > 0 {
+			if err := proto.Unmarshal(options, pbOption); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal transaction options: %w", err)
+			}
+		}
 		txn := &sender.Transaction{
 			Transaction: parsedTxn,
 			Raw:         rawTransaction,
@@ -142,6 +161,7 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 			Type:        sender.TxType(txType),
 			Status:      sender.TxStatus(status),
 			Details:     details.String,
+			Constraint:  pbOption,
 		}
 		transactions = append(transactions, txn)
 	}
@@ -155,7 +175,7 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 // GetQueuedTransactions retrieves the next pending transaction for each sender.
 func (s *rpcstore) GetQueuedTransactions(ctx context.Context) ([]*sender.Transaction, error) {
 	query := `
-	SELECT t1.raw_transaction, t1.block_number, t1.sender, t1.tx_type, t1.status, t1.details
+	SELECT t1.raw_transaction, t1.block_number, t1.sender, t1.tx_type, t1.status, t1.details, t1.options
 	FROM mcTransactions t1
 	INNER JOIN (
 		SELECT sender, MIN(nonce) AS min_nonce
@@ -201,6 +221,8 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 		status         string
 		blockNum       sql.NullInt64
 		details        sql.NullString
+		options        []byte
+		pbOption       *bidderapiv1.PositionConstraint
 	)
 	err := row.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details)
 	if err != nil {
@@ -217,6 +239,11 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 	if err := parsedTxn.UnmarshalBinary(txStr); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
 	}
+	if len(options) > 0 {
+		if err := proto.Unmarshal(options, pbOption); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal transaction options: %w", err)
+		}
+	}
 	txn := &sender.Transaction{
 		Transaction: parsedTxn,
 		Raw:         rawTransaction,
@@ -225,6 +252,7 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 		Type:        sender.TxType(txType),
 		Status:      sender.TxStatus(status),
 		Details:     details.String,
+		Constraint:  pbOption,
 	}
 
 	return txn, nil
