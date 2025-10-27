@@ -28,8 +28,8 @@ type Config struct {
 	BaseRetryDelay   time.Duration
 	HTTPTimeout      time.Duration
 	OptInContract    string
-	EtherscanKey     string
 	RPCURL           string
 	BeaconBase       string
 	BeaconchaAPIKey  string
+	BeaconchaRPS     int
 }

@@ -29,6 +29,7 @@ require (
 	github.com/twmb/franz-go v1.20.2
 	github.com/twmb/franz-go/pkg/kadm v1.17.1
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
+	golang.org/x/time v0.14.0
 	resenje.org/multex v0.2.0
 )
 
@@ -79,7 +80,6 @@ require (
 	go.opentelemetry.io/otel v1.37.0 // indirect
 	go.opentelemetry.io/otel/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
 )
 
 replace github.com/primev/mev-commit/p2p => ../p2p

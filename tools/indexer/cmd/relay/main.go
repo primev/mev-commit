@@ -34,11 +34,6 @@ var (
 		EnvVars: []string{"INDEXER_OPT_IN_CONTRACT"},
 		Value:   "0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64",
 	})
-	optionEtherscanKey = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "etherscan-key",
-		Usage:   "Etherscan API key",
-		EnvVars: []string{"INDEXER_ETHERSCAN_KEY"},
-	})
 	optionRPCURL = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "rpc-url",
 		Usage:    "Ethereum RPC URL",
@@ -55,6 +50,12 @@ var (
 		Name:    "beaconcha-api-key",
 		Usage:   "Beaconcha.in API key",
 		EnvVars: []string{"INDEXER_BEACONCHA_API_KEY"},
+	})
+	optionBeaconchaRPS = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:    "beaconcha-rps",
+		Usage:   "Beaconcha.in API requests per second limit",
+		EnvVars: []string{"INDEXER_BEACONCHA_RPS"},
+		Value:   30,
 	})
 	optionBlockInterval = altsrc.NewDurationFlag(&cli.DurationFlag{
 		Name:    "block-interval",
@@ -100,10 +101,10 @@ func createOptionsFromCLI(c *cli.Context) *config.Config {
 		BackfillBatch:    c.Int("backfill-batch"),
 		HTTPTimeout:      c.Duration("http-timeout"),
 		OptInContract:    c.String("opt-in-contract"),
-		EtherscanKey:     c.String("etherscan-key"),
 		RPCURL:           c.String("rpc-url"),
 		BeaconBase:       c.String("beacon-base"),
 		BeaconchaAPIKey:  c.String("beaconcha-api-key"),
+		BeaconchaRPS:     c.Int("beaconcha-rps"),
 	}
 }
 
@@ -114,6 +115,7 @@ func main() {
 		optionRPCURL,
 		optionBeaconBase,
 		optionBeaconchaAPIKey,
+		optionBeaconchaRPS,
 		optionBlockInterval,
 		optionValidatorDelay,
 
@@ -121,7 +123,6 @@ func main() {
 		optionBackfillBatch,
 		optionHTTPTimeout,
 		optionOptInContract,
-		optionEtherscanKey,
 	}
 
 	app := &cli.App{

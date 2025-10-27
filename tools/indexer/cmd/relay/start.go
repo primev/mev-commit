@@ -15,6 +15,7 @@ import (
 	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
 	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
 	"github.com/primev/mev-commit/tools/indexer/pkg/relay"
+	"golang.org/x/time/rate"
 
 	"github.com/urfave/cli/v2"
 )
@@ -78,14 +79,14 @@ func getStartingBlockNumber(ctx context.Context, db *database.DB, httpc *retryab
 	return lastBN, nil
 }
 
-func runBackfillIfConfigured(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, logger *slog.Logger) {
+func runBackfillIfConfigured(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, logger *slog.Logger) {
 	logger.Info("indexer configuration", "lookback", c.Int("backfill-lookback"), "batch", c.Int("backfill-batch"))
 
 	if c.Int("backfill-lookback") > 0 {
 		logger.Info("[BACKFILL] running one-time backfill",
 			"lookback", c.Int("backfill-lookback"),
 			"batch", c.Int("backfill-batch"))
-		if err := backfill.RunAll(ctx, db, httpc, createOptionsFromCLI(c), relays); err != nil {
+		if err := backfill.RunAll(ctx, db, httpc, beaconLimiter, createOptionsFromCLI(c), relays); err != nil {
 			logger.Error("[BACKFILL] failed", "error", err)
 		} else {
 			logger.Info("[BACKFILL] completed startup backfill")
@@ -95,7 +96,7 @@ func runBackfillIfConfigured(ctx context.Context, c *cli.Context, db *database.D
 	}
 }
 
-func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, startBN int64, logger *slog.Logger) error {
+func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, startBN int64, logger *slog.Logger) error {
 	mainTicker := time.NewTicker(c.Duration("block-interval"))
 	defer mainTicker.Stop()
 
@@ -112,7 +113,7 @@ func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *re
 			return nil
 
 		case <-mainTicker.C:
-			lastBN = processNextBlock(ctx, c, db, httpc, relays, rpcURL, beaconBase, beaconchaAPIKey, lastBN, logger)
+			lastBN = processNextBlock(ctx, c, db, httpc, beaconLimiter, relays, rpcURL, beaconBase, beaconchaAPIKey, lastBN, logger)
 		}
 	}
 }
@@ -123,10 +124,10 @@ func safe(p interface{}) interface{} {
 	}
 	return v.Elem().Interface()
 }
-func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, lastBN int64, logger *slog.Logger) int64 {
+func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, lastBN int64, logger *slog.Logger) int64 {
 	nextBN := lastBN + 1
 
-	ei, err := beacon.FetchCombinedBlockData(ctx, httpc, rpcURL, beaconBase, beaconchaAPIKey, nextBN)
+	ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, nextBN)
 	if err != nil || ei == nil {
 		logger.Warn("[BLOCK] not available yet", "block", nextBN, "error", err)
 		return lastBN
@@ -152,7 +153,7 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 		logger.Error("failed to process bids", "error", err)
 		return lastBN
 	}
-	if err := launchValidatorTasks(ctx, c, db, httpc, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
+	if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
 		logger.Error("[VALIDATOR] failed to launch async tasks", "slot", ei.Slot, "error", err)
 		return lastBN
 	}
@@ -240,14 +241,14 @@ func saveBlockProgress(db *database.DB, blockNum int64, logger *slog.Logger) {
 
 }
 
-func launchValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, ei *beacon.ExecInfo, beaconBase, beaconchaAPIKey string, logger *slog.Logger) error { // Async validator pubkey fetch
+func launchValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, ei *beacon.ExecInfo, beaconBase, beaconchaAPIKey string, logger *slog.Logger) error { // Async validator pubkey fetch
 	if ei.ProposerIdx == nil {
 		return nil
 	}
 
 	vctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	vpub, err := beacon.FetchValidatorPubkey(vctx, httpc, beaconBase, beaconchaAPIKey, *ei.ProposerIdx)
+	vpub, err := beacon.FetchValidatorPubkey(vctx, httpc, beaconLimiter, beaconBase, beaconchaAPIKey, *ei.ProposerIdx)
 	if err != nil {
 		return fmt.Errorf("fetch validator pubkey: %w", err)
 	}
@@ -295,6 +296,7 @@ func startIndexer(c *cli.Context) error {
 	rpcURL := c.String(optionRPCURL.Name)
 	beaconBase := c.String(optionBeaconBase.Name)
 	beaconchaAPIKey := c.String(optionBeaconchaAPIKey.Name)
+	beaconchaRPS := c.Int(optionBeaconchaRPS.Name)
 
 	initLogger.Info("starting blockchain indexer with StarRocks database")
 	initLogger.Info("configuration loaded",
@@ -316,6 +318,15 @@ func startIndexer(c *cli.Context) error {
 	httpc := httputil.NewHTTPClient(c.Duration("http-timeout"))
 	initLogger.Info("[HTTP] client initialized", "timeout", c.Duration("http-timeout"))
 
+	// Initialize rate limiter for beaconcha API
+	var beaconLimiter *rate.Limiter
+	if beaconchaRPS > 0 {
+		beaconLimiter = rate.NewLimiter(rate.Limit(beaconchaRPS), beaconchaRPS)
+		initLogger.Info("[RATE_LIMITER] beaconcha rate limiter initialized", "rps", beaconchaRPS)
+	} else {
+		initLogger.Warn("[RATE_LIMITER] beaconcha rate limiting disabled (rps=0)")
+	}
+
 	// Load relay configurations
 	relays, err := loadRelays(ctx, db, initLogger)
 	if err != nil {
@@ -332,6 +343,6 @@ func startIndexer(c *cli.Context) error {
 	initLogger.Info("indexer configuration", "lookback", c.Int("backfill-lookback"), "batch", c.Int("backfill-batch"))
 
 	// Run backfill if configured
-	go runBackfillIfConfigured(ctx, c, db, httpc, relays, initLogger)
-	return runMainLoop(ctx, c, db, httpc, relays, rpcURL, beaconBase, beaconchaAPIKey, lastBN, initLogger)
+	go runBackfillIfConfigured(ctx, c, db, httpc, beaconLimiter, relays, initLogger)
+	return runMainLoop(ctx, c, db, httpc, beaconLimiter, relays, rpcURL, beaconBase, beaconchaAPIKey, lastBN, initLogger)
 }

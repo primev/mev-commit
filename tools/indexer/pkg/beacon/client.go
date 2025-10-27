@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/go-retryablehttp"
+	"golang.org/x/time/rate"
 
 	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
 )
@@ -39,7 +40,14 @@ func appendAPIKey(url, apiKey string) string {
 	return url + "?apikey=" + apiKey
 }
 
-func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client, beaconBase string, apiKey string, blockNum int64) (*ExecInfo, error) {
+func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client, limiter *rate.Limiter, beaconBase string, apiKey string, blockNum int64) (*ExecInfo, error) {
+	// Rate limit beacon API calls
+	if limiter != nil {
+		if err := limiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("rate limiter: %w", err)
+		}
+	}
+
 	url := appendAPIKey(fmt.Sprintf("%s/execution/block/%d", beaconBase, blockNum), apiKey)
 
 	if _, has := ctx.Deadline(); !has {
@@ -136,7 +144,14 @@ func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client,
 }
 
 // validator pubkey from proposer index
-func FetchValidatorPubkey(ctx context.Context, httpc *retryablehttp.Client, beaconBase string, apiKey string, proposerIndex int64) ([]byte, error) {
+func FetchValidatorPubkey(ctx context.Context, httpc *retryablehttp.Client, limiter *rate.Limiter, beaconBase string, apiKey string, proposerIndex int64) ([]byte, error) {
+	// Rate limit beacon API calls
+	if limiter != nil {
+		if err := limiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("rate limiter: %w", err)
+		}
+	}
+
 	url := appendAPIKey(fmt.Sprintf("%s/validator/%d", beaconBase, proposerIndex), apiKey)
 
 	if _, has := ctx.Deadline(); !has {
@@ -205,13 +220,13 @@ func fetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber i
 		Timestamp:   &blockTime,
 	}, nil
 }
-func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rpcURL string, beaconBase string, apiKey string, blockNumber int64) (*ExecInfo, error) {
+func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, limiter *rate.Limiter, rpcURL string, beaconBase string, apiKey string, blockNumber int64) (*ExecInfo, error) {
 	// Get execution block from Alchemy (always available)
 	execBlock, err := fetchBlockFromRPC(httpc, rpcURL, blockNumber)
 	if err != nil {
 		return nil, err
 	}
-	beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, beaconBase, apiKey, blockNumber)
+	beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, limiter, beaconBase, apiKey, blockNumber)
 
 	// Merge data - use Alchemy as primary, beacon as supplement
 	if beaconData != nil {
