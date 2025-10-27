@@ -174,6 +174,64 @@ func (db *DB) EnsureRelaysTable(ctx context.Context) error {
 	return nil
 }
 
+func (db *DB) EnsureBlocksTable(ctx context.Context) error {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	ddl := `
+	CREATE TABLE IF NOT EXISTS blocks (
+		slot BIGINT,
+		block_number BIGINT,
+		timestamp DATETIME,
+		proposer_index BIGINT,
+		winning_relay VARCHAR(255),
+		producer_reward_eth DOUBLE,
+		winning_builder_pubkey VARCHAR(255),
+		fee_recipient VARCHAR(255),
+		validator_pubkey VARCHAR(255),
+		validator_opted_in TINYINT
+	) ENGINE=OLAP
+	DUPLICATE KEY(slot)
+	DISTRIBUTED BY HASH(slot) BUCKETS 10
+	PROPERTIES (
+		"replication_num" = "1"
+	)`
+
+	if _, err := db.conn.ExecContext(ctx2, ddl); err != nil {
+		return fmt.Errorf("failed to create blocks table: %w", err)
+	}
+
+	return nil
+}
+
+func (db *DB) EnsureBidsTable(ctx context.Context) error {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	ddl := `
+	CREATE TABLE IF NOT EXISTS bids (
+		slot BIGINT,
+		relay_id BIGINT,
+		builder_pubkey VARCHAR(255),
+		proposer_pubkey VARCHAR(255),
+		proposer_fee_recipient VARCHAR(255),
+		value_wei VARCHAR(255),
+		block_number BIGINT,
+		timestamp_ms BIGINT
+	) ENGINE=OLAP
+	DUPLICATE KEY(slot, relay_id, builder_pubkey)
+	DISTRIBUTED BY HASH(slot) BUCKETS 10
+	PROPERTIES (
+		"replication_num" = "1"
+	)`
+
+	if _, err := db.conn.ExecContext(ctx2, ddl); err != nil {
+		return fmt.Errorf("failed to create bids table: %w", err)
+	}
+
+	return nil
+}
+
 func (db *DB) GetMaxBlockNumber(ctx context.Context) (int64, error) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

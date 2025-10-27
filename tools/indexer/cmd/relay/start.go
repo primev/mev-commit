@@ -40,6 +40,18 @@ func initializeDatabase(ctx context.Context, dbURL string, logger *slog.Logger) 
 	}
 	logger.Info("[DB] relays table ready")
 
+	if err := db.EnsureBlocksTable(ctx); err != nil {
+		logger.Error("[DB] failed to ensure blocks table", "error", err)
+		return nil, err
+	}
+	logger.Info("[DB] blocks table ready")
+
+	if err := db.EnsureBidsTable(ctx); err != nil {
+		logger.Error("[DB] failed to ensure bids table", "error", err)
+		return nil, err
+	}
+	logger.Info("[DB] bids table ready")
+
 	return db, nil
 }
 
