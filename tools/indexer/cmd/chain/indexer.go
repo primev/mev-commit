@@ -150,16 +150,20 @@ func isDynamicType(t *abi.Type) bool {
 	}
 }
 
+func ptrString(s string) *string {
+	return &s
+}
+
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 	rpcURL := flag.String("rpc", "http://localhost:8545", "Ethereum RPC URL")
 	dsn := flag.String("dsn", "root:@tcp(127.0.0.1:9030)/mevcommit?parseTime=true&interpolateParams=true", "StarRocks DSN")
-	mode := flag.String("mode", "forward", "Mode: forward or backfill")
+	mode := flag.String("mode", "dual", "Mode: dual, forward, or backfill")
 	fromBlock := flag.Int64("from", 0, "Starting block for backfill (lowest)")
 	toBlock := flag.Int64("to", 0, "Ending block for backfill (highest)")
 	pollInterval := flag.Duration("poll", 100*time.Millisecond, "Poll interval for forward mode")
-	batchSize := flag.Int("batch-size", 35, "Batch size for RPC calls")
+	batchSize := flag.Int("batch-size", 50, "Batch size for RPC calls")
 	flushInterval := flag.Duration("flush-interval", 2*time.Second, "Maximum time to buffer rows before flushing to the database")
 	startBlock := flag.Int64("start-block", 0, "Starting block for forward mode when no history exists")
 	abiDir := flag.String("abi-dir", "./contracts-abi/abi", "Directory containing ABI files")
@@ -170,12 +174,16 @@ func main() {
 	flag.Parse()
 
 	// Validate inputs
-	if *mode != "forward" && *mode != "backfill" {
+	if *mode != "forward" && *mode != "backfill" && *mode != "dual" {
 		logger.Error("Invalid mode", "mode", *mode)
 		os.Exit(1)
 	}
 	if *mode == "backfill" && (*fromBlock >= *toBlock || *toBlock == 0) {
 		logger.Error("Invalid backfill range", "from", *fromBlock, "to", *toBlock)
+		os.Exit(1)
+	}
+	if *mode == "dual" && *startBlock == 0 {
+		logger.Error("Dual mode requires --start-block to be set (target for backward indexer)")
 		os.Exit(1)
 	}
 	if *enableKafka && strings.TrimSpace(*chainName) == "" {
@@ -242,11 +250,11 @@ func main() {
 
 		client, err := kgo.NewClient(
 			kgo.SeedBrokers(brokers...),
-			kgo.RequiredAcks(kgo.AllISRAcks()), // Wait for all replicas (durability)
-			kgo.ProducerBatchMaxBytes(900_000),
-			kgo.ProducerBatchCompression(kgo.ZstdCompression()),
-			kgo.ProducerLinger(100*time.Millisecond), // Batch records for throughput
-			kgo.RequestRetries(3),                    // Retry on transient failures
+			kgo.RequiredAcks(kgo.AllISRAcks()),           // Wait for all replicas (durability)
+			kgo.ProducerBatchMaxBytes(10_485_760),        // 10MB batch size (matches topic max)
+			kgo.ProducerBatchCompression(kgo.ZstdCompression()), // Zstd compression for best ratio
+			kgo.ProducerLinger(100*time.Millisecond),     // Batch records for throughput
+			kgo.RequestRetries(3),                        // Retry on transient failures
 			kgo.RetryBackoffFn(func(attempts int) time.Duration {
 				return time.Duration(attempts) * 100 * time.Millisecond
 			}),
@@ -265,12 +273,29 @@ func main() {
 		}
 		adminClient := kadm.NewClient(client)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
+		// Topic configuration: allow large messages (10MB for blob transactions)
+		// IMPORTANT: Kafka broker must also have message.max.bytes >= 10MB
+		// To update broker config:
+		//   kubectl edit configmap kafka-config -n kafka
+		//   Add: message.max.bytes=10485760
+		//   Restart Kafka pods
+		topicConfigs := map[string]*string{
+			"max.message.bytes": ptrString("10485760"), // 10MB (handles large calldata/blob txs)
+			"retention.ms":      ptrString("604800000"), // 7 days
+		}
+
 		for _, topic := range topics {
-			_, err := adminClient.CreateTopic(ctx, 1, -1, nil, topic)
+			_, err := adminClient.CreateTopic(ctx, 1, -1, topicConfigs, topic)
 			if err != nil {
 				logger.Warn("Failed to create topic (may already exist)", "topic", topic, "err", err)
 			}
 		}
+
+		logger.Info("Kafka configured for large messages",
+			"max_message_bytes", "10MB",
+			"compression", "zstd",
+			"note", "Ensure Kafka broker message.max.bytes >= 10MB")
 		cancel()
 
 		kafkaOpts = kafkaOptions{
@@ -327,7 +352,31 @@ func main() {
 		cancel()
 	}()
 
-	if *mode == "forward" {
+	if *mode == "dual" {
+		// Run both forward and backward indexers concurrently
+		logger.Info("Starting dual-direction indexer",
+			"mode", "dual",
+			"forward", "tracks latest blocks",
+			"backward", fmt.Sprintf("backfills to block %d", *startBlock))
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		// Forward indexer: keeps up with chain head (priority)
+		go func() {
+			defer wg.Done()
+			forwardIndexFromLatest(ctx, client, db, *pollInterval, *batchSize, *flushInterval, kafkaOpts, logger)
+		}()
+
+		// Backward indexer: backfills historical data
+		go func() {
+			defer wg.Done()
+			backwardIndexToStart(ctx, client, db, *startBlock, *batchSize, *flushInterval, kafkaOpts, logger)
+		}()
+
+		wg.Wait()
+		logger.Info("Dual-direction indexer stopped")
+	} else if *mode == "forward" {
 		forwardIndex(ctx, client, db, *pollInterval, *batchSize, *flushInterval, kafkaOpts, *startBlock, logger)
 	} else {
 		backfillIndex(ctx, client, db, *fromBlock, *toBlock, *batchSize, *flushInterval, kafkaOpts, logger)
@@ -583,6 +632,155 @@ func forwardIndex(ctx context.Context, client *w3.Client, db *sql.DB, pollInterv
 	}
 }
 
+// forwardIndexFromLatest continuously indexes new blocks from the latest checkpoint forward
+// This runs as a goroutine and keeps up with the chain head
+func forwardIndexFromLatest(ctx context.Context, client *w3.Client, db *sql.DB, pollInterval time.Duration, batchSize int, flushInterval time.Duration, kafkaOpts kafkaOptions, logger *slog.Logger) {
+	// Get checkpoint range from Kafka
+	_, maxBlock, hasData, err := getKafkaCheckpointRange(kafkaOpts)
+	if err != nil {
+		logger.Error("Forward indexer: Failed to get Kafka checkpoint", "direction", "forward", "err", err)
+		return
+	}
+
+	var startBlock int64
+	if !hasData {
+		// No data in Kafka, start from current chain head
+		var latest *big.Int
+		if err := client.Call(eth.BlockNumber().Returns(&latest)); err != nil {
+			logger.Error("Forward indexer: Failed to get latest block", "direction", "forward", "err", err)
+			return
+		}
+		startBlock = latest.Int64()
+		logger.Info("Forward indexer: Starting from chain head (no checkpoint)", "direction", "forward", "start_block", startBlock)
+	} else {
+		// Resume from max block + 1
+		startBlock = maxBlock + 1
+		logger.Info("Forward indexer: Resuming from checkpoint", "direction", "forward", "checkpoint", maxBlock, "start_block", startBlock)
+	}
+
+	next := startBlock
+	var pending []int64
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("Forward indexer stopped", "direction", "forward")
+			return
+		default:
+		}
+
+		var latest *big.Int
+		if err := client.Call(eth.BlockNumber().Returns(&latest)); err != nil {
+			logger.Error("Forward indexer: Failed to get latest block", "direction", "forward", "err", err)
+			time.Sleep(pollInterval)
+			continue
+		}
+
+		// Collect blocks up to latest
+		for next <= latest.Int64() {
+			pending = append(pending, next)
+			next++
+
+			if len(pending) >= batchSize {
+				if err := processBatch(client, db, pending, flushInterval, kafkaOpts); err != nil {
+					logger.Error("Forward indexer: Failed to process batch", "direction", "forward", "from", pending[0], "to", pending[len(pending)-1], "err", err)
+					logLoadTrackingDetails(logger, db, err)
+					// Exit on error to avoid data loss
+					return
+				}
+				logger.Info("Forward indexer: Processed batch", "direction", "forward", "from", pending[0], "to", pending[len(pending)-1], "blocks", len(pending))
+				pending = pending[:0]
+			}
+		}
+
+		// Flush remaining blocks
+		if len(pending) > 0 {
+			if err := processBatch(client, db, pending, flushInterval, kafkaOpts); err != nil {
+				logger.Error("Forward indexer: Failed to process batch", "direction", "forward", "from", pending[0], "to", pending[len(pending)-1], "err", err)
+				logLoadTrackingDetails(logger, db, err)
+				return
+			}
+			logger.Info("Forward indexer: Processed batch", "direction", "forward", "from", pending[0], "to", pending[len(pending)-1], "blocks", len(pending))
+			pending = pending[:0]
+		}
+
+		time.Sleep(pollInterval)
+	}
+}
+
+// backwardIndexToStart indexes historical blocks from latest checkpoint backward to start block
+// This runs as a goroutine and backfills historical data
+func backwardIndexToStart(ctx context.Context, client *w3.Client, db *sql.DB, startBlock int64, batchSize int, flushInterval time.Duration, kafkaOpts kafkaOptions, logger *slog.Logger) {
+	// Get checkpoint range from Kafka
+	minBlock, _, hasData, err := getKafkaCheckpointRange(kafkaOpts)
+	if err != nil {
+		logger.Error("Backward indexer: Failed to get Kafka checkpoint", "direction", "backward", "err", err)
+		return
+	}
+
+	var backfillFrom int64
+	if !hasData {
+		// No data in Kafka, start from current chain head - 1
+		var latest *big.Int
+		if err := client.Call(eth.BlockNumber().Returns(&latest)); err != nil {
+			logger.Error("Backward indexer: Failed to get latest block", "direction", "backward", "err", err)
+			return
+		}
+		backfillFrom = latest.Int64() - 1
+		logger.Info("Backward indexer: Starting from chain head (no checkpoint)", "direction", "backward", "start_from", backfillFrom, "target", startBlock)
+	} else {
+		// Resume from min block - 1
+		backfillFrom = minBlock - 1
+		logger.Info("Backward indexer: Resuming from checkpoint", "direction", "backward", "checkpoint", minBlock, "start_from", backfillFrom, "target", startBlock)
+	}
+
+	// Check if already reached target
+	if backfillFrom < startBlock {
+		logger.Info("Backward indexer: Already reached start block, nothing to backfill", "direction", "backward", "current", backfillFrom, "target", startBlock)
+		return
+	}
+
+	var pending []int64
+	for i := backfillFrom; i >= startBlock; i-- {
+		select {
+		case <-ctx.Done():
+			logger.Info("Backward indexer stopped", "direction", "backward", "reached_block", i)
+			return
+		default:
+		}
+
+		pending = append(pending, i)
+
+		if len(pending) >= batchSize {
+			// Sort in ascending order for processing
+			sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
+
+			if err := processBatch(client, db, pending, flushInterval, kafkaOpts); err != nil {
+				logger.Error("Backward indexer: Failed to process batch", "direction", "backward", "from", pending[0], "to", pending[len(pending)-1], "err", err)
+				logLoadTrackingDetails(logger, db, err)
+				// Exit on error to avoid data loss
+				return
+			}
+			logger.Info("Backward indexer: Processed batch", "direction", "backward", "from", pending[0], "to", pending[len(pending)-1], "blocks", len(pending), "remaining", i-startBlock)
+			pending = pending[:0]
+		}
+	}
+
+	// Flush remaining blocks
+	if len(pending) > 0 {
+		sort.Slice(pending, func(a, b int) bool { return pending[a] < pending[b] })
+
+		if err := processBatch(client, db, pending, flushInterval, kafkaOpts); err != nil {
+			logger.Error("Backward indexer: Failed to process batch", "direction", "backward", "from", pending[0], "to", pending[len(pending)-1], "err", err)
+			logLoadTrackingDetails(logger, db, err)
+			return
+		}
+		logger.Info("Backward indexer: Processed batch", "direction", "backward", "from", pending[0], "to", pending[len(pending)-1], "blocks", len(pending))
+	}
+
+	logger.Info("Backward indexer: Completed backfill to start block", "direction", "backward", "target", startBlock)
+}
+
 func backfillIndex(ctx context.Context, client *w3.Client, db *sql.DB, from, to int64, batchSize int, flushInterval time.Duration, kafkaOpts kafkaOptions, logger *slog.Logger) {
 	var pending []int64
 	for i := to; i >= from; i-- {
@@ -713,9 +911,6 @@ func batchInsertLogs(tx *sql.Tx, logs []IndexLog) error {
 }
 
 func produceToKafka(opts kafkaOptions, blocks []IndexBlock, txs []IndexTx, receipts []IndexReceipt, logs []IndexLog) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
 	// Timing: JSON marshaling phase
 	marshalStart := time.Now()
 
@@ -741,6 +936,15 @@ func produceToKafka(opts kafkaOptions, blocks []IndexBlock, txs []IndexTx, recei
 		if err != nil {
 			return fmt.Errorf("failed to marshal transaction %s: %w", tx.Hash, err)
 		}
+
+		// Log if transaction is unusually large
+		if len(data) > 1_000_000 {
+			slog.Info("Large transaction detected",
+				"tx_hash", tx.Hash,
+				"size_bytes", len(data),
+				"block", tx.BlockNumber)
+		}
+
 		records = append(records, &kgo.Record{
 			Key:   []byte(tx.Hash),
 			Topic: fmt.Sprintf("%s-transactions", opts.chainName),
@@ -780,124 +984,170 @@ func produceToKafka(opts kafkaOptions, blocks []IndexBlock, txs []IndexTx, recei
 
 	marshalDuration := time.Since(marshalStart)
 
-	// Timing: Enqueue phase (calling .Produce on all records)
-	enqueueStart := time.Now()
+	// Retry logic: up to 3 attempts
+	const maxRetries = 3
+	var totalEnqueueDuration time.Duration
+	var totalWaitDuration time.Duration
+	var totalBlocksSuccess atomic.Int32
+	var totalTxsSuccess atomic.Int32
+	var totalReceiptsSuccess atomic.Int32
+	var totalLogsSuccess atomic.Int32
 
-	// Produce with callbacks (async pattern from the example)
-	var (
-		wg                   sync.WaitGroup
-		mu                   sync.Mutex
-		errorCount           atomic.Int32
-		successCount         atomic.Int32
-		blocksSuccessCount   atomic.Int32
-		txsSuccessCount      atomic.Int32
-		receiptsSuccessCount atomic.Int32
-		logsSuccessCount     atomic.Int32
-		errors               []error
-		maxErrors            = 10 // Store first N errors for debugging
-	)
-
-	wg.Add(len(records))
-
-	for i, record := range records {
-		index := i
-		rec := record
-
-		opts.client.Produce(ctx, rec, func(r *kgo.Record, err error) {
-			defer wg.Done()
-
-			if err != nil {
-				errorCount.Add(1)
-
-				// Log detailed information about the failed record
-				slog.Error("Failed to produce Kafka record",
-					"topic", r.Topic,
-					"key", string(r.Key),
-					"value_size_bytes", len(r.Value),
-					"error", err.Error(),
-				)
-
-				// Store first few errors for reporting
-				mu.Lock()
-				if len(errors) < maxErrors {
-					errors = append(errors, fmt.Errorf("record %d (topic=%s, key=%s, size=%d bytes): %w",
-						index, r.Topic, string(r.Key), len(r.Value), err))
-				}
-				mu.Unlock()
-			} else {
-				successCount.Add(1)
-
-				// Track per-entity-type metrics based on topic suffix
-				if strings.HasSuffix(r.Topic, "-blocks") {
-					blocksSuccessCount.Add(1)
-				} else if strings.HasSuffix(r.Topic, "-transactions") {
-					txsSuccessCount.Add(1)
-				} else if strings.HasSuffix(r.Topic, "-receipts") {
-					receiptsSuccessCount.Add(1)
-				} else if strings.HasSuffix(r.Topic, "-logs") {
-					logsSuccessCount.Add(1)
-				}
-			}
-		})
-	}
-
-	enqueueDuration := time.Since(enqueueStart)
-
-	// Timing: Wait phase (waiting for all ACKs from Kafka)
-	waitStart := time.Now()
-
-	// Wait for all callbacks to complete
-	wg.Wait()
-
-	waitDuration := time.Since(waitStart)
-
-	// Report results
-	success := successCount.Load()
-	failed := errorCount.Load()
-	total := int32(len(records))
-
-	if failed > 0 {
-		mu.Lock()
-		defer mu.Unlock()
-
-		// Return combined error with details
-		errMsg := fmt.Sprintf("failed to produce %d/%d records to Kafka", failed, total)
-		for i, err := range errors {
-			errMsg += fmt.Sprintf("\n  [%d] %v", i+1, err)
+	recordsToSend := records
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			slog.Warn("Retrying failed Kafka records",
+				"attempt", attempt,
+				"max_attempts", maxRetries,
+				"records_to_retry", len(recordsToSend))
 		}
-		if int(failed) > len(errors) {
-			errMsg += fmt.Sprintf("\n  ... and %d more errors", int(failed)-len(errors))
+
+		// Create new context for each attempt
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+		// Timing: Enqueue phase (calling .Produce on all records)
+		enqueueStart := time.Now()
+
+		// Produce with callbacks (async pattern from the example)
+		var (
+			wg                   sync.WaitGroup
+			mu                   sync.Mutex
+			failedRecords        []*kgo.Record
+			successCount         atomic.Int32
+			blocksSuccessCount   atomic.Int32
+			txsSuccessCount      atomic.Int32
+			receiptsSuccessCount atomic.Int32
+			logsSuccessCount     atomic.Int32
+		)
+
+		wg.Add(len(recordsToSend))
+
+		for _, record := range recordsToSend {
+			rec := record
+
+			opts.client.Produce(ctx, rec, func(r *kgo.Record, err error) {
+				defer wg.Done()
+
+				if err != nil {
+					// Log detailed information about the failed record
+					slog.Error("Failed to produce Kafka record",
+						"attempt", attempt,
+						"topic", r.Topic,
+						"key", string(r.Key),
+						"value_size_bytes", len(r.Value),
+						"error", err.Error(),
+					)
+
+					// Store for retry
+					mu.Lock()
+					failedRecords = append(failedRecords, r)
+					mu.Unlock()
+				} else {
+					successCount.Add(1)
+
+					// Track per-entity-type metrics based on topic suffix
+					if strings.HasSuffix(r.Topic, "-blocks") {
+						blocksSuccessCount.Add(1)
+						totalBlocksSuccess.Add(1)
+					} else if strings.HasSuffix(r.Topic, "-transactions") {
+						txsSuccessCount.Add(1)
+						totalTxsSuccess.Add(1)
+					} else if strings.HasSuffix(r.Topic, "-receipts") {
+						receiptsSuccessCount.Add(1)
+						totalReceiptsSuccess.Add(1)
+					} else if strings.HasSuffix(r.Topic, "-logs") {
+						logsSuccessCount.Add(1)
+						totalLogsSuccess.Add(1)
+					}
+				}
+			})
 		}
-		return fmt.Errorf("%s", errMsg)
-	}
 
-	// Detailed timing breakdown for produceToKafka
-	totalProduceDuration := marshalDuration + enqueueDuration + waitDuration
-	slog.Info("produceToKafka timing breakdown",
-		"total_duration", totalProduceDuration,
-		"marshal_duration", marshalDuration,
-		"marshal_pct", fmt.Sprintf("%.1f%%", 100*marshalDuration.Seconds()/totalProduceDuration.Seconds()),
-		"enqueue_duration", enqueueDuration,
-		"enqueue_pct", fmt.Sprintf("%.1f%%", 100*enqueueDuration.Seconds()/totalProduceDuration.Seconds()),
-		"wait_duration", waitDuration,
-		"wait_pct", fmt.Sprintf("%.1f%%", 100*waitDuration.Seconds()/totalProduceDuration.Seconds()),
-		"total_records", success,
-	)
+		enqueueDuration := time.Since(enqueueStart)
+		totalEnqueueDuration += enqueueDuration
 
-	// Calculate and log throughput metrics (only count successful ACKs)
-	durationSec := waitDuration.Seconds()
-	if durationSec > 0 {
-		blocksPerSec := float64(blocksSuccessCount.Load()) / durationSec
-		txsPerSec := float64(txsSuccessCount.Load()) / durationSec
-		receiptsPerSec := float64(receiptsSuccessCount.Load()) / durationSec
-		logsPerSec := float64(logsSuccessCount.Load()) / durationSec
+		// Timing: Wait phase (waiting for all ACKs from Kafka)
+		waitStart := time.Now()
 
-		slog.Info("Kafka ACK throughput (broker speed)",
-			"wait_duration", waitDuration,
+		// Wait for all callbacks to complete
+		wg.Wait()
+
+		waitDuration := time.Since(waitStart)
+		totalWaitDuration += waitDuration
+
+		cancel() // Clean up context
+
+		success := successCount.Load()
+		failed := int32(len(failedRecords))
+		total := int32(len(recordsToSend))
+
+		slog.Info("Kafka produce attempt result",
+			"attempt", attempt,
+			"total_records", total,
+			"successful", success,
+			"failed", failed,
 			"blocks_acked", blocksSuccessCount.Load(),
 			"txs_acked", txsSuccessCount.Load(),
 			"receipts_acked", receiptsSuccessCount.Load(),
 			"logs_acked", logsSuccessCount.Load(),
+		)
+
+		// If all succeeded, break out
+		if failed == 0 {
+			break
+		}
+
+		// If this was the last attempt, return error
+		if attempt == maxRetries {
+			// Build detailed error message
+			errMsg := fmt.Sprintf("failed to produce %d/%d records to Kafka after %d attempts", failed, total, maxRetries)
+			for i, rec := range failedRecords {
+				if i < 10 { // Show first 10 failures
+					errMsg += fmt.Sprintf("\n  [%d] topic=%s, key=%s, size=%d bytes", i+1, rec.Topic, string(rec.Key), len(rec.Value))
+				}
+			}
+			if len(failedRecords) > 10 {
+				errMsg += fmt.Sprintf("\n  ... and %d more failures", len(failedRecords)-10)
+			}
+			return fmt.Errorf("%s", errMsg)
+		}
+
+		// Prepare for retry
+		recordsToSend = failedRecords
+
+		// Wait a bit before retrying (exponential backoff)
+		backoff := time.Duration(attempt) * 2 * time.Second
+		slog.Info("Waiting before retry", "backoff", backoff)
+		time.Sleep(backoff)
+	}
+
+	// Detailed timing breakdown for produceToKafka
+	totalProduceDuration := marshalDuration + totalEnqueueDuration + totalWaitDuration
+	slog.Info("produceToKafka timing breakdown",
+		"total_duration", totalProduceDuration,
+		"marshal_duration", marshalDuration,
+		"marshal_pct", fmt.Sprintf("%.1f%%", 100*marshalDuration.Seconds()/totalProduceDuration.Seconds()),
+		"enqueue_duration", totalEnqueueDuration,
+		"enqueue_pct", fmt.Sprintf("%.1f%%", 100*totalEnqueueDuration.Seconds()/totalProduceDuration.Seconds()),
+		"wait_duration", totalWaitDuration,
+		"wait_pct", fmt.Sprintf("%.1f%%", 100*totalWaitDuration.Seconds()/totalProduceDuration.Seconds()),
+		"total_records", len(records),
+	)
+
+	// Calculate and log throughput metrics (only count successful ACKs)
+	durationSec := totalWaitDuration.Seconds()
+	if durationSec > 0 {
+		blocksPerSec := float64(totalBlocksSuccess.Load()) / durationSec
+		txsPerSec := float64(totalTxsSuccess.Load()) / durationSec
+		receiptsPerSec := float64(totalReceiptsSuccess.Load()) / durationSec
+		logsPerSec := float64(totalLogsSuccess.Load()) / durationSec
+
+		slog.Info("Kafka ACK throughput (broker speed)",
+			"wait_duration", totalWaitDuration,
+			"blocks_acked", totalBlocksSuccess.Load(),
+			"txs_acked", totalTxsSuccess.Load(),
+			"receipts_acked", totalReceiptsSuccess.Load(),
+			"logs_acked", totalLogsSuccess.Load(),
 			"blocks_per_sec", fmt.Sprintf("%.2f", blocksPerSec),
 			"txs_per_sec", fmt.Sprintf("%.2f", txsPerSec),
 			"receipts_per_sec", fmt.Sprintf("%.2f", receiptsPerSec),

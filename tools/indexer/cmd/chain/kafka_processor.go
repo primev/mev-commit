@@ -333,6 +333,90 @@ func processBatchKafka(blocks []*types.Block, receipts []types.Receipts, kafkaOp
 	return nil
 }
 
+// getKafkaCheckpointRange reads the min and max block numbers from the Kafka blocks topic
+// Returns (minBlock, maxBlock, hasData, error)
+func getKafkaCheckpointRange(kafkaOpts kafkaOptions) (int64, int64, bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	topic := fmt.Sprintf("%s-blocks", kafkaOpts.chainName)
+
+	// Use kadm admin client to get start and end offsets
+	adminClient := kadm.NewClient(kafkaOpts.client)
+	offsets, err := adminClient.ListEndOffsets(ctx, topic)
+	if err != nil {
+		return 0, 0, false, fmt.Errorf("failed to list end offsets for topic %s: %w", topic, err)
+	}
+
+	// Get partition 0 (we only use 1 partition)
+	offset, ok := offsets.Lookup(topic, 0)
+	if !ok {
+		return 0, 0, false, fmt.Errorf("partition 0 not found for topic %s", topic)
+	}
+
+	highWatermark := offset.Offset
+	if highWatermark == 0 {
+		// Topic is empty, no checkpoint exists
+		slog.Info("Kafka checkpoint: topic is empty", "topic", topic)
+		return 0, 0, false, nil
+	}
+
+	// Fetch first and last messages
+	// First message at offset 0
+	kafkaOpts.client.AddConsumePartitions(map[string]map[int32]kgo.Offset{
+		topic: {0: kgo.NewOffset().At(0)},
+	})
+
+	fetches := kafkaOpts.client.PollFetches(ctx)
+	if errs := fetches.Errors(); len(errs) > 0 {
+		kafkaOpts.client.RemoveConsumePartitions(map[string][]int32{topic: {0}})
+		return 0, 0, false, fmt.Errorf("fetch errors for first message: %v", errs)
+	}
+
+	var firstBlock IndexBlock
+	fetches.EachRecord(func(r *kgo.Record) {
+		if err := json.Unmarshal(r.Value, &firstBlock); err != nil {
+			slog.Error("Failed to unmarshal first block from Kafka", "err", err)
+		}
+	})
+
+	kafkaOpts.client.RemoveConsumePartitions(map[string][]int32{topic: {0}})
+
+	// Last message at offset = highWatermark - 1
+	lastOffset := highWatermark - 1
+	kafkaOpts.client.AddConsumePartitions(map[string]map[int32]kgo.Offset{
+		topic: {0: kgo.NewOffset().At(lastOffset)},
+	})
+
+	fetches = kafkaOpts.client.PollFetches(ctx)
+	if errs := fetches.Errors(); len(errs) > 0 {
+		kafkaOpts.client.RemoveConsumePartitions(map[string][]int32{topic: {0}})
+		return 0, 0, false, fmt.Errorf("fetch errors for last message: %v", errs)
+	}
+
+	var lastBlock IndexBlock
+	fetches.EachRecord(func(r *kgo.Record) {
+		if err := json.Unmarshal(r.Value, &lastBlock); err != nil {
+			slog.Error("Failed to unmarshal last block from Kafka", "err", err)
+		}
+	})
+
+	kafkaOpts.client.RemoveConsumePartitions(map[string][]int32{topic: {0}})
+
+	if firstBlock.Number == 0 || lastBlock.Number == 0 {
+		return 0, 0, false, fmt.Errorf("failed to decode blocks from Kafka topic %s", topic)
+	}
+
+	slog.Info("Kafka checkpoint range found",
+		"topic", topic,
+		"min_block", firstBlock.Number,
+		"max_block", lastBlock.Number,
+		"total_blocks", highWatermark,
+	)
+
+	return firstBlock.Number, lastBlock.Number, true, nil
+}
+
 // getKafkaCheckpoint reads the last block number from the Kafka blocks topic
 // Returns the last indexed block number, whether any blocks exist, and any error
 func getKafkaCheckpoint(kafkaOpts kafkaOptions) (int64, bool, error) {
