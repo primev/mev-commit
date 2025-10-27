@@ -16,19 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-type SimLog struct {
-	Address          string   `json:"address"`
-	Topics           []string `json:"topics"`
-	Data             string   `json:"data"`
-	BlockHash        *string  `json:"blockHash"`
-	BlockNumber      string   `json:"blockNumber"`
-	BlockTimestamp   string   `json:"blockTimestamp"`
-	LogIndex         string   `json:"logIndex"`
-	Removed          bool     `json:"removed"`
-	TransactionHash  string   `json:"transactionHash"`
-	TransactionIndex string   `json:"transactionIndex"`
-}
-
 type SimCall struct {
 	Status     string       `json:"status"`
 	GasUsed    string       `json:"gasUsed"`
