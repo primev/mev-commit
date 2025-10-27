@@ -127,7 +127,7 @@ func (db *DB) EnsureStateTable(ctx context.Context) error {
 		last_forward_block BIGINT,
 		last_backward_block BIGINT
 	) ENGINE=OLAP
-	DUPLICATE KEY(id)
+	PRIMARY KEY(id)
 	DISTRIBUTED BY HASH(id) BUCKETS 1
 	PROPERTIES (
 		"replication_num" = "1"
@@ -162,7 +162,7 @@ func (db *DB) EnsureRelaysTable(ctx context.Context) error {
 		base_url VARCHAR(255),
 		is_active TINYINT
 	) ENGINE=OLAP
-	DUPLICATE KEY(relay_id)
+	PRIMARY KEY(relay_id)
 	DISTRIBUTED BY HASH(relay_id) BUCKETS 1
 	PROPERTIES (
 		"replication_num" = "1"
@@ -192,7 +192,7 @@ func (db *DB) EnsureBlocksTable(ctx context.Context) error {
 		validator_pubkey VARCHAR(255),
 		validator_opted_in TINYINT
 	) ENGINE=OLAP
-	DUPLICATE KEY(slot)
+	PRIMARY KEY(slot)
 	DISTRIBUTED BY HASH(slot) BUCKETS 10
 	PROPERTIES (
 		"replication_num" = "1"
@@ -220,7 +220,7 @@ func (db *DB) EnsureBidsTable(ctx context.Context) error {
 		block_number BIGINT,
 		timestamp_ms BIGINT
 	) ENGINE=OLAP
-	DUPLICATE KEY(slot, relay_id, builder_pubkey)
+	PRIMARY KEY(slot, relay_id, builder_pubkey)
 	DISTRIBUTED BY HASH(slot) BUCKETS 10
 	PROPERTIES (
 		"replication_num" = "1"
@@ -249,6 +249,7 @@ func (db *DB) GetValidatorPubkey(ctx context.Context, slot int64) ([]byte, error
 	err := db.conn.QueryRowContext(ctx2, `SELECT validator_pubkey FROM blocks WHERE slot=?`, slot).Scan(&vpk)
 	return vpk, err
 }
+
 // LoadForwardCheckpoint returns the last forward indexed block number
 func (db *DB) LoadForwardCheckpoint(ctx context.Context) (int64, bool) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -613,10 +614,7 @@ func (db *DB) UpdateValidatorOptInStatus(ctx context.Context, slot int64, opted 
 	if opted {
 		v = 1
 	} // TINYINT(1) in StarRocks
-	q := fmt.Sprintf(
-		"UPDATE blocks SET validator_opted_in=%d WHERE slot=%d",
-		v, slot,
-	)
+	q := fmt.Sprintf("INSERT INTO blocks (slot, validator_opted_in) VALUES (%d, %d)", slot, v)
 	_, err := db.conn.ExecContext(ctx2, q)
 	return err
 }
