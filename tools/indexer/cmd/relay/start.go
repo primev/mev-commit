@@ -51,7 +51,7 @@ func loadRelays(ctx context.Context, db *database.DB, logger *slog.Logger) ([]re
 	return relays, nil
 }
 
-func getStartingBlockNumber(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, infuraRPC string, logger *slog.Logger) (int64, error) {
+func getStartingBlockNumber(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, rpcURL string, logger *slog.Logger) (int64, error) {
 	lastBN, found := db.LoadLastBlockNumber(ctx)
 
 	if !found || lastBN == 0 {
@@ -66,7 +66,7 @@ func getStartingBlockNumber(ctx context.Context, db *database.DB, httpc *retryab
 	if lastBN == 0 {
 		logger.Info("getting latest block from Ethereum RPC...")
 
-		latestBlock, err := ethereum.GetLatestBlockNumber(httpc.HTTPClient, infuraRPC)
+		latestBlock, err := ethereum.GetLatestBlockNumber(httpc.HTTPClient, rpcURL)
 		if err != nil {
 			logger.Error("failed to get latest block from RPC", "error", err)
 			return 0, err
@@ -95,7 +95,7 @@ func runBackfillIfConfigured(ctx context.Context, c *cli.Context, db *database.D
 	}
 }
 
-func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, infuraRPC, beaconBase string, startBN int64, logger *slog.Logger) error {
+func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, startBN int64, logger *slog.Logger) error {
 	mainTicker := time.NewTicker(c.Duration("block-interval"))
 	defer mainTicker.Stop()
 
@@ -112,7 +112,7 @@ func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *re
 			return nil
 
 		case <-mainTicker.C:
-			lastBN = processNextBlock(ctx, c, db, httpc, relays, infuraRPC, beaconBase, lastBN, logger)
+			lastBN = processNextBlock(ctx, c, db, httpc, relays, rpcURL, beaconBase, beaconchaAPIKey, lastBN, logger)
 		}
 	}
 }
@@ -123,10 +123,10 @@ func safe(p interface{}) interface{} {
 	}
 	return v.Elem().Interface()
 }
-func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, infuraRPC, beaconBase string, lastBN int64, logger *slog.Logger) int64 {
+func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, lastBN int64, logger *slog.Logger) int64 {
 	nextBN := lastBN + 1
 
-	ei, err := beacon.FetchCombinedBlockData(ctx, httpc, infuraRPC, beaconBase, nextBN)
+	ei, err := beacon.FetchCombinedBlockData(ctx, httpc, rpcURL, beaconBase, beaconchaAPIKey, nextBN)
 	if err != nil || ei == nil {
 		logger.Warn("[BLOCK] not available yet", "block", nextBN, "error", err)
 		return lastBN
@@ -152,7 +152,7 @@ func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, http
 		logger.Error("failed to process bids", "error", err)
 		return lastBN
 	}
-	if err := launchValidatorTasks(ctx, c, db, httpc, ei, beaconBase, logger); err != nil {
+	if err := launchValidatorTasks(ctx, c, db, httpc, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
 		logger.Error("[VALIDATOR] failed to launch async tasks", "slot", ei.Slot, "error", err)
 		return lastBN
 	}
@@ -240,14 +240,14 @@ func saveBlockProgress(db *database.DB, blockNum int64, logger *slog.Logger) {
 
 }
 
-func launchValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, ei *beacon.ExecInfo, beaconBase string, logger *slog.Logger) error { // Async validator pubkey fetch
+func launchValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, ei *beacon.ExecInfo, beaconBase, beaconchaAPIKey string, logger *slog.Logger) error { // Async validator pubkey fetch
 	if ei.ProposerIdx == nil {
 		return nil
 	}
 
 	vctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	vpub, err := beacon.FetchValidatorPubkey(vctx, httpc, beaconBase, *ei.ProposerIdx)
+	vpub, err := beacon.FetchValidatorPubkey(vctx, httpc, beaconBase, beaconchaAPIKey, *ei.ProposerIdx)
 	if err != nil {
 		return fmt.Errorf("fetch validator pubkey: %w", err)
 	}
@@ -292,8 +292,9 @@ func startIndexer(c *cli.Context) error {
 	initLogger := slog.With("component", "init")
 
 	dbURL := c.String(optionDatabaseURL.Name)
-	infuraRPC := c.String(optionInfuraRPC.Name)
+	rpcURL := c.String(optionRPCURL.Name)
 	beaconBase := c.String(optionBeaconBase.Name)
+	beaconchaAPIKey := c.String(optionBeaconchaAPIKey.Name)
 
 	initLogger.Info("starting blockchain indexer with StarRocks database")
 	initLogger.Info("configuration loaded",
@@ -322,7 +323,7 @@ func startIndexer(c *cli.Context) error {
 	}
 
 	// Get starting block number
-	lastBN, err := getStartingBlockNumber(ctx, db, httpc, infuraRPC, initLogger)
+	lastBN, err := getStartingBlockNumber(ctx, db, httpc, rpcURL, initLogger)
 	if err != nil {
 		return err
 	}
@@ -332,5 +333,5 @@ func startIndexer(c *cli.Context) error {
 
 	// Run backfill if configured
 	go runBackfillIfConfigured(ctx, c, db, httpc, relays, initLogger)
-	return runMainLoop(ctx, c, db, httpc, relays, infuraRPC, beaconBase, lastBN, initLogger)
+	return runMainLoop(ctx, c, db, httpc, relays, rpcURL, beaconBase, beaconchaAPIKey, lastBN, initLogger)
 }

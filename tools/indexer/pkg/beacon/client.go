@@ -28,8 +28,19 @@ type ExecInfo struct {
 	RewardEth   *float64
 }
 
-func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client, beaconBase string, blockNum int64) (*ExecInfo, error) {
-	url := fmt.Sprintf("%s/execution/block/%d", beaconBase, blockNum)
+// appendAPIKey appends the API key to the URL if provided
+func appendAPIKey(url, apiKey string) string {
+	if apiKey == "" {
+		return url
+	}
+	if strings.Contains(url, "?") {
+		return url + "&apikey=" + apiKey
+	}
+	return url + "?apikey=" + apiKey
+}
+
+func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client, beaconBase string, apiKey string, blockNum int64) (*ExecInfo, error) {
+	url := appendAPIKey(fmt.Sprintf("%s/execution/block/%d", beaconBase, blockNum), apiKey)
 
 	if _, has := ctx.Deadline(); !has {
 		var cancel context.CancelFunc
@@ -125,8 +136,8 @@ func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client,
 }
 
 // validator pubkey from proposer index
-func FetchValidatorPubkey(ctx context.Context, httpc *retryablehttp.Client, beaconBase string, proposerIndex int64) ([]byte, error) {
-	url := fmt.Sprintf("%s/validator/%d", beaconBase, proposerIndex)
+func FetchValidatorPubkey(ctx context.Context, httpc *retryablehttp.Client, beaconBase string, apiKey string, proposerIndex int64) ([]byte, error) {
+	url := appendAPIKey(fmt.Sprintf("%s/validator/%d", beaconBase, proposerIndex), apiKey)
 
 	if _, has := ctx.Deadline(); !has {
 		var cancel context.CancelFunc
@@ -194,13 +205,13 @@ func fetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber i
 		Timestamp:   &blockTime,
 	}, nil
 }
-func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rpcURL string, beaconBase string, blockNumber int64) (*ExecInfo, error) {
+func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, rpcURL string, beaconBase string, apiKey string, blockNumber int64) (*ExecInfo, error) {
 	// Get execution block from Alchemy (always available)
 	execBlock, err := fetchBlockFromRPC(httpc, rpcURL, blockNumber)
 	if err != nil {
 		return nil, err
 	}
-	beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, beaconBase, blockNumber)
+	beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, beaconBase, apiKey, blockNumber)
 
 	// Merge data - use Alchemy as primary, beacon as supplement
 	if beaconData != nil {

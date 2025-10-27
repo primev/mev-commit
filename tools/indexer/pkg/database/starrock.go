@@ -28,6 +28,16 @@ type BidInsert struct {
 }
 
 func Connect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, error) {
+	// Parse DSN to extract database name
+	dbName, dsnWithoutDB := parseDSN(dsn)
+
+	// If database name is found, try to create it if it doesn't exist
+	if dbName != "" {
+		if err := ensureDatabase(ctx, dsnWithoutDB, dbName); err != nil {
+			return nil, fmt.Errorf("failed to ensure database exists: %w", err)
+		}
+	}
+
 	conn, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open StarRocks connection: %w", err)
@@ -48,6 +58,54 @@ func Connect(ctx context.Context, dsn string, maxConns, minConns int) (*DB, erro
 
 	return &DB{conn: conn}, nil
 
+}
+
+// parseDSN extracts the database name from DSN and returns DSN without the database
+// DSN format: username:password@tcp(host:port)/database?params
+func parseDSN(dsn string) (string, string) {
+	// Find the database name between "/" and "?" or end of string
+	slashIdx := strings.LastIndex(dsn, "/")
+	if slashIdx == -1 {
+		return "", dsn
+	}
+
+	afterSlash := dsn[slashIdx+1:]
+	questionIdx := strings.Index(afterSlash, "?")
+
+	var dbName string
+	if questionIdx == -1 {
+		dbName = afterSlash
+	} else {
+		dbName = afterSlash[:questionIdx]
+	}
+
+	// Return DSN without database name
+	dsnWithoutDB := dsn[:slashIdx+1]
+	if questionIdx != -1 {
+		dsnWithoutDB += afterSlash[questionIdx:]
+	}
+
+	return dbName, dsnWithoutDB
+}
+
+// ensureDatabase creates the database if it doesn't exist
+func ensureDatabase(ctx context.Context, dsnWithoutDB, dbName string) error {
+	conn, err := sql.Open("mysql", dsnWithoutDB)
+	if err != nil {
+		return fmt.Errorf("failed to open connection without database: %w", err)
+	}
+	defer conn.Close()
+
+	createCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	// Try to create database if it doesn't exist
+	_, err = conn.ExecContext(createCtx, fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", dbName))
+	if err != nil {
+		return fmt.Errorf("failed to create database %s: %w", dbName, err)
+	}
+
+	return nil
 }
 func (db *DB) Close() error {
 	return db.conn.Close()

@@ -29,6 +29,7 @@ type Config struct {
 	HTTPTimeout      time.Duration
 	OptInContract    string
 	EtherscanKey     string
-	InfuraRPC        string
+	RPCURL           string
 	BeaconBase       string
+	BeaconchaAPIKey  string
 }

@@ -70,7 +70,7 @@ func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, c
 				}
 
 				fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				ei, ferr := beacon.FetchBeaconExecutionBlock(fetchCtx, httpc, cfg.BeaconBase, blockNumber)
+				ei, ferr := beacon.FetchBeaconExecutionBlock(fetchCtx, httpc, cfg.BeaconBase, cfg.BeaconchaAPIKey, blockNumber)
 				cancel()
 				if ferr != nil || ei == nil {
 					logger.Error("beacon fetch failed", "block", blockNumber, "error", ferr)
@@ -85,7 +85,7 @@ func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, c
 				var vpub []byte
 				if ei.ProposerIdx != nil {
 					vctx, vcancel := context.WithTimeout(ctx, 5*time.Second)
-					v, verr := beacon.FetchValidatorPubkey(vctx, httpc, cfg.BeaconBase, *ei.ProposerIdx)
+					v, verr := beacon.FetchValidatorPubkey(vctx, httpc, cfg.BeaconBase, cfg.BeaconchaAPIKey, *ei.ProposerIdx)
 					vcancel()
 					if verr != nil {
 						logger.Error("validator fetch failed", "slot", ei.Slot, "error", verr)

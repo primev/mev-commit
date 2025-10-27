@@ -22,7 +22,7 @@ func CallAreOptedInAtBlock(httpc *http.Client, cfg *config.Config, blockNum int6
 	if len(pubkey) == 0 {
 		return false, fmt.Errorf("empty pubkey")
 	}
-	client, err := ethclient.Dial(cfg.InfuraRPC)
+	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
 		return false, err
 	}
