@@ -1,0 +1,7 @@
+FROM alpine:3.10
+
+COPY --from=builder_ctx /go/bin/relay /usr/local/bin/relay-indexer
+
+EXPOSE 8080
+
+ENTRYPOINT ["relay-indexer"]
