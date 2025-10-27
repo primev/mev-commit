@@ -224,9 +224,10 @@ func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, li
 	// Get execution block from Alchemy (always available)
 	execBlock, err := fetchBlockFromRPC(httpc, rpcURL, blockNumber)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch from RPC: %w", err)
 	}
-	beaconData, _ := FetchBeaconExecutionBlock(ctx, httpc, limiter, beaconBase, apiKey, blockNumber)
+
+	beaconData, beaconErr := FetchBeaconExecutionBlock(ctx, httpc, limiter, beaconBase, apiKey, blockNumber)
 
 	// Merge data - use Alchemy as primary, beacon as supplement
 	if beaconData != nil {
@@ -236,6 +237,9 @@ func FetchCombinedBlockData(ctx context.Context, httpc *retryablehttp.Client, li
 		execBlock.RewardEth = beaconData.RewardEth
 		execBlock.BuilderHex = beaconData.BuilderHex
 		execBlock.FeeRecHex = beaconData.FeeRecHex
+	} else if beaconErr != nil {
+		// Return error with context about beacon fetch failure
+		return nil, fmt.Errorf("beaconcha.in API failed for block %d: %w", blockNumber, beaconErr)
 	}
 	return execBlock, nil
 }

@@ -71,17 +71,10 @@ var (
 		Value:   1500 * time.Millisecond,
 	})
 
-	optionBackfillLookback = altsrc.NewIntFlag(&cli.IntFlag{
-		Name:    "backfill-lookback",
-		Usage:   "number of slots to look back for backfill",
-		EnvVars: []string{"INDEXER_BACKFILL_LOOKBACK"},
-		Value:   50400,
-	})
-
-	optionBackfillBatch = altsrc.NewIntFlag(&cli.IntFlag{
-		Name:    "backfill-batch",
-		Usage:   "batch size for backfill operations",
-		EnvVars: []string{"INDEXER_BACKFILL_BATCH"},
+	optionBatchSize = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:    "batch-size",
+		Usage:   "number of blocks to process in each batch",
+		EnvVars: []string{"INDEXER_BATCH_SIZE"},
 		Value:   100,
 	})
 
@@ -102,16 +95,15 @@ var (
 
 func createOptionsFromCLI(c *cli.Context) *config.Config {
 	return &config.Config{
-		BlockTick:        c.Duration("block-interval"),
-		ValidatorWait:    c.Duration("validator-delay"),
-		BackfillLookback: int64(c.Int("backfill-lookback")),
-		BackfillBatch:    c.Int("backfill-batch"),
-		HTTPTimeout:      c.Duration("http-timeout"),
-		OptInContract:    c.String("opt-in-contract"),
-		RPCURL:           c.String("rpc-url"),
-		BeaconBase:       c.String("beacon-base"),
-		BeaconchaAPIKey:  c.String("beaconcha-api-key"),
-		BeaconchaRPS:     c.Int("beaconcha-rps"),
+		BlockTick:       c.Duration("block-interval"),
+		ValidatorWait:   c.Duration("validator-delay"),
+		BatchSize:       c.Int("batch-size"),
+		HTTPTimeout:     c.Duration("http-timeout"),
+		OptInContract:   c.String("opt-in-contract"),
+		RPCURL:          c.String("rpc-url"),
+		BeaconBase:      c.String("beacon-base"),
+		BeaconchaAPIKey: c.String("beaconcha-api-key"),
+		BeaconchaRPS:    c.Int("beaconcha-rps"),
 	}
 }
 
@@ -125,9 +117,7 @@ func main() {
 		optionBeaconchaRPS,
 		optionBlockInterval,
 		optionValidatorDelay,
-
-		optionBackfillLookback,
-		optionBackfillBatch,
+		optionBatchSize,
 		optionBackwardStopBlock,
 		optionHTTPTimeout,
 		optionOptInContract,

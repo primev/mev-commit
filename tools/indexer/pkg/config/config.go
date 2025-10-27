@@ -19,17 +19,13 @@ var RelaysDefault = []Relay{
 }
 
 type Config struct {
-	BlockTick        time.Duration
-	ValidatorWait    time.Duration
-	BackfillEvery    time.Duration
-	BackfillLookback int64
-	BackfillBatch    int
-	MaxRetries       int
-	BaseRetryDelay   time.Duration
-	HTTPTimeout      time.Duration
-	OptInContract    string
-	RPCURL           string
-	BeaconBase       string
-	BeaconchaAPIKey  string
-	BeaconchaRPS     int
+	BlockTick       time.Duration
+	ValidatorWait   time.Duration
+	BatchSize       int
+	HTTPTimeout     time.Duration
+	OptInContract   string
+	RPCURL          string
+	BeaconBase      string
+	BeaconchaAPIKey string
+	BeaconchaRPS    int
 }

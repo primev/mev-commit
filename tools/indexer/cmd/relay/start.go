@@ -112,12 +112,13 @@ func getStartingPoints(ctx context.Context, db *database.DB, httpc *retryablehtt
 // runBackwardLoop indexes blocks backwards from the starting point
 func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, startBN, stopBlock int64, logger *slog.Logger) error {
 	logger = logger.With("indexer", "backward")
+	cfg := createOptionsFromCLI(c)
 	blockInterval := c.Duration("block-interval")
 	ticker := time.NewTicker(blockInterval)
 	defer ticker.Stop()
 
 	currentBN := startBN
-	logger.Info("[BACKWARD] starting backward indexer", "start_block", currentBN, "stop_block", stopBlock)
+	logger.Info("[BACKWARD] starting backward indexer", "start_block", currentBN, "stop_block", stopBlock, "batch_size", cfg.BatchSize)
 
 	for {
 		select {
@@ -134,37 +135,57 @@ func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc
 				return nil
 			}
 
-			logger.Info("[BACKWARD] processing block", "block", currentBN)
-
-			ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, currentBN)
-			if err != nil || ei == nil {
-				logger.Warn("[BACKWARD] block not available", "block", currentBN, "error", err)
-				continue
+			// Calculate batch range
+			batchEnd := currentBN
+			batchStart := currentBN - int64(cfg.BatchSize) + 1
+			if batchStart < stopBlock {
+				batchStart = stopBlock + 1
+			}
+			if batchStart > batchEnd {
+				batchStart = batchEnd
 			}
 
-			// Process block data
-			if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
-				logger.Error("[BACKWARD] failed to upsert block", "block", currentBN, "error", err)
-				continue
+			logger.Info("[BACKWARD] processing batch", "range", fmt.Sprintf("[%d,%d]", batchStart, batchEnd), "count", batchEnd-batchStart+1)
+
+			// Process blocks in batch
+			blocksProcessed := 0
+			for bn := batchEnd; bn >= batchStart; bn-- {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+
+				ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn)
+				if err != nil || ei == nil {
+					logger.Warn("[BACKWARD] block not available", "block", bn, "error", err)
+					continue
+				}
+
+				// Process block data
+				if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
+					logger.Error("[BACKWARD] failed to upsert block", "block", bn, "error", err)
+					continue
+				}
+
+				// Process bids for this block
+				if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
+					logger.Error("[BACKWARD] failed to process bids", "block", bn, "error", err)
+				}
+
+				// Process validator tasks
+				if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
+					logger.Error("[BACKWARD] failed to launch validator tasks", "block", bn, "error", err)
+				}
+
+				blocksProcessed++
 			}
 
-			// Process bids for this block
-			if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
-				logger.Error("[BACKWARD] failed to process bids", "block", currentBN, "error", err)
-			}
+			logger.Info("[BACKWARD] batch completed", "blocks_processed", blocksProcessed)
 
-			// Process validator tasks
-			if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
-				logger.Error("[BACKWARD] failed to launch validator tasks", "block", currentBN, "error", err)
-			}
-
-			// Save checkpoint
+			// Save checkpoint at end of batch
+			currentBN = batchStart - 1
 			if err := db.SaveBackwardCheckpoint(ctx, currentBN); err != nil {
 				logger.Error("[BACKWARD] failed to save checkpoint", "block", currentBN, "error", err)
 			}
-
-			// Move to previous block
-			currentBN--
 		}
 	}
 }
@@ -172,12 +193,13 @@ func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc
 // runForwardLoop indexes blocks forward from the starting point
 func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, startBN int64, logger *slog.Logger) error {
 	logger = logger.With("indexer", "forward")
+	cfg := createOptionsFromCLI(c)
 	blockInterval := c.Duration("block-interval")
 	ticker := time.NewTicker(blockInterval)
 	defer ticker.Stop()
 
 	currentBN := startBN
-	logger.Info("[FORWARD] starting forward indexer", "start_block", currentBN)
+	logger.Info("[FORWARD] starting forward indexer", "start_block", currentBN, "batch_size", cfg.BatchSize)
 
 	for {
 		select {
@@ -189,36 +211,68 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 			return nil
 
 		case <-ticker.C:
-			nextBN := currentBN + 1
-			logger.Info("[FORWARD] processing block", "block", nextBN)
-
-			ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, nextBN)
-			if err != nil || ei == nil {
-				logger.Warn("[FORWARD] block not available yet", "block", nextBN, "error", err)
+			// Get latest block to determine how many blocks are available
+			latestBlock, err := ethereum.GetLatestBlockNumber(httpc.HTTPClient, rpcURL)
+			if err != nil {
+				logger.Error("[FORWARD] failed to get latest block", "error", err)
 				continue
 			}
 
-			// Process block data
-			if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
-				logger.Error("[FORWARD] failed to upsert block", "block", nextBN, "error", err)
+			// Calculate batch range
+			batchStart := currentBN + 1
+			batchEnd := batchStart + int64(cfg.BatchSize) - 1
+			if batchEnd > latestBlock {
+				batchEnd = latestBlock
+			}
+
+			if batchStart > latestBlock {
+				logger.Debug("[FORWARD] no new blocks available", "current", currentBN, "latest", latestBlock)
 				continue
 			}
 
-			// Process bids for this block
-			if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
-				logger.Error("[FORWARD] failed to process bids", "block", nextBN, "error", err)
+			logger.Info("[FORWARD] processing batch", "range", fmt.Sprintf("[%d,%d]", batchStart, batchEnd), "count", batchEnd-batchStart+1)
+
+			// Process blocks in batch
+			blocksProcessed := 0
+			for bn := batchStart; bn <= batchEnd; bn++ {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+
+				ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn)
+				if err != nil || ei == nil {
+					logger.Warn("[FORWARD] block not available", "block", bn, "error", err)
+					continue
+				}
+
+				// Process block data
+				if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
+					logger.Error("[FORWARD] failed to upsert block", "block", bn, "error", err)
+					continue
+				}
+
+				// Process bids for this block
+				if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
+					logger.Error("[FORWARD] failed to process bids", "block", bn, "error", err)
+				}
+
+				// Process validator tasks
+				if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
+					logger.Error("[FORWARD] failed to launch validator tasks", "block", bn, "error", err)
+				}
+
+				blocksProcessed++
 			}
 
-			// Process validator tasks
-			if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
-				logger.Error("[FORWARD] failed to launch validator tasks", "block", nextBN, "error", err)
-			}
+			logger.Info("[FORWARD] batch completed", "blocks_processed", blocksProcessed)
 
-			// Save checkpoint and advance
-			if err := db.SaveForwardCheckpoint(ctx, nextBN); err != nil {
-				logger.Error("[FORWARD] failed to save checkpoint", "block", nextBN, "error", err)
+			// Save checkpoint at end of batch
+			if blocksProcessed > 0 {
+				currentBN = batchStart + int64(blocksProcessed) - 1
+				if err := db.SaveForwardCheckpoint(ctx, currentBN); err != nil {
+					logger.Error("[FORWARD] failed to save checkpoint", "block", currentBN, "error", err)
+				}
 			}
-			currentBN = nextBN
 		}
 	}
 }
