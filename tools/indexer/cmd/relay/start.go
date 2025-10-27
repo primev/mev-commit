@@ -4,12 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-retryablehttp"
-	"github.com/primev/mev-commit/tools/indexer/pkg/backfill"
 	"github.com/primev/mev-commit/tools/indexer/pkg/beacon"
 	"github.com/primev/mev-commit/tools/indexer/pkg/database"
 	"github.com/primev/mev-commit/tools/indexer/pkg/ethereum"
@@ -70,116 +68,160 @@ func loadRelays(ctx context.Context, db *database.DB, logger *slog.Logger) ([]re
 	return relays, nil
 }
 
-func getStartingBlockNumber(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, rpcURL string, logger *slog.Logger) (int64, error) {
-	lastBN, found := db.LoadLastBlockNumber(ctx)
+// getStartingPoints returns the forward and backward starting block numbers
+func getStartingPoints(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, rpcURL string, logger *slog.Logger) (forwardStart, backwardStart int64, err error) {
+	// Try to load existing checkpoints
+	forwardBN, forwardFound := db.LoadForwardCheckpoint(ctx)
+	backwardBN, backwardFound := db.LoadBackwardCheckpoint(ctx)
 
-	if !found || lastBN == 0 {
-		logger.Info("no previous state found, checking database for latest block")
-		var err error
-		lastBN, err = db.GetMaxBlockNumber(ctx)
-		if err != nil {
-			logger.Error("database query failed", "error", err)
-		}
+	// If both checkpoints exist, resume from them
+	if forwardFound && backwardFound && forwardBN > 0 && backwardBN > 0 {
+		logger.Info("[CHECKPOINT] resuming from saved checkpoints",
+			"forward_block", forwardBN,
+			"backward_block", backwardBN)
+		return forwardBN, backwardBN, nil
 	}
 
-	if lastBN == 0 {
-		logger.Info("getting latest block from Ethereum RPC...")
-
-		latestBlock, err := ethereum.GetLatestBlockNumber(httpc.HTTPClient, rpcURL)
-		if err != nil {
-			logger.Error("failed to get latest block from RPC", "error", err)
-			return 0, err
-		}
-
-		lastBN = latestBlock - 10 // Start 10 blocks behind to ensure data availability
-		logger.Info("starting from block", "block", lastBN, "latest", latestBlock)
+	// Otherwise, get the current latest block from Ethereum
+	logger.Info("[INIT] no valid checkpoints found, getting latest block from Ethereum RPC...")
+	latestBlock, err := ethereum.GetLatestBlockNumber(httpc.HTTPClient, rpcURL)
+	if err != nil {
+		logger.Error("[INIT] failed to get latest block from RPC", "error", err)
+		return 0, 0, err
 	}
-	return lastBN, nil
+
+	// Start both indexers from the current latest block
+	// Forward will go: latest → latest+1 → latest+2...
+	// Backward will go: latest-1 → latest-2 → latest-3...
+	startBlock := latestBlock
+	logger.Info("[INIT] initializing both indexers from current block",
+		"start_block", startBlock,
+		"latest_block", latestBlock)
+
+	// Save initial checkpoints
+	if err := db.SaveForwardCheckpoint(ctx, startBlock); err != nil {
+		logger.Warn("[CHECKPOINT] failed to save initial forward checkpoint", "error", err)
+	}
+	if err := db.SaveBackwardCheckpoint(ctx, startBlock-1); err != nil {
+		logger.Warn("[CHECKPOINT] failed to save initial backward checkpoint", "error", err)
+	}
+
+	return startBlock, startBlock - 1, nil
 }
 
-func runBackfillIfConfigured(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, logger *slog.Logger) {
-	logger.Info("indexer configuration", "lookback", c.Int("backfill-lookback"), "batch", c.Int("backfill-batch"))
+// runBackwardLoop indexes blocks backwards from the starting point
+func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, startBN, stopBlock int64, logger *slog.Logger) error {
+	logger = logger.With("indexer", "backward")
+	blockInterval := c.Duration("block-interval")
+	ticker := time.NewTicker(blockInterval)
+	defer ticker.Stop()
 
-	if c.Int("backfill-lookback") > 0 {
-		logger.Info("[BACKFILL] running one-time backfill",
-			"lookback", c.Int("backfill-lookback"),
-			"batch", c.Int("backfill-batch"))
-		if err := backfill.RunAll(ctx, db, httpc, beaconLimiter, createOptionsFromCLI(c), relays); err != nil {
-			logger.Error("[BACKFILL] failed", "error", err)
-		} else {
-			logger.Info("[BACKFILL] completed startup backfill")
-		}
-	} else {
-		logger.Info("[BACKFILL] skipped", "reason", "backfill-lookback=0")
-	}
-}
-
-func runMainLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, startBN int64, logger *slog.Logger) error {
-	mainTicker := time.NewTicker(c.Duration("block-interval"))
-	defer mainTicker.Stop()
-
-	lastBN := startBN
+	currentBN := startBN
+	logger.Info("[BACKWARD] starting backward indexer", "start_block", currentBN, "stop_block", stopBlock)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("[SHUTDOWN] graceful shutdown initiated", "reason", ctx.Err())
-			if err := db.SaveLastBlockNumber(ctx, lastBN); err != nil {
-				logger.Error("[SHUTDOWN] failed to save last block number", "error", err)
+			logger.Info("[BACKWARD] shutdown initiated", "last_block", currentBN)
+			if err := db.SaveBackwardCheckpoint(ctx, currentBN); err != nil {
+				logger.Error("[BACKWARD] failed to save checkpoint on shutdown", "error", err)
 			}
-			logger.Info("[SHUTDOWN] indexer stopped", "block", lastBN)
 			return nil
 
-		case <-mainTicker.C:
-			lastBN = processNextBlock(ctx, c, db, httpc, beaconLimiter, relays, rpcURL, beaconBase, beaconchaAPIKey, lastBN, logger)
+		case <-ticker.C:
+			if currentBN <= stopBlock {
+				logger.Info("[BACKWARD] reached stop block, stopping", "stop_block", stopBlock)
+				return nil
+			}
+
+			logger.Info("[BACKWARD] processing block", "block", currentBN)
+
+			ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, currentBN)
+			if err != nil || ei == nil {
+				logger.Warn("[BACKWARD] block not available", "block", currentBN, "error", err)
+				continue
+			}
+
+			// Process block data
+			if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
+				logger.Error("[BACKWARD] failed to upsert block", "block", currentBN, "error", err)
+				continue
+			}
+
+			// Process bids for this block
+			if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
+				logger.Error("[BACKWARD] failed to process bids", "block", currentBN, "error", err)
+			}
+
+			// Process validator tasks
+			if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
+				logger.Error("[BACKWARD] failed to launch validator tasks", "block", currentBN, "error", err)
+			}
+
+			// Save checkpoint
+			if err := db.SaveBackwardCheckpoint(ctx, currentBN); err != nil {
+				logger.Error("[BACKWARD] failed to save checkpoint", "block", currentBN, "error", err)
+			}
+
+			// Move to previous block
+			currentBN--
 		}
 	}
 }
-func safe(p interface{}) interface{} {
-	v := reflect.ValueOf(p)
-	if !v.IsValid() || v.IsNil() {
-		return nil
+
+// runForwardLoop indexes blocks forward from the starting point
+func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, startBN int64, logger *slog.Logger) error {
+	logger = logger.With("indexer", "forward")
+	blockInterval := c.Duration("block-interval")
+	ticker := time.NewTicker(blockInterval)
+	defer ticker.Stop()
+
+	currentBN := startBN
+	logger.Info("[FORWARD] starting forward indexer", "start_block", currentBN)
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("[FORWARD] shutdown initiated", "last_block", currentBN)
+			if err := db.SaveForwardCheckpoint(ctx, currentBN); err != nil {
+				logger.Error("[FORWARD] failed to save checkpoint on shutdown", "error", err)
+			}
+			return nil
+
+		case <-ticker.C:
+			nextBN := currentBN + 1
+			logger.Info("[FORWARD] processing block", "block", nextBN)
+
+			ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, nextBN)
+			if err != nil || ei == nil {
+				logger.Warn("[FORWARD] block not available yet", "block", nextBN, "error", err)
+				continue
+			}
+
+			// Process block data
+			if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
+				logger.Error("[FORWARD] failed to upsert block", "block", nextBN, "error", err)
+				continue
+			}
+
+			// Process bids for this block
+			if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
+				logger.Error("[FORWARD] failed to process bids", "block", nextBN, "error", err)
+			}
+
+			// Process validator tasks
+			if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
+				logger.Error("[FORWARD] failed to launch validator tasks", "block", nextBN, "error", err)
+			}
+
+			// Save checkpoint and advance
+			if err := db.SaveForwardCheckpoint(ctx, nextBN); err != nil {
+				logger.Error("[FORWARD] failed to save checkpoint", "block", nextBN, "error", err)
+			}
+			currentBN = nextBN
+		}
 	}
-	return v.Elem().Interface()
 }
-func processNextBlock(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, relays []relay.Row, rpcURL, beaconBase, beaconchaAPIKey string, lastBN int64, logger *slog.Logger) int64 {
-	nextBN := lastBN + 1
-
-	ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, nextBN)
-	if err != nil || ei == nil {
-		logger.Warn("[BLOCK] not available yet", "block", nextBN, "error", err)
-		return lastBN
-	}
-
-	logger.Info("processing block",
-		"block", nextBN,
-		"slot", ei.Slot,
-		"timestamp", ei.Timestamp,
-		"proposer_index", safe(ei.ProposerIdx),
-		"winning_relay", safe(ei.RelayTag),
-		"builder_pubkey_prefix", safe(ei.BuilderHex),
-		"producer_reward_eth", safe(ei.RewardEth),
-	)
-
-	if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
-		logger.Error("[DB] failed to save block", "block", nextBN, "error", err)
-		return lastBN
-	}
-	logger.Info("[DB] block saved successfully", "block", nextBN)
-
-	if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
-		logger.Error("failed to process bids", "error", err)
-		return lastBN
-	}
-	if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
-		logger.Error("[VALIDATOR] failed to launch async tasks", "slot", ei.Slot, "error", err)
-		return lastBN
-	}
-
-	saveBlockProgress(db, nextBN, logger)
-	return nextBN
-}
-
 func processBidsForBlock(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, ei *beacon.ExecInfo, logger *slog.Logger) error {
 
 	// Fetch and store bid data from all relays
@@ -247,18 +289,6 @@ func processBidsForBlock(ctx context.Context, db *database.DB, httpc *retryableh
 	return nil
 }
 
-func saveBlockProgress(db *database.DB, blockNum int64, logger *slog.Logger) {
-	gctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := db.SaveLastBlockNumber(gctx, blockNum); err != nil {
-		logger.Error("[PROGRESS] failed to save block number", "block", blockNum, "error", err)
-	} else {
-		logger.Info("[PROGRESS] advanced to block", "block", blockNum)
-	}
-
-}
-
 func launchValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, ei *beacon.ExecInfo, beaconBase, beaconchaAPIKey string, logger *slog.Logger) error { // Async validator pubkey fetch
 	if ei.ProposerIdx == nil {
 		return nil
@@ -315,6 +345,7 @@ func startIndexer(c *cli.Context) error {
 	beaconBase := c.String(optionBeaconBase.Name)
 	beaconchaAPIKey := c.String(optionBeaconchaAPIKey.Name)
 	beaconchaRPS := c.Int(optionBeaconchaRPS.Name)
+	backwardStopBlock := c.Int64(optionBackwardStopBlock.Name)
 
 	initLogger.Info("starting blockchain indexer with StarRocks database")
 	initLogger.Info("configuration loaded",
@@ -351,16 +382,45 @@ func startIndexer(c *cli.Context) error {
 		return err
 	}
 
-	// Get starting block number
-	lastBN, err := getStartingBlockNumber(ctx, db, httpc, rpcURL, initLogger)
+	// Get starting points for forward and backward indexers
+	forwardStart, backwardStart, err := getStartingPoints(ctx, db, httpc, rpcURL, initLogger)
 	if err != nil {
 		return err
 	}
 
-	initLogger.Info("starting from block number", "block", lastBN)
-	initLogger.Info("indexer configuration", "lookback", c.Int("backfill-lookback"), "batch", c.Int("backfill-batch"))
+	initLogger.Info("[INIT] dual indexer starting",
+		"forward_start", forwardStart,
+		"backward_start", backwardStart,
+		"block_interval", c.Duration("block-interval"))
 
-	// Run backfill if configured
-	go runBackfillIfConfigured(ctx, c, db, httpc, beaconLimiter, relays, initLogger)
-	return runMainLoop(ctx, c, db, httpc, beaconLimiter, relays, rpcURL, beaconBase, beaconchaAPIKey, lastBN, initLogger)
+	// Create error channel to capture indexer errors
+	errChan := make(chan error, 2)
+
+	// Launch forward indexer
+	go func() {
+		initLogger.Info("[FORWARD] launching forward indexer goroutine")
+		err := runForwardLoop(ctx, c, db, httpc, beaconLimiter, relays, rpcURL, beaconBase, beaconchaAPIKey, forwardStart, initLogger)
+		errChan <- err
+	}()
+
+	// Launch backward indexer
+	go func() {
+		initLogger.Info("[BACKWARD] launching backward indexer goroutine")
+		err := runBackwardLoop(ctx, c, db, httpc, beaconLimiter, relays, rpcURL, beaconBase, beaconchaAPIKey, backwardStart, backwardStopBlock, initLogger)
+		errChan <- err
+	}()
+
+	// Wait for either indexer to complete or error
+	err1 := <-errChan
+	err2 := <-errChan
+
+	if err1 != nil {
+		initLogger.Error("[INDEXER] indexer 1 stopped with error", "error", err1)
+	}
+	if err2 != nil {
+		initLogger.Error("[INDEXER] indexer 2 stopped with error", "error", err2)
+	}
+
+	initLogger.Info("[INDEXER] both indexers stopped")
+	return nil
 }

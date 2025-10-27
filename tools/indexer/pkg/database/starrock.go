@@ -124,7 +124,8 @@ func (db *DB) EnsureStateTable(ctx context.Context) error {
 	ddl := `
 	CREATE TABLE IF NOT EXISTS ingestor_state (
 		id TINYINT,
-		last_block_number BIGINT
+		last_forward_block BIGINT,
+		last_backward_block BIGINT
 	) ENGINE=OLAP
 	DUPLICATE KEY(id)
 	DISTRIBUTED BY HASH(id) BUCKETS 1
@@ -140,7 +141,7 @@ func (db *DB) EnsureStateTable(ctx context.Context) error {
 	err := db.conn.QueryRowContext(ctx2, `SELECT COUNT(*) FROM ingestor_state WHERE id = 1`).Scan(&count)
 	if err != nil || count == 0 {
 		_, err = db.conn.ExecContext(ctx2,
-			`INSERT INTO ingestor_state (id, last_block_number) VALUES (1, 0)`)
+			`INSERT INTO ingestor_state (id, last_forward_block, last_backward_block) VALUES (1, 0, 0)`)
 		if err != nil {
 			return fmt.Errorf("failed to insert initial state: %w", err)
 		}
@@ -248,28 +249,55 @@ func (db *DB) GetValidatorPubkey(ctx context.Context, slot int64) ([]byte, error
 	err := db.conn.QueryRowContext(ctx2, `SELECT validator_pubkey FROM blocks WHERE slot=?`, slot).Scan(&vpk)
 	return vpk, err
 }
-func (db *DB) LoadLastBlockNumber(ctx context.Context) (int64, bool) {
+// LoadForwardCheckpoint returns the last forward indexed block number
+func (db *DB) LoadForwardCheckpoint(ctx context.Context) (int64, bool) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var bn int64
 	err := db.conn.QueryRowContext(ctx2,
-		`SELECT last_block_number FROM ingestor_state WHERE id = 1 LIMIT 1`).Scan(&bn)
+		`SELECT last_forward_block FROM ingestor_state WHERE id = 1 LIMIT 1`).Scan(&bn)
 	if err != nil {
 		return 0, false
 	}
 	return bn, true
 }
 
-func (db *DB) SaveLastBlockNumber(ctx context.Context, bn int64) error {
+// LoadBackwardCheckpoint returns the last backward indexed block number
+func (db *DB) LoadBackwardCheckpoint(ctx context.Context) (int64, bool) {
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var bn int64
+	err := db.conn.QueryRowContext(ctx2,
+		`SELECT last_backward_block FROM ingestor_state WHERE id = 1 LIMIT 1`).Scan(&bn)
+	if err != nil {
+		return 0, false
+	}
+	return bn, true
+}
+
+// SaveForwardCheckpoint saves the forward indexer progress
+func (db *DB) SaveForwardCheckpoint(ctx context.Context, bn int64) error {
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	q2 := fmt.Sprintf(`INSERT INTO ingestor_state (id, last_block_number) VALUES (1, %d)`, bn)
-	if _, err := db.conn.ExecContext(ctx2, q2); err != nil {
-		return fmt.Errorf("save last_block_number failed (insert): %w", err)
+	q := fmt.Sprintf(`INSERT INTO ingestor_state (id, last_forward_block) VALUES (1, %d)`, bn)
+	if _, err := db.conn.ExecContext(ctx2, q); err != nil {
+		return fmt.Errorf("save forward checkpoint failed: %w", err)
 	}
+	return nil
+}
 
+// SaveBackwardCheckpoint saves the backward indexer progress
+func (db *DB) SaveBackwardCheckpoint(ctx context.Context, bn int64) error {
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	q := fmt.Sprintf(`INSERT INTO ingestor_state (id, last_backward_block) VALUES (1, %d)`, bn)
+	if _, err := db.conn.ExecContext(ctx2, q); err != nil {
+		return fmt.Errorf("save backward checkpoint failed: %w", err)
+	}
 	return nil
 }
 

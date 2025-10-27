@@ -85,6 +85,13 @@ var (
 		Value:   100,
 	})
 
+	optionBackwardStopBlock = altsrc.NewInt64Flag(&cli.Int64Flag{
+		Name:    "backward-stop-block",
+		Usage:   "block number where backward indexer should stop (0 = genesis)",
+		EnvVars: []string{"INDEXER_BACKWARD_STOP_BLOCK"},
+		Value:   0,
+	})
+
 	optionHTTPTimeout = altsrc.NewDurationFlag(&cli.DurationFlag{
 		Name:    "http-timeout",
 		Usage:   "HTTP client timeout",
@@ -121,6 +128,7 @@ func main() {
 
 		optionBackfillLookback,
 		optionBackfillBatch,
+		optionBackwardStopBlock,
 		optionHTTPTimeout,
 		optionOptInContract,
 	}

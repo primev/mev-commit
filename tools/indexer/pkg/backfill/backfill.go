@@ -33,12 +33,34 @@ func RunAll(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, b
 	lastSlotNumber, _ := db.GetMaxSlotNumber(ctx)
 	startSlot := lastSlotNumber - cfg.BackfillLookback
 
+	// Ensure startSlot is never negative (genesis is slot 0)
+	if startSlot < 0 {
+		logger.Warn("Calculated start slot is negative, clamping to 0",
+			"calculated_start", startSlot,
+			"last_slot", lastSlotNumber,
+			"lookback", cfg.BackfillLookback)
+		startSlot = 0
+	}
+
+	// If database is empty or no slots to backfill, skip
+	if lastSlotNumber == 0 {
+		logger.Info("Database is empty (no blocks yet), skipping backfill. Real-time indexing will populate the database.")
+		return nil
+	}
+
 	batch := cfg.BackfillBatch
-	totalBatches := (cfg.BackfillLookback + int64(batch) - 1) / int64(batch)
+	actualLookback := lastSlotNumber - startSlot
+	totalBatches := (actualLookback + int64(batch) - 1) / int64(batch)
+	if totalBatches <= 0 {
+		logger.Info("No slots to backfill", "start_slot", startSlot, "last_slot", lastSlotNumber)
+		return nil
+	}
+
 	logger.Info("Starting backfill",
 		"start_slot", startSlot,
 		"end_slot_exclusive", lastSlotNumber,
-		"lookback_slots", cfg.BackfillLookback,
+		"actual_lookback", actualLookback,
+		"requested_lookback", cfg.BackfillLookback,
 		"batch_size", cfg.BackfillBatch,
 		"total_batches", totalBatches,
 	)
