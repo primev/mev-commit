@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: primev/primev
   pullPolicy: IfNotPresent
-  tag: "relay-indexer-rc5"
+  tag: "relay-indexer-rc10"
 
 nameOverride: ""
 fullnameOverride: ""
@@ -29,6 +29,19 @@ indexer:
   # Database connection URL
   databaseUrl: ""
   
+  # relay urls
+  relays:
+    - relay_id: 1
+      url: ""
+    - relay_id: 2
+      url: ""
+    - relay_id: 3
+      url: ""
+    - relay_id: 4
+      url: ""
+    - relay_id: 5
+      url: ""
+  
   # Ethereum RPC URL
   rpcUrl: ""
   
@@ -53,7 +66,7 @@ indexer:
   # Validator opt-in contract address
   optInContract: "0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64"
 
-  backwardStopBlock: 21153543
+  backwardStopBlock: "21153543"
   
   # RPS sent to beaconcha endppint
   beaconRps: 30
