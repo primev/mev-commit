@@ -109,6 +109,60 @@ func ensureDatabase(ctx context.Context, dsnWithoutDB, dbName string) error {
 func (db *DB) Close() error {
 	return db.conn.Close()
 }
+
+// BlockWithoutBids represents a block that needs bid fetching
+type BlockWithoutBids struct {
+	BlockNumber int64
+	Slot        int64
+}
+
+// GetBlocksWithoutBids returns blocks that don't have any bids yet
+// direction: "forward" (ASC) or "backward" (DESC)
+func (db *DB) GetBlocksWithoutBids(ctx context.Context, startBlock, limit int64, direction string) ([]BlockWithoutBids, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	orderClause := "ASC"
+	whereClause := "b.block_number >= ?"
+
+	if direction == "backward" {
+		orderClause = "DESC"
+		whereClause = "b.block_number <= ?"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT b.block_number, b.slot
+		FROM blocks b
+		WHERE %s
+		  AND NOT EXISTS (
+			  SELECT 1 FROM bids WHERE slot = b.slot LIMIT 1
+		  )
+		ORDER BY b.block_number %s
+		LIMIT ?
+	`, whereClause, orderClause)
+
+	rows, err := db.conn.QueryContext(ctx2, query, startBlock, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query blocks without bids: %w", err)
+	}
+	defer rows.Close()
+
+	var blocks []BlockWithoutBids
+	for rows.Next() {
+		var block BlockWithoutBids
+		if err := rows.Scan(&block.BlockNumber, &block.Slot); err != nil {
+			return nil, fmt.Errorf("failed to scan block: %w", err)
+		}
+		blocks = append(blocks, block)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return blocks, nil
+}
+
 func (db *DB) GetMaxSlotNumber(ctx context.Context) (int64, error) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -136,13 +190,36 @@ func (db *DB) EnsureStateTable(ctx context.Context) error {
 		return fmt.Errorf("failed to create state table: %w", err)
 	}
 
-	var count int
-	err := db.conn.QueryRowContext(ctx2, `SELECT COUNT(*) FROM ingestor_state WHERE id = 1`).Scan(&count)
-	if err != nil || count == 0 {
+	// Ensure row exists for block indexer (id=1)
+	var count1 int
+	err := db.conn.QueryRowContext(ctx2, `SELECT COUNT(*) FROM ingestor_state WHERE id = 1`).Scan(&count1)
+	if err != nil || count1 == 0 {
 		_, err = db.conn.ExecContext(ctx2,
 			`INSERT INTO ingestor_state (id, last_forward_block, last_backward_block) VALUES (1, 0, 0)`)
 		if err != nil {
-			return fmt.Errorf("failed to insert initial state: %w", err)
+			return fmt.Errorf("failed to insert initial state for block indexer: %w", err)
+		}
+	}
+
+	// Ensure row exists for forward bid worker (id=2)
+	var count2 int
+	err = db.conn.QueryRowContext(ctx2, `SELECT COUNT(*) FROM ingestor_state WHERE id = 2`).Scan(&count2)
+	if err != nil || count2 == 0 {
+		_, err = db.conn.ExecContext(ctx2,
+			`INSERT INTO ingestor_state (id, last_forward_block, last_backward_block) VALUES (2, 0, 0)`)
+		if err != nil {
+			return fmt.Errorf("failed to insert initial state for forward bid worker: %w", err)
+		}
+	}
+
+	// Ensure row exists for backward bid worker (id=3)
+	var count3 int
+	err = db.conn.QueryRowContext(ctx2, `SELECT COUNT(*) FROM ingestor_state WHERE id = 3`).Scan(&count3)
+	if err != nil || count3 == 0 {
+		_, err = db.conn.ExecContext(ctx2,
+			`INSERT INTO ingestor_state (id, last_forward_block, last_backward_block) VALUES (3, 0, 0)`)
+		if err != nil {
+			return fmt.Errorf("failed to insert initial state for backward bid worker: %w", err)
 		}
 	}
 
@@ -257,9 +334,61 @@ func (db *DB) SaveForwardCheckpoint(ctx context.Context, bn int64) error {
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	q := fmt.Sprintf(`INSERT INTO ingestor_state (id, last_forward_block) VALUES (1, %d)`, bn)
+	q := fmt.Sprintf(`UPDATE ingestor_state SET last_forward_block = %d WHERE id = 1`, bn)
 	if _, err := db.conn.ExecContext(ctx2, q); err != nil {
 		return fmt.Errorf("save forward checkpoint failed: %w", err)
+	}
+	return nil
+}
+
+// LoadForwardBidCheckpoint returns the last forward bid worker block number
+func (db *DB) LoadForwardBidCheckpoint(ctx context.Context) (int64, bool) {
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var bn int64
+	err := db.conn.QueryRowContext(ctx2,
+		`SELECT last_forward_block FROM ingestor_state WHERE id = 2 LIMIT 1`).Scan(&bn)
+	if err != nil {
+		return 0, false
+	}
+	return bn, true
+}
+
+// LoadBackwardBidCheckpoint returns the last backward bid worker block number
+func (db *DB) LoadBackwardBidCheckpoint(ctx context.Context) (int64, bool) {
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var bn int64
+	err := db.conn.QueryRowContext(ctx2,
+		`SELECT last_backward_block FROM ingestor_state WHERE id = 3 LIMIT 1`).Scan(&bn)
+	if err != nil {
+		return 0, false
+	}
+	return bn, true
+}
+
+// SaveForwardBidCheckpoint saves the forward bid worker progress
+func (db *DB) SaveForwardBidCheckpoint(ctx context.Context, bn int64) error {
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	q := fmt.Sprintf(`UPDATE ingestor_state SET last_forward_block = %d WHERE id = 2`, bn)
+	if _, err := db.conn.ExecContext(ctx2, q); err != nil {
+		return fmt.Errorf("save forward bid checkpoint failed: %w", err)
+	}
+	return nil
+}
+
+// SaveBackwardBidCheckpoint saves the backward bid worker progress
+func (db *DB) SaveBackwardBidCheckpoint(ctx context.Context, bn int64) error {
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	q := fmt.Sprintf(`UPDATE ingestor_state SET last_backward_block = %d WHERE id = 3`, bn)
+	if _, err := db.conn.ExecContext(ctx2, q); err != nil {
+		return fmt.Errorf("save backward bid checkpoint failed: %w", err)
 	}
 	return nil
 }
@@ -269,7 +398,7 @@ func (db *DB) SaveBackwardCheckpoint(ctx context.Context, bn int64) error {
 	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	q := fmt.Sprintf(`INSERT INTO ingestor_state (id, last_backward_block) VALUES (1, %d)`, bn)
+	q := fmt.Sprintf(`UPDATE ingestor_state SET last_backward_block = %d WHERE id = 1`, bn)
 	if _, err := db.conn.ExecContext(ctx2, q); err != nil {
 		return fmt.Errorf("save backward checkpoint failed: %w", err)
 	}
@@ -361,6 +490,78 @@ type BidRow struct {
 	Builder, Proposer, FeeRec string
 	ValStr                    string
 	BlockNum, TsMS            *int64
+}
+
+// InsertBlocksBatch inserts multiple blocks in a single query
+func (db *DB) InsertBlocksBatch(ctx context.Context, blocks []*beacon.ExecInfo) error {
+	if len(blocks) == 0 {
+		return nil
+	}
+
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	var sb strings.Builder
+	sb.WriteString(`
+        INSERT INTO blocks(
+            slot, block_number, timestamp, proposer_index,
+            winning_relay, producer_reward_eth, winning_builder_pubkey, fee_recipient
+        ) VALUES `)
+
+	for i, ei := range blocks {
+		if ei == nil || ei.BlockNumber == 0 {
+			continue
+		}
+
+		if i > 0 {
+			sb.WriteString(",")
+		}
+
+		// Format timestamp
+		timestamp := "NULL"
+		if ei.Timestamp != nil {
+			timestamp = fmt.Sprintf("'%s'", ei.Timestamp.Format("2006-01-02 15:04:05"))
+		}
+
+		// Format proposer index
+		proposerIndex := "NULL"
+		if ei.ProposerIdx != nil {
+			proposerIndex = fmt.Sprintf("%d", *ei.ProposerIdx)
+		}
+
+		// Format relay tag
+		relayTag := "NULL"
+		if ei.RelayTag != nil {
+			relayTag = fmt.Sprintf("'%s'", *ei.RelayTag)
+		}
+
+		// Format reward
+		rewardEth := "NULL"
+		if ei.RewardEth != nil {
+			rewardEth = fmt.Sprintf("%.6f", *ei.RewardEth)
+		}
+
+		// Format builder pubkey
+		builderPubkey := "NULL"
+		if ei.BuilderHex != nil {
+			builderPubkey = fmt.Sprintf("'%s'", *ei.BuilderHex)
+		}
+
+		// Format fee recipient
+		feeRecipient := "NULL"
+		if ei.FeeRecHex != nil {
+			feeRecipient = fmt.Sprintf("'%s'", *ei.FeeRecHex)
+		}
+
+		fmt.Fprintf(&sb, "(%d,%d,%s,%s,%s,%s,%s,%s)",
+			ei.Slot, ei.BlockNumber, timestamp, proposerIndex, relayTag, rewardEth, builderPubkey, feeRecipient)
+	}
+
+	_, err := db.conn.ExecContext(ctx2, sb.String())
+	if err != nil {
+		return fmt.Errorf("batch insert blocks: %w", err)
+	}
+	return nil
 }
 
 func (db *DB) InsertBidsBatch(ctx context.Context, rows []BidRow) error {

@@ -73,9 +73,9 @@ var (
 
 	optionBatchSize = altsrc.NewIntFlag(&cli.IntFlag{
 		Name:    "batch-size",
-		Usage:   "number of blocks to process in each batch",
+		Usage:   "number of blocks to process in each batch (should match beaconcha RPS limit)",
 		EnvVars: []string{"INDEXER_BATCH_SIZE"},
-		Value:   100,
+		Value:   30,
 	})
 
 	optionBackwardStopBlock = altsrc.NewInt64Flag(&cli.Int64Flag{
@@ -92,7 +92,7 @@ var (
 		Value:   15 * time.Second,
 	})
 	optionRelayFlag = altsrc.NewBoolFlag(&cli.BoolFlag{Name: "relay",
-		Usage:   "Whether to run in relay mode",
+		Usage:   "Whether to fetch bid data from relays",
 		EnvVars: []string{"INDEXER_RELAY"},
 		Value:   false,
 	})
@@ -133,24 +133,25 @@ func main() {
 		optionBackwardStopBlock,
 		optionHTTPTimeout,
 		optionOptInContract,
-		optionRelayFlag,
 		optionRelaysJSON,
 	}
 
 	app := &cli.App{
 		Name:  "mev-indexer",
 		Usage: "Builder/observer indexer",
-		Commands: []*cli.Command{{
-			Name:  "start",
-			Usage: "Start the indexer",
-			Flags: flags,
-			Before: altsrc.InitInputSourceWithContext(
-				flags, altsrc.NewYamlSourceFromFlagFunc("config"),
-			),
-			Action: func(c *cli.Context) error {
-				return startIndexer(c)
+		Commands: []*cli.Command{
+			{
+				Name:  "start",
+				Usage: "Start the indexer (runs 4 parallel workers: forward/backward blocks + forward/backward bids)",
+				Flags: flags,
+				Before: altsrc.InitInputSourceWithContext(
+					flags, altsrc.NewYamlSourceFromFlagFunc("config"),
+				),
+				Action: func(c *cli.Context) error {
+					return startIndexer(c)
+				},
 			},
-		}},
+		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
