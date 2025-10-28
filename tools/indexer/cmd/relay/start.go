@@ -129,38 +129,65 @@ func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc
 
 			// Process blocks in batch
 			blocksProcessed := 0
+			batchStartTime := time.Now()
 			for bn := batchEnd; bn >= batchStart; bn-- {
+				blockStartTime := time.Now()
 				if err := ctx.Err(); err != nil {
 					return err
 				}
 
+				// Time: Fetch block data
+				t0 := time.Now()
 				ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn)
+				fetchDuration := time.Since(t0)
 				if err != nil || ei == nil {
-					logger.Warn("[BACKWARD] block not available", "block", bn, "error", err)
+					logger.Warn("[BACKWARD] block not available", "block", bn, "error", err, "fetch_ms", fetchDuration.Milliseconds())
 					continue
 				}
 
-				// Process block data
+				// Time: Upsert block
+				t1 := time.Now()
 				if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
 					logger.Error("[BACKWARD] failed to upsert block", "block", bn, "error", err)
 					continue
 				}
+				upsertDuration := time.Since(t1)
+
+				// Time: Process bids
+				bidsDuration := time.Duration(0)
 				if cfg.RelayData {
-					// Process bids for this block
+					t2 := time.Now()
 					if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
 						logger.Error("[BACKWARD] failed to process bids", "block", bn, "error", err)
 					}
+					bidsDuration = time.Since(t2)
 				}
 
-				// Process validator tasks
+				// Time: Process validator tasks
+				t3 := time.Now()
 				if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
 					logger.Error("[BACKWARD] failed to launch validator tasks", "block", bn, "error", err)
 				}
+				validatorDuration := time.Since(t3)
+
+				blockTotalDuration := time.Since(blockStartTime)
+				logger.Info("[BACKWARD] block processed",
+					"block", bn,
+					"total_ms", blockTotalDuration.Milliseconds(),
+					"fetch_ms", fetchDuration.Milliseconds(),
+					"upsert_ms", upsertDuration.Milliseconds(),
+					"bids_ms", bidsDuration.Milliseconds(),
+					"validator_ms", validatorDuration.Milliseconds())
 
 				blocksProcessed++
 			}
 
-			logger.Info("[BACKWARD] batch completed", "blocks_processed", blocksProcessed)
+			batchDuration := time.Since(batchStartTime)
+			blocksPerSecond := float64(blocksProcessed) / batchDuration.Seconds()
+			logger.Info("[BACKWARD] batch completed",
+				"blocks_processed", blocksProcessed,
+				"batch_duration_s", batchDuration.Seconds(),
+				"blocks_per_second", fmt.Sprintf("%.2f", blocksPerSecond))
 
 			// Save checkpoint at end of batch
 			currentBN = batchStart - 1
@@ -180,6 +207,7 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 	defer ticker.Stop()
 
 	currentBN := startBN
+	caughtUp := false
 	logger.Info("[FORWARD] starting forward indexer", "start_block", currentBN, "batch_size", cfg.BatchSize)
 
 	for {
@@ -193,9 +221,11 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 
 		case <-ticker.C:
 			// Get latest block to determine how many blocks are available
+			t0 := time.Now()
 			latestBlock, err := ethereum.GetLatestBlockNumber(httpc.HTTPClient, rpcURL)
+			rpcLatestDuration := time.Since(t0)
 			if err != nil {
-				logger.Error("[FORWARD] failed to get latest block", "error", err)
+				logger.Error("[FORWARD] failed to get latest block", "error", err, "rpc_ms", rpcLatestDuration.Milliseconds())
 				continue
 			}
 
@@ -207,46 +237,87 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 			}
 
 			if batchStart > latestBlock {
+				// Check if we're caught up and need to adjust polling
+				if !caughtUp {
+					logger.Info("[FORWARD] caught up to chain tip, switching to 12s polling", "current", currentBN, "latest", latestBlock)
+					caughtUp = true
+					ticker.Reset(12 * time.Second)
+				}
 				logger.Debug("[FORWARD] no new blocks available", "current", currentBN, "latest", latestBlock)
 				continue
 			}
 
-			logger.Info("[FORWARD] processing batch", "range", fmt.Sprintf("[%d,%d]", batchStart, batchEnd), "count", batchEnd-batchStart+1)
+			// If we were caught up but now have new blocks, switch back to fast polling
+			if caughtUp && batchEnd-batchStart+1 >= int64(cfg.BatchSize) {
+				logger.Info("[FORWARD] new blocks available, switching to fast polling", "blocks_available", batchEnd-batchStart+1)
+				caughtUp = false
+				ticker.Reset(blockInterval)
+			}
+
+			logger.Info("[FORWARD] processing batch", "range", fmt.Sprintf("[%d,%d]", batchStart, batchEnd), "count", batchEnd-batchStart+1, "behind_tip", latestBlock-batchEnd)
 
 			// Process blocks in batch
 			blocksProcessed := 0
+			batchStartTime := time.Now()
 			for bn := batchStart; bn <= batchEnd; bn++ {
+				blockStartTime := time.Now()
 				if err := ctx.Err(); err != nil {
 					return err
 				}
 
+				// Time: Fetch block data
+				t1 := time.Now()
 				ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn)
+				fetchDuration := time.Since(t1)
 				if err != nil || ei == nil {
-					logger.Warn("[FORWARD] block not available", "block", bn, "error", err)
+					logger.Warn("[FORWARD] block not available", "block", bn, "error", err, "fetch_ms", fetchDuration.Milliseconds())
 					continue
 				}
 
-				// Process block data
+				// Time: Upsert block
+				t2 := time.Now()
 				if err := db.UpsertBlockFromExec(ctx, ei); err != nil {
 					logger.Error("[FORWARD] failed to upsert block", "block", bn, "error", err)
 					continue
 				}
+				upsertDuration := time.Since(t2)
+
+				// Time: Process bids
+				bidsDuration := time.Duration(0)
 				if cfg.RelayData {
-					// Process bids for this block
+					t3 := time.Now()
 					if err := processBidsForBlock(ctx, db, httpc, relays, ei, logger); err != nil {
 						logger.Error("[FORWARD] failed to process bids", "block", bn, "error", err)
 					}
+					bidsDuration = time.Since(t3)
 				}
 
-				// Process validator tasks
+				// Time: Process validator tasks
+				t4 := time.Now()
 				if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
 					logger.Error("[FORWARD] failed to launch validator tasks", "block", bn, "error", err)
 				}
+				validatorDuration := time.Since(t4)
+
+				blockTotalDuration := time.Since(blockStartTime)
+				logger.Info("[FORWARD] block processed",
+					"block", bn,
+					"total_ms", blockTotalDuration.Milliseconds(),
+					"fetch_ms", fetchDuration.Milliseconds(),
+					"upsert_ms", upsertDuration.Milliseconds(),
+					"bids_ms", bidsDuration.Milliseconds(),
+					"validator_ms", validatorDuration.Milliseconds())
 
 				blocksProcessed++
 			}
 
-			logger.Info("[FORWARD] batch completed", "blocks_processed", blocksProcessed)
+			batchDuration := time.Since(batchStartTime)
+			blocksPerSecond := float64(blocksProcessed) / batchDuration.Seconds()
+			logger.Info("[FORWARD] batch completed",
+				"blocks_processed", blocksProcessed,
+				"batch_duration_s", batchDuration.Seconds(),
+				"blocks_per_second", fmt.Sprintf("%.2f", blocksPerSecond),
+				"rpc_latest_ms", rpcLatestDuration.Milliseconds())
 
 			// Save checkpoint at end of batch
 			if blocksProcessed > 0 {

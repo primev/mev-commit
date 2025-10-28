@@ -41,12 +41,15 @@ func appendAPIKey(url, apiKey string) string {
 }
 
 func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client, limiter *rate.Limiter, beaconBase string, apiKey string, blockNum int64) (*ExecInfo, error) {
+	t0 := time.Now()
+
 	// Rate limit beacon API calls
 	if limiter != nil {
 		if err := limiter.Wait(ctx); err != nil {
 			return nil, fmt.Errorf("rate limiter: %w", err)
 		}
 	}
+	rateLimitWait := time.Since(t0)
 
 	url := appendAPIKey(fmt.Sprintf("%s/execution/block/%d", beaconBase, blockNum), apiKey)
 
@@ -56,12 +59,16 @@ func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client,
 		defer cancel()
 	}
 
+	t1 := time.Now()
 	var wrap struct {
 		Data []map[string]any `json:"data"`
 	}
 	if err := httputil.FetchJSON(ctx, httpc, url, &wrap); err != nil || len(wrap.Data) == 0 {
-		return nil, fmt.Errorf("no exec block %d", blockNum)
+		httpDuration := time.Since(t1)
+		return nil, fmt.Errorf("no exec block %d (http_ms=%d, rate_wait_ms=%d): %w",
+			blockNum, httpDuration.Milliseconds(), rateLimitWait.Milliseconds(), err)
 	}
+	httpDuration := time.Since(t1)
 	j := wrap.Data[0]
 	out := &ExecInfo{BlockNumber: blockNum}
 
@@ -138,19 +145,26 @@ func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client,
 
 	// sanity
 	if out.Slot == 0 {
-		return nil, fmt.Errorf("exec block missing posConsensus.slot for %d", blockNum)
+		totalDuration := time.Since(t0)
+		return nil, fmt.Errorf("exec block missing posConsensus.slot for %d (total_ms=%d)",
+			blockNum, totalDuration.Milliseconds())
 	}
+
+	_ = httpDuration // Used for error messages
 	return out, nil
 }
 
 // validator pubkey from proposer index
 func FetchValidatorPubkey(ctx context.Context, httpc *retryablehttp.Client, limiter *rate.Limiter, beaconBase string, apiKey string, proposerIndex int64) ([]byte, error) {
+	t0 := time.Now()
+
 	// Rate limit beacon API calls
 	if limiter != nil {
 		if err := limiter.Wait(ctx); err != nil {
 			return nil, fmt.Errorf("rate limiter: %w", err)
 		}
 	}
+	rateLimitWait := time.Since(t0)
 
 	url := appendAPIKey(fmt.Sprintf("%s/validator/%d", beaconBase, proposerIndex), apiKey)
 
@@ -159,17 +173,27 @@ func FetchValidatorPubkey(ctx context.Context, httpc *retryablehttp.Client, limi
 		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 	}
+
+	t1 := time.Now()
 	var resp struct {
 		Data struct {
 			Pubkey string `json:"pubkey"`
 		} `json:"data"`
 	}
 	if err := httputil.FetchJSON(ctx, httpc, url, &resp); err != nil {
-		return nil, err
+		httpDuration := time.Since(t1)
+		return nil, fmt.Errorf("http error (http_ms=%d, rate_wait_ms=%d): %w",
+			httpDuration.Milliseconds(), rateLimitWait.Milliseconds(), err)
 	}
+	httpDuration := time.Since(t1)
+
 	if strings.TrimSpace(resp.Data.Pubkey) == "" {
-		return nil, fmt.Errorf("validator %d pubkey empty", proposerIndex)
+		totalDuration := time.Since(t0)
+		return nil, fmt.Errorf("validator %d pubkey empty (total_ms=%d)", proposerIndex, totalDuration.Milliseconds())
 	}
+
+	_ = httpDuration // Used for error messages
+	_ = rateLimitWait // Used for error messages
 	return common.FromHex(resp.Data.Pubkey), nil
 }
 
