@@ -205,7 +205,7 @@ func TestStore(t *testing.T) {
 		if len(retrievedTxns) != 1 {
 			t.Fatalf("expected 1 queued transaction, got %d", len(retrievedTxns))
 		}
-		if diff := cmp.Diff(wrappedTxn1, retrievedTxns[0], cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{})); diff != "" {
+		if diff := cmp.Diff(wrappedTxn1, retrievedTxns[0], cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{}, bidderapiv1.PositionConstraint{})); diff != "" {
 			t.Fatalf("queued transaction mismatch (-want +got):\n%s", diff)
 		}
 	})
@@ -227,7 +227,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("expected 2 commitments, got %d", len(commitments))
 		}
 		for i, commitment := range commitments {
-			if diff := cmp.Diff(commitment, commitments[i], cmpopts.IgnoreUnexported(bidderapiv1.Commitment{}, types.Transaction{})); diff != "" {
+			if diff := cmp.Diff(commitment, commitments[i], cmpopts.IgnoreUnexported(bidderapiv1.Commitment{}, types.Transaction{}, bidderapiv1.PositionConstraint{})); diff != "" {
 				t.Errorf("commitment mismatch (-want +got):\n%s", diff)
 			}
 		}
@@ -239,7 +239,7 @@ func TestStore(t *testing.T) {
 		if len(nextTxns) != 1 {
 			t.Errorf("expected 1 queued transaction, got %d", len(nextTxns))
 		}
-		if diff := cmp.Diff(wrappedTxn2, nextTxns[0], cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{})); diff != "" {
+		if diff := cmp.Diff(wrappedTxn2, nextTxns[0], cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{}, bidderapiv1.PositionConstraint{})); diff != "" {
 			t.Errorf("queued transaction mismatch (-want +got):\n%s", diff)
 		}
 
@@ -275,7 +275,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("failed to get failed transaction by hash: %v", err)
 		}
 
-		if diff := cmp.Diff(wrappedTxn2, failedTxn, cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{})); diff != "" {
+		if diff := cmp.Diff(wrappedTxn2, failedTxn, cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{}, bidderapiv1.PositionConstraint{})); diff != "" {
 			t.Errorf("failed transaction mismatch (-want +got):\n%s", diff)
 		}
 

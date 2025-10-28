@@ -149,6 +149,7 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 			return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
 		}
 		if len(options) > 0 {
+			pbOption = &bidderapiv1.PositionConstraint{}
 			if err := proto.Unmarshal(options, pbOption); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal transaction options: %w", err)
 			}
@@ -209,7 +210,7 @@ func (s *rpcstore) GetQueuedTransactions(ctx context.Context) ([]*sender.Transac
 
 func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error) {
 	query := `
-	SELECT raw_transaction, block_number, sender, tx_type, status, details
+	SELECT raw_transaction, block_number, sender, tx_type, status, details, options
 	FROM mcTransactions
 	WHERE hash = $1;
 	`
@@ -224,7 +225,7 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 		options        []byte
 		pbOption       *bidderapiv1.PositionConstraint
 	)
-	err := row.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details)
+	err := row.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details, &options)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("transaction %s not found: %w", txnHash.Hex(), ErrNotFound)
@@ -240,6 +241,7 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 		return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
 	}
 	if len(options) > 0 {
+		pbOption = &bidderapiv1.PositionConstraint{}
 		if err := proto.Unmarshal(options, pbOption); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal transaction options: %w", err)
 		}
@@ -260,7 +262,7 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 
 func (s *rpcstore) GetTransactionsForBlock(ctx context.Context, blockNumber int64) ([]*sender.Transaction, error) {
 	query := `
-	SELECT raw_transaction, block_number, sender, tx_type, status, details
+	SELECT raw_transaction, block_number, sender, tx_type, status, details, options
 	FROM mcTransactions
 	WHERE block_number = $1 AND status = 'pre-confirmed';
 	`
