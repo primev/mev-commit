@@ -55,7 +55,7 @@ func FetchBeaconExecutionBlock(ctx context.Context, httpc *retryablehttp.Client,
 
 	if _, has := ctx.Deadline(); !has {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
 	}
 
@@ -170,7 +170,7 @@ func FetchValidatorPubkey(ctx context.Context, httpc *retryablehttp.Client, limi
 
 	if _, has := ctx.Deadline(); !has {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
 	}
 

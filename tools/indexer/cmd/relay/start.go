@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -178,10 +179,10 @@ func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc
 				return nil
 			}
 
-			// Fetch block data
-			ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn)
+			// Fetch block data with retry for transient network errors
+			ei, err := fetchBlockWithRetry(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn, logger)
 			if err != nil {
-				logger.Error("FATAL: block fetch failed", "block", bn, "error", err)
+				logger.Error("FATAL: block fetch failed after all retries", "block", bn, "error", err)
 				return fmt.Errorf("block fetch failed at %d: %w", bn, err)
 			}
 			if ei == nil {
@@ -475,60 +476,84 @@ func runBidWorker(ctx context.Context, db *database.DB, httpc *retryablehttp.Cli
 				return nil
 			}
 
-			// PHASE 2: Fetch and insert bids from all relays sequentially
-			// Process sequentially to avoid StarRocks "too many versions" error
+			// PHASE 2: Fetch bids from all relays in parallel
 			blockStartTime := time.Now()
+			type relayResult struct {
+				relayID int64
+				bids    int
+				err     error
+			}
+			resultsChan := make(chan relayResult, len(relays))
+			var wg sync.WaitGroup
+
+			for _, rr := range relays {
+				wg.Add(1)
+				go func(r relay.Row) {
+					defer wg.Done()
+
+					relayCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+					defer cancel()
+
+					bids, err := relay.FetchBuilderBlocksReceived(relayCtx, httpc, r.URL, block.Slot)
+					if err != nil {
+						resultsChan <- relayResult{relayID: r.ID, err: err}
+						return
+					}
+
+					// Insert bids
+					const batchInsertSize = 500
+					batch := make([]database.BidRow, 0, batchInsertSize)
+					totalInserted := 0
+
+					for _, bid := range bids {
+						if row, ok := relay.BuildBidInsert(block.Slot, r.ID, bid); ok {
+							batch = append(batch, row)
+							if len(batch) >= batchInsertSize {
+								if err := db.InsertBidsBatch(ctx, batch); err != nil {
+									resultsChan <- relayResult{relayID: r.ID, err: fmt.Errorf("batch insert: %w", err)}
+									return
+								}
+								totalInserted += len(batch)
+								batch = batch[:0]
+							}
+						}
+					}
+
+					// Insert remaining
+					if len(batch) > 0 {
+						if err := db.InsertBidsBatch(ctx, batch); err != nil {
+							resultsChan <- relayResult{relayID: r.ID, err: fmt.Errorf("final batch insert: %w", err)}
+							return
+						}
+						totalInserted += len(batch)
+					}
+
+					resultsChan <- relayResult{relayID: r.ID, bids: totalInserted}
+				}(rr)
+			}
+
+			// Wait for all relays
+			go func() {
+				wg.Wait()
+				close(resultsChan)
+			}()
+
+			// Collect results
 			totalBids := 0
 			successfulRelays := 0
 			var errors []string
 
-			for _, r := range relays {
-				relayCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-
-				bids, err := relay.FetchBuilderBlocksReceived(relayCtx, httpc, r.URL, block.Slot)
-				cancel()
-
-				if err != nil {
-					errors = append(errors, fmt.Sprintf("relay_%d: %v", r.ID, err))
-					continue
-				}
-
-				// Insert bids in batches
-				const batchInsertSize = 500
-				batch := make([]database.BidRow, 0, batchInsertSize)
-				totalInserted := 0
-
-				for _, bid := range bids {
-					if row, ok := relay.BuildBidInsert(block.Slot, r.ID, bid); ok {
-						batch = append(batch, row)
-						if len(batch) >= batchInsertSize {
-							if err := db.InsertBidsBatch(ctx, batch); err != nil {
-								errors = append(errors, fmt.Sprintf("relay_%d: batch insert: %v", r.ID, err))
-								break
-							}
-							totalInserted += len(batch)
-							batch = batch[:0]
-						}
-					}
-				}
-
-				// Insert remaining
-				if len(batch) > 0 {
-					if err := db.InsertBidsBatch(ctx, batch); err != nil {
-						errors = append(errors, fmt.Sprintf("relay_%d: final batch insert: %v", r.ID, err))
-					} else {
-						totalInserted += len(batch)
-					}
-				}
-
-				if totalInserted > 0 {
-					totalBids += totalInserted
+			for result := range resultsChan {
+				if result.err != nil {
+					errors = append(errors, fmt.Sprintf("relay_%d: %v", result.relayID, result.err))
+				} else if result.bids > 0 {
+					totalBids += result.bids
 					successfulRelays++
 				}
 			}
 
 			// If all relays failed, exit
-			if len(errors) >= len(relays) && successfulRelays == 0 {
+			if len(errors) == len(relays) {
 				logger.Error("FATAL: all relays failed for block", "block", block.BlockNumber, "errors", errors)
 				return fmt.Errorf("all relays failed for block %d", block.BlockNumber)
 			}
