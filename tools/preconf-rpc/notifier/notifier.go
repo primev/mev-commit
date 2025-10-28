@@ -10,11 +10,13 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
+	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 	"github.com/primev/mev-commit/x/util"
 )
@@ -222,6 +224,42 @@ func buildType(t txnInfo) string {
 	}
 }
 
+func buildConstraint(t txnInfo) string {
+	if t.txn.Constraint == nil {
+		return "None"
+	}
+	str := strings.Builder{}
+	switch t.txn.Constraint.Basis {
+	case bidderapiv1.PositionConstraint_BASIS_ABSOLUTE:
+		str.WriteString(fmt.Sprintf("Position %d", t.txn.Constraint.Value))
+		switch t.txn.Constraint.Anchor {
+		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
+			str.WriteString(" from Top")
+		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
+			str.WriteString(" from Bottom")
+		}
+	case bidderapiv1.PositionConstraint_BASIS_PERCENTILE:
+		switch t.txn.Constraint.Anchor {
+		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
+			str.WriteString("Top ")
+		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
+			str.WriteString("Bottom ")
+		}
+		str.WriteString(fmt.Sprintf("%d%%", t.txn.Constraint.Value))
+	case bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE:
+		switch t.txn.Constraint.Anchor {
+		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
+			str.WriteString("Top ")
+		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
+			str.WriteString("Bottom ")
+		}
+		str.WriteString(fmt.Sprintf("Gas Percentile %d%%", t.txn.Constraint.Value))
+	default:
+		str.WriteString(" Unknown Basis")
+	}
+	return str.String()
+}
+
 func (n *Notifier) StartTransactionNotifier(
 	ctx context.Context,
 ) <-chan struct{} {
@@ -258,6 +296,11 @@ func (n *Notifier) StartTransactionNotifier(
 						Field{Title: "Attempts", Value: fmt.Sprintf("%d", t.noOfAttempts), Short: true},
 						Field{Title: "Duration", Value: t.timeTaken.String(), Short: true},
 					)
+					if t.txn.Constraint != nil {
+						fields = append(fields,
+							Field{Title: "Constraint", Value: buildConstraint(t), Short: true},
+						)
+					}
 				}
 				message := Message{
 					Text: "🚀 Transaction Report",

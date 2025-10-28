@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -30,7 +31,8 @@ CREATE TABLE IF NOT EXISTS mcTransactions (
 	sender TEXT,
 	tx_type INTEGER,
 	status TEXT,
-	details TEXT
+	details TEXT,
+	options BYTEA
 );`
 
 var commitmentsTable = `
@@ -54,6 +56,13 @@ CREATE TABLE IF NOT EXISTS subsidies (
 	balance NUMERIC(24, 0)
 );`
 
+var simulationLogs = `
+CREATE TABLE IF NOT EXISTS simulationLogs (
+	transaction_hash TEXT PRIMARY KEY,
+	logs TEXT,
+	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
+);`
+
 type rpcstore struct {
 	db *sql.DB
 }
@@ -64,6 +73,7 @@ func New(db *sql.DB) (*rpcstore, error) {
 		commitmentsTable,
 		balancesTable,
 		subsidiesTable,
+		simulationLogs,
 	} {
 		_, err := db.Exec(table)
 		if err != nil {
@@ -81,11 +91,21 @@ func (s *rpcstore) Close() error {
 }
 
 func (s *rpcstore) AddQueuedTransaction(ctx context.Context, tx *sender.Transaction) error {
+	var (
+		cBuf []byte
+		err  error
+	)
+	if tx.Constraint != nil {
+		cBuf, err = proto.Marshal(tx.Constraint)
+		if err != nil {
+			return fmt.Errorf("failed to marshal transaction constraint: %w", err)
+		}
+	}
 	insertQuery := `
-	INSERT INTO mcTransactions (hash, nonce, raw_transaction, sender, tx_type, status)
-	VALUES ($1, $2, $3, $4, $5, $6);
+	INSERT INTO mcTransactions (hash, nonce, raw_transaction, sender, tx_type, status, options)
+	VALUES ($1, $2, $3, $4, $5, $6, $7);
 	`
-	_, err := s.db.ExecContext(
+	_, err = s.db.ExecContext(
 		ctx,
 		insertQuery,
 		tx.Hash().Hex(),
@@ -94,6 +114,7 @@ func (s *rpcstore) AddQueuedTransaction(ctx context.Context, tx *sender.Transact
 		tx.Sender.Hex(),
 		int(tx.Type),
 		string(sender.TxStatusPending),
+		cBuf,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to add queued transaction: %w", err)
@@ -112,8 +133,10 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 			blockNum       sql.NullInt64
 			status         string
 			details        sql.NullString
+			options        []byte
+			pbOption       *bidderapiv1.PositionConstraint
 		)
-		err := rows.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details)
+		err := rows.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details, &options)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
@@ -125,6 +148,12 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 		if err := parsedTxn.UnmarshalBinary(txStr); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
 		}
+		if len(options) > 0 {
+			pbOption = &bidderapiv1.PositionConstraint{}
+			if err := proto.Unmarshal(options, pbOption); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal transaction options: %w", err)
+			}
+		}
 		txn := &sender.Transaction{
 			Transaction: parsedTxn,
 			Raw:         rawTransaction,
@@ -133,6 +162,7 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 			Type:        sender.TxType(txType),
 			Status:      sender.TxStatus(status),
 			Details:     details.String,
+			Constraint:  pbOption,
 		}
 		transactions = append(transactions, txn)
 	}
@@ -146,7 +176,7 @@ func parseTransactionsFromRows(rows *sql.Rows) ([]*sender.Transaction, error) {
 // GetQueuedTransactions retrieves the next pending transaction for each sender.
 func (s *rpcstore) GetQueuedTransactions(ctx context.Context) ([]*sender.Transaction, error) {
 	query := `
-	SELECT t1.raw_transaction, t1.block_number, t1.sender, t1.tx_type, t1.status, t1.details
+	SELECT t1.raw_transaction, t1.block_number, t1.sender, t1.tx_type, t1.status, t1.details, t1.options
 	FROM mcTransactions t1
 	INNER JOIN (
 		SELECT sender, MIN(nonce) AS min_nonce
@@ -180,7 +210,7 @@ func (s *rpcstore) GetQueuedTransactions(ctx context.Context) ([]*sender.Transac
 
 func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error) {
 	query := `
-	SELECT raw_transaction, block_number, sender, tx_type, status, details
+	SELECT raw_transaction, block_number, sender, tx_type, status, details, options
 	FROM mcTransactions
 	WHERE hash = $1;
 	`
@@ -192,8 +222,10 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 		status         string
 		blockNum       sql.NullInt64
 		details        sql.NullString
+		options        []byte
+		pbOption       *bidderapiv1.PositionConstraint
 	)
-	err := row.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details)
+	err := row.Scan(&rawTransaction, &blockNum, &senderAddress, &txType, &status, &details, &options)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("transaction %s not found: %w", txnHash.Hex(), ErrNotFound)
@@ -208,6 +240,12 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 	if err := parsedTxn.UnmarshalBinary(txStr); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal transaction: %w", err)
 	}
+	if len(options) > 0 {
+		pbOption = &bidderapiv1.PositionConstraint{}
+		if err := proto.Unmarshal(options, pbOption); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal transaction options: %w", err)
+		}
+	}
 	txn := &sender.Transaction{
 		Transaction: parsedTxn,
 		Raw:         rawTransaction,
@@ -216,6 +254,7 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 		Type:        sender.TxType(txType),
 		Status:      sender.TxStatus(status),
 		Details:     details.String,
+		Constraint:  pbOption,
 	}
 
 	return txn, nil
@@ -223,7 +262,7 @@ func (s *rpcstore) GetTransactionByHash(ctx context.Context, txnHash common.Hash
 
 func (s *rpcstore) GetTransactionsForBlock(ctx context.Context, blockNumber int64) ([]*sender.Transaction, error) {
 	query := `
-	SELECT raw_transaction, block_number, sender, tx_type, status, details
+	SELECT raw_transaction, block_number, sender, tx_type, status, details, options
 	FROM mcTransactions
 	WHERE block_number = $1 AND status = 'pre-confirmed';
 	`
@@ -255,6 +294,7 @@ func (s *rpcstore) StoreTransaction(
 	ctx context.Context,
 	txn *sender.Transaction,
 	commitments []*bidderapiv1.Commitment,
+	logs []*types.Log,
 ) error {
 	if txn.Status == sender.TxStatusPending {
 		return fmt.Errorf("transaction must not be in pending status, got %s", txn.Status)
@@ -309,11 +349,53 @@ func (s *rpcstore) StoreTransaction(
 		}
 	}
 
+	if logs != nil {
+		logBuf, err := json.Marshal(logs)
+		if err != nil {
+			_ = dbTxn.Rollback()
+			return fmt.Errorf("failed to marshal simulation logs for transaction %s: %w", txn.Hash().Hex(), err)
+		}
+		insertLogs := `
+		INSERT INTO simulationLogs (transaction_hash, logs)
+		VALUES ($1, $2)
+		ON CONFLICT (transaction_hash) DO UPDATE SET logs = EXCLUDED.logs;
+		`
+		_, err = dbTxn.ExecContext(ctx, insertLogs, txn.Hash().Hex(), string(logBuf))
+		if err != nil {
+			_ = dbTxn.Rollback()
+			return fmt.Errorf("failed to insert simulation logs for transaction %s: %w", txn.Hash().Hex(), err)
+		}
+	}
+
 	if err := dbTxn.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
+}
+
+func (s *rpcstore) GetTransactionLogs(ctx context.Context, txnHash common.Hash) ([]*types.Log, error) {
+	query := `
+	SELECT logs
+	FROM simulationLogs
+	WHERE transaction_hash = $1;
+	`
+	row := s.db.QueryRowContext(ctx, query, txnHash.Hex())
+	var logsData string
+	err := row.Scan(&logsData)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []*types.Log{}, nil // No logs found, return empty slice
+		}
+		return nil, fmt.Errorf("failed to get logs for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	var logs []*types.Log
+	if err := json.Unmarshal([]byte(logsData), &logs); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal logs for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	return logs, nil
 }
 
 func (s *rpcstore) GetTransactionCommitments(ctx context.Context, txnHash common.Hash) ([]*bidderapiv1.Commitment, error) {
