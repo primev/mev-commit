@@ -130,13 +130,13 @@ func (db *DB) GetBlocksWithoutBids(ctx context.Context, startBlock, limit int64,
 		whereClause = "b.block_number <= ?"
 	}
 
+	// Use LEFT JOIN instead of NOT EXISTS (StarRocks doesn't support subqueries)
 	query := fmt.Sprintf(`
 		SELECT b.block_number, b.slot
 		FROM blocks b
+		LEFT JOIN bids bid ON bid.slot = b.slot
 		WHERE %s
-		  AND NOT EXISTS (
-			  SELECT 1 FROM bids WHERE slot = b.slot LIMIT 1
-		  )
+		  AND bid.slot IS NULL
 		ORDER BY b.block_number %s
 		LIMIT ?
 	`, whereClause, orderClause)

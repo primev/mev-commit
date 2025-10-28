@@ -91,14 +91,9 @@ var (
 		EnvVars: []string{"INDEXER_HTTP_TIMEOUT"},
 		Value:   15 * time.Second,
 	})
-	optionRelayFlag = altsrc.NewBoolFlag(&cli.BoolFlag{Name: "relay",
-		Usage:   "Whether to fetch bid data from relays",
-		EnvVars: []string{"INDEXER_RELAY"},
-		Value:   false,
-	})
 	optionRelaysJSON = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "relays-json",
-		Usage:   "JSON array overriding default relays (fields: relay_id,name,tag,url)",
+		Usage:   "JSON array of relays (fields: relay_id,name,tag,url). If provided, bid workers will run.",
 		EnvVars: []string{"INDEXER_RELAYS_JSON"},
 	})
 )
@@ -114,7 +109,6 @@ func createOptionsFromCLI(c *cli.Context) *config.Config {
 		BeaconBase:      c.String("beacon-base"),
 		BeaconchaAPIKey: c.String("beaconcha-api-key"),
 		BeaconchaRPS:    c.Int("beaconcha-rps"),
-		RelayData:       c.Bool("relay"),
 		RelaysJSON:      c.String("relays-json"),
 	}
 }
@@ -142,7 +136,7 @@ func main() {
 		Commands: []*cli.Command{
 			{
 				Name:  "start",
-				Usage: "Start the indexer (runs 4 parallel workers: forward/backward blocks + forward/backward bids)",
+				Usage: "Start the indexer (2 block workers always + 2 bid workers if --relay=true)",
 				Flags: flags,
 				Before: altsrc.InitInputSourceWithContext(
 					flags, altsrc.NewYamlSourceFromFlagFunc("config"),

@@ -604,22 +604,37 @@ func startIndexer(c *cli.Context) error {
 		return err
 	}
 
-	// Get max block for backward bid worker
-	maxBlock, err := db.GetMaxBlockNumber(ctx)
-	if err != nil {
-		initLogger.Warn("[BID_WORKER] failed to get max block, using forward start", "error", err)
-		maxBlock = forwardStart
+	// Check if bid workers should be enabled (based on whether relays are configured)
+	enableBidWorkers := len(relays) > 0
+	totalWorkers := 2 // Always run 2 block indexers
+	if enableBidWorkers {
+		totalWorkers += 2 // Add 2 bid workers if relays configured
 	}
 
-	initLogger.Info("[INIT] starting 4 parallel workers",
+	if enableBidWorkers {
+		initLogger.Info("[INIT] bid workers enabled - relays configured", "relays", len(relays))
+	} else {
+		initLogger.Info("[INIT] bid workers disabled - no relays configured")
+	}
+
+	// Get max block for backward bid worker (only if needed)
+	var maxBlock int64
+	if enableBidWorkers {
+		maxBlock, err = db.GetMaxBlockNumber(ctx)
+		if err != nil {
+			initLogger.Warn("[BID_WORKER] failed to get max block, using forward start", "error", err)
+			maxBlock = forwardStart
+		}
+	}
+
+	initLogger.Info("[INIT] starting workers",
+		"total_workers", totalWorkers,
 		"forward_block_start", forwardStart,
 		"backward_block_start", backwardStart,
-		"forward_bid_start", forwardStart,
-		"backward_bid_start", maxBlock,
 		"block_interval", c.Duration("block-interval"))
 
-	// Create error channel to capture all 4 goroutine errors
-	errChan := make(chan error, 4)
+	// Create error channel to capture all goroutine errors
+	errChan := make(chan error, totalWorkers)
 
 	// Launch forward block indexer
 	go func() {
@@ -637,21 +652,24 @@ func startIndexer(c *cli.Context) error {
 		errChan <- err
 	}()
 
-	// Launch forward bid worker
-	go func() {
-		logger := initLogger.With("worker", "bid-forward")
-		logger.Info("launching forward bid worker")
-		err := runBidWorker(ctx, db, httpc, relays, forwardStart, "forward", logger)
-		errChan <- err
-	}()
+	// Conditionally launch bid workers
+	if enableBidWorkers {
+		// Launch forward bid worker
+		go func() {
+			logger := initLogger.With("worker", "bid-forward")
+			logger.Info("launching forward bid worker")
+			err := runBidWorker(ctx, db, httpc, relays, forwardStart, "forward", logger)
+			errChan <- err
+		}()
 
-	// Launch backward bid worker
-	go func() {
-		logger := initLogger.With("worker", "bid-backward")
-		logger.Info("launching backward bid worker")
-		err := runBidWorker(ctx, db, httpc, relays, maxBlock, "backward", logger)
-		errChan <- err
-	}()
+		// Launch backward bid worker
+		go func() {
+			logger := initLogger.With("worker", "bid-backward")
+			logger.Info("launching backward bid worker")
+			err := runBidWorker(ctx, db, httpc, relays, maxBlock, "backward", logger)
+			errChan <- err
+		}()
+	}
 
 	// Wait for first worker to exit (error or completion)
 	// If any worker exits with error, the whole application should exit
@@ -664,7 +682,7 @@ func startIndexer(c *cli.Context) error {
 
 	// If one worker completed successfully, wait for others
 	initLogger.Info("one worker completed, waiting for others")
-	for i := 1; i < 4; i++ {
+	for i := 1; i < totalWorkers; i++ {
 		workerErr := <-errChan
 		if workerErr != nil && err == nil {
 			err = workerErr
