@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/hashicorp/go-retryablehttp"
-	"github.com/primev/mev-commit/tools/indexer/pkg/config"
 
 	"github.com/primev/mev-commit/tools/indexer/pkg/database"
 	httputil "github.com/primev/mev-commit/tools/indexer/pkg/http"
@@ -124,25 +123,6 @@ func BuildBidInsert(slot int64, relayID int64, bid map[string]any) (database.Bid
 		BlockNum: blockNum,
 		TsMS:     tsMS,
 	}, true
-}
-
-func UpsertRelaysAndLoad(ctx context.Context, db *database.DB) ([]Row, error) {
-	// upsert defaults from code
-	if err := db.UpsertRelays(ctx, config.RelaysDefault); err != nil {
-		return nil, err
-	}
-	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	dbResults, err := db.GetActiveRelays(ctx2)
-	if err != nil {
-		return nil, err
-	}
-
-	var rws []Row
-	for _, result := range dbResults {
-		rws = append(rws, Row{ID: result.ID, URL: result.URL})
-	}
-	return rws, nil
 }
 
 func FetchBuilderBlocksReceived(ctx context.Context, httpc *retryablehttp.Client, relayBase string, slot int64) ([]map[string]any, error) {

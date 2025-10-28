@@ -290,7 +290,7 @@ func processBatchKafka(blocks []*types.Block, receipts []types.Receipts, kafkaOp
 				logsData = append(logsData, indexLog)
 			}
 		}
-		
+
 		batchBlocks = append(batchBlocks, blockData...)
 		batchTxs = append(batchTxs, txsData...)
 		batchReceipts = append(batchReceipts, receiptsData...)

@@ -250,11 +250,11 @@ func main() {
 
 		client, err := kgo.NewClient(
 			kgo.SeedBrokers(brokers...),
-			kgo.RequiredAcks(kgo.AllISRAcks()),           // Wait for all replicas (durability)
-			kgo.ProducerBatchMaxBytes(10_485_760),        // 10MB batch size (matches topic max)
+			kgo.RequiredAcks(kgo.AllISRAcks()),                  // Wait for all replicas (durability)
+			kgo.ProducerBatchMaxBytes(10_485_760),               // 10MB batch size (matches topic max)
 			kgo.ProducerBatchCompression(kgo.ZstdCompression()), // Zstd compression for best ratio
-			kgo.ProducerLinger(100*time.Millisecond),     // Batch records for throughput
-			kgo.RequestRetries(3),                        // Retry on transient failures
+			kgo.ProducerLinger(100*time.Millisecond),            // Batch records for throughput
+			kgo.RequestRetries(3),                               // Retry on transient failures
 			kgo.RetryBackoffFn(func(attempts int) time.Duration {
 				return time.Duration(attempts) * 100 * time.Millisecond
 			}),
@@ -281,7 +281,7 @@ func main() {
 		//   Add: message.max.bytes=10485760
 		//   Restart Kafka pods
 		topicConfigs := map[string]*string{
-			"max.message.bytes": ptrString("10485760"), // 10MB (handles large calldata/blob txs)
+			"max.message.bytes": ptrString("10485760"),  // 10MB (handles large calldata/blob txs)
 			"retention.ms":      ptrString("604800000"), // 7 days
 		}
 
