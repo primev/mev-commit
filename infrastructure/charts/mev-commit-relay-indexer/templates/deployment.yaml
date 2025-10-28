@@ -24,7 +24,6 @@ spec:
         - --database-url={{ .Values.indexer.databaseUrl }}
         - --rpc-url={{ .Values.indexer.rpcUrl }}
         - --beacon-base={{ .Values.indexer.beaconBase }}
-        - --relay=true
         - --relays-json={{ .Values.indexer.relays | toJson }}
         {{- if .Values.indexer.beaconchaApiKey }}
         - --beaconcha-api-key={{ .Values.indexer.beaconchaApiKey }}
