@@ -20,6 +20,57 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// fetchBlockWithRetry attempts to fetch a block with exponential backoff retries
+// Only used for forward indexer where blocks might not be available yet on beaconcha.in
+func fetchBlockWithRetry(ctx context.Context, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, rpcURL, beaconBase, beaconchaAPIKey string, blockNum int64, logger *slog.Logger) (*beacon.ExecInfo, error) {
+	retryDelays := []time.Duration{
+		2 * time.Second,
+		4 * time.Second,
+		12 * time.Second,
+		20 * time.Second,
+		30 * time.Second,
+		60 * time.Second,
+	}
+
+	var lastErr error
+	for attempt := 0; attempt <= len(retryDelays); attempt++ {
+		// First attempt (attempt=0) has no delay
+		if attempt > 0 {
+			delay := retryDelays[attempt-1]
+			logger.Warn("retrying block fetch",
+				"block", blockNum,
+				"attempt", attempt,
+				"delay_s", delay.Seconds(),
+				"max_attempts", len(retryDelays)+1)
+
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
+		ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, blockNum)
+		if err == nil && ei != nil {
+			if attempt > 0 {
+				logger.Info("block fetch succeeded after retry",
+					"block", blockNum,
+					"attempt", attempt+1)
+			}
+			return ei, nil
+		}
+
+		lastErr = err
+		logger.Debug("block fetch attempt failed",
+			"block", blockNum,
+			"attempt", attempt+1,
+			"error", err)
+	}
+
+	// All retries exhausted
+	return nil, fmt.Errorf("block fetch failed after %d attempts: %w", len(retryDelays)+1, lastErr)
+}
+
 func initializeDatabase(ctx context.Context, dbURL string, logger *slog.Logger) (*database.DB, error) {
 	db, err := database.Connect(ctx, dbURL, 20, 5)
 	if err != nil {
@@ -250,10 +301,10 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 				return nil
 			}
 
-			// Fetch block data
-			ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn)
+			// Fetch block data with retry logic (for forward indexer, blocks might not be available yet)
+			ei, err := fetchBlockWithRetry(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn, logger)
 			if err != nil {
-				logger.Error("FATAL: block fetch failed", "block", bn, "error", err)
+				logger.Error("FATAL: block fetch failed after all retries", "block", bn, "error", err)
 				return fmt.Errorf("block fetch failed at %d: %w", bn, err)
 			}
 			if ei == nil {
