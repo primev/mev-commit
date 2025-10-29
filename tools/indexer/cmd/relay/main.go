@@ -85,6 +85,13 @@ var (
 		Value:   2,
 	})
 
+	optionFillGaps = altsrc.NewBoolFlag(&cli.BoolFlag{
+		Name:    "fill-gaps",
+		Usage:   "detect and fill missing blocks at startup before continuing normal operation",
+		EnvVars: []string{"INDEXER_FILL_GAPS"},
+		Value:   false,
+	})
+
 	optionBackwardStopBlock = altsrc.NewInt64Flag(&cli.Int64Flag{
 		Name:    "backward-stop-block",
 		Usage:   "block number where backward indexer should stop (0 = genesis)",
@@ -133,6 +140,7 @@ func main() {
 		optionValidatorDelay,
 		optionBatchSize,
 		optionFetchWorkers,
+		optionFillGaps,
 		optionBackwardStopBlock,
 		optionHTTPTimeout,
 		optionOptInContract,

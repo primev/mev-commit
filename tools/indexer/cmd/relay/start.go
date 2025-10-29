@@ -21,6 +21,61 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// fillGaps detects and fills missing blocks in the database
+// This is a one-time operation at startup to fix gaps from previous issues
+func fillGaps(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, rpcURL, beaconBase, beaconchaAPIKey string, logger *slog.Logger) error {
+	logger.Info("[FILL_GAPS] detecting missing blocks...")
+
+	// Query for gaps
+	gaps, err := db.QueryGaps(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query gaps: %w", err)
+	}
+
+	// Convert gaps to list of missing blocks
+	var missingBlocks []int64
+	for _, gap := range gaps {
+		gapStart, gapEnd := gap[0], gap[1]
+		for bn := gapStart; bn <= gapEnd; bn++ {
+			missingBlocks = append(missingBlocks, bn)
+		}
+	}
+
+	if len(missingBlocks) == 0 {
+		logger.Info("[FILL_GAPS] no missing blocks found")
+		return nil
+	}
+
+	logger.Info("[FILL_GAPS] found missing blocks", "count", len(missingBlocks), "blocks", missingBlocks)
+
+	// Fetch missing blocks
+	blocks := make([]*beacon.ExecInfo, 0, len(missingBlocks))
+	for _, bn := range missingBlocks {
+		logger.Info("[FILL_GAPS] fetching block", "block", bn)
+		ei, err := beacon.FetchCombinedBlockData(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn)
+		if err != nil {
+			logger.Error("[FILL_GAPS] failed to fetch block", "block", bn, "error", err)
+			return fmt.Errorf("failed to fetch block %d: %w", bn, err)
+		}
+		blocks = append(blocks, ei)
+	}
+
+	// Insert blocks
+	logger.Info("[FILL_GAPS] inserting missing blocks", "count", len(blocks))
+	if err := db.InsertBlocksBatch(ctx, blocks); err != nil {
+		return fmt.Errorf("failed to insert blocks: %w", err)
+	}
+
+	// Process validators
+	logger.Info("[FILL_GAPS] processing validators for missing blocks")
+	if err := processValidatorsBatch(ctx, c, db, httpc, beaconLimiter, blocks, beaconBase, beaconchaAPIKey, logger); err != nil {
+		return fmt.Errorf("failed to process validators: %w", err)
+	}
+
+	logger.Info("[FILL_GAPS] successfully filled all gaps", "blocks_filled", len(missingBlocks))
+	return nil
+}
+
 // fetchBlockWithRetry attempts to fetch a block with exponential backoff retries
 // Only used for forward indexer where blocks might not be available yet on beaconcha.in
 func fetchBlockWithRetry(ctx context.Context, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, rpcURL, beaconBase, beaconchaAPIKey string, blockNum int64, logger *slog.Logger) (*beacon.ExecInfo, error) {
@@ -1105,6 +1160,15 @@ func startIndexer(c *cli.Context) error {
 		initLogger.Info("[RATE_LIMITER] beaconcha rate limiter initialized", "rps", beaconchaRPS)
 	} else {
 		initLogger.Warn("[RATE_LIMITER] beaconcha rate limiting disabled (rps=0)")
+	}
+
+	// Fill gaps if requested (one-time operation at startup)
+	if c.Bool("fill-gaps") {
+		initLogger.Info("[FILL_GAPS] gap filling enabled, detecting and filling missing blocks...")
+		if err := fillGaps(ctx, c, db, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, initLogger); err != nil {
+			initLogger.Error("[FILL_GAPS] failed to fill gaps", "error", err)
+			return fmt.Errorf("fill gaps failed: %w", err)
+		}
 	}
 
 	// Get starting points for forward and backward indexers

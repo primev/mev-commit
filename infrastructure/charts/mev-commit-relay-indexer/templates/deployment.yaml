@@ -32,6 +32,7 @@ spec:
         - --validator-delay={{ .Values.indexer.validatorDelay }}
         - --batch-size={{ .Values.indexer.backfillBatch }}
         - --fetch-workers={{ .Values.indexer.fetchWorkers }}
+        - --fill-gaps={{ .Values.indexer.fillGaps }}
         - --http-timeout={{ .Values.indexer.httpTimeout }}
         - --opt-in-contract={{ .Values.indexer.optInContract }}
         - --backward-stop-block={{ .Values.indexer.backwardStopBlock }}

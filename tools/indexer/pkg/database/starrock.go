@@ -111,6 +111,48 @@ func (db *DB) Close() error {
 	return db.conn.Close()
 }
 
+// QueryGaps finds missing block ranges in the blocks table
+func (db *DB) QueryGaps(ctx context.Context) ([][2]int64, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	query := `
+		WITH sorted AS (
+		  SELECT
+		    block_number,
+		    LAG(block_number) OVER (ORDER BY block_number) AS prev_block
+		  FROM blocks
+		)
+		SELECT
+		  prev_block + 1 AS gap_start,
+		  block_number - 1 AS gap_end
+		FROM sorted
+		WHERE block_number - prev_block > 1
+		ORDER BY gap_start
+	`
+
+	rows, err := db.conn.QueryContext(ctx2, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query gaps: %w", err)
+	}
+	defer rows.Close()
+
+	var gaps [][2]int64
+	for rows.Next() {
+		var gapStart, gapEnd int64
+		if err := rows.Scan(&gapStart, &gapEnd); err != nil {
+			return nil, fmt.Errorf("failed to scan gap: %w", err)
+		}
+		gaps = append(gaps, [2]int64{gapStart, gapEnd})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return gaps, nil
+}
+
 // BlockWithoutBids represents a block that needs bid fetching
 type BlockWithoutBids struct {
 	BlockNumber int64
