@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/primev/mev-commit/tools/indexer/pkg/beacon"
@@ -169,30 +170,126 @@ func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc
 		logger.Info("processing batch", "start", batchStart, "end", batchEnd, "size", batchSize)
 		batchStartTime := time.Now()
 
-		// PHASE 1: Fetch all blocks in batch sequentially (respects 30 RPS rate limit)
+		// PHASE 1: Fetch all blocks in batch with parallel workers
+		// Workers share the rate limiter (30 RPS), so more workers = faster fetching
 		fetchStartTime := time.Now()
+
+		// Parallel fetch using worker pool
+		type fetchResult struct {
+			blockNum int64
+			block    *beacon.ExecInfo
+			duration time.Duration
+			err      error
+		}
+
+		numWorkers := cfg.FetchWorkers
+		if numWorkers < 1 {
+			numWorkers = 1
+		}
+
+		blockNumsChan := make(chan int64, batchSize)
+		resultsChan := make(chan fetchResult, batchSize)
+
+		// Launch workers
+		var fetchWg sync.WaitGroup
+		for w := 0; w < numWorkers; w++ {
+			fetchWg.Add(1)
+			go func() {
+				defer fetchWg.Done()
+				for bn := range blockNumsChan {
+					if err := ctx.Err(); err != nil {
+						resultsChan <- fetchResult{blockNum: bn, err: err}
+						continue
+					}
+
+					blockFetchStart := time.Now()
+					ei, err := fetchBlockWithRetry(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn, logger)
+					blockFetchDuration := time.Since(blockFetchStart)
+
+					resultsChan <- fetchResult{
+						blockNum: bn,
+						block:    ei,
+						duration: blockFetchDuration,
+						err:      err,
+					}
+				}
+			}()
+		}
+
+		// Send block numbers to workers
+		go func() {
+			for bn := batchEnd; bn >= batchStart; bn-- {
+				blockNumsChan <- bn
+			}
+			close(blockNumsChan)
+		}()
+
+		// Wait for all workers to finish
+		go func() {
+			fetchWg.Wait()
+			close(resultsChan)
+		}()
+
+		// Collect results and order them
+		resultsMap := make(map[int64]fetchResult)
+		var totalFetchTime time.Duration
+		fetchCount := 0
+
+		for result := range resultsChan {
+			if result.err != nil {
+				logger.Error("FATAL: block fetch failed after all retries", "block", result.blockNum, "error", result.err)
+				return fmt.Errorf("block fetch failed at %d: %w", result.blockNum, result.err)
+			}
+			if result.block == nil {
+				logger.Error("FATAL: block data is nil", "block", result.blockNum)
+				return fmt.Errorf("block data nil at %d", result.blockNum)
+			}
+
+			resultsMap[result.blockNum] = result
+			totalFetchTime += result.duration
+			fetchCount++
+
+			// Log progress every 20 blocks
+			if fetchCount%20 == 0 {
+				avgPerBlock := totalFetchTime / time.Duration(fetchCount)
+				logger.Info("fetch progress",
+					"blocks_fetched", fetchCount,
+					"workers", numWorkers,
+					"avg_per_block_ms", avgPerBlock.Milliseconds(),
+					"total_elapsed_s", fmt.Sprintf("%.2f", time.Since(fetchStartTime).Seconds()))
+			}
+		}
+
+		// Build blocks slice in descending order
 		blocks := make([]*beacon.ExecInfo, 0, batchSize)
 		for bn := batchEnd; bn >= batchStart; bn-- {
-			if err := ctx.Err(); err != nil {
-				logger.Info("shutdown during fetch", "last_processed", currentBN)
-				db.SaveBackwardCheckpoint(context.Background(), currentBN)
-				return nil
+			if result, found := resultsMap[bn]; found {
+				blocks = append(blocks, result.block)
+			} else {
+				// This should never happen - all blocks should have been fetched
+				logger.Error("FATAL: block missing from results map", "block", bn)
+				return fmt.Errorf("block %d missing from results map", bn)
 			}
-
-			// Fetch block data with retry for transient network errors
-			ei, err := fetchBlockWithRetry(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn, logger)
-			if err != nil {
-				logger.Error("FATAL: block fetch failed after all retries", "block", bn, "error", err)
-				return fmt.Errorf("block fetch failed at %d: %w", bn, err)
-			}
-			if ei == nil {
-				logger.Error("FATAL: block data is nil", "block", bn)
-				return fmt.Errorf("block data nil at %d", bn)
-			}
-
-			blocks = append(blocks, ei)
 		}
+
+		// Sanity check: verify all blocks were fetched
+		if len(blocks) != fetchCount {
+			logger.Error("FATAL: block count mismatch", "expected", fetchCount, "got", len(blocks))
+			return fmt.Errorf("block count mismatch: expected %d, got %d", fetchCount, len(blocks))
+		}
+
 		fetchDuration := time.Since(fetchStartTime)
+		avgFetchPerBlock := time.Duration(0)
+		if fetchCount > 0 {
+			avgFetchPerBlock = totalFetchTime / time.Duration(fetchCount)
+		}
+
+		logger.Info("fetch phase complete",
+			"blocks", fetchCount,
+			"workers", numWorkers,
+			"total_s", fmt.Sprintf("%.2f", fetchDuration.Seconds()),
+			"avg_per_block_ms", avgFetchPerBlock.Milliseconds(),
+			"effective_rps", fmt.Sprintf("%.2f", float64(fetchCount)/fetchDuration.Seconds()))
 
 		// PHASE 2: Batch insert all blocks
 		insertStartTime := time.Now()
@@ -202,23 +299,16 @@ func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc
 		}
 		insertDuration := time.Since(insertStartTime)
 
-		// PHASE 3: Process validator tasks for each block (synchronous - must complete)
+		// PHASE 3: Process validator tasks in batch
 		validatorStartTime := time.Now()
-		for _, ei := range blocks {
-			if err := ctx.Err(); err != nil {
-				logger.Info("shutdown during validator tasks", "last_processed", currentBN)
-				db.SaveBackwardCheckpoint(context.Background(), currentBN)
-				return nil
-			}
-
-			if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
-				logger.Error("FATAL: validator tasks failed", "block", ei.BlockNumber, "error", err)
-				return fmt.Errorf("validator tasks failed at %d: %w", ei.BlockNumber, err)
-			}
-
-			currentBN = ei.BlockNumber - 1
+		if err := processValidatorsBatch(ctx, c, db, httpc, beaconLimiter, blocks, beaconBase, beaconchaAPIKey, logger); err != nil {
+			logger.Error("FATAL: validator batch processing failed", "error", err)
+			return fmt.Errorf("validator batch processing failed: %w", err)
 		}
 		validatorDuration := time.Since(validatorStartTime)
+
+		// Update current block number
+		currentBN = blocks[len(blocks)-1].BlockNumber - 1
 
 		blocksProcessed := len(blocks)
 
@@ -232,13 +322,17 @@ func runBackwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc
 
 		batchDuration := time.Since(batchStartTime)
 		blocksPerSecond := float64(blocksProcessed) / batchDuration.Seconds()
+		fetchRPS := float64(blocksProcessed) / fetchDuration.Seconds()
+		validatorRPS := float64(blocksProcessed) / validatorDuration.Seconds()
 
 		logger.Info("batch completed",
 			"blocks", blocksProcessed,
 			"total_s", fmt.Sprintf("%.2f", batchDuration.Seconds()),
 			"fetch_s", fmt.Sprintf("%.2f", fetchDuration.Seconds()),
+			"fetch_rps", fmt.Sprintf("%.2f", fetchRPS),
 			"insert_s", fmt.Sprintf("%.3f", insertDuration.Seconds()),
 			"validator_s", fmt.Sprintf("%.2f", validatorDuration.Seconds()),
+			"validator_rps", fmt.Sprintf("%.2f", validatorRPS),
 			"checkpoint_s", fmt.Sprintf("%.3f", checkpointDuration.Seconds()),
 			"blocks_per_sec", fmt.Sprintf("%.2f", blocksPerSecond))
 	}
@@ -291,30 +385,126 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 		logger.Info("processing batch", "start", batchStart, "end", batchEnd, "size", batchSize, "behind_tip", behindTip)
 		batchStartTime := time.Now()
 
-		// PHASE 1: Fetch all blocks in batch sequentially (respects 30 RPS rate limit)
+		// PHASE 1: Fetch all blocks in batch with parallel workers
+		// Workers share the rate limiter (30 RPS), so more workers = faster fetching
 		fetchStartTime := time.Now()
+
+		// Parallel fetch using worker pool
+		type fetchResult struct {
+			blockNum int64
+			block    *beacon.ExecInfo
+			duration time.Duration
+			err      error
+		}
+
+		numWorkers := cfg.FetchWorkers
+		if numWorkers < 1 {
+			numWorkers = 1
+		}
+
+		blockNumsChan := make(chan int64, batchSize)
+		resultsChan := make(chan fetchResult, batchSize)
+
+		// Launch workers
+		var fetchWg sync.WaitGroup
+		for w := 0; w < numWorkers; w++ {
+			fetchWg.Add(1)
+			go func() {
+				defer fetchWg.Done()
+				for bn := range blockNumsChan {
+					if err := ctx.Err(); err != nil {
+						resultsChan <- fetchResult{blockNum: bn, err: err}
+						continue
+					}
+
+					blockFetchStart := time.Now()
+					ei, err := fetchBlockWithRetry(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn, logger)
+					blockFetchDuration := time.Since(blockFetchStart)
+
+					resultsChan <- fetchResult{
+						blockNum: bn,
+						block:    ei,
+						duration: blockFetchDuration,
+						err:      err,
+					}
+				}
+			}()
+		}
+
+		// Send block numbers to workers (ascending for forward)
+		go func() {
+			for bn := batchStart; bn <= batchEnd; bn++ {
+				blockNumsChan <- bn
+			}
+			close(blockNumsChan)
+		}()
+
+		// Wait for all workers to finish
+		go func() {
+			fetchWg.Wait()
+			close(resultsChan)
+		}()
+
+		// Collect results and order them
+		resultsMap := make(map[int64]fetchResult)
+		var totalFetchTime time.Duration
+		fetchCount := 0
+
+		for result := range resultsChan {
+			if result.err != nil {
+				logger.Error("FATAL: block fetch failed after all retries", "block", result.blockNum, "error", result.err)
+				return fmt.Errorf("block fetch failed at %d: %w", result.blockNum, result.err)
+			}
+			if result.block == nil {
+				logger.Error("FATAL: block data is nil", "block", result.blockNum)
+				return fmt.Errorf("block data nil at %d", result.blockNum)
+			}
+
+			resultsMap[result.blockNum] = result
+			totalFetchTime += result.duration
+			fetchCount++
+
+			// Log progress every 20 blocks
+			if fetchCount%20 == 0 {
+				avgPerBlock := totalFetchTime / time.Duration(fetchCount)
+				logger.Info("fetch progress",
+					"blocks_fetched", fetchCount,
+					"workers", numWorkers,
+					"avg_per_block_ms", avgPerBlock.Milliseconds(),
+					"total_elapsed_s", fmt.Sprintf("%.2f", time.Since(fetchStartTime).Seconds()))
+			}
+		}
+
+		// Build blocks slice in ascending order
 		blocks := make([]*beacon.ExecInfo, 0, batchSize)
 		for bn := batchStart; bn <= batchEnd; bn++ {
-			if err := ctx.Err(); err != nil {
-				logger.Info("shutdown during fetch", "last_processed", currentBN)
-				db.SaveForwardCheckpoint(context.Background(), currentBN)
-				return nil
+			if result, found := resultsMap[bn]; found {
+				blocks = append(blocks, result.block)
+			} else {
+				// This should never happen - all blocks should have been fetched
+				logger.Error("FATAL: block missing from results map", "block", bn)
+				return fmt.Errorf("block %d missing from results map", bn)
 			}
-
-			// Fetch block data with retry logic (for forward indexer, blocks might not be available yet)
-			ei, err := fetchBlockWithRetry(ctx, httpc, beaconLimiter, rpcURL, beaconBase, beaconchaAPIKey, bn, logger)
-			if err != nil {
-				logger.Error("FATAL: block fetch failed after all retries", "block", bn, "error", err)
-				return fmt.Errorf("block fetch failed at %d: %w", bn, err)
-			}
-			if ei == nil {
-				logger.Error("FATAL: block data is nil", "block", bn)
-				return fmt.Errorf("block data nil at %d", bn)
-			}
-
-			blocks = append(blocks, ei)
 		}
+
+		// Sanity check: verify all blocks were fetched
+		if len(blocks) != fetchCount {
+			logger.Error("FATAL: block count mismatch", "expected", fetchCount, "got", len(blocks))
+			return fmt.Errorf("block count mismatch: expected %d, got %d", fetchCount, len(blocks))
+		}
+
 		fetchDuration := time.Since(fetchStartTime)
+		avgFetchPerBlock := time.Duration(0)
+		if fetchCount > 0 {
+			avgFetchPerBlock = totalFetchTime / time.Duration(fetchCount)
+		}
+
+		logger.Info("fetch phase complete",
+			"blocks", fetchCount,
+			"workers", numWorkers,
+			"total_s", fmt.Sprintf("%.2f", fetchDuration.Seconds()),
+			"avg_per_block_ms", avgFetchPerBlock.Milliseconds(),
+			"effective_rps", fmt.Sprintf("%.2f", float64(fetchCount)/fetchDuration.Seconds()))
 
 		// PHASE 2: Batch insert all blocks
 		insertStartTime := time.Now()
@@ -324,23 +514,16 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 		}
 		insertDuration := time.Since(insertStartTime)
 
-		// PHASE 3: Process validator tasks for each block (synchronous - must complete)
+		// PHASE 3: Process validator tasks in batch
 		validatorStartTime := time.Now()
-		for _, ei := range blocks {
-			if err := ctx.Err(); err != nil {
-				logger.Info("shutdown during validator tasks", "last_processed", currentBN)
-				db.SaveForwardCheckpoint(context.Background(), currentBN)
-				return nil
-			}
-
-			if err := launchValidatorTasks(ctx, c, db, httpc, beaconLimiter, ei, beaconBase, beaconchaAPIKey, logger); err != nil {
-				logger.Error("FATAL: validator tasks failed", "block", ei.BlockNumber, "error", err)
-				return fmt.Errorf("validator tasks failed at %d: %w", ei.BlockNumber, err)
-			}
-
-			currentBN = ei.BlockNumber
+		if err := processValidatorsBatch(ctx, c, db, httpc, beaconLimiter, blocks, beaconBase, beaconchaAPIKey, logger); err != nil {
+			logger.Error("FATAL: validator batch processing failed", "error", err)
+			return fmt.Errorf("validator batch processing failed: %w", err)
 		}
 		validatorDuration := time.Since(validatorStartTime)
+
+		// Update current block number
+		currentBN = blocks[len(blocks)-1].BlockNumber
 
 		blocksProcessed := len(blocks)
 
@@ -354,16 +537,119 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 
 		batchDuration := time.Since(batchStartTime)
 		blocksPerSecond := float64(blocksProcessed) / batchDuration.Seconds()
+		fetchRPS := float64(blocksProcessed) / fetchDuration.Seconds()
+		validatorRPS := float64(blocksProcessed) / validatorDuration.Seconds()
 
 		logger.Info("batch completed",
 			"blocks", blocksProcessed,
 			"total_s", fmt.Sprintf("%.2f", batchDuration.Seconds()),
 			"fetch_s", fmt.Sprintf("%.2f", fetchDuration.Seconds()),
+			"fetch_rps", fmt.Sprintf("%.2f", fetchRPS),
 			"insert_s", fmt.Sprintf("%.3f", insertDuration.Seconds()),
 			"validator_s", fmt.Sprintf("%.2f", validatorDuration.Seconds()),
+			"validator_rps", fmt.Sprintf("%.2f", validatorRPS),
 			"checkpoint_s", fmt.Sprintf("%.3f", checkpointDuration.Seconds()),
 			"blocks_per_sec", fmt.Sprintf("%.2f", blocksPerSecond))
 	}
+}
+
+// processValidatorsBatch processes all validators in a batch efficiently
+func processValidatorsBatch(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, blocks []*beacon.ExecInfo, beaconBase, beaconchaAPIKey string, logger *slog.Logger) error {
+	t0 := time.Now()
+
+	// Step 1: Collect all proposer indices from blocks
+	var proposerIndices []int64
+	slotToProposerIdx := make(map[int64]int64) // slot -> proposerIdx
+	slotToBlock := make(map[int64]*beacon.ExecInfo) // slot -> ExecInfo for opt-in checks
+	for _, ei := range blocks {
+		if ei.ProposerIdx != nil {
+			proposerIndices = append(proposerIndices, *ei.ProposerIdx)
+			slotToProposerIdx[ei.Slot] = *ei.ProposerIdx
+			slotToBlock[ei.Slot] = ei
+		}
+	}
+
+	if len(proposerIndices) == 0 {
+		logger.Info("[VALIDATOR] no proposers to process in batch")
+		return nil
+	}
+
+	// Step 2: Batch fetch all validator pubkeys
+	t1 := time.Now()
+	pubkeyMap, err := beacon.FetchValidatorPubkeysBatch(ctx, httpc, beaconLimiter, beaconBase, beaconchaAPIKey, proposerIndices)
+	if err != nil {
+		return fmt.Errorf("batch fetch validator pubkeys: %w", err)
+	}
+	fetchDuration := time.Since(t1)
+
+	// Step 3: Batch save all pubkeys to database
+	t2 := time.Now()
+	slotToPubkey := make(map[int64][]byte)
+	for slot, proposerIdx := range slotToProposerIdx {
+		if pubkey, found := pubkeyMap[proposerIdx]; found && len(pubkey) > 0 {
+			slotToPubkey[slot] = pubkey
+		}
+	}
+	if err := db.UpdateValidatorPubkeysBatch(ctx, slotToPubkey); err != nil {
+		logger.Error("[VALIDATOR] failed to batch save pubkeys", "error", err)
+		return fmt.Errorf("batch save validator pubkeys: %w", err)
+	}
+	saveDuration := time.Since(t2)
+
+	// Step 4: Batch check opt-in status for all validators
+	t3 := time.Now()
+
+	// Collect all pubkeys and map them to slots
+	var pubkeysForOptIn [][]byte
+	pubkeyHexToSlot := make(map[string]int64)
+	slotToPubkeyHex := make(map[int64]string)
+
+	for slot, pubkey := range slotToPubkey {
+		pubkeysForOptIn = append(pubkeysForOptIn, pubkey)
+		pkHex := common.Bytes2Hex(pubkey)
+		pubkeyHexToSlot[pkHex] = slot
+		slotToPubkeyHex[slot] = pkHex
+	}
+
+	// Get block number for opt-in check (use first block's number as they should be close)
+	var blockNum int64
+	if len(blocks) > 0 {
+		blockNum = blocks[0].BlockNumber
+	}
+
+	// Batch check opt-in status
+	optInMap, err := ethereum.CallAreOptedInAtBlockBatch(httpc.HTTPClient, createOptionsFromCLI(c), blockNum, pubkeysForOptIn)
+	if err != nil {
+		logger.Error("[VALIDATOR] batch opt-in check failed", "error", err)
+		return fmt.Errorf("batch opt-in check: %w", err)
+	}
+
+	// Step 5: Batch save opt-in statuses
+	slotToOptIn := make(map[int64]bool)
+	for slot, pkHex := range slotToPubkeyHex {
+		if opted, found := optInMap[pkHex]; found {
+			slotToOptIn[slot] = opted
+		}
+	}
+
+	if err := db.UpdateValidatorOptInStatusBatch(ctx, slotToOptIn); err != nil {
+		logger.Error("[VALIDATOR] failed to batch save opt-in status", "error", err)
+		return fmt.Errorf("batch save opt-in status: %w", err)
+	}
+	optInDuration := time.Since(t3)
+
+	totalDuration := time.Since(t0)
+
+	logger.Info("[VALIDATOR] batch processing complete",
+		"total_validators", len(proposerIndices),
+		"pubkeys_saved", len(slotToPubkey),
+		"optin_checked", len(slotToOptIn),
+		"total_ms", totalDuration.Milliseconds(),
+		"fetch_ms", fetchDuration.Milliseconds(),
+		"save_ms", saveDuration.Milliseconds(),
+		"optin_ms", optInDuration.Milliseconds())
+
+	return nil
 }
 
 func launchValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, ei *beacon.ExecInfo, beaconBase, beaconchaAPIKey string, logger *slog.Logger) error { // Async validator pubkey fetch
@@ -371,46 +657,72 @@ func launchValidatorTasks(ctx context.Context, c *cli.Context, db *database.DB, 
 		return nil
 	}
 
+	t0 := time.Now()
+
+	// Step 1: Fetch validator pubkey from beaconcha.in
 	vctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	t1 := time.Now()
 	vpub, err := beacon.FetchValidatorPubkey(vctx, httpc, beaconLimiter, beaconBase, beaconchaAPIKey, *ei.ProposerIdx)
+	fetchDuration := time.Since(t1)
 	if err != nil {
 		return fmt.Errorf("fetch validator pubkey: %w", err)
 	}
 
+	// Step 2: Save pubkey to database
+	t2 := time.Now()
 	if len(vpub) > 0 {
 		if err := db.UpdateValidatorPubkey(vctx, ei.Slot, vpub); err != nil {
 			logger.Error("[VALIDATOR] failed to save pubkey", "slot", ei.Slot, "error", err)
-		} else {
-			logger.Info("[VALIDATOR] pubkey saved", "proposer", *ei.ProposerIdx, "slot", ei.Slot)
 		}
 	}
+	saveDuration := time.Since(t2)
 
-	// Wait for validator pubkey to be available
+	// Step 3: Retry read from database
 	getCtx, getCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	t3 := time.Now()
 	vpk, err := db.GetValidatorPubkeyWithRetry(getCtx, ei.Slot, 3, time.Second)
 	getCancel()
+	retryReadDuration := time.Since(t3)
 
 	if err != nil {
 		logger.Error("[VALIDATOR] pubkey not available", "slot", ei.Slot, "error", err)
 		return fmt.Errorf("save validator pubkey: %w", err)
 	}
 
+	// Step 4: Check opt-in status via Ethereum RPC
+	t4 := time.Now()
 	opted, err := ethereum.CallAreOptedInAtBlock(httpc.HTTPClient, createOptionsFromCLI(c), ei.BlockNumber, vpk)
+	optInCheckDuration := time.Since(t4)
 	if err != nil {
 		return fmt.Errorf("check opt-in status: %w", err)
 	}
 
+	// Step 5: Save opt-in status
 	updCtx, updCancel := context.WithTimeout(context.Background(), 3*time.Second)
+	t5 := time.Now()
 	err = db.UpdateValidatorOptInStatus(updCtx, ei.Slot, opted)
 	updCancel()
+	saveOptInDuration := time.Since(t5)
+
+	totalDuration := time.Since(t0)
+
 	if err != nil {
 		return fmt.Errorf("save opt-in status: %w", err)
-	} else {
-		logger.Info("[OPT-IN] validator opt-in status", "slot", ei.Slot, "opted_in", opted)
 	}
-	return nil
 
+	logger.Info("[VALIDATOR] processing complete",
+		"slot", ei.Slot,
+		"proposer", *ei.ProposerIdx,
+		"opted_in", opted,
+		"total_ms", totalDuration.Milliseconds(),
+		"fetch_ms", fetchDuration.Milliseconds(),
+		"save_ms", saveDuration.Milliseconds(),
+		"retry_read_ms", retryReadDuration.Milliseconds(),
+		"optin_check_ms", optInCheckDuration.Milliseconds(),
+		"save_optin_ms", saveOptInDuration.Milliseconds())
+
+	return nil
 }
 
 // runBidWorker continuously queries for blocks without bids and processes them
@@ -431,7 +743,7 @@ func runBidWorker(ctx context.Context, db *database.DB, httpc *retryablehttp.Cli
 	}
 
 	logger.Info("bid worker started", "start_block", currentBlock, "direction", direction, "relays", len(relays))
-	batchSize := int64(100)
+	batchSize := int64(10)
 
 	for {
 		// Check context cancellation
@@ -464,6 +776,15 @@ func runBidWorker(ctx context.Context, db *database.DB, httpc *retryablehttp.Cli
 		logger.Info("processing blocks for bids", "count", len(blocks), "query_ms", queryDuration.Milliseconds())
 		batchStartTime := time.Now()
 
+		// Accumulate ALL bids from ALL blocks in this batch
+		// Flush ONCE at the end - no threshold checking
+		allAccumulatedBids := make([]database.BidRow, 0, 100000) // ~10 blocks × 10k bids
+		totalBlocksWithBids := 0
+		totalBidsAccumulated := 0
+
+		// Track tablet distribution in this batch
+		tabletVersions := make(map[int64]int) // tablet_id -> version count
+
 		// Process each block
 		for _, block := range blocks {
 			if err := ctx.Err(); err != nil {
@@ -476,15 +797,25 @@ func runBidWorker(ctx context.Context, db *database.DB, httpc *retryablehttp.Cli
 				return nil
 			}
 
-			// PHASE 2: Fetch bids from all relays in parallel
+			// Retry loop for blocks with 0 bids
+			retryCount := 0
+			const retryDelay = 5 * time.Second
+			const maxRetries = 0 // 0 means retry forever until bids appear
+
+		retryBlock:
+			// PHASE 2: Fetch bids from all relays in parallel (collect first, insert once)
 			blockStartTime := time.Now()
 			type relayResult struct {
-				relayID int64
-				bids    int
-				err     error
+				relayID       int64
+				bidRows       []database.BidRow
+				fetchDuration time.Duration
+				err           error
 			}
 			resultsChan := make(chan relayResult, len(relays))
 			var wg sync.WaitGroup
+
+			// Calculate which tablet this slot hashes to (for logging)
+			tabletID := block.Slot % 10 // BUCKETS 10 in table definition
 
 			for _, rr := range relays {
 				wg.Add(1)
@@ -494,41 +825,35 @@ func runBidWorker(ctx context.Context, db *database.DB, httpc *retryablehttp.Cli
 					relayCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 					defer cancel()
 
+					fetchStart := time.Now()
 					bids, err := relay.FetchBuilderBlocksReceived(relayCtx, httpc, r.URL, block.Slot)
+					fetchDur := time.Since(fetchStart)
+
 					if err != nil {
-						resultsChan <- relayResult{relayID: r.ID, err: err}
+						resultsChan <- relayResult{relayID: r.ID, fetchDuration: fetchDur, err: err}
 						return
 					}
 
-					// Insert bids
-					const batchInsertSize = 500
-					batch := make([]database.BidRow, 0, batchInsertSize)
-					totalInserted := 0
-
+					// Convert bids to rows (NO INSERT YET - collect all relays first)
+					bidRows := make([]database.BidRow, 0, len(bids))
 					for _, bid := range bids {
 						if row, ok := relay.BuildBidInsert(block.Slot, r.ID, bid); ok {
-							batch = append(batch, row)
-							if len(batch) >= batchInsertSize {
-								if err := db.InsertBidsBatch(ctx, batch); err != nil {
-									resultsChan <- relayResult{relayID: r.ID, err: fmt.Errorf("batch insert: %w", err)}
-									return
-								}
-								totalInserted += len(batch)
-								batch = batch[:0]
-							}
+							bidRows = append(bidRows, row)
 						}
 					}
 
-					// Insert remaining
-					if len(batch) > 0 {
-						if err := db.InsertBidsBatch(ctx, batch); err != nil {
-							resultsChan <- relayResult{relayID: r.ID, err: fmt.Errorf("final batch insert: %w", err)}
-							return
-						}
-						totalInserted += len(batch)
-					}
+					logger.Debug("relay bids fetched",
+						"relay_id", r.ID,
+						"slot", block.Slot,
+						"tablet", tabletID,
+						"bids", len(bidRows),
+						"fetch_ms", fetchDur.Milliseconds())
 
-					resultsChan <- relayResult{relayID: r.ID, bids: totalInserted}
+					resultsChan <- relayResult{
+						relayID:       r.ID,
+						bidRows:       bidRows,
+						fetchDuration: fetchDur,
+					}
 				}(rr)
 			}
 
@@ -538,61 +863,194 @@ func runBidWorker(ctx context.Context, db *database.DB, httpc *retryablehttp.Cli
 				close(resultsChan)
 			}()
 
-			// Collect results
-			totalBids := 0
+			// Collect ALL bids from ALL relays first
+			allBidRows := make([]database.BidRow, 0, 10000) // Pre-allocate for typical block
 			successfulRelays := 0
+			relaysWithBids := 0
 			var errors []string
+			var totalFetchDuration time.Duration
 
 			for result := range resultsChan {
 				if result.err != nil {
 					errors = append(errors, fmt.Sprintf("relay_%d: %v", result.relayID, result.err))
-				} else if result.bids > 0 {
-					totalBids += result.bids
-					successfulRelays++
+				} else {
+					successfulRelays++ // Relay responded successfully (even if 0 bids)
+					if len(result.bidRows) > 0 {
+						allBidRows = append(allBidRows, result.bidRows...)
+						relaysWithBids++
+					}
+					totalFetchDuration += result.fetchDuration
 				}
 			}
 
-			// If all relays failed, exit
+			totalBids := len(allBidRows)
+
+			// If all relays failed with errors, exit
 			if len(errors) == len(relays) {
-				logger.Error("FATAL: all relays failed for block", "block", block.BlockNumber, "errors", errors)
+				logger.Error("FATAL: all relays failed with errors for block",
+					"block", block.BlockNumber,
+					"slot", block.Slot,
+					"tablet", tabletID,
+					"errors", errors)
 				return fmt.Errorf("all relays failed for block %d", block.BlockNumber)
+			}
+
+			// If some relays had errors and no bids found, retry with delay
+			// If all relays succeeded but returned 0 bids, that's valid - move on
+			if relaysWithBids == 0 && totalBids == 0 && len(errors) > 0 {
+				retryCount++
+				logger.Warn("no bids found for block and some relays had errors, retrying after delay",
+					"block", block.BlockNumber,
+					"slot", block.Slot,
+					"tablet", tabletID,
+					"retry_attempt", retryCount,
+					"retry_delay_s", retryDelay.Seconds(),
+					"successful_relays", successfulRelays,
+					"relays_with_errors", len(errors))
+
+				// Check if we should stop retrying (if maxRetries > 0)
+				if maxRetries > 0 && retryCount >= maxRetries {
+					logger.Error("max retries reached for block with no bids, skipping",
+						"block", block.BlockNumber,
+						"slot", block.Slot,
+						"retry_attempts", retryCount)
+					// Don't update checkpoint - block will be picked up in next batch
+					continue
+				}
+
+				// Wait before retry
+				select {
+				case <-time.After(retryDelay):
+					// Retry the same block
+					goto retryBlock
+				case <-ctx.Done():
+					logger.Info("shutdown during retry wait", "block", block.BlockNumber)
+					return nil
+				}
+			}
+
+			// Log if all relays were checked successfully but returned no bids (valid case)
+			if relaysWithBids == 0 && totalBids == 0 && len(errors) == 0 {
+				logger.Info("no bids found for block (all relays checked successfully)",
+					"block", block.BlockNumber,
+					"slot", block.Slot,
+					"tablet", tabletID,
+					"successful_relays", successfulRelays)
+			}
+
+			// ACCUMULATE bids - insert ONCE at end of batch
+			if totalBids > 0 {
+				allAccumulatedBids = append(allAccumulatedBids, allBidRows...)
+				totalBidsAccumulated += totalBids
+				totalBlocksWithBids++
+
+				// Track tablet usage
+				tabletVersions[tabletID]++
+
+				logger.Debug("bids accumulated for block",
+					"block", block.BlockNumber,
+					"slot", block.Slot,
+					"bids_from_block", totalBids,
+					"total_accumulated", len(allAccumulatedBids),
+					"blocks_with_bids", totalBlocksWithBids)
 			}
 
 			blockDuration := time.Since(blockStartTime)
 
-			logger.Info("block bids processed",
-				"block", block.BlockNumber,
-				"slot", block.Slot,
-				"total_bids", totalBids,
-				"successful_relays", successfulRelays,
-				"total_relays", len(relays),
-				"duration_ms", blockDuration.Milliseconds())
+			var avgFetchMs int64
+			if successfulRelays > 0 {
+				avgFetchMs = totalFetchDuration.Milliseconds() / int64(successfulRelays)
+			}
 
-			// PHASE 3: Update checkpoint
-			checkpointStartTime := time.Now()
-			currentBlock = block.BlockNumber
-			var checkpointErr error
-			if direction == "forward" {
-				checkpointErr = db.SaveForwardBidCheckpoint(ctx, currentBlock)
+			// Log with appropriate level based on success
+			if len(errors) > 0 && relaysWithBids > 0 {
+				// Partial success - some relays failed but we got bids from others
+				logger.Warn("block bids fetched with some relay failures",
+					"block", block.BlockNumber,
+					"slot", block.Slot,
+					"tablet", tabletID,
+					"total_bids", totalBids,
+					"relays_with_bids", relaysWithBids,
+					"relays_with_errors", len(errors),
+					"total_relays", len(relays),
+					"avg_fetch_ms", avgFetchMs,
+					"fetch_duration_ms", blockDuration.Milliseconds(),
+					"errors", errors)
 			} else {
-				checkpointErr = db.SaveBackwardBidCheckpoint(ctx, currentBlock)
+				// Full success
+				logger.Debug("block bids fetched",
+					"block", block.BlockNumber,
+					"slot", block.Slot,
+					"tablet", tabletID,
+					"total_bids", totalBids,
+					"relays_with_bids", relaysWithBids,
+					"total_relays", len(relays),
+					"avg_fetch_ms", avgFetchMs,
+					"fetch_duration_ms", blockDuration.Milliseconds())
 			}
-			checkpointDuration := time.Since(checkpointStartTime)
 
-			if checkpointErr != nil {
-				logger.Error("FATAL: checkpoint save failed", "block", currentBlock, "error", checkpointErr)
-				return fmt.Errorf("checkpoint save failed at %d: %w", currentBlock, checkpointErr)
-			}
-
-			logger.Debug("checkpoint saved", "block", currentBlock, "duration_ms", checkpointDuration.Milliseconds())
+			// Track current block for checkpoint (will save after batch insert)
+			currentBlock = block.BlockNumber
 		}
+
+		// SINGLE BATCH INSERT: Insert all accumulated bids at once
+		// InsertBidsBatch will internally chunk at 9000 rows per INSERT
+		if len(allAccumulatedBids) > 0 {
+			insertStartTime := time.Now()
+			if err := db.InsertBidsBatch(ctx, allAccumulatedBids); err != nil {
+				logger.Error("FATAL: failed to insert accumulated bids",
+					"total_bids", len(allAccumulatedBids),
+					"blocks", totalBlocksWithBids,
+					"error", err)
+				return fmt.Errorf("insert accumulated bids: %w", err)
+			}
+			insertDuration := time.Since(insertStartTime)
+
+			logger.Info("batch bids inserted",
+				"total_bids", len(allAccumulatedBids),
+				"blocks_with_bids", totalBlocksWithBids,
+				"insert_ms", insertDuration.Milliseconds())
+		}
+
+		// CHECKPOINT: Save checkpoint AFTER successful batch insert
+		// This ensures we only mark blocks as processed after bids are safely in database
+		checkpointStartTime := time.Now()
+		var checkpointErr error
+		if direction == "forward" {
+			checkpointErr = db.SaveForwardBidCheckpoint(ctx, currentBlock)
+		} else {
+			checkpointErr = db.SaveBackwardBidCheckpoint(ctx, currentBlock)
+		}
+		checkpointDuration := time.Since(checkpointStartTime)
+
+		if checkpointErr != nil {
+			logger.Error("FATAL: checkpoint save failed", "block", currentBlock, "error", checkpointErr)
+			return fmt.Errorf("checkpoint save failed at %d: %w", currentBlock, checkpointErr)
+		}
+
+		logger.Debug("checkpoint saved", "block", currentBlock, "duration_ms", checkpointDuration.Milliseconds())
 
 		batchDuration := time.Since(batchStartTime)
 		blocksPerSecond := float64(len(blocks)) / batchDuration.Seconds()
+
+		// Calculate statistics
+		blocksWithBids := 0
+		for _, count := range tabletVersions {
+			blocksWithBids += count
+		}
+
 		logger.Info("bid batch completed",
 			"blocks_processed", len(blocks),
+			"blocks_with_bids", blocksWithBids,
+			"total_bids_accumulated", totalBidsAccumulated,
+			"tablets_written", len(tabletVersions),
 			"total_s", fmt.Sprintf("%.2f", batchDuration.Seconds()),
 			"blocks_per_sec", fmt.Sprintf("%.2f", blocksPerSecond))
+
+		// Log detailed tablet distribution
+		if len(tabletVersions) > 0 {
+			logger.Debug("tablet block distribution", "tablet_blocks", tabletVersions)
+		}
 	}
 }
 

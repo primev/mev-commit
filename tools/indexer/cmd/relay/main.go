@@ -78,6 +78,13 @@ var (
 		Value:   30,
 	})
 
+	optionFetchWorkers = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:    "fetch-workers",
+		Usage:   "number of parallel workers for fetching blocks from beaconcha.in (default 2, increase for faster indexing)",
+		EnvVars: []string{"INDEXER_FETCH_WORKERS"},
+		Value:   2,
+	})
+
 	optionBackwardStopBlock = altsrc.NewInt64Flag(&cli.Int64Flag{
 		Name:    "backward-stop-block",
 		Usage:   "block number where backward indexer should stop (0 = genesis)",
@@ -103,6 +110,7 @@ func createOptionsFromCLI(c *cli.Context) *config.Config {
 		BlockTick:       c.Duration("block-interval"),
 		ValidatorWait:   c.Duration("validator-delay"),
 		BatchSize:       c.Int("batch-size"),
+		FetchWorkers:    c.Int("fetch-workers"),
 		HTTPTimeout:     c.Duration("http-timeout"),
 		OptInContract:   c.String("opt-in-contract"),
 		RPCURL:          c.String("rpc-url"),
@@ -124,6 +132,7 @@ func main() {
 		optionBlockInterval,
 		optionValidatorDelay,
 		optionBatchSize,
+		optionFetchWorkers,
 		optionBackwardStopBlock,
 		optionHTTPTimeout,
 		optionOptInContract,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -569,8 +570,30 @@ func (db *DB) InsertBidsBatch(ctx context.Context, rows []BidRow) error {
 		return nil
 	}
 
-	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+	// StarRocks expr_children_limit is 10,000 rows per INSERT
+	// Split large batches to stay under limit
+	const maxRowsPerInsert = 9000 // Leave buffer under 10,000
+
+	// Process in chunks
+	for i := 0; i < len(rows); i += maxRowsPerInsert {
+		end := i + maxRowsPerInsert
+		if end > len(rows) {
+			end = len(rows)
+		}
+		chunk := rows[i:end]
+
+		if err := db.insertBidsChunk(ctx, chunk); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (db *DB) insertBidsChunk(ctx context.Context, rows []BidRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
 
 	var sb strings.Builder
 	sb.WriteString(`
@@ -598,8 +621,37 @@ func (db *DB) InsertBidsBatch(ctx context.Context, rows []BidRow) error {
 			r.Slot, r.RelayID, r.Builder, r.Proposer, r.FeeRec, r.ValStr, blockNumSQL, tsMSSQL)
 	}
 
-	_, err := db.conn.ExecContext(ctx2, sb.String())
-	return err
+	query := sb.String()
+
+	// Retry logic for "too many versions" error during tablet recovery
+	maxRetries := 5
+	retryDelay := 3 * time.Second
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		ctx2, cancel := context.WithTimeout(ctx, 20*time.Second)
+		_, err := db.conn.ExecContext(ctx2, query)
+		cancel()
+
+		if err == nil {
+			return nil
+		}
+
+		// Check if this is "too many versions" error (Error 5609)
+		errStr := err.Error()
+		if strings.Contains(errStr, "5609") && strings.Contains(errStr, "too many versions") {
+			if attempt < maxRetries-1 {
+				_, _ = fmt.Fprintf(os.Stderr, "[TABLET RECOVERY] too many versions, waiting for compaction (attempt %d/%d, delay=%v)\n",
+					attempt+1, maxRetries, retryDelay)
+				time.Sleep(retryDelay)
+				continue
+			}
+		}
+
+		// For other errors or final attempt, return immediately
+		return err
+	}
+
+	return fmt.Errorf("insert bids chunk failed after %d retries", maxRetries)
 }
 
 func (db *DB) GetRecentMissingBlocks(ctx context.Context, lookback int64, batch int) ([]struct {
@@ -739,6 +791,85 @@ func (db *DB) UpdateValidatorOptInStatus(ctx context.Context, slot int64, opted 
 	q := fmt.Sprintf("INSERT INTO blocks (slot, validator_opted_in) VALUES (%d, %d)", slot, v)
 	_, err := db.conn.ExecContext(ctx2, q)
 	return err
+}
+
+// UpdateValidatorPubkeysBatch updates multiple validator pubkeys in a single query
+func (db *DB) UpdateValidatorPubkeysBatch(ctx context.Context, updates map[int64][]byte) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	var sb strings.Builder
+	sb.WriteString("INSERT INTO blocks (slot, validator_pubkey) VALUES ")
+
+	first := true
+	for slot, vpub := range updates {
+		if slot == 0 || len(vpub) == 0 {
+			continue
+		}
+		if !first {
+			sb.WriteString(", ")
+		}
+		vhex := hexutil.Encode(vpub)
+		sb.WriteString(fmt.Sprintf("(%d, '%s')", slot, vhex))
+		first = false
+	}
+
+	if first {
+		// No valid updates
+		return nil
+	}
+
+	_, err := db.conn.ExecContext(ctx2, sb.String())
+	if err != nil {
+		return fmt.Errorf("batch update validator pubkeys: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateValidatorOptInStatusBatch updates multiple validator opt-in statuses in a single query
+func (db *DB) UpdateValidatorOptInStatusBatch(ctx context.Context, updates map[int64]bool) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	var sb strings.Builder
+	sb.WriteString("INSERT INTO blocks (slot, validator_opted_in) VALUES ")
+
+	first := true
+	for slot, opted := range updates {
+		if slot == 0 {
+			continue
+		}
+		if !first {
+			sb.WriteString(", ")
+		}
+		v := 0
+		if opted {
+			v = 1
+		}
+		sb.WriteString(fmt.Sprintf("(%d, %d)", slot, v))
+		first = false
+	}
+
+	if first {
+		// No valid updates
+		return nil
+	}
+
+	_, err := db.conn.ExecContext(ctx2, sb.String())
+	if err != nil {
+		return fmt.Errorf("batch update validator opt-in status: %w", err)
+	}
+
+	return nil
 }
 
 func (db *DB) GetValidatorPubkeyWithRetry(ctx context.Context, slot int64, retries int, retryDelay time.Duration) ([]byte, error) {

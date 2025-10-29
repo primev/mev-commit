@@ -197,6 +197,110 @@ func FetchValidatorPubkey(ctx context.Context, httpc *retryablehttp.Client, limi
 	return common.FromHex(resp.Data.Pubkey), nil
 }
 
+// FetchValidatorPubkeysBatch fetches validator pubkeys in batch using comma-separated indices
+// Returns a map of proposerIndex -> pubkey bytes
+func FetchValidatorPubkeysBatch(ctx context.Context, httpc *retryablehttp.Client, limiter *rate.Limiter, beaconBase string, apiKey string, proposerIndices []int64) (map[int64][]byte, error) {
+	if len(proposerIndices) == 0 {
+		return map[int64][]byte{}, nil
+	}
+
+	result := make(map[int64][]byte)
+
+	// Split into chunks of 50 to avoid URI length issues
+	const chunkSize = 50
+	for i := 0; i < len(proposerIndices); i += chunkSize {
+		end := i + chunkSize
+		if end > len(proposerIndices) {
+			end = len(proposerIndices)
+		}
+		chunk := proposerIndices[i:end]
+
+		// Build comma-separated list
+		var indices []string
+		for _, idx := range chunk {
+			indices = append(indices, fmt.Sprintf("%d", idx))
+		}
+		indicesStr := strings.Join(indices, ",")
+
+		t0 := time.Now()
+
+		// Rate limit beacon API calls
+		if limiter != nil {
+			if err := limiter.Wait(ctx); err != nil {
+				return nil, fmt.Errorf("rate limiter: %w", err)
+			}
+		}
+		rateLimitWait := time.Since(t0)
+
+		url := appendAPIKey(fmt.Sprintf("%s/validator/%s", beaconBase, indicesStr), apiKey)
+
+		// Create timeout context for this request
+		reqCtx := ctx
+		var cancel context.CancelFunc
+		if _, has := ctx.Deadline(); !has {
+			reqCtx, cancel = context.WithTimeout(ctx, 15*time.Second)
+		}
+
+		t1 := time.Now()
+
+		// Handle both single validator (object) and multiple validators (array) responses
+		// Single: {"data": {"pubkey": "...", "validatorindex": 123}}
+		// Multiple: {"data": [{"pubkey": "...", "validatorindex": 123}, ...]}
+
+		if len(chunk) == 1 {
+			// Single validator returns an object
+			var resp struct {
+				Data struct {
+					Pubkey         string `json:"pubkey"`
+					ValidatorIndex int64  `json:"validatorindex"`
+				} `json:"data"`
+			}
+			if err := httputil.FetchJSON(reqCtx, httpc, url, &resp); err != nil {
+				if cancel != nil {
+					cancel()
+				}
+				httpDuration := time.Since(t1)
+				return nil, fmt.Errorf("http error fetching single validator (http_ms=%d, rate_wait_ms=%d): %w",
+					httpDuration.Milliseconds(), rateLimitWait.Milliseconds(), err)
+			}
+
+			if strings.TrimSpace(resp.Data.Pubkey) != "" {
+				result[resp.Data.ValidatorIndex] = common.FromHex(resp.Data.Pubkey)
+			}
+		} else {
+			// Multiple validators returns an array
+			var resp struct {
+				Data []struct {
+					Pubkey         string `json:"pubkey"`
+					ValidatorIndex int64  `json:"validatorindex"`
+				} `json:"data"`
+			}
+			if err := httputil.FetchJSON(reqCtx, httpc, url, &resp); err != nil {
+				if cancel != nil {
+					cancel()
+				}
+				httpDuration := time.Since(t1)
+				return nil, fmt.Errorf("http error fetching batch (http_ms=%d, rate_wait_ms=%d): %w",
+					httpDuration.Milliseconds(), rateLimitWait.Milliseconds(), err)
+			}
+
+			// Map results
+			for _, v := range resp.Data {
+				if strings.TrimSpace(v.Pubkey) != "" {
+					result[v.ValidatorIndex] = common.FromHex(v.Pubkey)
+				}
+			}
+		}
+
+		// Cancel context after request completes
+		if cancel != nil {
+			cancel()
+		}
+	}
+
+	return result, nil
+}
+
 // to fetch blocks from Alchemy RPC
 func fetchBlockFromRPC(httpc *retryablehttp.Client, rpcURL string, blockNumber int64) (*ExecInfo, error) {
 	underlyingClient := httpc.HTTPClient

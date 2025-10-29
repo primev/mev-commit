@@ -40,6 +40,7 @@ type Config struct {
 	BlockTick       time.Duration
 	ValidatorWait   time.Duration
 	BatchSize       int
+	FetchWorkers    int
 	HTTPTimeout     time.Duration
 	OptInContract   string
 	RPCURL          string

@@ -43,6 +43,42 @@ func CallAreOptedInAtBlock(httpc *http.Client, cfg *config.Config, blockNum int6
 	return o.IsVanillaOptedIn || o.IsAvsOptedIn || o.IsMiddlewareOptedIn, nil
 }
 
+// CallAreOptedInAtBlockBatch checks opt-in status for multiple validators in a single contract call
+// Returns a map of pubkey hex -> opted in status
+func CallAreOptedInAtBlockBatch(httpc *http.Client, cfg *config.Config, blockNum int64, pubkeys [][]byte) (map[string]bool, error) {
+	if len(pubkeys) == 0 {
+		return map[string]bool{}, nil
+	}
+
+	client, err := ethclient.Dial(cfg.RPCURL)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+
+	contract, err := validatoroptinrouter.NewValidatoroptinrouter(common.HexToAddress(cfg.OptInContract), client)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := contract.AreValidatorsOptedIn(&bind.CallOpts{BlockNumber: big.NewInt(blockNum)}, pubkeys)
+	if err != nil {
+		return nil, err
+	}
+
+	// Map results back to pubkeys
+	optedInMap := make(map[string]bool)
+	for i, pubkey := range pubkeys {
+		if i < len(result) {
+			o := result[i]
+			opted := o.IsVanillaOptedIn || o.IsAvsOptedIn || o.IsMiddlewareOptedIn
+			optedInMap[common.Bytes2Hex(pubkey)] = opted
+		}
+	}
+
+	return optedInMap, nil
+}
+
 // GetLatestBlockNumber gets the latest block number from Ethereum RPC
 func GetLatestBlockNumber(httpc *http.Client, rpcURL string) (int64, error) {
 	payload := map[string]any{
