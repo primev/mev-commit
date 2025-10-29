@@ -1,12 +1,15 @@
 # Validator Registry Design doc
 
-Validators are able to _opt-in to mev-commit_ in one of three ways:
+Validators are able to _opt-in to mev-commit_ in any of the following ways:
 
 1. Restaking with the `MevCommitAVS` contract.
 2. Restaking with the `MevCommitMiddleware` contract.
 3. Simple staking with the `VanillaRegistry` contract.
+4. Simple staking with the Reputational `VanillaRegistry` contract.
 
-The `ValidatorOptInHub` contract acts as a query router between all three solutions, allowing any actor to query whether a group of validator pubkeys is opted-in to mev-commit. This is an updated version of the ValidatorOptInRouter contract for ease of use and to add future registry support.
+The `ValidatorOptInHub` contract acts as a query router between all three solutions, allowing any actor to query whether a group of validator pubkeys is opted-in to mev-commit. This is an updated version of the `ValidatorOptInRouter` contract for ease of use and to add future registry support. 
+
+More details on the `ValidatorOptInHub` and differences between the Router and Hub [can be found here](https://www.notion.so/primev/Validator-OptInHub-vs-ValidatorOptInRouter-2806865efd6f80ce9529e392ae3190c7?source=copy_link).
 
 ## Mev-commit AVS - Eigenlayer Restaking Solution
 
