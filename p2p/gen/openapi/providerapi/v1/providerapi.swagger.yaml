@@ -43,6 +43,27 @@ paths:
           required: false
           type: integer
           format: int32
+  /v1/provider/get_decrypted_transaction:
+    get:
+      summary: GetDecryptedTransaction
+      description: GetDecryptedTransaction is called by the provider to get the decrypted transaction.
+      operationId: Provider_GetDecryptedTransaction
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1GetDecryptedTransactionResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: txHash
+          description: Transaction hash to get the decrypted transaction for.
+          in: query
+          required: false
+          type: string
+          pattern: '[a-fA-F0-9]{64}'
   /v1/provider/get_min_stake:
     get:
       summary: GetMinStake
@@ -481,6 +502,14 @@ definitions:
       bidOptions:
         $ref: '#/definitions/providerapiv1BidOptions'
         description: Optional bid options for the transaction.
+  v1GetDecryptedTransactionResponse:
+    type: object
+    properties:
+      decryptedTx:
+        type: string
+        description: Decrypted transaction.
+    description: Response to get the decrypted transaction.
+    title: Get Decrypted Transaction Response
   v1RewardResponse:
     type: object
     example:

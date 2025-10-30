@@ -19,16 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Provider_ReceiveBids_FullMethodName            = "/providerapi.v1.Provider/ReceiveBids"
-	Provider_SendProcessedBids_FullMethodName      = "/providerapi.v1.Provider/SendProcessedBids"
-	Provider_Stake_FullMethodName                  = "/providerapi.v1.Provider/Stake"
-	Provider_GetStake_FullMethodName               = "/providerapi.v1.Provider/GetStake"
-	Provider_GetMinStake_FullMethodName            = "/providerapi.v1.Provider/GetMinStake"
-	Provider_WithdrawStake_FullMethodName          = "/providerapi.v1.Provider/WithdrawStake"
-	Provider_Unstake_FullMethodName                = "/providerapi.v1.Provider/Unstake"
-	Provider_GetProviderReward_FullMethodName      = "/providerapi.v1.Provider/GetProviderReward"
-	Provider_WithdrawProviderReward_FullMethodName = "/providerapi.v1.Provider/WithdrawProviderReward"
-	Provider_GetCommitmentInfo_FullMethodName      = "/providerapi.v1.Provider/GetCommitmentInfo"
+	Provider_ReceiveBids_FullMethodName             = "/providerapi.v1.Provider/ReceiveBids"
+	Provider_SendProcessedBids_FullMethodName       = "/providerapi.v1.Provider/SendProcessedBids"
+	Provider_Stake_FullMethodName                   = "/providerapi.v1.Provider/Stake"
+	Provider_GetStake_FullMethodName                = "/providerapi.v1.Provider/GetStake"
+	Provider_GetMinStake_FullMethodName             = "/providerapi.v1.Provider/GetMinStake"
+	Provider_WithdrawStake_FullMethodName           = "/providerapi.v1.Provider/WithdrawStake"
+	Provider_Unstake_FullMethodName                 = "/providerapi.v1.Provider/Unstake"
+	Provider_GetProviderReward_FullMethodName       = "/providerapi.v1.Provider/GetProviderReward"
+	Provider_WithdrawProviderReward_FullMethodName  = "/providerapi.v1.Provider/WithdrawProviderReward"
+	Provider_GetCommitmentInfo_FullMethodName       = "/providerapi.v1.Provider/GetCommitmentInfo"
+	Provider_GetDecryptedTransaction_FullMethodName = "/providerapi.v1.Provider/GetDecryptedTransaction"
 )
 
 // ProviderClient is the client API for Provider service.
@@ -81,6 +82,10 @@ type ProviderClient interface {
 	//
 	// GetCommitmentInfo is called by the provider to retrieve the commitment information.
 	GetCommitmentInfo(ctx context.Context, in *GetCommitmentInfoRequest, opts ...grpc.CallOption) (*CommitmentInfoResponse, error)
+	// GetDecryptedTransaction
+	//
+	// GetDecryptedTransaction is called by the provider to get the decrypted transaction.
+	GetDecryptedTransaction(ctx context.Context, in *GetDecryptedTransactionRequest, opts ...grpc.CallOption) (*GetDecryptedTransactionResponse, error)
 }
 
 type providerClient struct {
@@ -203,6 +208,16 @@ func (c *providerClient) GetCommitmentInfo(ctx context.Context, in *GetCommitmen
 	return out, nil
 }
 
+func (c *providerClient) GetDecryptedTransaction(ctx context.Context, in *GetDecryptedTransactionRequest, opts ...grpc.CallOption) (*GetDecryptedTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDecryptedTransactionResponse)
+	err := c.cc.Invoke(ctx, Provider_GetDecryptedTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProviderServer is the server API for Provider service.
 // All implementations must embed UnimplementedProviderServer
 // for forward compatibility.
@@ -253,6 +268,10 @@ type ProviderServer interface {
 	//
 	// GetCommitmentInfo is called by the provider to retrieve the commitment information.
 	GetCommitmentInfo(context.Context, *GetCommitmentInfoRequest) (*CommitmentInfoResponse, error)
+	// GetDecryptedTransaction
+	//
+	// GetDecryptedTransaction is called by the provider to get the decrypted transaction.
+	GetDecryptedTransaction(context.Context, *GetDecryptedTransactionRequest) (*GetDecryptedTransactionResponse, error)
 	mustEmbedUnimplementedProviderServer()
 }
 
@@ -292,6 +311,9 @@ func (UnimplementedProviderServer) WithdrawProviderReward(context.Context, *Empt
 }
 func (UnimplementedProviderServer) GetCommitmentInfo(context.Context, *GetCommitmentInfoRequest) (*CommitmentInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCommitmentInfo not implemented")
+}
+func (UnimplementedProviderServer) GetDecryptedTransaction(context.Context, *GetDecryptedTransactionRequest) (*GetDecryptedTransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDecryptedTransaction not implemented")
 }
 func (UnimplementedProviderServer) mustEmbedUnimplementedProviderServer() {}
 func (UnimplementedProviderServer) testEmbeddedByValue()                  {}
@@ -476,6 +498,24 @@ func _Provider_GetCommitmentInfo_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Provider_GetDecryptedTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDecryptedTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProviderServer).GetDecryptedTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Provider_GetDecryptedTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProviderServer).GetDecryptedTransaction(ctx, req.(*GetDecryptedTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Provider_ServiceDesc is the grpc.ServiceDesc for Provider service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -514,6 +554,10 @@ var Provider_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCommitmentInfo",
 			Handler:    _Provider_GetCommitmentInfo_Handler,
+		},
+		{
+			MethodName: "GetDecryptedTransaction",
+			Handler:    _Provider_GetDecryptedTransaction_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

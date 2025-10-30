@@ -208,6 +208,7 @@ func startServerWithStore(t *testing.T, ts *testStore) (providerapiv1.ProviderCl
 			}, nil
 		},
 		validator,
+		"",
 	)
 
 	baseServer := grpc.NewServer()
