@@ -566,6 +566,10 @@ definitions:
         type: string
         description: Hex string encoding of the identity prefix of the transaction that the bidder wants to include in the block.
         pattern: '[a-fA-F0-9]{64}'
+      eonId:
+        type: string
+        format: int64
+        description: ID of the eon that the transaction is associated with.
       encryptedTx:
         type: string
         description: Hex string encoding of the encrypted transaction that the bidder wants to include in the block.
