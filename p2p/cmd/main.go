@@ -383,7 +383,7 @@ var (
 		Name:     "gas-tip-cap",
 		Usage:    "Use predefined gas tip cap for transactions",
 		EnvVars:  []string{"MEV_COMMIT_GAS_TIP_CAP"},
-		Value:    "1000000", // 0.001 gWEI
+		Value:    "2000000", // 0.002 gWEI
 		Category: categoryGlobal,
 	})
 
@@ -391,7 +391,7 @@ var (
 		Name:     "gas-fee-cap",
 		Usage:    "Use predefined gas fee cap for transactions",
 		EnvVars:  []string{"MEV_COMMIT_GAS_FEE_CAP"},
-		Value:    "2000000", // 0.002 gWEI
+		Value:    "3000000", // 0.003 gWEI
 		Category: categoryGlobal,
 	})
 
