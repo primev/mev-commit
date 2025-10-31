@@ -208,6 +208,7 @@ func startServerWithStore(t *testing.T, ts *testStore) (providerapiv1.ProviderCl
 			}, nil
 		},
 		validator,
+		"",
 	)
 
 	baseServer := grpc.NewServer()
@@ -870,6 +871,7 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 		name           string
 		identityPrefix string
 		encryptedTx    string
+		eonId          int64
 		expectedStatus providerapiv1.BidResponse_Status
 		expectError    bool
 		errorContains  string
@@ -881,6 +883,7 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 			name:           "valid shutterised bid option",
 			identityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 			encryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			eonId:          1,
 			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
 			expectError:    false,
 			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:]},
@@ -897,6 +900,7 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 			name:           "multiple shutterised bid options",
 			identityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
 			encryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+			eonId:          1,
 			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
 			expectError:    false,
 			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:], common.HexToHash("0x00002").Hex()[2:]},
@@ -905,6 +909,7 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 			name:           "mixed bid options",
 			identityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 			encryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			eonId:          1,
 			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
 			expectError:    false,
 			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:], common.HexToHash("0x00002").Hex()[2:]},
@@ -944,6 +949,7 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 									IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 									EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+									EonId:          1,
 								},
 							},
 						},
@@ -961,6 +967,7 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 									IdentityPrefix: identityPrefixes[0],
 									EncryptedTx:    encryptedTxs[0],
+									EonId:          tc.eonId,
 								},
 							},
 						},
@@ -969,6 +976,7 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 									IdentityPrefix: identityPrefixes[1],
 									EncryptedTx:    encryptedTxs[1],
+									EonId:          tc.eonId,
 								},
 							},
 						},
@@ -989,6 +997,7 @@ func TestShutterisedBidOptionsProcessing(t *testing.T) {
 								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 									IdentityPrefix: tc.identityPrefix,
 									EncryptedTx:    tc.encryptedTx,
+									EonId:          tc.eonId,
 								},
 							},
 						},

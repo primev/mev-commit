@@ -133,6 +133,7 @@ type Options struct {
 	ProposerNotifyOffset     time.Duration
 	SlotDuration             time.Duration
 	SlotsPerEpoch            uint64
+	ShutterSequencerEndpoint string
 }
 
 type Node struct {
@@ -563,6 +564,7 @@ func NewNode(opts *Options) (*Node, error) {
 				preconfStore,
 				optsGetter,
 				validator,
+				opts.ShutterSequencerEndpoint,
 			)
 			providerapiv1.RegisterProviderServer(grpcServer, providerAPI)
 			bidProcessor = providerAPI

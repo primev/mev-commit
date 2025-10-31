@@ -43,6 +43,27 @@ paths:
           required: false
           type: integer
           format: int32
+  /v1/provider/get_decrypted_transaction:
+    get:
+      summary: GetDecryptedTransaction
+      description: GetDecryptedTransaction is called by the provider to get the decrypted transaction data for a plaintext transaction.
+      operationId: Provider_GetDecryptedTransaction
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1GetDecryptedTransactionResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: txHash
+          description: Transaction hash of the plaintext transaction to get decrypted transaction data for.
+          in: query
+          required: false
+          type: string
+          pattern: '[a-fA-F0-9]{64}'
   /v1/provider/get_min_stake:
     get:
       summary: GetMinStake
@@ -379,6 +400,10 @@ definitions:
         type: string
         description: Hex string encoding of the identity prefix of the transaction that the bidder wants to include in the block.
         pattern: '[a-fA-F0-9]{64}'
+      eonId:
+        type: string
+        format: int64
+        description: ID of the eon that the transaction is associated with.
       encryptedTx:
         type: string
         description: Hex string encoding of the encrypted transaction that the bidder wants to include in the block.
@@ -481,6 +506,15 @@ definitions:
       bidOptions:
         $ref: '#/definitions/providerapiv1BidOptions'
         description: Optional bid options for the transaction.
+  v1GetDecryptedTransactionResponse:
+    type: object
+    properties:
+      decryptedTransaction:
+        type: string
+        description: Decrypted transaction data for the plaintext transaction.
+        pattern: ^(0x)[a-fA-F0-9]*$
+    description: Response to get the decrypted transaction data for a plaintext transaction.
+    title: Get Decrypted Transaction Response
   v1RewardResponse:
     type: object
     example:
