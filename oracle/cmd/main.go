@@ -234,14 +234,14 @@ var (
 		Name:    "gas-tip-cap",
 		Usage:   "Use predefined gas tip cap for transactions",
 		EnvVars: []string{"MEV_COMMIT_GAS_TIP_CAP"},
-		Value:   "50000000", // 0.05 gWEI
+		Value:   "2000000", // 0.002 gWEI
 	})
 
 	optionGasFeeCap = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "gas-fee-cap",
 		Usage:   "Use predefined gas fee cap for transactions",
 		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
-		Value:   "60000000", // 0.06 gWEI
+		Value:   "3000000", // 0.003 gWEI
 	})
 
 	optionRelayUrls = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
