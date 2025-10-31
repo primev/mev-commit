@@ -46,7 +46,7 @@ paths:
   /v1/provider/get_decrypted_transaction:
     get:
       summary: GetDecryptedTransaction
-      description: GetDecryptedTransaction is called by the provider to get the decrypted transaction.
+      description: GetDecryptedTransaction is called by the provider to get the decrypted transaction data for a plaintext transaction.
       operationId: Provider_GetDecryptedTransaction
       responses:
         "200":
@@ -59,7 +59,7 @@ paths:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
         - name: txHash
-          description: Transaction hash to get the decrypted transaction for.
+          description: Transaction hash of the plaintext transaction to get decrypted transaction data for.
           in: query
           required: false
           type: string
@@ -509,10 +509,11 @@ definitions:
   v1GetDecryptedTransactionResponse:
     type: object
     properties:
-      decryptedTx:
+      decryptedTransaction:
         type: string
-        description: Decrypted transaction.
-    description: Response to get the decrypted transaction.
+        description: Decrypted transaction data for the plaintext transaction.
+        pattern: ^(0x)[a-fA-F0-9]*$
+    description: Response to get the decrypted transaction data for a plaintext transaction.
     title: Get Decrypted Transaction Response
   v1RewardResponse:
     type: object

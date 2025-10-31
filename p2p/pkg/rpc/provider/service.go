@@ -52,8 +52,8 @@ type Service struct {
 	shutterSequencerEndpoint string
 }
 
-// GetDecryptedTxResponse represents the response from shutter sequencer endpoint
-type GetDecryptedTxResponse struct {
+// GetDecryptedTransactionResponse represents the response from shutter sequencer endpoint
+type GetDecryptedTransactionResponse struct {
 	Success bool                     `json:"success"`
 	Data    DecryptedTransactionData `json:"data"`
 	Error   string                   `json:"error,omitempty"`
@@ -640,7 +640,7 @@ func (s *Service) GetDecryptedTransaction(
 		Timeout: 30 * time.Second,
 	}
 
-	reqHTTP, err := http.NewRequestWithContext(ctx, http.MethodGet, s.shutterSequencerEndpoint+"/get_decrypted_tx/"+txHashes, nil)
+	reqHTTP, err := http.NewRequestWithContext(ctx, http.MethodGet, s.shutterSequencerEndpoint+"/decrypted_tx/"+txHashes, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "creating request: %v", err)
 	}
@@ -660,7 +660,7 @@ func (s *Service) GetDecryptedTransaction(
 		return nil, status.Errorf(codes.Internal, "shutter sequencer returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var decryptedResp GetDecryptedTxResponse
+	var decryptedResp GetDecryptedTransactionResponse
 	if err := json.Unmarshal(body, &decryptedResp); err != nil {
 		return nil, status.Errorf(codes.Internal, "unmarshalling response: %v", err)
 	}
@@ -670,6 +670,6 @@ func (s *Service) GetDecryptedTransaction(
 	}
 
 	return &providerapiv1.GetDecryptedTransactionResponse{
-		DecryptedTx: decryptedResp.Data.DecryptedTx,
+		DecryptedTransaction: decryptedResp.Data.DecryptedTx,
 	}, nil
 }

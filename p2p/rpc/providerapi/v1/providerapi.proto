@@ -89,7 +89,7 @@ service Provider {
   }
   // GetDecryptedTransaction
   //
-  // GetDecryptedTransaction is called by the provider to get the decrypted transaction.
+  // GetDecryptedTransaction is called by the provider to get the decrypted transaction data for a plaintext transaction.
   rpc GetDecryptedTransaction(GetDecryptedTransactionRequest) returns (GetDecryptedTransactionResponse) {
     option (google.api.http) = {get: "/v1/provider/get_decrypted_transaction"};
   }
@@ -99,11 +99,11 @@ message GetDecryptedTransactionRequest {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
       title: "Get Decrypted Transaction Request"
-      description: "Request to get the decrypted transaction."
+      description: "Request to get the decrypted transaction data for a plaintext transaction."
     }
   };
   string tx_hash = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Transaction hash to get the decrypted transaction for."
+    description: "Transaction hash of the plaintext transaction to get decrypted transaction data for."
     pattern: "[a-fA-F0-9]{64}"
   }, (buf.validate.field).cel = {
     id: "tx_hash",
@@ -116,14 +116,15 @@ message GetDecryptedTransactionResponse {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
       title: "Get Decrypted Transaction Response"
-      description: "Response to get the decrypted transaction."
+      description: "Response to get the decrypted transaction data for a plaintext transaction."
     }
   };
-  string decrypted_tx = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Decrypted transaction."
+  string decrypted_transaction = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Decrypted transaction data for the plaintext transaction."
+    pattern: "^(0x)[a-fA-F0-9]*$"
   }, (buf.validate.field).cel = {
-    id: "decrypted_tx",
-    message: "decrypted_tx must be a valid hex string.",
+    id: "decrypted_transaction",
+    message: "decrypted_transaction must be a valid hex string.",
     expression: "this.matches('^(0x)?[a-fA-F0-9]*$')"
   }];
 }

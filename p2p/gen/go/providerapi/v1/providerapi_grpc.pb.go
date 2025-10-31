@@ -84,7 +84,7 @@ type ProviderClient interface {
 	GetCommitmentInfo(ctx context.Context, in *GetCommitmentInfoRequest, opts ...grpc.CallOption) (*CommitmentInfoResponse, error)
 	// GetDecryptedTransaction
 	//
-	// GetDecryptedTransaction is called by the provider to get the decrypted transaction.
+	// GetDecryptedTransaction is called by the provider to get the decrypted transaction data for a plaintext transaction.
 	GetDecryptedTransaction(ctx context.Context, in *GetDecryptedTransactionRequest, opts ...grpc.CallOption) (*GetDecryptedTransactionResponse, error)
 }
 
@@ -270,7 +270,7 @@ type ProviderServer interface {
 	GetCommitmentInfo(context.Context, *GetCommitmentInfoRequest) (*CommitmentInfoResponse, error)
 	// GetDecryptedTransaction
 	//
-	// GetDecryptedTransaction is called by the provider to get the decrypted transaction.
+	// GetDecryptedTransaction is called by the provider to get the decrypted transaction data for a plaintext transaction.
 	GetDecryptedTransaction(context.Context, *GetDecryptedTransactionRequest) (*GetDecryptedTransactionResponse, error)
 	mustEmbedUnimplementedProviderServer()
 }
