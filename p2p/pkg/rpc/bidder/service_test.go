@@ -861,6 +861,7 @@ func TestShutterisedBidOptions(t *testing.T) {
 			name           string
 			identityPrefix string
 			encryptedTx    string
+			eonId          int64
 			expectError    bool
 		}
 
@@ -869,42 +870,49 @@ func TestShutterisedBidOptions(t *testing.T) {
 				name:           "valid shutterised bid option",
 				identityPrefix: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 				encryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+				eonId:          1,
 				expectError:    false,
 			},
 			{
 				name:           "invalid identity prefix - too short",
 				identityPrefix: "0x1234567890abcdef",
 				encryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+				eonId:          1,
 				expectError:    true,
 			},
 			{
 				name:           "invalid identity prefix - contains non-hex",
 				identityPrefix: "0xgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
 				encryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+				eonId:          1,
 				expectError:    true,
 			},
 			{
 				name:           "empty identity prefix",
 				identityPrefix: "",
 				encryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+				eonId:          1,
 				expectError:    true,
 			},
 			{
 				name:           "invalid encrypted tx - contains non-hex",
 				identityPrefix: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 				encryptedTx:    "0xgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+				eonId:          1,
 				expectError:    true,
 			},
 			{
 				name:           "empty encrypted tx",
 				identityPrefix: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 				encryptedTx:    "",
+				eonId:          1,
 				expectError:    true,
 			},
 			{
 				name:           "both fields empty",
 				identityPrefix: "",
 				encryptedTx:    "",
+				eonId:          1,
 				expectError:    true,
 			},
 		} {
@@ -922,6 +930,7 @@ func TestShutterisedBidOptions(t *testing.T) {
 									ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 										IdentityPrefix: tc.identityPrefix,
 										EncryptedTx:    tc.encryptedTx,
+										EonId:          tc.eonId,
 									},
 								},
 							},
@@ -991,6 +1000,7 @@ func TestShutterisedBidOptions(t *testing.T) {
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 								IdentityPrefix: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 								EncryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+								EonId:          1,
 							},
 						},
 					},
@@ -999,6 +1009,7 @@ func TestShutterisedBidOptions(t *testing.T) {
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 								IdentityPrefix: "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
 								EncryptedTx:    "0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+								EonId:          1,
 							},
 						},
 					},
@@ -1042,6 +1053,7 @@ func TestShutterisedBidOptions(t *testing.T) {
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 								IdentityPrefix: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 								EncryptedTx:    "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+								EonId:          1,
 							},
 						},
 					},
@@ -1050,6 +1062,7 @@ func TestShutterisedBidOptions(t *testing.T) {
 							ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
 								IdentityPrefix: "",
 								EncryptedTx:    "0x0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+								EonId:          1,
 							},
 						},
 					},

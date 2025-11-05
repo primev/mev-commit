@@ -475,6 +475,13 @@ var (
 		Value:    epoch.SlotsPerEpoch,
 		Category: categoryValidator,
 	})
+
+	optionShutterSequencerEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "shutter-sequencer-endpoint",
+		Usage:    "Endpoint of the shutter sequencer",
+		EnvVars:  []string{"MEV_COMMIT_SHUTTER_SEQUENCER_ENDPOINT"},
+		Category: categoryProvider,
+	})
 )
 
 func main() {
@@ -524,6 +531,7 @@ func main() {
 		optionProposerNotifyOffset,
 		optionSlotDuration,
 		optionSlotsPerEpoch,
+		optionShutterSequencerEndpoint,
 	}
 
 	app := &cli.App{
@@ -709,6 +717,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		ProposerNotifyOffset:     c.Duration(optionProposerNotifyOffset.Name),
 		SlotDuration:             c.Duration(optionSlotDuration.Name),
 		SlotsPerEpoch:            c.Uint64(optionSlotsPerEpoch.Name),
+		ShutterSequencerEndpoint: c.String(optionShutterSequencerEndpoint.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

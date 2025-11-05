@@ -87,6 +87,46 @@ service Provider {
   rpc GetCommitmentInfo(GetCommitmentInfoRequest) returns (CommitmentInfoResponse) {
     option (google.api.http) = {get: "/v1/provider/get_commitment_info"};
   }
+  // GetDecryptedTransaction
+  //
+  // GetDecryptedTransaction is called by the provider to get the decrypted transaction data for a plaintext transaction.
+  rpc GetDecryptedTransaction(GetDecryptedTransactionRequest) returns (GetDecryptedTransactionResponse) {
+    option (google.api.http) = {get: "/v1/provider/get_decrypted_transaction"};
+  }
+}
+
+message GetDecryptedTransactionRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Get Decrypted Transaction Request"
+      description: "Request to get the decrypted transaction data for a plaintext transaction."
+    }
+  };
+  string tx_hash = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Transaction hash of the plaintext transaction to get decrypted transaction data for."
+    pattern: "[a-fA-F0-9]{64}"
+  }, (buf.validate.field).cel = {
+    id: "tx_hash",
+    message: "tx_hash must be a valid transaction hash.",
+    expression: "this.matches('^[a-fA-F0-9]{64}$')"
+  }];
+}
+
+message GetDecryptedTransactionResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Get Decrypted Transaction Response"
+      description: "Response to get the decrypted transaction data for a plaintext transaction."
+    }
+  };
+  string decrypted_transaction = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Decrypted transaction data for the plaintext transaction."
+    pattern: "^(0x)[a-fA-F0-9]*$"
+  }, (buf.validate.field).cel = {
+    id: "decrypted_transaction",
+    message: "decrypted_transaction must be a valid hex string.",
+    expression: "this.matches('^(0x)?[a-fA-F0-9]*$')"
+  }];
 }
 
 message StakeRequest {
@@ -198,7 +238,14 @@ message ShutterisedBidOption {
     message: "identity_prefix must be a valid 32 bytes hex string.",
     expression: "this.matches('^(0x)?[a-fA-F0-9]{64}$')"
   }];
-  string encrypted_tx = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+  int64 eon_id = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "ID of the eon that the transaction is associated with."
+  }, (buf.validate.field).cel = {
+    id: "eon_id",
+    message: "eon_id must be a valid integer.",
+    expression: "uint(this) >= 0"
+  }];
+  string encrypted_tx = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Hex string encoding of the encrypted transaction that the bidder wants to include in the block."
     pattern: "[a-fA-F0-9]{64}"
   }, (buf.validate.field).cel = {
