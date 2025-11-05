@@ -635,12 +635,12 @@ func (s *Service) GetDecryptedTransaction(
 	ctx context.Context,
 	req *providerapiv1.GetDecryptedTransactionRequest,
 ) (*providerapiv1.GetDecryptedTransactionResponse, error) {
-	txHashes := req.GetTxHash()
+	txHash := req.GetTxHash()
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
-	reqHTTP, err := http.NewRequestWithContext(ctx, http.MethodGet, s.shutterSequencerEndpoint+"/decrypted_tx/"+txHashes, nil)
+	reqHTTP, err := http.NewRequestWithContext(ctx, http.MethodGet, s.shutterSequencerEndpoint+"/decrypted_tx/"+txHash, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "creating request: %v", err)
 	}
