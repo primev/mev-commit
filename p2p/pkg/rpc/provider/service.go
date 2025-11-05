@@ -649,7 +649,12 @@ func (s *Service) GetDecryptedTransaction(
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to call shutter sequencer: %v", err)
 	}
-	defer resp.Body.Close()
+	
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			s.logger.Error("closing shutter sequencer response body", "err", cerr)
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
