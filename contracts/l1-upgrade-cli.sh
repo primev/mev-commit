@@ -7,7 +7,6 @@ old_contract=""
 new_contract=""
 proxy_address=""
 wallet_type=""
-private_key=""
 chain=""
 chain_id=0
 upgrade_script=""
@@ -27,13 +26,12 @@ help() {
     echo "  --old-contract, -o <OLD_CONTRACT>      Name of the old contract version (e.g., MevCommitAVS)."
     echo "  --new-contract, -n <NEW_CONTRACT>     Name of the new contract version (e.g., MevCommitAVSV2)."
     echo "  --proxy-address, -p <PROXY_ADDRESS>    Address of the proxy contract to upgrade (not required with --multisig)."
-    echo "  --chain, -c <chain>                    Specify the chain to upgrade on ('mainnet', 'holesky', 'hoodi', or 'anvil')."
+    echo "  --chain, -c <chain>                    Specify the chain to upgrade on ('mainnet', 'holesky', or 'hoodi')."
     echo
-    echo "Wallet Options (one required, except for anvil where --private-key is recommended):"
+    echo "Wallet Options (one required):"
     echo "  --keystore                             Use a keystore for upgrade."
     echo "  --ledger                               Use a Ledger hardware wallet for upgrade."
     echo "  --trezor                               Use a Trezor hardware wallet for upgrade."
-    echo "  --private-key <KEY>                    Use a private key for upgrade (useful for anvil/local testing)."
     echo
     echo "Optional Options:"
     echo "  --multisig                             Deploy implementation contract only (for multisig upgrades)."
@@ -62,17 +60,12 @@ help() {
     echo "    SENDER             Address of the sender."
     echo "    RPC_URL            RPC URL for the upgrade chain."
     echo
-    echo "  For Private Key (--private-key option):"
-    echo "    SENDER             Address of the sender (optional, derived from private key if not set)."
-    echo "    RPC_URL            RPC URL for the upgrade chain."
-    echo
     echo "  Optional:"
     echo "    PROXY_ADDRESS      Proxy address (can be provided via --proxy-address instead)."
     echo
     echo "Examples:"
     echo "  $0 upgrade --old-contract MevCommitAVS --new-contract MevCommitAVSV2 --proxy-address 0x1234... --chain mainnet --keystore"
     echo "  $0 upgrade --old-contract ProviderRegistry --new-contract ProviderRegistryV2 --proxy-address 0x5678... --chain holesky --ledger --priority-gas-price 2000000000"
-    echo "  $0 upgrade --old-contract MevCommitAVS --new-contract MevCommitAVSV2 --proxy-address 0x1234... --chain anvil --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     echo "  $0 upgrade --old-contract MevCommitAVS --new-contract MevCommitAVSV2 --chain mainnet --multisig --keystore"
     exit 1
 }
@@ -147,8 +140,8 @@ parse_args() {
                     exit 1
                 fi
                 chain="$2"
-                if [[ "$chain" != "mainnet" && "$chain" != "holesky" && "$chain" != "hoodi" && "$chain" != "anvil" ]]; then
-                    echo "Error: Unknown chain '$chain'. Valid options are 'mainnet', 'holesky', 'hoodi', or 'anvil'."
+                if [[ "$chain" != "mainnet" && "$chain" != "holesky" && "$chain" != "hoodi" ]]; then
+                    echo "Error: Unknown chain '$chain'. Valid options are 'mainnet', 'holesky', or 'hoodi'."
                     exit 1
                 fi
                 shift 2
@@ -185,19 +178,6 @@ parse_args() {
                 wallet_type="trezor"
                 shift
                 ;;
-            --private-key)
-                if [[ -z "$2" ]]; then
-                    echo "Error: --private-key requires an argument."
-                    exit 1
-                fi
-                if [[ -n "$wallet_type" ]]; then
-                    echo "Error: Multiple wallet types specified. Please specify only one wallet option."
-                    exit 1
-                fi
-                wallet_type="private-key"
-                private_key="$2"
-                shift 2
-                ;;
             --priority-gas-price)
                 if [[ -z "$2" ]]; then
                     echo "Error: --priority-gas-price requires an argument."
@@ -229,9 +209,8 @@ parse_args() {
         usage
     fi
 
-    if [[ -z "$wallet_type" && "$chain" != "anvil" ]]; then
-        echo "Error: A wallet option is required. Please specify one of --keystore, --ledger, --trezor, or --private-key."
-        echo "Note: For anvil, --private-key is recommended but not required."
+    if [[ -z "$wallet_type" ]]; then
+        echo "Error: A wallet option is required. Please specify one of --keystore, --ledger, or --trezor."
         usage
     fi
 
@@ -274,16 +253,6 @@ check_env_variables() {
         # ETHERSCAN_API_KEY is optional for upgrades but recommended for verification
     elif [[ "$wallet_type" == "ledger" || "$wallet_type" == "trezor" ]]; then
         required_vars+=("HD_PATHS" "SENDER")
-    elif [[ "$wallet_type" == "private-key" ]]; then
-        # SENDER is optional for private-key, can be derived from the key
-        # But we'll still require it for consistency unless on anvil
-        if [[ "$chain" != "anvil" ]]; then
-            required_vars+=("SENDER")
-        fi
-    elif [[ -z "$wallet_type" && "$chain" == "anvil" ]]; then
-        # For anvil without explicit wallet, we'll use private-key from env or default
-        # SENDER is optional
-        :
     fi
 
     for var in "${required_vars[@]}"; do
@@ -321,22 +290,10 @@ get_chain_params() {
         else
             upgrade_script="UpgradeContractHoodi"
         fi
-    elif [[ "$chain" == "anvil" ]]; then
-        chain_id=31337
-        if [[ "$multisig_flag" == true ]]; then
-            upgrade_script="DeployMultisigImplAnvil"
-        else
-            upgrade_script="UpgradeContractAnvil"
-        fi
     fi
 }
 
 check_git_status() {
-    # Skip git checks for anvil (local testing)
-    if [[ "$chain" == "anvil" ]]; then
-        return
-    fi
-    
     if [[ ${chain_id:-0} -eq 1 ]]; then
         if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
             echo "Error: Current commit is not tagged. Please ensure the commit is tagged before upgrading on mainnet."
@@ -364,8 +321,7 @@ check_rpc_url() {
         exit 1
     fi
 
-    # Skip RPC URL warning for anvil (local testing)
-    if [[ "$chain" != "anvil" && "$RPC_URL" != *"alchemy"* && "$RPC_URL" != *"infura"* ]]; then
+    if [[ "$RPC_URL" != *"alchemy"* && "$RPC_URL" != *"infura"* ]]; then
         echo "Warning: You may be using a public rate-limited RPC URL. Contract verification may fail."
         read -p "Do you want to continue? (y/n) " -n 1 -r
         echo
@@ -437,8 +393,8 @@ upgrade_contract() {
     forge_args+=("--use" "0.8.26")
     forge_args+=("--broadcast")
     
-    # Add verification if ETHERSCAN_API_KEY is set (and not anvil)
-    if [[ -n "${ETHERSCAN_API_KEY:-}" && "$chain" != "anvil" ]]; then
+    # Add verification if ETHERSCAN_API_KEY is set
+    if [[ -n "${ETHERSCAN_API_KEY:-}" ]]; then
         forge_args+=("--verify")
     fi
     
@@ -466,24 +422,6 @@ upgrade_contract() {
         forge_args+=("--trezor")
         forge_args+=("--hd-paths" "${HD_PATHS}")
         forge_args+=("--sender" "${SENDER}")
-    elif [[ "$wallet_type" == "private-key" ]]; then
-        forge_args+=("--private-key" "${private_key}")
-        if [[ -n "${SENDER:-}" ]]; then
-            forge_args+=("--sender" "${SENDER}")
-        fi
-    elif [[ -z "$wallet_type" && "$chain" == "anvil" ]]; then
-        # For anvil without explicit wallet, try to use private key from env or default anvil key
-        if [[ -n "${PRIVATE_KEY:-}" ]]; then
-            forge_args+=("--private-key" "${PRIVATE_KEY}")
-        elif [[ -n "${private_key:-}" ]]; then
-            forge_args+=("--private-key" "${private_key}")
-        else
-            # Use default anvil private key (first account)
-            forge_args+=("--private-key" "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
-        fi
-        if [[ -n "${SENDER:-}" ]]; then
-            forge_args+=("--sender" "${SENDER}")
-        fi
     fi
     
     # Pass contract names and paths as environment variables
@@ -496,7 +434,7 @@ upgrade_contract() {
         export PROXY_ADDRESS="$proxy_address"
     fi
     
-    local wallet_desc="${wallet_type:-private-key (anvil default)}"
+    local wallet_desc="${wallet_type}"
     
     if forge "${forge_args[@]}"; then
         if [[ "$multisig_flag" == true ]]; then
