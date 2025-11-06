@@ -3,13 +3,17 @@ package providerapi
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/big"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/bufbuild/protovalidate-go"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -32,19 +36,35 @@ type ProcessedBidResponse struct {
 
 type Service struct {
 	providerapiv1.UnimplementedProviderServer
-	receiver               chan *providerapiv1.Bid
-	bidsInProcess          map[string]func(ProcessedBidResponse)
-	bidsMu                 sync.Mutex
-	logger                 *slog.Logger
-	owner                  common.Address
-	registryContract       ProviderRegistryContract
-	bidderRegistryContract BidderRegistryContract
-	watcher                Watcher
-	cs                     CommitmentStore
-	optsGetter             OptsGetter
-	metrics                *metrics
-	validator              *protovalidate.Validator
-	activeReceivers        atomic.Int32
+	receiver                 chan *providerapiv1.Bid
+	bidsInProcess            map[string]func(ProcessedBidResponse)
+	bidsMu                   sync.Mutex
+	logger                   *slog.Logger
+	owner                    common.Address
+	registryContract         ProviderRegistryContract
+	bidderRegistryContract   BidderRegistryContract
+	watcher                  Watcher
+	cs                       CommitmentStore
+	optsGetter               OptsGetter
+	metrics                  *metrics
+	validator                *protovalidate.Validator
+	activeReceivers          atomic.Int32
+	shutterSequencerEndpoint string
+}
+
+// GetDecryptedTransactionResponse represents the response from shutter sequencer endpoint
+type GetDecryptedTransactionResponse struct {
+	Success bool                     `json:"success"`
+	Data    DecryptedTransactionData `json:"data"`
+	Error   string                   `json:"error,omitempty"`
+}
+
+// DecryptedTransactionData represents the decrypted transaction data
+type DecryptedTransactionData struct {
+	TxHash        string `json:"tx_hash"`
+	Identity      string `json:"identity"`
+	DecryptionKey string `json:"decryption_key"`
+	DecryptedTx   string `json:"decrypted_tx"` // hex encoded
 }
 
 type BidderRegistryContract interface {
@@ -89,19 +109,21 @@ func NewService(
 	cs CommitmentStore,
 	optsGetter OptsGetter,
 	validator *protovalidate.Validator,
+	shutterSequencerEndpoint string,
 ) *Service {
 	return &Service{
-		receiver:               make(chan *providerapiv1.Bid),
-		bidsInProcess:          make(map[string]func(ProcessedBidResponse)),
-		registryContract:       registryContract,
-		bidderRegistryContract: bidderRegistryContract,
-		owner:                  owner,
-		logger:                 logger,
-		watcher:                watcher,
-		cs:                     cs,
-		optsGetter:             optsGetter,
-		metrics:                newMetrics(),
-		validator:              validator,
+		receiver:                 make(chan *providerapiv1.Bid),
+		bidsInProcess:            make(map[string]func(ProcessedBidResponse)),
+		registryContract:         registryContract,
+		bidderRegistryContract:   bidderRegistryContract,
+		owner:                    owner,
+		logger:                   logger,
+		watcher:                  watcher,
+		cs:                       cs,
+		optsGetter:               optsGetter,
+		metrics:                  newMetrics(),
+		validator:                validator,
+		shutterSequencerEndpoint: shutterSequencerEndpoint,
 	}
 }
 
@@ -141,6 +163,18 @@ func (s *Service) ProcessBid(
 							Anchor: providerapiv1.PositionConstraint_Anchor(c.GetAnchor()),
 							Basis:  providerapiv1.PositionConstraint_Basis(c.GetBasis()),
 							Value:  c.GetValue(),
+						},
+					},
+				}
+				opts.Options = append(opts.Options, opt)
+			case bOpt.GetShutterisedBidOption() != nil:
+				c := bOpt.GetShutterisedBidOption()
+				opt := &providerapiv1.BidOption{
+					Opt: &providerapiv1.BidOption_ShutterisedBidOption{
+						ShutterisedBidOption: &providerapiv1.ShutterisedBidOption{
+							IdentityPrefix: c.GetIdentityPrefix(),
+							EncryptedTx:    c.GetEncryptedTx(),
+							EonId:          c.GetEonId(),
 						},
 					},
 				}
@@ -594,5 +628,50 @@ func (s *Service) GetCommitmentInfo(
 
 	return &providerapiv1.CommitmentInfoResponse{
 		Commitments: blockCommitments,
+	}, nil
+}
+
+func (s *Service) GetDecryptedTransaction(
+	ctx context.Context,
+	req *providerapiv1.GetDecryptedTransactionRequest,
+) (*providerapiv1.GetDecryptedTransactionResponse, error) {
+	txHash := req.GetTxHash()
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	reqHTTP, err := http.NewRequestWithContext(ctx, http.MethodGet, s.shutterSequencerEndpoint+"/decrypted_tx/"+txHash, nil)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "creating request: %v", err)
+	}
+
+	resp, err := client.Do(reqHTTP)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to call shutter sequencer: %v", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "reading response body: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, status.Errorf(codes.Internal, "shutter sequencer returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var decryptedResp GetDecryptedTransactionResponse
+	if err := json.Unmarshal(body, &decryptedResp); err != nil {
+		return nil, status.Errorf(codes.Internal, "unmarshalling response: %v", err)
+	}
+
+	if !decryptedResp.Success {
+		return nil, status.Errorf(codes.Internal, "shutter sequencer returned error: %s", decryptedResp.Error)
+	}
+
+	return &providerapiv1.GetDecryptedTransactionResponse{
+		DecryptedTransaction: decryptedResp.Data.DecryptedTx,
 	}, nil
 }
