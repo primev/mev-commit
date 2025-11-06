@@ -67,7 +67,11 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 					}
 					_ = b.blocks.Add(blockNo, block)
 					b.latestBlockNo.Store(block.NumberU64())
-					b.triggerCheck()
+					select {
+					case b.newBlockChan <- blockNo:
+					case <-egCtx.Done():
+						return egCtx.Err()
+					}
 					b.log.Debug("New block detected", "number", block.NumberU64(), "hash", block.Hash().Hex())
 				}
 			}
@@ -87,6 +91,7 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 				for txHash, resultCh := range b.txnsToCheck {
 					if txn := block.Transaction(txHash); txn != nil {
 						resultCh <- bNo
+						close(resultCh)
 						delete(b.txnsToCheck, txHash)
 					}
 				}
@@ -102,13 +107,6 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 	}()
 
 	return done
-}
-
-func (b *blockTracker) triggerCheck() {
-	select {
-	case b.newBlockChan <- b.latestBlockNo.Load():
-	default:
-	}
 }
 
 func (b *blockTracker) LatestBlockNumber() uint64 {
@@ -129,7 +127,6 @@ func (b *blockTracker) NextBlockNumber() (uint64, time.Duration, error) {
 }
 
 func (b *blockTracker) WaitForTxnInclusion(
-	ctx context.Context,
 	txHash common.Hash,
 ) chan uint64 {
 	resultCh := make(chan uint64, 1)
