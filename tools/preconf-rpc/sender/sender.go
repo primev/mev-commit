@@ -44,6 +44,7 @@ const (
 	confidenceSubsequentAttempts = 99               // confidence level for subsequent attempts
 	transactionTimeout           = 10 * time.Minute // timeout for transaction processing
 	maxAttemptsPerBlock          = 10               // maximum attempts per block
+	defaultRetryDelay            = 500 * time.Millisecond
 )
 
 var (
@@ -443,6 +444,226 @@ func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction, can
 		"sender", txn.Sender.Hex(),
 		"type", txn.Type,
 	)
+BID_LOOP:
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-cancel:
+			return ErrTransactionCancelled
+		default:
+		}
+
+		preConfirmed := false
+		maxAttemptsPerBlockExceeded := false
+
+		result, err = t.sendBid(ctx, txn)
+		switch {
+		case err != nil:
+			if retryErr, ok := err.(*errRetry); ok {
+				logger.Warn(
+					"Retrying bid due to error",
+					"error", retryErr.err,
+					"retryAfter", retryErr.retryAfter,
+				)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(retryErr.retryAfter):
+					// Wait for the specified retry duration before retrying
+				case <-cancel:
+					return ErrTransactionCancelled
+				}
+				continue
+			}
+			// If we exceeded max attempts per block, we retry for the next block but
+			// also check for inclusion in case the transaction got included
+			if !errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
+				return err
+			} else {
+				maxAttemptsPerBlockExceeded = true
+			}
+		case t.fastTrack(result.commitments, result.optedInSlot):
+			// If the commitments indicate that the transaction can be fast-tracked,
+			// we consider it pre-confirmed and skip further checks
+			txn.Status = TxStatusPreConfirmed
+			txn.BlockNumber = int64(result.blockNumber)
+			logger.Info(
+				"Transaction fast-tracked based on commitments",
+				"blockNumber", result.blockNumber,
+				"bidAmount", result.bidAmount.String(),
+			)
+			if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
+				return fmt.Errorf("failed to store fast-tracked transaction: %w", err)
+			}
+			preConfirmed = true
+		case result.optedInSlot:
+			if result.noOfProviders == len(result.commitments) {
+				// This means that all builders have committed to the bid and it
+				// is a primev opted in slot. We can safely proceed to inform the
+				// user that the txn was successfully sent and will be processed
+				txn.Status = TxStatusPreConfirmed
+				txn.BlockNumber = int64(result.blockNumber)
+				logger.Info(
+					"Transaction pre-confirmed",
+					"blockNumber", result.blockNumber,
+					"bidAmount", result.bidAmount.String(),
+				)
+				if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
+					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
+				}
+				preConfirmed = true
+			}
+		default:
+		}
+
+		if !preConfirmed && result.noOfProviders > len(result.commitments) && !maxAttemptsPerBlockExceeded {
+			logger.Warn(
+				"Not all builders committed to the bid",
+				"noOfProviders", result.noOfProviders,
+				"noOfCommitments", len(result.commitments),
+				"blockNumber", result.blockNumber,
+				"bidAmount", result.bidAmount.String(),
+			)
+			if (result.timeUntillNextBlock - 2*time.Second) > time.Since(result.startTime) {
+				// If not all builders committed, we will retry the bid process
+				// immediately if we have atleast 2 seconds left before the next block
+				continue
+			}
+		}
+
+		// Wait for block number to be updated to confirm transaction. If failed
+		// we will retry the bid process till user cancels the operation
+		included, err := t.blockTracker.CheckTxnInclusion(ctx, txn.Hash(), result.blockNumber)
+		if err != nil {
+			logger.Error("Failed to check transaction inclusion", "error", err)
+			return fmt.Errorf("failed to check transaction inclusion: %w", err)
+		}
+		if included {
+			if !preConfirmed {
+				txn.Status = TxStatusConfirmed
+				txn.BlockNumber = int64(result.blockNumber)
+				logger.Info(
+					"Transaction confirmed",
+					"blockNumber", result.blockNumber,
+					"bidAmount", result.bidAmount.String(),
+				)
+				if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
+					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
+				}
+			}
+			endTime := time.Now()
+			if len(result.commitments) > 0 {
+				endTime = time.UnixMilli(result.commitments[len(result.commitments)-1].DispatchTimestamp)
+			}
+			t.clearBlockAttemptHistory(txn, endTime)
+			break BID_LOOP
+		}
+	}
+
+	switch txn.Type {
+	case TxTypeRegular:
+		if err := t.store.DeductBalance(ctx, txn.Sender, result.bidAmount); err != nil {
+			logger.Error("Failed to deduct balance for sender", "error", err)
+			return fmt.Errorf("failed to deduct balance for sender: %w", err)
+		}
+	case TxTypeDeposit:
+		balanceToAdd := new(big.Int).Sub(txn.Value(), result.bidAmount)
+		if err := t.store.AddBalance(ctx, txn.Sender, balanceToAdd); err != nil {
+			logger.Error("Failed to add balance for sender", "error", err)
+			return fmt.Errorf("failed to add balance for sender: %w", err)
+		}
+	case TxTypeInstantBridge:
+		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(result.bidAmount, big.NewInt(2)))
+		if err := t.transferer.Transfer(ctx, txn.Sender, t.settlementChainId, amountToBridge); err != nil {
+			logger.Error("Failed to transfer funds for instant bridge", "error", err)
+			return fmt.Errorf("failed to transfer funds for instant bridge: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (t *TxSender) processTransaction2(ctx context.Context, txn *Transaction, cancel <-chan struct{}) error {
+	var (
+		result bidResult
+		err    error
+	)
+	logger := t.logger.With(
+		"transactionHash", txn.Hash().Hex(),
+		"sender", txn.Sender.Hex(),
+		"type", txn.Type,
+	)
+
+	retryTicker := time.NewTicker(defaultRetryDelay)
+	defer retryTicker.Stop()
+
+	for {
+		result, err = t.sendBid(ctx, txn)
+		switch {
+		case err != nil:
+			if retryErr, ok := err.(*errRetry); ok {
+				logger.Warn(
+					"Retrying bid due to error",
+					"error", retryErr.err,
+					"retryAfter", retryErr.retryAfter,
+				)
+				retryTicker.Reset(retryErr.retryAfter)
+			} else if errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
+				retryTicker.Reset(result.timeUntillNextBlock + 500*time.Millisecond)
+			} else {
+				return err
+			}
+		case t.fastTrack(result.commitments, result.optedInSlot):
+			// If the commitments indicate that the transaction can be fast-tracked,
+			// we consider it pre-confirmed and skip further checks
+			txn.Status = TxStatusPreConfirmed
+			txn.BlockNumber = int64(result.blockNumber)
+			logger.Info(
+				"Transaction fast-tracked based on commitments",
+				"blockNumber", result.blockNumber,
+				"bidAmount", result.bidAmount.String(),
+			)
+			if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
+				return fmt.Errorf("failed to store fast-tracked transaction: %w", err)
+			}
+			retryTicker.Reset(result.timeUntillNextBlock + 500*time.Millisecond)
+		case result.noOfProviders == len(result.commitments):
+			if result.optedInSlot {
+				// This means that all builders have committed to the bid and it
+				// is a primev opted in slot. We can safely proceed to inform the
+				// user that the txn was successfully sent and will be processed
+				txn.Status = TxStatusPreConfirmed
+				txn.BlockNumber = int64(result.blockNumber)
+				logger.Info(
+					"Transaction pre-confirmed",
+					"blockNumber", result.blockNumber,
+					"bidAmount", result.bidAmount.String(),
+				)
+				if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
+					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
+				}
+			}
+			retryTicker.Reset(result.timeUntillNextBlock + 500*time.Millisecond)
+		default:
+			logger.Warn(
+				"Not all builders committed to the bid",
+				"noOfProviders", result.noOfProviders,
+				"noOfCommitments", len(result.commitments),
+				"blockNumber", result.blockNumber,
+				"bidAmount", result.bidAmount.String(),
+			)
+			retryTicker.Reset(defaultRetryDelay)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-cancel:
+			return ErrTransactionCancelled
+		case <-retryTicker.C:
+			// Continue to the next iteration after the retry delay
+		}
+	}
 BID_LOOP:
 	for {
 		select {

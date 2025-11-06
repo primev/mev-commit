@@ -5,13 +5,13 @@ import (
 	"errors"
 	"log/slog"
 	"math/big"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru/v2"
+	"golang.org/x/sync/errgroup"
 )
 
 type EthClient interface {
@@ -24,7 +24,8 @@ type blockTracker struct {
 	blocks        *lru.Cache[uint64, *types.Block]
 	client        EthClient
 	log           *slog.Logger
-	checkCond     *sync.Cond
+	txnsToCheck   map[common.Hash]chan uint64
+	newBlockChan  chan uint64
 }
 
 func NewBlockTracker(client EthClient, log *slog.Logger) (*blockTracker, error) {
@@ -38,27 +39,28 @@ func NewBlockTracker(client EthClient, log *slog.Logger) (*blockTracker, error) 
 		blocks:        cache,
 		client:        client,
 		log:           log,
-		checkCond:     sync.NewCond(&sync.Mutex{}),
+		txnsToCheck:   make(map[common.Hash]chan uint64),
+		newBlockChan:  make(chan uint64, 1),
 	}, nil
 }
 
 func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
-	ticker := time.NewTicker(500 * time.Millisecond)
-	go func() {
-		defer close(done)
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		ticker := time.NewTicker(500 * time.Millisecond)
 		for {
 			select {
-			case <-ctx.Done():
-				return
+			case <-egCtx.Done():
+				return egCtx.Err()
 			case <-ticker.C:
-				blockNo, err := b.client.BlockNumber(ctx)
+				blockNo, err := b.client.BlockNumber(egCtx)
 				if err != nil {
 					b.log.Error("Failed to get block number", "error", err)
 					continue
 				}
 				if blockNo > b.latestBlockNo.Load() {
-					block, err := b.client.BlockByNumber(ctx, big.NewInt(int64(blockNo)))
+					block, err := b.client.BlockByNumber(egCtx, big.NewInt(int64(blockNo)))
 					if err != nil {
 						b.log.Error("Failed to get block by number", "error", err)
 						continue
@@ -70,14 +72,43 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 				}
 			}
 		}
+	})
+	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				return egCtx.Err()
+			case bNo := <-b.newBlockChan:
+				block, ok := b.blocks.Get(bNo)
+				if !ok {
+					b.log.Error("Block not found in cache", "blockNumber", bNo)
+					continue
+				}
+				for txHash, resultCh := range b.txnsToCheck {
+					if txn := block.Transaction(txHash); txn != nil {
+						resultCh <- bNo
+						delete(b.txnsToCheck, txHash)
+					}
+				}
+			}
+		}
+	})
+
+	go func() {
+		defer close(done)
+		if err := eg.Wait(); err != nil {
+			b.log.Error("Block tracker exited with error", "error", err)
+		}
 	}()
+
 	return done
 }
 
 func (b *blockTracker) triggerCheck() {
-	b.checkCond.L.Lock()
-	b.checkCond.Broadcast()
-	b.checkCond.L.Unlock()
+	select {
+	case b.newBlockChan <- b.latestBlockNo.Load():
+	default:
+	}
 }
 
 func (b *blockTracker) LatestBlockNumber() uint64 {
@@ -91,54 +122,17 @@ func (b *blockTracker) NextBlockNumber() (uint64, time.Duration, error) {
 		return 0, 0, errors.New("latest block not found in cache")
 	}
 	blockTime := time.Unix(int64(block.Time()), 0)
-	if time.Since(blockTime) >= 11*time.Second {
+	if time.Since(blockTime) >= 12*time.Second {
 		return latestBlockNo + 2, time.Until(blockTime.Add(24 * time.Second)), nil
 	}
 	return latestBlockNo + 1, time.Until(blockTime.Add(12 * time.Second)), nil
 }
 
-func (b *blockTracker) CheckTxnInclusion(
+func (b *blockTracker) WaitForTxnInclusion(
 	ctx context.Context,
 	txHash common.Hash,
-	blockNumber uint64,
-) (bool, error) {
-	if blockNumber <= b.latestBlockNo.Load() {
-		return b.checkTxnInclusion(ctx, txHash, blockNumber)
-	}
-
-	waitCh := make(chan struct{})
-	go func() {
-		b.checkCond.L.Lock()
-		defer b.checkCond.L.Unlock()
-		for blockNumber > b.latestBlockNo.Load() {
-			b.checkCond.Wait()
-		}
-		close(waitCh)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return false, ctx.Err()
-	case <-waitCh:
-		return b.checkTxnInclusion(ctx, txHash, blockNumber)
-	}
-}
-
-func (b *blockTracker) checkTxnInclusion(ctx context.Context, txHash common.Hash, blockNumber uint64) (bool, error) {
-	var err error
-	block, ok := b.blocks.Get(blockNumber)
-	if !ok {
-		block, err = b.client.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
-		if err != nil {
-			b.log.Error("Failed to get block by number", "error", err, "blockNumber", blockNumber)
-			return false, err
-		}
-		_ = b.blocks.Add(blockNumber, block)
-	}
-
-	if txn := block.Transaction(txHash); txn != nil {
-		return true, nil
-	}
-
-	return false, nil
+) chan uint64 {
+	resultCh := make(chan uint64, 1)
+	b.txnsToCheck[txHash] = resultCh
+	return resultCh
 }
