@@ -110,8 +110,9 @@ type Simulator interface {
 }
 
 type blockAttempt struct {
-	blockNumber uint64
-	attempts    int
+	blockNumber        uint64
+	attempts           int
+	committedProviders []common.Address
 }
 
 type txnAttempt struct {
@@ -449,6 +450,7 @@ func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction, can
 	defer retryTicker.Stop()
 	inclusion := t.blockTracker.WaitForTxnInclusion(txn.Hash())
 
+BID_LOOP:
 	for {
 		result, err = t.sendBid(ctx, txn)
 		switch {
@@ -531,7 +533,7 @@ func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction, can
 				endTime = time.UnixMilli(result.commitments[len(result.commitments)-1].DispatchTimestamp)
 			}
 			t.clearBlockAttemptHistory(txn, endTime)
-			break
+			break BID_LOOP
 		}
 	}
 
@@ -613,11 +615,11 @@ func (t *TxSender) sendBid(
 		}
 	}
 
-	if timeUntilNextBlock <= time.Second {
+	if timeUntilNextBlock <= 500*time.Millisecond {
 		logger.Warn("Next block time is too short, skipping bid", "timeUntilNextBlock", timeUntilNextBlock)
 		return bidResult{}, &errRetry{
 			err:        fmt.Errorf("next block time is too short: %s", timeUntilNextBlock),
-			retryAfter: time.Second,
+			retryAfter: defaultRetryDelay,
 		}
 	}
 

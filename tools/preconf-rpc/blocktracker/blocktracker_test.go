@@ -112,6 +112,11 @@ func TestBlockTracker(t *testing.T) {
 		t.Fatalf("Expected latest block number to be 0, got %d", blkNo)
 	}
 
+	included1 := tracker.WaitForTxnInclusion(tx1.Hash())
+	included2 := tracker.WaitForTxnInclusion(tx2.Hash())
+	included3 := tracker.WaitForTxnInclusion(tx3.Hash())
+	included4 := tracker.WaitForTxnInclusion(tx4.Hash())
+
 	client.blockNumber <- 100
 
 	start := time.Now()
@@ -134,13 +139,13 @@ func TestBlockTracker(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	included, err := tracker.CheckTxnInclusion(ctx, tx1.Hash(), 100)
-	if err != nil {
-		t.Fatalf("Error checking transaction inclusion: %v", err)
+	bNo1 := <-included1
+	if bNo1 != 100 {
+		t.Fatalf("Expected transaction %s to be included in block 100, got %d", tx1.Hash().Hex(), bNo1)
 	}
-
-	if !included {
-		t.Fatalf("Expected transaction %s to be included in block 100", tx1.Hash().Hex())
+	bNo2 := <-included2
+	if bNo2 != 100 {
+		t.Fatalf("Expected transaction %s to be included in block 100, got %d", tx2.Hash().Hex(), bNo2)
 	}
 
 	blkNo = tracker.LatestBlockNumber()
@@ -166,13 +171,16 @@ func TestBlockTracker(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	included, err = tracker.CheckTxnInclusion(ctx, tx4.Hash(), 101)
-	if err != nil {
-		t.Fatalf("Error checking transaction inclusion: %v", err)
+	bNo3 := <-included3
+	if bNo3 != 101 {
+		t.Fatalf("Expected transaction %s to be included in block 101, got %d", tx3.Hash().Hex(), bNo3)
 	}
 
-	if included {
-		t.Fatalf("Expected transaction %s not to be included in block 101", tx4.Hash().Hex())
+	select {
+	case bNo4 := <-included4:
+		t.Fatalf("Did not expect transaction %s to be included, but got block number %d", tx4.Hash().Hex(), bNo4)
+	case <-time.After(1 * time.Second):
+		// Expected timeout
 	}
 
 	cancel()

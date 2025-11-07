@@ -3,6 +3,7 @@ package sender_test
 import (
 	"context"
 	"errors"
+	"io"
 	"math/big"
 	"os"
 	"sync"
@@ -212,35 +213,25 @@ func (m *mockPricer) EstimatePrice(ctx context.Context) map[int64]float64 {
 	}
 }
 
-type op struct {
-	hash  common.Hash
-	block uint64
-}
-
 type blockNoOp struct {
 	block             uint64
 	timeTillNextBlock time.Duration
 }
 
 type mockBlockTracker struct {
-	in    chan op
-	out   chan bool
+	out   chan uint64
 	bnIn  chan struct{}
 	bnOut chan blockNoOp
 	bnErr chan error
 }
 
-func (m *mockBlockTracker) CheckTxnInclusion(ctx context.Context, txnHash common.Hash, blockNumber uint64) (bool, error) {
-	m.in <- op{
-		hash:  txnHash,
-		block: blockNumber,
-	}
-	select {
-	case included := <-m.out:
-		return included, nil
-	case <-ctx.Done():
-		return false, ctx.Err()
-	}
+func (m *mockBlockTracker) WaitForTxnInclusion(txnHash common.Hash) chan uint64 {
+	includedCh := make(chan uint64, 1)
+	go func() {
+		included := <-m.out
+		includedCh <- included
+	}()
+	return includedCh
 }
 
 func (m *mockBlockTracker) NextBlockNumber() (uint64, time.Duration, error) {
@@ -287,8 +278,7 @@ func TestSender(t *testing.T) {
 		out:           make(chan chan optinbidder.BidStatus, 10),
 	}
 	blockTracker := &mockBlockTracker{
-		in:    make(chan op, 10),
-		out:   make(chan bool, 10),
+		out:   make(chan uint64, 10),
 		bnIn:  make(chan struct{}, 10),
 		bnOut: make(chan blockNoOp, 10),
 		bnErr: make(chan error, 1),
@@ -304,7 +294,7 @@ func TestSender(t *testing.T) {
 		notifier,
 		&mockSimulator{},
 		big.NewInt(1), // Settlement chain ID
-		util.NewTestLogger(os.Stdout),
+		util.NewTestLogger(io.Discard),
 	)
 	if err != nil {
 		t.Fatalf("failed to create sender: %v", err)
@@ -358,6 +348,9 @@ func TestSender(t *testing.T) {
 		99: 2.0,
 	}
 
+	// Simulate transaction inclusion
+	blockTracker.out <- 1
+
 	// Simulate a bid response
 	bidOp := <-bidder.in
 	if bidOp.rawTx != tx1.Raw[2:] {
@@ -407,16 +400,6 @@ func TestSender(t *testing.T) {
 	if len(res.commitments) != 1 {
 		t.Fatalf("expected 1 commitment, got %d", len(res.commitments))
 	}
-
-	checkOp := <-blockTracker.in
-	if checkOp.hash != tx1.Hash() {
-		t.Fatalf("expected transaction hash %s, got %s", tx1.Hash().Hex(), checkOp.hash.Hex())
-	}
-	if checkOp.block != 1 {
-		t.Fatalf("expected block number 1, got %d", checkOp.block)
-	}
-	// Simulate transaction inclusion
-	blockTracker.out <- true
 
 	tx2 := &sender.Transaction{
 		Transaction: types.NewTransaction(
@@ -486,6 +469,9 @@ func TestSender(t *testing.T) {
 		99: 2.0,
 	}
 
+	// Simulate transaction inclusion
+	blockTracker.out <- 2
+
 	// Simulate a bid response
 	bidOp = <-bidder.in
 	if bidOp.rawTx != tx2.Raw[2:] {
@@ -511,16 +497,6 @@ func TestSender(t *testing.T) {
 	}
 	close(resC)
 	bidder.out <- resC
-
-	checkOp = <-blockTracker.in
-	if checkOp.hash != tx2.Hash() {
-		t.Fatalf("expected transaction hash %s, got %s", tx2.Hash().Hex(), checkOp.hash.Hex())
-	}
-	if checkOp.block != 2 {
-		t.Fatalf("expected block number 2, got %d", checkOp.block)
-	}
-	// Simulate transaction inclusion
-	blockTracker.out <- true
 
 	res = <-st.preconfirmedTxns
 	if res.txn == nil {
@@ -567,8 +543,7 @@ func TestCancelTransaction(t *testing.T) {
 		out:           make(chan chan optinbidder.BidStatus, 10),
 	}
 	blockTracker := &mockBlockTracker{
-		in:    make(chan op, 10),
-		out:   make(chan bool, 10),
+		out:   make(chan uint64, 10),
 		bnIn:  make(chan struct{}, 10),
 		bnOut: make(chan blockNoOp, 10),
 		bnErr: make(chan error, 3),
