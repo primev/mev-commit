@@ -68,6 +68,9 @@ type Transaction struct {
 	Details     string
 	BlockNumber int64
 	Constraint  *bidderapiv1.PositionConstraint
+	// local fields not stored in DB
+	commitments []*bidderapiv1.Commitment
+	logs        []*types.Log
 }
 
 type Store interface {
@@ -497,6 +500,8 @@ BID_LOOP:
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
 			}
+			txn.commitments = result.commitments
+			txn.logs = result.logs
 			retryTicker.Reset(result.timeUntillNextBlock + 1*time.Second)
 		default:
 			logger.Warn(
@@ -506,6 +511,8 @@ BID_LOOP:
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
+			txn.commitments = result.commitments
+			txn.logs = result.logs
 			retryTicker.Reset(defaultRetryDelay)
 		}
 		select {
@@ -515,22 +522,25 @@ BID_LOOP:
 			return ErrTransactionCancelled
 		case <-retryTicker.C:
 			// Continue to the next iteration after the retry delay
-		case <-inclusion:
+		case bNo := <-inclusion:
 			if txn.Status != TxStatusPreConfirmed {
+				// It could happen that the transaction got included but we got the signal
+				// late and made a failed attempt. So we should update the commitments and
+				// logs from the last successful bid attempt.
 				txn.Status = TxStatusConfirmed
-				txn.BlockNumber = int64(result.blockNumber)
+				txn.BlockNumber = int64(bNo)
 				logger.Info(
 					"Transaction confirmed",
-					"blockNumber", result.blockNumber,
+					"blockNumber", bNo,
 					"bidAmount", result.bidAmount.String(),
 				)
-				if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
+				if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
 			}
 			endTime := time.Now()
-			if len(result.commitments) > 0 {
-				endTime = time.UnixMilli(result.commitments[len(result.commitments)-1].DispatchTimestamp)
+			if len(txn.commitments) > 0 {
+				endTime = time.UnixMilli(txn.commitments[len(txn.commitments)-1].DispatchTimestamp)
 			}
 			t.clearBlockAttemptHistory(txn, endTime)
 			break BID_LOOP

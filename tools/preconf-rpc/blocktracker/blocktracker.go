@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"math/big"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -24,6 +25,7 @@ type blockTracker struct {
 	blocks        *lru.Cache[uint64, *types.Block]
 	client        EthClient
 	log           *slog.Logger
+	txnToCheckMu  sync.Mutex
 	txnsToCheck   map[common.Hash]chan uint64
 	newBlockChan  chan uint64
 }
@@ -92,7 +94,9 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 					if txn := block.Transaction(txHash); txn != nil {
 						resultCh <- bNo
 						close(resultCh)
+						b.txnToCheckMu.Lock()
 						delete(b.txnsToCheck, txHash)
+						b.txnToCheckMu.Unlock()
 					}
 				}
 			}
@@ -130,6 +134,8 @@ func (b *blockTracker) WaitForTxnInclusion(
 	txHash common.Hash,
 ) chan uint64 {
 	resultCh := make(chan uint64, 1)
+	b.txnToCheckMu.Lock()
 	b.txnsToCheck[txHash] = resultCh
+	b.txnToCheckMu.Unlock()
 	return resultCh
 }
