@@ -113,9 +113,8 @@ type Simulator interface {
 }
 
 type blockAttempt struct {
-	blockNumber        uint64
-	attempts           int
-	committedProviders []common.Address
+	blockNumber uint64
+	attempts    int
 }
 
 type txnAttempt struct {
