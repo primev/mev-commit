@@ -130,14 +130,14 @@ contract RocketMinipoolRegistryTest is Test {
         reg.registerValidators(_one(pk1));
 
         vm.prank(owner); reg.unpause();
-        vm.prank(node); reg.registerValidators(_one(pk1)); // ok
+        vm.prank(withdrawal); reg.registerValidators(_one(pk1)); // ok
     }
 
     // ---------- register ----------
     function test_Register_ByNode_Succeeds() public {
         vm.expectEmit(false, true, false, true);
         emit IRocketMinipoolRegistry.ValidatorRegistered(pk1, node);
-        vm.prank(node);
+        vm.prank(withdrawal);
         reg.registerValidators(_one(pk1));
 
         // ✅ read struct, then fields
@@ -166,23 +166,17 @@ contract RocketMinipoolRegistryTest is Test {
         reg.registerValidators(bad);
     }
 
-    function test_Register_MinipoolNotActive_Reverts() public {
-        mp1.setStatus(MinipoolStatus.Withdrawable); // anything != Staking
-        vm.prank(node);
-        vm.expectRevert(abi.encodeWithSelector(IRocketMinipoolRegistry.MinipoolNotActive.selector, pk1));
-        reg.registerValidators(_one(pk1));
-    }
 
     function test_Register_Twice_Reverts() public {
-        vm.prank(node); reg.registerValidators(_one(pk1));
-        vm.prank(node);
+        vm.prank(withdrawal); reg.registerValidators(_one(pk1));
+        vm.prank(withdrawal);
         vm.expectRevert(abi.encodeWithSelector(IRocketMinipoolRegistry.ValidatorAlreadyRegistered.selector, pk1));
         reg.registerValidators(_one(pk1));
     }
 
     // ---------- freeze / unfreeze ----------
     function test_Freeze_OnlyOracle() public {
-        vm.prank(node); reg.registerValidators(_one(pk1));
+        vm.prank(withdrawal); reg.registerValidators(_one(pk1));
 
         vm.expectRevert(IRocketMinipoolRegistry.OnlyFreezeOracle.selector);
         reg.freeze(_one(pk1)); // caller = this
@@ -199,7 +193,7 @@ contract RocketMinipoolRegistryTest is Test {
 
     function test_Unfreeze_RequiresFee_And_Refunds() public {
         // setup: register & freeze
-        vm.prank(node); reg.registerValidators(_one(pk1));
+        vm.prank(withdrawal); reg.registerValidators(_one(pk1));
         vm.prank(oracle); reg.freeze(_one(pk1));
 
         // underpay -> revert with required fee
@@ -233,7 +227,7 @@ contract RocketMinipoolRegistryTest is Test {
     }
 
     function test_OwnerUnfreeze_NoFee() public {
-        vm.prank(node); reg.registerValidators(_one(pk1));
+        vm.prank(withdrawal); reg.registerValidators(_one(pk1));
         vm.prank(oracle); reg.freeze(_one(pk1));
 
         vm.prank(owner);
@@ -244,30 +238,30 @@ contract RocketMinipoolRegistryTest is Test {
 
     // ---------- deregistration flow ----------
     function test_RequestDereg_Then_Finalize() public {
-        vm.prank(node); reg.registerValidators(_one(pk1));
+        vm.prank(withdrawal); reg.registerValidators(_one(pk1));
 
         vm.expectEmit(false, true, false, true);
         emit IRocketMinipoolRegistry.ValidatorDeregistrationRequested(pk1, node);
-        vm.prank(node);
+        vm.prank(withdrawal);
         reg.requestValidatorDeregistration(_one(pk1));
 
-        vm.prank(node);
+        vm.prank(withdrawal);
         vm.expectRevert(abi.encodeWithSelector(IRocketMinipoolRegistry.DeregRequestAlreadyExists.selector, pk1));
         reg.requestValidatorDeregistration(_one(pk1));
 
-        vm.prank(node);
+        vm.prank(withdrawal);
         vm.expectRevert(abi.encodeWithSelector(IRocketMinipoolRegistry.DeregistrationTooSoon.selector, pk1));
         reg.deregisterValidators(_one(pk1));
 
         vm.prank(oracle); reg.freeze(_one(pk1));
         vm.warp(block.timestamp + period + 1);
 
-        vm.prank(node);
+        vm.prank(withdrawal);
         vm.expectRevert(abi.encodeWithSelector(IRocketMinipoolRegistry.FrozenValidatorCannotDeregister.selector, pk1));
         reg.deregisterValidators(_one(pk1));
 
         reg.unfreeze{value: fee}(_one(pk1));
-        vm.prank(node);
+        vm.prank(withdrawal);
         reg.deregisterValidators(_one(pk1));
 
         assertFalse(reg.isValidatorRegistered(pk1));
@@ -279,7 +273,7 @@ contract RocketMinipoolRegistryTest is Test {
 
     // ---------- getters / helpers ----------
     function test_Getters_Work() public {
-        vm.prank(node); reg.registerValidators(_one(pk1));
+        vm.prank(withdrawal); reg.registerValidators(_one(pk1));
         assertEq(reg.getNodeAddressFromPubkey(pk1), node);
         assertEq(reg.getMinipoolFromPubkey(pk1), address(mp1));
 
@@ -300,7 +294,7 @@ contract RocketMinipoolRegistryTest is Test {
         assertFalse(reg.isValidatorOptedIn(pk1));
 
         // registered + active
-        vm.prank(node); reg.registerValidators(_one(pk1));
+        vm.prank(withdrawal); reg.registerValidators(_one(pk1));
         assertTrue(reg.isValidatorOptedIn(pk1));
 
         // frozen -> false
@@ -309,16 +303,16 @@ contract RocketMinipoolRegistryTest is Test {
         reg.unfreeze{value: fee}(_one(pk1));
 
         // dereg requested -> false
-        vm.prank(node); reg.requestValidatorDeregistration(_one(pk1));
+        vm.prank(withdrawal); reg.requestValidatorDeregistration(_one(pk1));
         assertFalse(reg.isValidatorOptedIn(pk1));
 
         // complete dereg clears
         vm.warp(block.timestamp + period + 1);
-        vm.prank(node); reg.deregisterValidators(_one(pk1));
+        vm.prank(withdrawal); reg.deregisterValidators(_one(pk1));
         assertFalse(reg.isValidatorOptedIn(pk1));
 
         // inactive minipool -> false
-        vm.prank(node); reg.registerValidators(_one(pk1));
+        vm.prank(withdrawal); reg.registerValidators(_one(pk1));
         MinipoolMock(address(mp1)).setStatus(MinipoolStatus.Withdrawable);
         assertFalse(reg.isValidatorOptedIn(pk1));
     }

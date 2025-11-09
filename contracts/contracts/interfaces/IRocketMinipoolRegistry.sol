@@ -46,6 +46,15 @@ interface IRocketMinipoolRegistry {
 
     error NotMinipoolOperator(bytes validatorPubkey);
 
+    error ExpiredSignature();
+    error InvalidSignature();
+    
+    error NotWithdrawalAddress(address withdrawalAddress);
+
+    error NoKeysProvided();
+
+    error MixedNodeBatch(bytes validatorPubkey);
+
     error MinipoolNotActive(bytes validatorPubkey);
 
     error NoMinipoolForKey(bytes validatorPubkey);
@@ -74,6 +83,15 @@ interface IRocketMinipoolRegistry {
 
     /// @notice Deregisters validators.
     function deregisterValidators(bytes[] calldata validatorPubkeys) external;
+
+    /// @notice Registers validators with a signature from the node address.
+    function registerValidatorsWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline) external;
+    
+    /// @notice Requests deregistration for validators with a signature from the node address.
+    function requestValidatorDeregistrationWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline) external;
+    
+    /// @notice Deregisters validators with a signature from the node address.
+    function deregisterValidatorsWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline) external;
 
     /// @notice Freezes validators.
     function freeze(bytes[] calldata validatorPubkeys) external;
