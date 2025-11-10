@@ -69,8 +69,9 @@ type Transaction struct {
 	BlockNumber int64
 	Constraint  *bidderapiv1.PositionConstraint
 	// local fields not stored in DB
-	commitments []*bidderapiv1.Commitment
-	logs        []*types.Log
+	noOfProviders int
+	commitments   []*bidderapiv1.Commitment
+	logs          []*types.Log
 }
 
 type Store interface {
@@ -93,6 +94,7 @@ type Bidder interface {
 		rawTx string,
 		opts *optinbidder.BidOpts,
 	) (chan optinbidder.BidStatus, error)
+	ConnectedProviders(ctx context.Context) ([]string, error)
 }
 
 type Pricer interface {
@@ -469,20 +471,21 @@ BID_LOOP:
 			} else {
 				return err
 			}
-		case t.fastTrack(result.commitments, result.optedInSlot):
-			// If the commitments indicate that the transaction can be fast-tracked,
-			// we consider it pre-confirmed and skip further checks
-			txn.Status = TxStatusPreConfirmed
-			txn.BlockNumber = int64(result.blockNumber)
-			logger.Info(
-				"Transaction fast-tracked based on commitments",
+		case len(result.commitments) == 0:
+			logger.Warn(
+				"No commitments received for the bid",
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
-			if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
-				return fmt.Errorf("failed to store fast-tracked transaction: %w", err)
-			}
-			retryTicker.Reset(result.timeUntillNextBlock + 1*time.Second)
+			retryTicker.Reset(defaultRetryDelay)
+		// default:
+		// 	for _, cmt := range result.commitments {
+		// 		if !slices.ContainsFunc(txn.commitments, func(existing *bidderapiv1.Commitment) bool {
+		// 			return existing.ProviderAddress == cmt.ProviderAddress
+		// 		}) {
+		// 			txn.commitments = append(txn.commitments, cmt)
+		// 		}
+		// 	}
 		case result.noOfProviders == len(result.commitments):
 			if result.optedInSlot {
 				// This means that all builders have committed to the bid and it
@@ -586,7 +589,6 @@ type bidResult struct {
 	optedInSlot         bool
 	bidAmount           *big.Int
 	commitments         []*bidderapiv1.Commitment
-	logs                []*types.Log
 }
 
 func (t *TxSender) sendBid(
@@ -607,12 +609,6 @@ func (t *TxSender) sendBid(
 		// proceed with the bid process. The default value should be higher than
 		// the typical block time to ensure we consider the next slot as a non-opt-in slot.
 		timeToOptIn = blockTime * 32
-	}
-
-	logs, err := t.simulator.Simulate(ctx, txn.Raw)
-	if err != nil {
-		logger.Error("Failed to simulate transaction", "error", err)
-		return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
 	}
 
 	bidBlockNo, timeUntilNextBlock, err := t.blockTracker.NextBlockNumber()
@@ -640,7 +636,7 @@ func (t *TxSender) sendBid(
 	cctx, cancel := context.WithTimeout(ctx, t.getBidTimeout())
 	defer cancel()
 
-	cost, err := t.calculatePriceForNextBlock(txn, bidBlockNo, prices, optedInSlot)
+	cost, isRetry, err := t.calculatePriceForNextBlock(txn, bidBlockNo, prices, optedInSlot)
 	if err != nil {
 		logger.Error("Failed to calculate price for next block", "error", err)
 		if errors.Is(err, ErrTimeoutExceeded) || errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
@@ -651,6 +647,17 @@ func (t *TxSender) sendBid(
 			err:        fmt.Errorf("failed to calculate price: %w", err),
 			retryAfter: time.Second,
 		}
+	}
+
+	var ignoreProviders []string
+	if isRetry && len(txn.commitments) > 0 {
+		for _, cmt := range txn.commitments {
+			ignoreProviders = append(ignoreProviders, cmt.ProviderAddress)
+		}
+		logger.Info(
+			"Retrying bid, ignoring previously committed providers",
+			"ignoreProviders", ignoreProviders,
+		)
 	}
 
 	slashAmount := big.NewInt(0)
@@ -692,6 +699,22 @@ func (t *TxSender) sendBid(
 		slashAmount = new(big.Int).Set(txn.Value())
 	}
 
+	if !isRetry {
+		logs, err := t.simulator.Simulate(ctx, txn.Raw)
+		if err != nil {
+			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
+			return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
+		}
+		providers, err := t.bidder.ConnectedProviders(ctx)
+		if err != nil {
+			logger.Error("Failed to get connected providers", "error", err)
+			return bidResult{}, fmt.Errorf("failed to get connected providers: %w", err)
+		}
+		txn.logs = logs
+		txn.commitments = nil
+		txn.noOfProviders = len(providers)
+	}
+
 	bidC, err := t.bidder.Bid(
 		cctx,
 		cost,
@@ -703,6 +726,7 @@ func (t *TxSender) sendBid(
 			RevertingTxHashes: []string{txn.Hash().Hex()},
 			DecayDuration:     t.getBidTimeout() * 2,
 			Constraint:        txn.Constraint,
+			IgnoreProviders:   ignoreProviders,
 		},
 	)
 	if err != nil {
@@ -715,7 +739,6 @@ func (t *TxSender) sendBid(
 		bidAmount:           cost,
 		startTime:           start,
 		timeUntillNextBlock: timeUntilNextBlock,
-		logs:                logs,
 	}
 BID_LOOP:
 	for {
@@ -735,6 +758,18 @@ BID_LOOP:
 				result.blockNumber = bidStatus.Arg.(uint64)
 			case optinbidder.BidStatusCommitment:
 				result.commitments = append(result.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
+				if t.fastTrack(result.commitments, optedInSlot) && txn.Status != TxStatusPreConfirmed {
+					txn.Status = TxStatusPreConfirmed
+					txn.BlockNumber = int64(result.blockNumber)
+					logger.Info(
+						"Transaction fast-tracked based on commitments",
+						"blockNumber", result.blockNumber,
+						"bidAmount", result.bidAmount.String(),
+					)
+					if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
+						logger.Error("Failed to store fast-tracked transaction", "error", err)
+					}
+				}
 			case optinbidder.BidStatusCancelled:
 				logger.Warn("Bid context cancelled by the bidder")
 				break BID_LOOP
@@ -761,7 +796,7 @@ func (t *TxSender) calculatePriceForNextBlock(
 	bidBlockNo uint64,
 	prices map[int64]float64,
 	optedInSlot bool,
-) (*big.Int, error) {
+) (*big.Int, bool, error) {
 	attempts, found := t.txnAttemptHistory.Get(txn.Hash())
 	if !found {
 		attempts = &txnAttempt{
@@ -771,7 +806,7 @@ func (t *TxSender) calculatePriceForNextBlock(
 	}
 
 	if time.Since(attempts.startTime) > transactionTimeout {
-		return nil, ErrTimeoutExceeded
+		return nil, false, ErrTimeoutExceeded
 	}
 
 	// default confidence level for the next block
@@ -791,7 +826,7 @@ func (t *TxSender) calculatePriceForNextBlock(
 			case attempts.attempts[i].attempts > 2:
 				confidence = confidenceSubsequentAttempts
 			case attempts.attempts[i].attempts > maxAttemptsPerBlock:
-				return nil, fmt.Errorf("%w: block %d", ErrMaxAttemptsPerBlockExceeded, bidBlockNo)
+				return nil, false, fmt.Errorf("%w: block %d", ErrMaxAttemptsPerBlockExceeded, bidBlockNo)
 			}
 			break // No need to check further attempts for the same block
 		}
@@ -815,11 +850,11 @@ func (t *TxSender) calculatePriceForNextBlock(
 		if conf == int64(confidence) {
 			// the gwei value is in float, so we need to convert it to wei before multiplying with gas limit
 			priceInWei := price * 1e9 // Convert Gwei to Wei
-			return new(big.Int).Mul(big.NewInt(int64(priceInWei)), big.NewInt(int64(txn.Gas()))), nil
+			return new(big.Int).Mul(big.NewInt(int64(priceInWei)), big.NewInt(int64(txn.Gas()))), isRetry, nil
 		}
 	}
 
-	return nil, fmt.Errorf(
+	return nil, false, fmt.Errorf(
 		"no estimated price found for block %d with confidence %d", bidBlockNo, confidence,
 	)
 }
@@ -843,6 +878,7 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time)
 		"startTime", attempts.startTime.Format(time.RFC3339),
 		"startBlockNumber", attempts.attempts[0].blockNumber,
 		"totalAttempts", totalAttempts,
+		"totalBlockAttempts", len(attempts.attempts),
 	)
 
 	_ = t.txnAttemptHistory.Remove(txn.Hash())
