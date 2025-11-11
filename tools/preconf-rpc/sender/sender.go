@@ -471,22 +471,7 @@ BID_LOOP:
 			} else {
 				return err
 			}
-		case len(result.commitments) == 0:
-			logger.Warn(
-				"No commitments received for the bid",
-				"blockNumber", result.blockNumber,
-				"bidAmount", result.bidAmount.String(),
-			)
-			retryTicker.Reset(defaultRetryDelay)
-		// default:
-		// 	for _, cmt := range result.commitments {
-		// 		if !slices.ContainsFunc(txn.commitments, func(existing *bidderapiv1.Commitment) bool {
-		// 			return existing.ProviderAddress == cmt.ProviderAddress
-		// 		}) {
-		// 			txn.commitments = append(txn.commitments, cmt)
-		// 		}
-		// 	}
-		case result.noOfProviders == len(result.commitments):
+		case txn.noOfProviders == len(txn.commitments):
 			if result.optedInSlot {
 				// This means that all builders have committed to the bid and it
 				// is a primev opted in slot. We can safely proceed to inform the
@@ -498,23 +483,19 @@ BID_LOOP:
 					"blockNumber", result.blockNumber,
 					"bidAmount", result.bidAmount.String(),
 				)
-				if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
+				if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
 			}
-			txn.commitments = result.commitments
-			txn.logs = result.logs
 			retryTicker.Reset(result.timeUntillNextBlock + 1*time.Second)
 		default:
 			logger.Warn(
 				"Not all builders committed to the bid",
-				"noOfProviders", result.noOfProviders,
-				"noOfCommitments", len(result.commitments),
+				"noOfProviders", txn.noOfProviders,
+				"noOfCommitments", len(txn.commitments),
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
-			txn.commitments = result.commitments
-			txn.logs = result.logs
 			retryTicker.Reset(defaultRetryDelay)
 		}
 		select {
@@ -584,11 +565,9 @@ func (e *errRetry) Error() string {
 type bidResult struct {
 	startTime           time.Time
 	timeUntillNextBlock time.Duration
-	noOfProviders       int
 	blockNumber         uint64
 	optedInSlot         bool
 	bidAmount           *big.Int
-	commitments         []*bidderapiv1.Commitment
 }
 
 func (t *TxSender) sendBid(
@@ -735,8 +714,8 @@ func (t *TxSender) sendBid(
 	}
 
 	result := bidResult{
-		commitments:         make([]*bidderapiv1.Commitment, 0),
 		bidAmount:           cost,
+		blockNumber:         bidBlockNo,
 		startTime:           start,
 		timeUntillNextBlock: timeUntilNextBlock,
 	}
@@ -752,21 +731,17 @@ BID_LOOP:
 				break BID_LOOP
 			}
 			switch bidStatus.Type {
-			case bidder.BidStatusNoOfProviders:
-				result.noOfProviders = bidStatus.Arg.(int)
-			case bidder.BidStatusAttempted:
-				result.blockNumber = bidStatus.Arg.(uint64)
 			case bidder.BidStatusCommitment:
-				result.commitments = append(result.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
-				if t.fastTrack(result.commitments, optedInSlot) && txn.Status != TxStatusPreConfirmed {
+				txn.commitments = append(txn.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
+				if t.fastTrack(txn.commitments, optedInSlot) && txn.Status != TxStatusPreConfirmed {
 					txn.Status = TxStatusPreConfirmed
-					txn.BlockNumber = int64(result.blockNumber)
+					txn.BlockNumber = int64(bidBlockNo)
 					logger.Info(
 						"Transaction fast-tracked based on commitments",
 						"blockNumber", result.blockNumber,
 						"bidAmount", result.bidAmount.String(),
 					)
-					if err := t.store.StoreTransaction(ctx, txn, result.commitments, result.logs); err != nil {
+					if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 						logger.Error("Failed to store fast-tracked transaction", "error", err)
 					}
 				}
@@ -781,8 +756,8 @@ BID_LOOP:
 	}
 	logger.Info(
 		"Bid operation complete",
-		"noOfProviders", result.noOfProviders,
-		"noOfCommitments", len(result.commitments),
+		"noOfProviders", txn.noOfProviders,
+		"noOfCommitments", len(txn.commitments),
 		"blockNumber", result.blockNumber,
 		"optedInSlot", optedInSlot,
 	)
