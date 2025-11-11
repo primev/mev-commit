@@ -18,6 +18,7 @@ import (
 type EthClient interface {
 	BlockNumber(ctx context.Context) (uint64, error)
 	BlockByNumber(ctx context.Context, blockNumber *big.Int) (*types.Block, error)
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 }
 
 type blockTracker struct {
@@ -115,6 +116,13 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 
 func (b *blockTracker) LatestBlockNumber() uint64 {
 	return b.latestBlockNo.Load()
+}
+
+func (b *blockTracker) AccountNonce(
+	ctx context.Context,
+	account common.Address,
+) (uint64, error) {
+	return b.client.PendingNonceAt(ctx, account)
 }
 
 func (b *blockTracker) NextBlockNumber() (uint64, time.Duration, error) {

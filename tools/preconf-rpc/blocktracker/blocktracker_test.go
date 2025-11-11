@@ -37,6 +37,10 @@ func (m *mockEthClient) BlockByNumber(ctx context.Context, blockNumber *big.Int)
 	return block, nil
 }
 
+func (m *mockEthClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	return 0, nil
+}
+
 type testHasher struct {
 	hasher hash.Hash
 }

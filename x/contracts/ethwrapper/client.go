@@ -264,3 +264,11 @@ func (c *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*t
 	}
 	return rawClient.TransactionReceipt(ctx, txHash)
 }
+
+func (c *Client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	rawClient := c.RawClient()
+	if rawClient == nil {
+		return 0, fmt.Errorf("no raw client")
+	}
+	return rawClient.PendingNonceAt(ctx, account)
+}

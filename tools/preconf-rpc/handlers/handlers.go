@@ -41,6 +41,7 @@ type Store interface {
 
 type BlockTracker interface {
 	LatestBlockNumber() uint64
+	AccountNonce(ctx context.Context, account common.Address) (uint64, error)
 }
 
 type Sender interface {
@@ -505,6 +506,13 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 	}
 
 	accNonce += 1
+
+	backendNonce, err := h.blockTracker.AccountNonce(ctx, common.HexToAddress(account))
+	if err == nil {
+		if backendNonce > accNonce {
+			accNonce = backendNonce
+		}
+	}
 
 	nonceJSON, err := json.Marshal(accNonce)
 	if err != nil {
