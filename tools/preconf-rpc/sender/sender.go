@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
+	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -92,8 +92,8 @@ type Bidder interface {
 		bidAmount *big.Int,
 		slashAmount *big.Int,
 		rawTx string,
-		opts *optinbidder.BidOpts,
-	) (chan optinbidder.BidStatus, error)
+		opts *bidder.BidOpts,
+	) (chan bidder.BidStatus, error)
 	ConnectedProviders(ctx context.Context) ([]string, error)
 }
 
@@ -720,7 +720,7 @@ func (t *TxSender) sendBid(
 		cost,
 		slashAmount,
 		strings.TrimPrefix(txn.Raw, "0x"),
-		&optinbidder.BidOpts{
+		&bidder.BidOpts{
 			WaitForOptIn:      false,
 			BlockNumber:       uint64(bidBlockNo),
 			RevertingTxHashes: []string{txn.Hash().Hex()},
@@ -752,11 +752,11 @@ BID_LOOP:
 				break BID_LOOP
 			}
 			switch bidStatus.Type {
-			case optinbidder.BidStatusNoOfProviders:
+			case bidder.BidStatusNoOfProviders:
 				result.noOfProviders = bidStatus.Arg.(int)
-			case optinbidder.BidStatusAttempted:
+			case bidder.BidStatusAttempted:
 				result.blockNumber = bidStatus.Arg.(uint64)
-			case optinbidder.BidStatusCommitment:
+			case bidder.BidStatusCommitment:
 				result.commitments = append(result.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
 				if t.fastTrack(result.commitments, optedInSlot) && txn.Status != TxStatusPreConfirmed {
 					txn.Status = TxStatusPreConfirmed
@@ -770,10 +770,10 @@ BID_LOOP:
 						logger.Error("Failed to store fast-tracked transaction", "error", err)
 					}
 				}
-			case optinbidder.BidStatusCancelled:
+			case bidder.BidStatusCancelled:
 				logger.Warn("Bid context cancelled by the bidder")
 				break BID_LOOP
-			case optinbidder.BidStatusFailed:
+			case bidder.BidStatusFailed:
 				logger.Error("Bid failed", "error", bidStatus.Arg)
 				break BID_LOOP
 			}

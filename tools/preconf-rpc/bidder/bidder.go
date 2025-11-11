@@ -172,8 +172,7 @@ func parseEpochInfo(msg *notificationsapiv1.Notification) (*epochInfo, error) {
 type BidStatusType int
 
 const (
-	BidStatusNoOfProviders BidStatusType = iota
-	BidStatusWaitSecs
+	BidStatusWaitSecs BidStatusType = iota
 	BidStatusAttempted
 	BidStatusFailed
 	BidStatusCancelled
@@ -209,26 +208,6 @@ func (b *BidderClient) Bid(
 		opts = defaultBidOpts
 	}
 
-	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
-	if err != nil {
-		b.logger.Error("failed to get topology", "error", err)
-		return nil, err
-	}
-
-	providers := topo.Topology.Fields["connected_providers"].GetListValue()
-	if providers == nil || len(providers.Values) == 0 {
-		return nil, ErrNoProviders
-	}
-
-	filteredProviders := make([]any, 0, len(providers.Values))
-	for _, ip := range opts.IgnoreProviders {
-		for _, p := range providers.Values {
-			if p.GetStringValue() != ip {
-				filteredProviders = append(filteredProviders, p)
-			}
-		}
-	}
-
 	// Channel length chosen is 3 so that sending the bid is not blocked by the first
 	// status message.
 	res := make(chan BidStatus, 3)
@@ -237,8 +216,6 @@ func (b *BidderClient) Bid(
 		defer fmt.Println("BidderClient goroutine exiting")
 		defer close(res)
 		defer b.bigWg.Done()
-
-		res <- BidStatus{Type: BidStatusNoOfProviders, Arg: len(filteredProviders)}
 
 		if opts.WaitForOptIn {
 			nextSlot, err := b.getNextSlot()
@@ -272,9 +249,9 @@ func (b *BidderClient) Bid(
 				return
 			}
 			blkNumber = bNo + 1
+			res <- BidStatus{Type: BidStatusAttempted, Arg: blkNumber}
 		}
 
-		res <- BidStatus{Type: BidStatusAttempted, Arg: blkNumber}
 		b.logger.Info(
 			"attempting to send bid",
 			"blockNumber", blkNumber,
@@ -310,11 +287,11 @@ func (b *BidderClient) Bid(
 		}
 
 		if len(opts.IgnoreProviders) > 0 {
-			mdMap := make(map[string]string)
+			var pairs []string
 			for _, ip := range opts.IgnoreProviders {
-				mdMap["ignore-provider"] = ip
+				pairs = append(pairs, "ignore-provider", ip)
 			}
-			md := metadata.New(mdMap)
+			md := metadata.Pairs(pairs...)
 			ctx = metadata.NewContext(ctx, md)
 		}
 

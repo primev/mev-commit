@@ -14,7 +14,6 @@ import (
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
-	optinbidder "github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -119,7 +118,7 @@ func TestBidderClient(t *testing.T) {
 		now: clock,
 	}
 
-	optinbidder.SetNowFunc(timeSetter.Now)
+	bidder.SetNowFunc(timeSetter.Now)
 
 	topoVal, err := structpb.NewStruct(map[string]interface{}{
 		"connected_providers": []any{"provider1", "provider2"},
@@ -150,8 +149,8 @@ func TestBidderClient(t *testing.T) {
 	done := bidderClient.Start(ctx)
 
 	_, err = bidderClient.Estimate()
-	if err != optinbidder.ErrNoEpochInfo {
-		t.Fatalf("expected error %v, got %v", optinbidder.ErrNoEpochInfo, err)
+	if err != bidder.ErrNoEpochInfo {
+		t.Fatalf("expected error %v, got %v", bidder.ErrNoEpochInfo, err)
 	}
 
 	// Send a notification.
@@ -196,13 +195,16 @@ func TestBidderClient(t *testing.T) {
 	_, _ = rand.Read(buf)
 	txString := hex.EncodeToString(buf)
 
-	_, err = bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString, nil)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-
 	rpcServices.topo = &debugapiv1.TopologyResponse{
 		Topology: topoVal,
+	}
+
+	providers, err := bidderClient.ConnectedProviders(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(providers) != 2 {
+		t.Fatalf("expected 2 providers, got %d", len(providers))
 	}
 
 	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString, nil)
@@ -219,19 +221,15 @@ waitLoop:
 				break waitLoop
 			}
 			switch status.Type {
-			case optinbidder.BidStatusNoOfProviders:
-				if status.Arg.(int) != 2 {
-					t.Fatalf("expected 2 providers, got %d", status.Arg)
-				}
-			case optinbidder.BidStatusWaitSecs:
+			case bidder.BidStatusWaitSecs:
 				if status.Arg.(int) != 2 {
 					t.Fatalf("expected 2 seconds, got %d", status.Arg)
 				}
-			case optinbidder.BidStatusAttempted:
+			case bidder.BidStatusAttempted:
 				if status.Arg.(uint64) != 11 {
 					t.Fatalf("expected 11, got %d", status.Arg)
 				}
-			case optinbidder.BidStatusCommitment:
+			case bidder.BidStatusCommitment:
 				if status.Arg.(*bidderapiv1.Commitment).BlockNumber != 11 {
 					t.Fatalf("expected block number 11, got %d", status.Arg.(*bidderapiv1.Commitment).BlockNumber)
 				}
