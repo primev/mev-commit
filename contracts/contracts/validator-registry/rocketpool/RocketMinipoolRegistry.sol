@@ -19,13 +19,22 @@ import {RocketMinipoolRegistryStorage} from "./RocketMinipoolRegistryStorage.sol
 /// @title RocketMinipoolRegistry
 /// @notice This contract serves as the entrypoint for operators to register with
 /// the mev-commit protocol via Rocketpool minipools.
-contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegistryStorage,
-    Ownable2StepUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable, EIP712Upgradeable {
-
+contract RocketMinipoolRegistry is
+    IRocketMinipoolRegistry,
+    RocketMinipoolRegistryStorage,
+    Ownable2StepUpgradeable,
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable,
+    EIP712Upgradeable
+{
     // We keep payloads compact by hashing the pubkeys array to a bytes32.
-    bytes32 private constant _REGISTER_TYPEHASH = keccak256("Register(bytes32 pubkeysHash,address executor,uint256 nonce,uint256 deadline)");
-    bytes32 private constant _DEREG_REQ_TYPEHASH = keccak256("DeregRequest(bytes32 pubkeysHash,address executor,uint256 nonce,uint256 deadline)");
-    bytes32 private constant _DEREG_TYPEHASH = keccak256("Deregister(bytes32 pubkeysHash,address executor,uint256 nonce,uint256 deadline)");
+    bytes32 private constant _REGISTER_TYPEHASH =
+        keccak256("Register(bytes32 pubkeysHash,address executor,uint256 nonce,uint256 deadline)");
+    bytes32 private constant _DEREG_REQ_TYPEHASH =
+        keccak256("DeregRequest(bytes32 pubkeysHash,address executor,uint256 nonce,uint256 deadline)");
+    bytes32 private constant _DEREG_TYPEHASH =
+        keccak256("Deregister(bytes32 pubkeysHash,address executor,uint256 nonce,uint256 deadline)");
 
     modifier onlyFreezeOracle() {
         require(msg.sender == freezeOracle, IRocketMinipoolRegistry.OnlyFreezeOracle());
@@ -37,7 +46,9 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         uint256 len = valPubKeys.length;
         require(len > 0, NoKeysProvided());
         for (uint256 i = 0; i < len; ++i) {
-            require(valPubKeys[i].length == 48, IRocketMinipoolRegistry.InvalidBLSPubKeyLength(48, valPubKeys[i].length));
+            require(
+                valPubKeys[i].length == 48, IRocketMinipoolRegistry.InvalidBLSPubKeyLength(48, valPubKeys[i].length)
+            );
         }
         _;
     }
@@ -57,8 +68,15 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     fallback() external payable {
         revert Errors.InvalidFallback();
     }
-    
-    function initialize(address owner, address freezeOracle, address unfreezeReceiver, address rocketStorage, uint256 unfreezeFee, uint64 deregistrationPeriod) external initializer {
+
+    function initialize(
+        address owner,
+        address freezeOracle,
+        address unfreezeReceiver,
+        address rocketStorage,
+        uint256 unfreezeFee,
+        uint64 deregistrationPeriod
+    ) external initializer {
         __Ownable_init(owner);
         __Pausable_init();
         __ReentrancyGuard_init();
@@ -76,7 +94,7 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         address nodeAddress0 = _getFirstNodeAddrAndValidate(valPubKeys[0]);
         _registerValidator(valPubKeys[0]);
         emit ValidatorRegistered(valPubKeys[0], nodeAddress0);
-        
+
         uint256 len = valPubKeys.length;
         for (uint256 i = 1; i < len; ++i) {
             require(getNodeAddressFromPubkey(valPubKeys[i]) == nodeAddress0, MixedNodeBatch(valPubKeys[i]));
@@ -86,31 +104,30 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     }
 
     /// @notice Allows a user to register using a signature.
-    function registerValidatorsWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline) external onlyValidBLSPubKeys(valPubKeys) whenNotPaused {
+    function registerValidatorsWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline)
+        external
+        onlyValidBLSPubKeys(valPubKeys)
+        whenNotPaused
+    {
         bytes32 pkHash = pubkeysHash(valPubKeys);
-        address minipool0 = getMinipoolFromPubkey(valPubKeys[0]);
-        address nodeAddress0 = getNodeAddressFromMinipool(minipool0);
-        require(nodeAddress0 != address(0), NoMinipoolForKey(valPubKeys[0]));
+        address nodeAddress0 = getNodeAddressFromPubkey(valPubKeys[0]);
 
         // 2) Pull nonce & check deadline
         uint256 nonce = nonces[nodeAddress0];
         require(block.timestamp <= deadline, ExpiredSignature());
-        
-        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(
-            _REGISTER_TYPEHASH,
-            pkHash,
-            msg.sender,
-            nonce,
-            deadline
-        )));
+
+        bytes32 digest =
+            _hashTypedDataV4(keccak256(abi.encode(_REGISTER_TYPEHASH, pkHash, msg.sender, nonce, deadline)));
 
         // 6) Verify signature came from the node
         require(SignatureChecker.isValidSignatureNow(nodeAddress0, digest, signature), InvalidSignature());
-        unchecked { nonces[nodeAddress0] = nonce + 1; }
+        unchecked {
+            nonces[nodeAddress0] = nonce + 1;
+        }
 
         _registerValidator(valPubKeys[0]);
         emit ValidatorRegistered(valPubKeys[0], nodeAddress0);
-        
+
         uint256 len = valPubKeys.length;
         for (uint256 i = 1; i < len; ++i) {
             //still need to check that the node address is the same for all validators in the batch
@@ -121,7 +138,11 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     }
 
     /// @notice Allows Minipool's withdrawal address to request deregistration for validators.
-    function requestValidatorDeregistration(bytes[] calldata valPubKeys) external onlyValidBLSPubKeys(valPubKeys) whenNotPaused {
+    function requestValidatorDeregistration(bytes[] calldata valPubKeys)
+        external
+        onlyValidBLSPubKeys(valPubKeys)
+        whenNotPaused
+    {
         address nodeAddress0 = _getFirstNodeAddrAndValidate(valPubKeys[0]);
         _requestValidatorDeregistration(valPubKeys[0]);
         emit ValidatorDeregistrationRequested(valPubKeys[0], nodeAddress0);
@@ -134,25 +155,24 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         }
     }
 
-    function requestValidatorDeregistrationWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline) external onlyValidBLSPubKeys(valPubKeys) whenNotPaused {
+    function requestValidatorDeregistrationWithSig(
+        bytes[] calldata valPubKeys,
+        bytes calldata signature,
+        uint256 deadline
+    ) external onlyValidBLSPubKeys(valPubKeys) whenNotPaused {
         bytes32 pkHash = pubkeysHash(valPubKeys);
-        address minipool0 = getMinipoolFromPubkey(valPubKeys[0]);
-        address nodeAddress0 = getNodeAddressFromMinipool(minipool0);
-        require(nodeAddress0 != address(0), NoMinipoolForKey(valPubKeys[0]));
+        address nodeAddress0 = getNodeAddressFromPubkey(valPubKeys[0]);
 
         uint256 nonce = nonces[nodeAddress0];
         require(block.timestamp <= deadline, ExpiredSignature());
 
-        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(
-            _DEREG_REQ_TYPEHASH,
-            pkHash,
-            msg.sender,
-            nonce,
-            deadline
-        )));
+        bytes32 digest =
+            _hashTypedDataV4(keccak256(abi.encode(_DEREG_REQ_TYPEHASH, pkHash, msg.sender, nonce, deadline)));
 
         require(SignatureChecker.isValidSignatureNow(nodeAddress0, digest, signature), InvalidSignature());
-        unchecked { nonces[nodeAddress0] = nonce + 1; }
+        unchecked {
+            nonces[nodeAddress0] = nonce + 1;
+        }
 
         _requestValidatorDeregistration(valPubKeys[0]);
         emit ValidatorDeregistrationRequested(valPubKeys[0], nodeAddress0);
@@ -179,25 +199,23 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         }
     }
 
-    function deregisterValidatorsWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline) external onlyValidBLSPubKeys(valPubKeys) whenNotPaused {
+    function deregisterValidatorsWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline)
+        external
+        onlyValidBLSPubKeys(valPubKeys)
+        whenNotPaused
+    {
         bytes32 pkHash = pubkeysHash(valPubKeys);
-        address minipool0 = getMinipoolFromPubkey(valPubKeys[0]);
-        address nodeAddress0 = getNodeAddressFromMinipool(minipool0);
-        require(nodeAddress0 != address(0), NoMinipoolForKey(valPubKeys[0]));
+        address nodeAddress0 = getNodeAddressFromPubkey(valPubKeys[0]);
 
         uint256 nonce = nonces[nodeAddress0];
         require(block.timestamp <= deadline, ExpiredSignature());
-   
-        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(
-            _DEREG_TYPEHASH,
-            pkHash,
-            msg.sender,
-            nonce,
-            deadline
-        )));
+
+        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(_DEREG_TYPEHASH, pkHash, msg.sender, nonce, deadline)));
 
         require(SignatureChecker.isValidSignatureNow(nodeAddress0, digest, signature), InvalidSignature());
-        unchecked { nonces[nodeAddress0] = nonce + 1; }
+        unchecked {
+            nonces[nodeAddress0] = nonce + 1;
+        }
 
         _deregisterValidator(valPubKeys[0]);
         emit ValidatorDeregistered(valPubKeys[0], nodeAddress0);
@@ -210,9 +228,8 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         }
     }
 
-
     /// @dev Allows the freeze oracle account to freeze validators which disobey the mev-commit protocol.
-    function freeze(bytes[] calldata valPubKeys) external whenNotPaused onlyFreezeOracle() {
+    function freeze(bytes[] calldata valPubKeys) external whenNotPaused onlyFreezeOracle {
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
             _freeze(valPubKeys[i]);
@@ -227,11 +244,11 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         for (uint256 i = 0; i < len; ++i) {
             _unfreeze(valPubKeys[i]);
         }
-        (bool success, ) = unfreezeReceiver.call{value: requiredFee}("");
+        (bool success,) = unfreezeReceiver.call{value: requiredFee}("");
         require(success, UnfreezeTransferFailed());
         uint256 excessFee = msg.value - requiredFee;
         if (excessFee != 0) {
-            (bool successRefund, ) = msg.sender.call{value: excessFee}("");
+            (bool successRefund,) = msg.sender.call{value: excessFee}("");
             require(successRefund, RefundFailed());
         }
     }
@@ -241,7 +258,7 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         _pause();
     }
 
-    /// @dev Unpauses the contract, restricted to contract owner.   
+    /// @dev Unpauses the contract, restricted to contract owner.
     function unpause() external onlyOwner {
         _unpause();
     }
@@ -251,7 +268,7 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         _setDeregistrationPeriod(newDeregistrationPeriod);
     }
 
-    /// @dev Sets the rocket storage, restricted to contract owner.    
+    /// @dev Sets the rocket storage, restricted to contract owner.
     function setRocketStorage(address newRocketStorage) external onlyOwner {
         _setRocketStorage(newRocketStorage);
     }
@@ -302,7 +319,7 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         return _isValidatorOptedIn(valPubKey);
     }
 
-        /// @dev Returns the minipool for a validator.
+    /// @dev Returns the minipool for a validator.
     function getMinipoolFromPubkey(bytes calldata validatorPubkey) public view returns (address) {
         return rocketStorage.getAddress(keccak256(abi.encodePacked("validator.minipool", validatorPubkey)));
     }
@@ -319,7 +336,7 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
     }
 
     /// @dev Fetches the minipool from a validator's pubkey and returns true if caller is either the minipool's node address or node's withdrawal address.
-    function isOperatorValidForKey(address operator, bytes calldata validatorPubkey) public view returns (bool) {
+    function isOperatorValidForKey(address operator, bytes calldata validatorPubkey) external view returns (bool) {
         address minipool = getMinipoolFromPubkey(validatorPubkey);
         address nodeAddress = getNodeAddressFromMinipool(minipool);
         return (nodeAddress == operator || rocketStorage.getNodeWithdrawalAddress(nodeAddress) == operator);
@@ -331,7 +348,9 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
 
     /// @dev Returns the node address of a minipool.
     function getNodeAddressFromMinipool(address minipool) public view returns (address) {
-        return RocketMinipoolInterface(minipool).getNodeAddress();
+        address nodeAddress = RocketMinipoolInterface(minipool).getNodeAddress();
+        require(nodeAddress != address(0), NoMinipoolForKey());
+        return nodeAddress;
     }
 
     function pubkeysHash(bytes[] calldata pubkeys) public pure returns (bytes32) {
@@ -342,7 +361,9 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
 
         // Pointer to the next write position in `concatenated`
         uint256 writePtr;
-        assembly { writePtr := add(concatenated, 32) }
+        assembly {
+            writePtr := add(concatenated, 32)
+        }
 
         for (uint256 i = 0; i < count; ++i) {
             bytes calldata pubkey = pubkeys[i];
@@ -368,7 +389,7 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         require(reg.deregTimestamp == 0, DeregRequestAlreadyExists(valPubKey));
         reg.deregTimestamp = uint64(block.timestamp);
     }
-    
+
     function _deregisterValidator(bytes calldata valPubKey) internal {
         IRocketMinipoolRegistry.ValidatorRegistration storage reg = validatorRegistrations[valPubKey];
         require(reg.freezeTimestamp == 0, FrozenValidatorCannotDeregister(valPubKey));
@@ -386,7 +407,7 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
 
     function _unfreeze(bytes calldata valPubKey) internal {
         IRocketMinipoolRegistry.ValidatorRegistration storage regInfo = validatorRegistrations[valPubKey];
-        require(regInfo.freezeTimestamp != 0, ValidatorNotFrozen(valPubKey)); 
+        require(regInfo.freezeTimestamp != 0, ValidatorNotFrozen(valPubKey));
         regInfo.freezeTimestamp = 0;
         emit ValidatorUnfrozen(valPubKey);
     }
@@ -415,15 +436,16 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         deregistrationPeriod = newDeregistrationPeriod;
     }
 
-
     /// @dev Authorizes contract upgrades, restricted to contract owner.
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-
-    function _getFirstNodeAddrAndValidate(bytes calldata firstPubKey) internal view returns (address firstNodeAddress) {
+    function _getFirstNodeAddrAndValidate(bytes calldata firstPubKey)
+        internal
+        view
+        returns (address firstNodeAddress)
+    {
         firstNodeAddress = getNodeAddressFromMinipool(getMinipoolFromPubkey(firstPubKey));
-        require(firstNodeAddress != address(0), NoMinipoolForKey(firstPubKey));
         address withdrawalAddress = rocketStorage.getNodeWithdrawalAddress(firstNodeAddress);
         require(withdrawalAddress == msg.sender, NotWithdrawalAddress(withdrawalAddress));
     }
@@ -438,8 +460,12 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         return true;
     }
 
-        /// @dev Deterministically hash a list of pubkeys to avoid large EIP-712 arrays.
-    function _hashPubkeysAndFunction(bytes memory functionSelector, bytes[] calldata pubkeys) internal pure returns (bytes32) {
+    /// @dev Deterministically hash a list of pubkeys to avoid large EIP-712 arrays.
+    function _hashPubkeysAndFunction(bytes memory functionSelector, bytes[] calldata pubkeys)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes32[] memory leaves = new bytes32[](pubkeys.length);
         uint256 len = pubkeys.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -447,5 +473,4 @@ contract RocketMinipoolRegistry is IRocketMinipoolRegistry, RocketMinipoolRegist
         }
         return keccak256(abi.encodePacked(functionSelector, leaves));
     }
-
 }

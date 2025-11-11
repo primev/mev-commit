@@ -1114,13 +1114,7 @@
   {
     "type": "error",
     "name": "NoMinipoolForKey",
-    "inputs": [
-      {
-        "name": "validatorPubkey",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ]
+    "inputs": []
   },
   {
     "type": "error",
