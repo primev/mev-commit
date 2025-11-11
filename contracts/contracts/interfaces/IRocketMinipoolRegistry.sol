@@ -125,6 +125,4 @@ interface IRocketMinipoolRegistry {
     /// @notice Checks if a validator is opted-in.
     function isValidatorOptedIn(bytes calldata validatorPubkey) external view returns (bool);
 
-    /// @notice Checks if an operator is valid to interact on behalf of a validator.
-    function isOperatorValidForKey(address operator, bytes calldata validatorPubkey) external view returns (bool);
 }

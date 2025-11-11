@@ -282,11 +282,6 @@ contract RocketMinipoolRegistryTest is Test {
         assertEq(w, withdrawal);
 
         assertTrue(reg.isMinipoolActive(address(mp1)));
-
-        // if your isOperatorValidForKey uses msg.sender, these pass; if it takes (addr, key), swap accordingly.
-        vm.prank(node);      assertTrue(reg.isOperatorValidForKey(node, pk1));
-        vm.prank(withdrawal);assertTrue(reg.isOperatorValidForKey(withdrawal,pk1));
-        vm.prank(stranger);  assertFalse(reg.isOperatorValidForKey(stranger,pk1));
     }
 
     function test_IsValidatorOptedIn_TruthTable() public {

@@ -335,13 +335,6 @@ contract RocketMinipoolRegistry is
         return RocketMinipoolInterface(minipool).getStatus() == MinipoolStatus.Staking;
     }
 
-    /// @dev Fetches the minipool from a validator's pubkey and returns true if caller is either the minipool's node address or node's withdrawal address.
-    function isOperatorValidForKey(address operator, bytes calldata validatorPubkey) external view returns (bool) {
-        address minipool = getMinipoolFromPubkey(validatorPubkey);
-        address nodeAddress = getNodeAddressFromMinipool(minipool);
-        return (nodeAddress == operator || rocketStorage.getNodeWithdrawalAddress(nodeAddress) == operator);
-    }
-
     function isValidatorRegistered(bytes calldata validatorPubkey) public view returns (bool) {
         return validatorRegistrations[validatorPubkey].exists;
     }
