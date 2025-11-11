@@ -152,6 +152,7 @@ func (p *Preconfirmation) SendBid(
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		ignoredProviders := md.Get("ignore-provider")
+		p.logger.Info("ignoring providers for this bid", "providers", ignoredProviders, "bid", bid)
 		for _, ip := range ignoredProviders {
 			ignoredAddr := common.HexToAddress(ip)
 			idx := slices.IndexFunc(providers, func(p p2p.Peer) bool {

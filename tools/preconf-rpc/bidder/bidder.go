@@ -14,7 +14,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
-	"grpc.go4.org/metadata"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -292,7 +292,7 @@ func (b *BidderClient) Bid(
 				pairs = append(pairs, "ignore-provider", ip)
 			}
 			md := metadata.Pairs(pairs...)
-			ctx = metadata.NewContext(ctx, md)
+			ctx = metadata.NewOutgoingContext(ctx, md)
 		}
 
 		pc, err := b.bidderClient.SendBid(ctx, bidReq)
