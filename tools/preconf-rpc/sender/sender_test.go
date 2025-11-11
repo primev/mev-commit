@@ -249,6 +249,10 @@ func (m *mockBlockTracker) NextBlockNumber() (uint64, time.Duration, error) {
 	}
 }
 
+func (m *mockBlockTracker) LatestBlockNumber() uint64 {
+	return 0
+}
+
 type mockTransferer struct{}
 
 func (m *mockTransferer) Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error {

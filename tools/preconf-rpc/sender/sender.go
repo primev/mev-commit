@@ -104,6 +104,7 @@ type Pricer interface {
 type BlockTracker interface {
 	WaitForTxnInclusion(txnHash common.Hash) chan uint64
 	NextBlockNumber() (uint64, time.Duration, error)
+	LatestBlockNumber() uint64
 }
 
 type Transferer interface {
@@ -523,7 +524,7 @@ BID_LOOP:
 			}
 			endTime := time.Now()
 			if len(txn.commitments) > 0 {
-				endTime = time.UnixMilli(txn.commitments[len(txn.commitments)-1].DispatchTimestamp)
+				endTime = time.UnixMilli(txn.commitments[0].DispatchTimestamp)
 			}
 			t.clearBlockAttemptHistory(txn, endTime)
 			break BID_LOOP
@@ -681,6 +682,17 @@ func (t *TxSender) sendBid(
 	if !isRetry {
 		logs, err := t.simulator.Simulate(ctx, txn.Raw)
 		if err != nil {
+			if t.blockTracker.LatestBlockNumber() < bidBlockNo {
+				logger.Warn(
+					"Simulation failed, but block may not be mined yet, will retry",
+					"error", err,
+					"blockNumber", bidBlockNo,
+				)
+				return bidResult{}, &errRetry{
+					err:        fmt.Errorf("simulation may have failed due to unmined block: %w", err),
+					retryAfter: time.Second,
+				}
+			}
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
 			return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
 		}
@@ -690,8 +702,11 @@ func (t *TxSender) sendBid(
 			return bidResult{}, fmt.Errorf("failed to get connected providers: %w", err)
 		}
 		txn.logs = logs
-		txn.commitments = nil
 		txn.noOfProviders = len(providers)
+		// We could have already made a attempt on the previous block but the block
+		// update hasn't happened yet. This means that the bid might fail, but
+		// we should retain the previous commitments. Only clear if we get new
+		// commitments for the new block.
 	}
 
 	bidC, err := t.bidder.Bid(
@@ -732,6 +747,11 @@ BID_LOOP:
 			}
 			switch bidStatus.Type {
 			case bidder.BidStatusCommitment:
+				if len(txn.commitments) > 0 {
+					if txn.commitments[0].BlockNumber != int64(bidBlockNo) {
+						txn.commitments = nil // clear previous commitments for new block
+					}
+				}
 				txn.commitments = append(txn.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
 				if t.fastTrack(txn.commitments, optedInSlot) && txn.Status != TxStatusPreConfirmed {
 					txn.Status = TxStatusPreConfirmed
