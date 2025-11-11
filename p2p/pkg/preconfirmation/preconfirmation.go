@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -153,13 +154,13 @@ func (p *Preconfirmation) SendBid(
 		ignoredProviders := md.Get("ignore-provider")
 		for _, ip := range ignoredProviders {
 			ignoredAddr := common.HexToAddress(ip)
-			filteredProviders := make([]p2p.Peer, 0, len(providers))
-			for _, provider := range providers {
-				if provider.EthAddress != ignoredAddr {
-					filteredProviders = append(filteredProviders, provider)
-				}
+			idx := slices.IndexFunc(providers, func(p p2p.Peer) bool {
+				return p.EthAddress == ignoredAddr
+			})
+			if idx != -1 {
+				p.logger.Info("ignoring provider for this bid", "provider", ignoredAddr.Hex(), "bid", bid)
+				providers = append(providers[:idx], providers[idx+1:]...)
 			}
-			providers = filteredProviders
 		}
 	}
 
