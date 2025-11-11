@@ -126,7 +126,7 @@ type txnAttempt struct {
 }
 
 type Notifier interface {
-	NotifyTransactionStatus(txn *Transaction, noOfAttempts int, timeTaken time.Duration)
+	NotifyTransactionStatus(txn *Transaction, noOfAttempts, noOfBlocks int, timeTaken time.Duration)
 }
 
 type TxSender struct {
@@ -858,5 +858,6 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time)
 
 	_ = t.txnAttemptHistory.Remove(txn.Hash())
 
-	t.notifier.NotifyTransactionStatus(txn, totalAttempts, endTime.Sub(attempts.startTime).Round(time.Millisecond))
+	timeTaken := endTime.Sub(attempts.startTime).Round(time.Millisecond)
+	t.notifier.NotifyTransactionStatus(txn, totalAttempts, len(attempts.attempts), timeTaken)
 }

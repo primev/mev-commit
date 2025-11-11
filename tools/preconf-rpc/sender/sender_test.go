@@ -259,7 +259,7 @@ type mockNotifier struct {
 	notifications []string
 }
 
-func (m *mockNotifier) NotifyTransactionStatus(txn *sender.Transaction, attempts int, start time.Duration) {
+func (m *mockNotifier) NotifyTransactionStatus(txn *sender.Transaction, attempts, blocks int, start time.Duration) {
 	m.notifications = append(m.notifications, txn.Hash().Hex())
 }
 
