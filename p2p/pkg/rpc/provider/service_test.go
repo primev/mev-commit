@@ -678,6 +678,35 @@ func TestGetCommitmentInfo(t *testing.T) {
 
 	t.Run("get commitment info", func(t *testing.T) {
 		// Create a test commitment
+		identityPrefix := strings.Repeat("ab", 32)
+		encryptedTx := strings.Repeat("cd", 32)
+		bidderOpts := &bidderapiv1.BidOptions{
+			Options: []*bidderapiv1.BidOption{
+				{
+					Opt: &bidderapiv1.BidOption_PositionConstraint{
+						PositionConstraint: &bidderapiv1.PositionConstraint{
+							Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
+							Basis:  bidderapiv1.PositionConstraint_BASIS_PERCENTILE,
+							Value:  5,
+						},
+					},
+				},
+				{
+					Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+						ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+							IdentityPrefix: identityPrefix,
+							EncryptedTx:    encryptedTx,
+							EonId:          7,
+						},
+					},
+				},
+			},
+		}
+		bidOptionsBytes, marshalErr := proto.Marshal(bidderOpts)
+		if marshalErr != nil {
+			t.Fatalf("error marshaling bid options: %v", marshalErr)
+		}
+
 		testCommitment := &preconfstore.Commitment{
 			EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
 				DispatchTimestamp: 123456889,
@@ -689,6 +718,8 @@ func TestGetCommitmentInfo(t *testing.T) {
 					BidAmount:           "1000000000000000000",
 					DecayStartTimestamp: 123456789,
 					DecayEndTimestamp:   123457896,
+					RevertingTxHashes:   "",
+					BidOptions:          bidOptionsBytes,
 				},
 				ProviderAddress: common.HexToAddress("0x1234").Bytes(),
 			},
@@ -748,6 +779,32 @@ func TestGetCommitmentInfo(t *testing.T) {
 		}
 		if resp.Commitments[0].Commitments[0].Refund != "100000000000000000" {
 			t.Fatalf("expected refund to be 100000000000000000, got %s", resp.Commitments[0].Commitments[0].Refund)
+		}
+		if len(resp.Commitments[0].Commitments[0].RevertableTxnHashes) != 0 {
+			t.Fatalf("expected no revertable txn hashes, got %v", resp.Commitments[0].Commitments[0].RevertableTxnHashes)
+		}
+		if resp.Commitments[0].Commitments[0].BidOptions == nil {
+			t.Fatalf("expected bid options to be present")
+		}
+		if len(resp.Commitments[0].Commitments[0].BidOptions.Options) != 2 {
+			t.Fatalf("expected 2 bid options, got %d", len(resp.Commitments[0].Commitments[0].BidOptions.Options))
+		}
+		positionOpt := resp.Commitments[0].Commitments[0].BidOptions.Options[0].GetPositionConstraint()
+		if positionOpt == nil || positionOpt.Value != 5 {
+			t.Fatalf("expected position constraint value 5, got %+v", positionOpt)
+		}
+		if positionOpt == nil || positionOpt.Anchor != providerapiv1.PositionConstraint_ANCHOR_TOP {
+			t.Fatalf("expected position constraint anchor TOP, got %+v", positionOpt)
+		}
+		shutterOpt := resp.Commitments[0].Commitments[0].BidOptions.Options[1].GetShutterisedBidOption()
+		if shutterOpt == nil {
+			t.Fatalf("expected shutterised option to be present")
+		}
+		if shutterOpt.IdentityPrefix != identityPrefix {
+			t.Fatalf("expected identity prefix %s, got %s", identityPrefix, shutterOpt.IdentityPrefix)
+		}
+		if shutterOpt.EncryptedTx != encryptedTx {
+			t.Fatalf("expected encrypted tx %s, got %s", encryptedTx, shutterOpt.EncryptedTx)
 		}
 	})
 

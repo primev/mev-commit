@@ -100,6 +100,57 @@ type CommitmentStore interface {
 
 type OptsGetter func(ctx context.Context) (*bind.TransactOpts, error)
 
+func decodeBidOptions(bidOptionsBytes []byte) (*providerapiv1.BidOptions, error) {
+	if len(bidOptionsBytes) == 0 {
+		return nil, nil
+	}
+
+	bidderOpts := new(bidderapiv1.BidOptions)
+	if err := proto.Unmarshal(bidOptionsBytes, bidderOpts); err != nil {
+		return nil, fmt.Errorf("unmarshalling bid options: %w", err)
+	}
+
+	return translateBidOptions(bidderOpts), nil
+}
+
+func translateBidOptions(bidderOpts *bidderapiv1.BidOptions) *providerapiv1.BidOptions {
+	if bidderOpts == nil {
+		return nil
+	}
+
+	opts := &providerapiv1.BidOptions{}
+	for _, bOpt := range bidderOpts.Options {
+		switch {
+		case bOpt.GetPositionConstraint() != nil:
+			c := bOpt.GetPositionConstraint()
+			opt := &providerapiv1.BidOption{
+				Opt: &providerapiv1.BidOption_PositionConstraint{
+					PositionConstraint: &providerapiv1.PositionConstraint{
+						Anchor: providerapiv1.PositionConstraint_Anchor(c.GetAnchor()),
+						Basis:  providerapiv1.PositionConstraint_Basis(c.GetBasis()),
+						Value:  c.GetValue(),
+					},
+				},
+			}
+			opts.Options = append(opts.Options, opt)
+		case bOpt.GetShutterisedBidOption() != nil:
+			c := bOpt.GetShutterisedBidOption()
+			opt := &providerapiv1.BidOption{
+				Opt: &providerapiv1.BidOption_ShutterisedBidOption{
+					ShutterisedBidOption: &providerapiv1.ShutterisedBidOption{
+						IdentityPrefix: c.GetIdentityPrefix(),
+						EncryptedTx:    c.GetEncryptedTx(),
+						EonId:          c.GetEonId(),
+					},
+				},
+			}
+			opts.Options = append(opts.Options, opt)
+		}
+	}
+
+	return opts
+}
+
 func NewService(
 	logger *slog.Logger,
 	registryContract ProviderRegistryContract,
@@ -146,41 +197,9 @@ func (s *Service) ProcessBid(
 	if bid.RevertingTxHashes != "" {
 		revertingTxnHashes = strings.Split(bid.RevertingTxHashes, ",")
 	}
-	var opts *providerapiv1.BidOptions
-	if bid.BidOptions != nil {
-		bidderOpts := new(bidderapiv1.BidOptions)
-		if err := proto.Unmarshal(bid.BidOptions, bidderOpts); err != nil {
-			return nil, fmt.Errorf("unmarshalling bid options: %w", err)
-		}
-		opts = new(providerapiv1.BidOptions)
-		for _, bOpt := range bidderOpts.Options {
-			switch {
-			case bOpt.GetPositionConstraint() != nil:
-				c := bOpt.GetPositionConstraint()
-				opt := &providerapiv1.BidOption{
-					Opt: &providerapiv1.BidOption_PositionConstraint{
-						PositionConstraint: &providerapiv1.PositionConstraint{
-							Anchor: providerapiv1.PositionConstraint_Anchor(c.GetAnchor()),
-							Basis:  providerapiv1.PositionConstraint_Basis(c.GetBasis()),
-							Value:  c.GetValue(),
-						},
-					},
-				}
-				opts.Options = append(opts.Options, opt)
-			case bOpt.GetShutterisedBidOption() != nil:
-				c := bOpt.GetShutterisedBidOption()
-				opt := &providerapiv1.BidOption{
-					Opt: &providerapiv1.BidOption_ShutterisedBidOption{
-						ShutterisedBidOption: &providerapiv1.ShutterisedBidOption{
-							IdentityPrefix: c.GetIdentityPrefix(),
-							EncryptedTx:    c.GetEncryptedTx(),
-							EonId:          c.GetEonId(),
-						},
-					},
-				}
-				opts.Options = append(opts.Options, opt)
-			}
-		}
+	opts, err := decodeBidOptions(bid.BidOptions)
+	if err != nil {
+		return nil, err
 	}
 	bidMsg := &providerapiv1.Bid{
 		TxHashes:            strings.Split(bid.TxHash, ","),
@@ -196,8 +215,7 @@ func (s *Service) ProcessBid(
 		BidderAddress:       bidderAddr.Hex(),
 	}
 
-	err := s.validator.Validate(bidMsg)
-	if err != nil {
+	if err = s.validator.Validate(bidMsg); err != nil {
 		return nil, err
 	}
 
@@ -603,6 +621,16 @@ func (s *Service) GetCommitmentInfo(
 
 	blockCommitments := make([]*providerapiv1.CommitmentInfoResponse_BlockCommitments, 0)
 	for _, c := range cmts {
+		revertableTxnHashes := make([]string, 0)
+		if c.Bid.RevertingTxHashes != "" {
+			revertableTxnHashes = strings.Split(c.Bid.RevertingTxHashes, ",")
+		}
+
+		bidOpts, err := decodeBidOptions(c.Bid.BidOptions)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "decoding bid options: %v", err)
+		}
+
 		if len(blockCommitments) == 0 || blockCommitments[len(blockCommitments)-1].BlockNumber != c.Bid.BlockNumber {
 			blockCommitments = append(blockCommitments, &providerapiv1.CommitmentInfoResponse_BlockCommitments{
 				BlockNumber: c.Bid.BlockNumber,
@@ -611,7 +639,7 @@ func (s *Service) GetCommitmentInfo(
 		}
 		blockCommitments[len(blockCommitments)-1].Commitments = append(blockCommitments[len(blockCommitments)-1].Commitments, &providerapiv1.CommitmentInfoResponse_Commitment{
 			TxnHashes:           strings.Split(c.Bid.TxHash, ","),
-			RevertableTxnHashes: strings.Split(c.Bid.RevertingTxHashes, ","),
+			RevertableTxnHashes: revertableTxnHashes,
 			Amount:              c.Bid.BidAmount,
 			BlockNumber:         c.Bid.BlockNumber,
 			ProviderAddress:     common.Bytes2Hex(c.ProviderAddress),
@@ -623,6 +651,7 @@ func (s *Service) GetCommitmentInfo(
 			Details:             c.Details,
 			Payment:             c.Payment,
 			Refund:              c.Refund,
+			BidOptions:          bidOpts,
 		})
 	}
 
