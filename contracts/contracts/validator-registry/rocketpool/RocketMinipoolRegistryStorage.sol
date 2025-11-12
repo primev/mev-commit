@@ -16,5 +16,7 @@ abstract contract RocketMinipoolRegistryStorage {
 
     mapping(bytes => IRocketMinipoolRegistry.ValidatorRegistration) public validatorRegistrations;
 
+    mapping(address => uint256) public nonces; // nonce per node
+
     uint256[44] private __gap;
 }
