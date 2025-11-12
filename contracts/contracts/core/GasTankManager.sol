@@ -1,91 +1,84 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {IGasTankManager} from "../interfaces/IGasTankManager.sol";
-import {GasTankManagerStorage} from "./GasTankManagerStorage.sol";
 import {Errors} from "../utils/Errors.sol";
 
 /// @title GasTankManager
 /// @notice Coordinates on-demand ETH Transfers to the RPC Service for EOA custodial gas tanks.
-/// @dev Flow overview:
-/// - EOA (Prerequisites for use)
-///   - Authorizes and sets this contract as a delegate against its own EOA address. (ERC-7702 compliant)
-///   - Sends the initial minimum deposit via `initializeGasTank` to the RPC Service.
-/// - RPC Service
-///   - Triggers `topUpGasTank`, transferring the `minDeposit` when the gas tank requires funding.
-///   - These funds are then transferred to the RPC Service's custodial gas tank.
-contract GasTankManager is IGasTankManager, GasTankManagerStorage, Ownable2StepUpgradeable, UUPSUpgradeable {
-    /// @notice Restricts calls to those triggered internally via `onlyThisEOA`.
+/// @dev This contract implicitly trusts the RPC_SERVICE address.
+contract GasTankManager {
+    address public immutable RPC_SERVICE;
+    uint256 public immutable MINIMUM_DEPOSIT;
+
+    event FundsRecovered(address indexed owner, uint256 indexed amount);
+    event GasTankFunded(address indexed smartAccount, address indexed caller, uint256 indexed amount);
+
+    error FailedToRecoverFunds(address owner, uint256 amount);
+    error NotValidCaller(address caller);
+    error InvalidAmount();
+    error FailedToFundGasTank(address rpcProvider, uint256 transferAmount);
+    error RPCServiceNotSet(address provider);
+    error NotRPCService(address caller);
+    error InsufficientFunds(uint256 currentBalance, uint256 requiredBalance);
+    error NotThisEOA(address msgSender, address thisAddress);
+    error MinimumDepositNotMet(uint256 amountToTransfer, uint256 minimumDeposit);
+
     modifier onlyThisEOA() {
         require(msg.sender == address(this), NotThisEOA(msg.sender, address(this)));
         _;
     }
 
-    modifier isValidCaller() {
-        require(msg.sender == address(this) || msg.sender == owner(), NotValidCaller(msg.sender));
+    modifier onlyRPCService() {
+        require(msg.sender == RPC_SERVICE, NotRPCService(msg.sender));
         _;
     }
 
-    /// @notice Locks the implementation upon deployment.
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
+    constructor(address rpcService, uint256 _minDeposit) {
+        require(rpcService != address(0), RPCServiceNotSet(rpcService));
+        require(_minDeposit > 0, MinimumDepositNotMet(0, _minDeposit));
+        RPC_SERVICE = rpcService;
+        MINIMUM_DEPOSIT = _minDeposit;
     }
 
-    /// @notice Accepts direct ETH deposits.
-    receive() external payable {}
+    receive() external payable { /* ETH transfers allowed. */ }
 
-    /// @notice Reverts on any call data to keep the interface surface narrow.
     fallback() external payable {
         revert Errors.InvalidFallback();
     }
 
-    /// @notice Initializes ownership and the minimum deposit requirement.
-    /// @param _owner EOA managed by the RPC Service.
-    /// @param _minDeposit Minimum deposit requirement.
-    function initialize(address _owner, uint256 _minDeposit) external initializer {
-        minDeposit = _minDeposit;
-        __Ownable_init(_owner);
-        __UUPSUpgradeable_init();
+    /// @notice Recovers funds inadvertently sent to this contract directly.
+    function recoverFunds() external onlyRPCService {
+        uint256 balance = address(this).balance;
+
+        (bool success,) = RPC_SERVICE.call{value: balance}("");
+        require(success, FailedToRecoverFunds(RPC_SERVICE, balance));
+
+        emit FundsRecovered(RPC_SERVICE, balance);
     }
 
-    /// @inheritdoc IGasTankManager
-    function setMinimumDeposit(uint256 _minDeposit) external onlyOwner {
-        minDeposit = _minDeposit;
-        emit MinimumDepositSet(_minDeposit);
+    /// @notice Transfers ETH from the EOA's balance to the Gas RPC Service.
+    /// @param _amount The amount to fund the gas tank with.
+    /// @dev Only the EOA can call this function.
+    function fundGasTank(uint256 _amount) external onlyThisEOA {
+        require(_amount >= MINIMUM_DEPOSIT, MinimumDepositNotMet(_amount, MINIMUM_DEPOSIT));
+        _fundGasTank(_amount);
     }
 
-    /// @inheritdoc IGasTankManager
-    function topUpGasTank() external onlyOwner {
-        _sendFundsToProvider(minDeposit);
+    /// @notice Transfers the minimum deposit amount of ETH from the EOA's balance to the Gas RPC Service.
+    /// @dev Only the RPC Service can call this function.
+    function fundGasTank() external onlyRPCService {
+        _fundGasTank(MINIMUM_DEPOSIT);
     }
 
-    /// @inheritdoc IGasTankManager
-    function initializeGasTank() external onlyThisEOA {
-        _sendFundsToProvider(minDeposit);
-    }
+    /// @dev `fundGasTank` Internal function to fund the gas tank.
+    function _fundGasTank(uint256 _amountToTransfer) internal {
+        require(address(this).balance >= _amountToTransfer, InsufficientFunds(address(this).balance, _amountToTransfer));
 
-    /// @inheritdoc IGasTankManager
-    function fundGasTank() external payable isValidCaller {
-        _sendFundsToProvider(msg.value);
-    }
+        (bool success,) = RPC_SERVICE.call{value: _amountToTransfer}("");
+        if (!success) {
+            revert FailedToFundGasTank(RPC_SERVICE, _amountToTransfer);
+        }
 
-    /// solhint-disable-next-line no-empty-blocks
-    function _authorizeUpgrade(address) internal override onlyOwner {}
-
-    /// @notice Forwards ETH to the rpcService.
-    /// @param _amount Gas tank top-up amount.
-    function _sendFundsToProvider(uint256 _amount) internal {
-        address rpcService = owner();
-
-        require(rpcService != address(0), ProviderNotSet(rpcService));
-        require(_amount > 0 && address(this).balance >= _amount, InvalidAmount());
-
-        (bool success,) = rpcService.call{value: _amount}("");
-        require(success, GasTankTopUpFailed(rpcService, _amount));
-
-        emit GasTankToppedUp(address(this), msg.sender, _amount);
+        emit GasTankFunded(address(this), msg.sender, _amountToTransfer);
     }
 }
