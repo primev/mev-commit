@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -145,6 +147,22 @@ func (p *Preconfirmation) SendBid(
 	if len(providers) == 0 {
 		p.logger.Error("no providers available", "bid", bid)
 		return nil, errors.New("no providers available")
+	}
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		ignoredProviders := md.Get("ignore-provider")
+		p.logger.Info("ignoring providers for this bid", "providers", ignoredProviders, "bid", bid)
+		for _, ip := range ignoredProviders {
+			ignoredAddr := common.HexToAddress(ip)
+			idx := slices.IndexFunc(providers, func(p p2p.Peer) bool {
+				return p.EthAddress == ignoredAddr
+			})
+			if idx != -1 {
+				p.logger.Info("ignoring provider for this bid", "provider", ignoredAddr.Hex(), "bid", bid)
+				providers = append(providers[:idx], providers[idx+1:]...)
+			}
+		}
 	}
 
 	// Create a new channel to receive preConfirmations

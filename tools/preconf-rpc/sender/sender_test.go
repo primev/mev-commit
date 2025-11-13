@@ -3,6 +3,7 @@ package sender_test
 import (
 	"context"
 	"errors"
+	"io"
 	"math/big"
 	"os"
 	"sync"
@@ -12,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
-	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
 	"github.com/primev/mev-commit/x/util"
 )
 
@@ -164,13 +165,13 @@ type bidOp struct {
 	bidAmount   *big.Int
 	slashAmount *big.Int
 	rawTx       string
-	opts        *optinbidder.BidOpts
+	opts        *bidder.BidOpts
 }
 
 type mockBidder struct {
 	optinEstimate chan int64
 	in            chan bidOp
-	out           chan chan optinbidder.BidStatus
+	out           chan chan bidder.BidStatus
 }
 
 func (m *mockBidder) Estimate() (int64, error) {
@@ -183,8 +184,8 @@ func (m *mockBidder) Bid(
 	bidAmount *big.Int,
 	slashAmount *big.Int,
 	rawTx string,
-	opts *optinbidder.BidOpts,
-) (chan optinbidder.BidStatus, error) {
+	opts *bidder.BidOpts,
+) (chan bidder.BidStatus, error) {
 	m.in <- bidOp{
 		bidAmount:   bidAmount,
 		slashAmount: slashAmount,
@@ -194,6 +195,10 @@ func (m *mockBidder) Bid(
 	res := <-m.out
 
 	return res, nil
+}
+
+func (m *mockBidder) ConnectedProviders(ctx context.Context) ([]string, error) {
+	return []string{"provider1", "provider2"}, nil
 }
 
 type mockPricer struct {
@@ -212,35 +217,25 @@ func (m *mockPricer) EstimatePrice(ctx context.Context) map[int64]float64 {
 	}
 }
 
-type op struct {
-	hash  common.Hash
-	block uint64
-}
-
 type blockNoOp struct {
 	block             uint64
 	timeTillNextBlock time.Duration
 }
 
 type mockBlockTracker struct {
-	in    chan op
-	out   chan bool
+	out   chan uint64
 	bnIn  chan struct{}
 	bnOut chan blockNoOp
 	bnErr chan error
 }
 
-func (m *mockBlockTracker) CheckTxnInclusion(ctx context.Context, txnHash common.Hash, blockNumber uint64) (bool, error) {
-	m.in <- op{
-		hash:  txnHash,
-		block: blockNumber,
-	}
-	select {
-	case included := <-m.out:
-		return included, nil
-	case <-ctx.Done():
-		return false, ctx.Err()
-	}
+func (m *mockBlockTracker) WaitForTxnInclusion(txnHash common.Hash) chan uint64 {
+	includedCh := make(chan uint64, 1)
+	go func() {
+		included := <-m.out
+		includedCh <- included
+	}()
+	return includedCh
 }
 
 func (m *mockBlockTracker) NextBlockNumber() (uint64, time.Duration, error) {
@@ -254,6 +249,10 @@ func (m *mockBlockTracker) NextBlockNumber() (uint64, time.Duration, error) {
 	}
 }
 
+func (m *mockBlockTracker) LatestBlockNumber() uint64 {
+	return 0
+}
+
 type mockTransferer struct{}
 
 func (m *mockTransferer) Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error {
@@ -264,7 +263,7 @@ type mockNotifier struct {
 	notifications []string
 }
 
-func (m *mockNotifier) NotifyTransactionStatus(txn *sender.Transaction, attempts int, start time.Duration) {
+func (m *mockNotifier) NotifyTransactionStatus(txn *sender.Transaction, attempts, blocks int, start time.Duration) {
 	m.notifications = append(m.notifications, txn.Hash().Hex())
 }
 
@@ -281,14 +280,13 @@ func TestSender(t *testing.T) {
 	testPricer := &mockPricer{
 		out: make(chan map[int64]float64, 10),
 	}
-	bidder := &mockBidder{
+	bidderImpl := &mockBidder{
 		optinEstimate: make(chan int64, 10),
 		in:            make(chan bidOp, 10),
-		out:           make(chan chan optinbidder.BidStatus, 10),
+		out:           make(chan chan bidder.BidStatus, 10),
 	}
 	blockTracker := &mockBlockTracker{
-		in:    make(chan op, 10),
-		out:   make(chan bool, 10),
+		out:   make(chan uint64, 10),
 		bnIn:  make(chan struct{}, 10),
 		bnOut: make(chan blockNoOp, 10),
 		bnErr: make(chan error, 1),
@@ -297,7 +295,7 @@ func TestSender(t *testing.T) {
 
 	sndr, err := sender.NewTxSender(
 		st,
-		bidder,
+		bidderImpl,
 		testPricer,
 		blockTracker,
 		&mockTransferer{},
@@ -337,12 +335,12 @@ func TestSender(t *testing.T) {
 	}
 
 	// Simulate opted in block
-	bidder.optinEstimate <- 2
+	bidderImpl.optinEstimate <- 2
 
 	<-blockTracker.bnIn
 	blockTracker.bnErr <- errors.New("simulated error for testing")
 
-	bidder.optinEstimate <- 7
+	bidderImpl.optinEstimate <- 7
 
 	<-blockTracker.bnIn
 
@@ -358,22 +356,17 @@ func TestSender(t *testing.T) {
 		99: 2.0,
 	}
 
+	// Simulate transaction inclusion
+	blockTracker.out <- 1
+
 	// Simulate a bid response
-	bidOp := <-bidder.in
+	bidOp := <-bidderImpl.in
 	if bidOp.rawTx != tx1.Raw[2:] {
 		t.Fatalf("expected raw transaction %s, got %s", tx1.Raw, bidOp.rawTx)
 	}
-	resC := make(chan optinbidder.BidStatus, 3)
-	resC <- optinbidder.BidStatus{
-		Type: optinbidder.BidStatusNoOfProviders,
-		Arg:  1,
-	}
-	resC <- optinbidder.BidStatus{
-		Type: optinbidder.BidStatusAttempted,
-		Arg:  uint64(1),
-	}
-	resC <- optinbidder.BidStatus{
-		Type: optinbidder.BidStatusCommitment,
+	resC := make(chan bidder.BidStatus, 3)
+	resC <- bidder.BidStatus{
+		Type: bidder.BidStatusCommitment,
 		Arg: &bidderapiv1.Commitment{
 			TxHashes:        []string{tx1.Hash().Hex()},
 			BidAmount:       big.NewInt(100).String(),
@@ -381,8 +374,17 @@ func TestSender(t *testing.T) {
 			ProviderAddress: "provider1",
 		},
 	}
+	resC <- bidder.BidStatus{
+		Type: bidder.BidStatusCommitment,
+		Arg: &bidderapiv1.Commitment{
+			TxHashes:        []string{tx1.Hash().Hex()},
+			BidAmount:       big.NewInt(100).String(),
+			BlockNumber:     1,
+			ProviderAddress: "provider2",
+		},
+	}
 	close(resC)
-	bidder.out <- resC
+	bidderImpl.out <- resC
 
 	res := <-st.preconfirmedTxns
 	if res.txn == nil {
@@ -404,19 +406,9 @@ func TestSender(t *testing.T) {
 		t.Fatalf("expected transaction hash %s, got %s", tx1.Hash().Hex(), res.txn.Hash().Hex())
 	}
 	// Check that the commitments are as expected
-	if len(res.commitments) != 1 {
-		t.Fatalf("expected 1 commitment, got %d", len(res.commitments))
+	if len(res.commitments) != 2 {
+		t.Fatalf("expected 2 commitments, got %d", len(res.commitments))
 	}
-
-	checkOp := <-blockTracker.in
-	if checkOp.hash != tx1.Hash() {
-		t.Fatalf("expected transaction hash %s, got %s", tx1.Hash().Hex(), checkOp.hash.Hex())
-	}
-	if checkOp.block != 1 {
-		t.Fatalf("expected block number 1, got %d", checkOp.block)
-	}
-	// Simulate transaction inclusion
-	blockTracker.out <- true
 
 	tx2 := &sender.Transaction{
 		Transaction: types.NewTransaction(
@@ -437,7 +429,7 @@ func TestSender(t *testing.T) {
 	}
 
 	// Simulate non opted in block
-	bidder.optinEstimate <- 20
+	bidderImpl.optinEstimate <- 20
 
 	<-blockTracker.bnIn
 	blockTracker.bnOut <- blockNoOp{
@@ -453,25 +445,17 @@ func TestSender(t *testing.T) {
 	}
 
 	// Simulate a bid response
-	bidOp = <-bidder.in
+	bidOp = <-bidderImpl.in
 	if bidOp.rawTx != tx2.Raw[2:] {
 		t.Fatalf("expected raw transaction %s, got %s", tx1.Raw, bidOp.rawTx)
 	}
-	resC = make(chan optinbidder.BidStatus, 3)
-	resC <- optinbidder.BidStatus{
-		Type: optinbidder.BidStatusNoOfProviders,
-		Arg:  1,
-	}
-	resC <- optinbidder.BidStatus{
-		Type: optinbidder.BidStatusAttempted,
-		Arg:  uint64(2),
-	}
+	resC = make(chan bidder.BidStatus, 3)
 	// Simulate retry due to incomplete commitments
 	close(resC)
-	bidder.out <- resC
+	bidderImpl.out <- resC
 
 	// Simulate non opted in block
-	bidder.optinEstimate <- 18
+	bidderImpl.optinEstimate <- 18
 
 	<-blockTracker.bnIn
 	blockTracker.bnOut <- blockNoOp{
@@ -486,22 +470,17 @@ func TestSender(t *testing.T) {
 		99: 2.0,
 	}
 
+	// Simulate transaction inclusion
+	blockTracker.out <- 2
+
 	// Simulate a bid response
-	bidOp = <-bidder.in
+	bidOp = <-bidderImpl.in
 	if bidOp.rawTx != tx2.Raw[2:] {
 		t.Fatalf("expected raw transaction %s, got %s", tx1.Raw, bidOp.rawTx)
 	}
-	resC = make(chan optinbidder.BidStatus, 3)
-	resC <- optinbidder.BidStatus{
-		Type: optinbidder.BidStatusNoOfProviders,
-		Arg:  1,
-	}
-	resC <- optinbidder.BidStatus{
-		Type: optinbidder.BidStatusAttempted,
-		Arg:  uint64(2),
-	}
-	resC <- optinbidder.BidStatus{
-		Type: optinbidder.BidStatusCommitment,
+	resC = make(chan bidder.BidStatus, 3)
+	resC <- bidder.BidStatus{
+		Type: bidder.BidStatusCommitment,
 		Arg: &bidderapiv1.Commitment{
 			TxHashes:        []string{tx1.Hash().Hex()},
 			BidAmount:       big.NewInt(100).String(),
@@ -510,17 +489,7 @@ func TestSender(t *testing.T) {
 		},
 	}
 	close(resC)
-	bidder.out <- resC
-
-	checkOp = <-blockTracker.in
-	if checkOp.hash != tx2.Hash() {
-		t.Fatalf("expected transaction hash %s, got %s", tx2.Hash().Hex(), checkOp.hash.Hex())
-	}
-	if checkOp.block != 2 {
-		t.Fatalf("expected block number 2, got %d", checkOp.block)
-	}
-	// Simulate transaction inclusion
-	blockTracker.out <- true
+	bidderImpl.out <- resC
 
 	res = <-st.preconfirmedTxns
 	if res.txn == nil {
@@ -561,14 +530,13 @@ func TestCancelTransaction(t *testing.T) {
 	testPricer := &mockPricer{
 		out: make(chan map[int64]float64, 10),
 	}
-	bidder := &mockBidder{
+	bidderImpl := &mockBidder{
 		optinEstimate: make(chan int64),
 		in:            make(chan bidOp, 10),
-		out:           make(chan chan optinbidder.BidStatus, 10),
+		out:           make(chan chan bidder.BidStatus, 10),
 	}
 	blockTracker := &mockBlockTracker{
-		in:    make(chan op, 10),
-		out:   make(chan bool, 10),
+		out:   make(chan uint64, 10),
 		bnIn:  make(chan struct{}, 10),
 		bnOut: make(chan blockNoOp, 10),
 		bnErr: make(chan error, 3),
@@ -576,7 +544,7 @@ func TestCancelTransaction(t *testing.T) {
 
 	sndr, err := sender.NewTxSender(
 		st,
-		bidder,
+		bidderImpl,
 		testPricer,
 		blockTracker,
 		&mockTransferer{},
@@ -627,7 +595,7 @@ func TestCancelTransaction(t *testing.T) {
 
 	blockTracker.bnErr <- errors.New("simulated error for testing")
 	blockTracker.bnErr <- errors.New("simulated error for testing")
-	bidder.optinEstimate <- 2
+	bidderImpl.optinEstimate <- 2
 
 	cancelled, err := sndr.CancelTransaction(ctx, tx1.Hash())
 	if err != nil {
@@ -635,6 +603,144 @@ func TestCancelTransaction(t *testing.T) {
 	}
 	if !cancelled {
 		t.Fatal("expected transaction to be cancelled, but it was not")
+	}
+
+	cancel()
+	<-done
+}
+
+func TestIgnoreProvidersOnRetry(t *testing.T) {
+	t.Parallel()
+
+	st := newMockStore()
+	testPricer := &mockPricer{
+		out: make(chan map[int64]float64, 10),
+	}
+	bidderImpl := &mockBidder{
+		optinEstimate: make(chan int64, 10),
+		in:            make(chan bidOp, 10),
+		out:           make(chan chan bidder.BidStatus, 10),
+	}
+	blockTracker := &mockBlockTracker{
+		out:   make(chan uint64, 10),
+		bnIn:  make(chan struct{}, 10),
+		bnOut: make(chan blockNoOp, 10),
+		bnErr: make(chan error, 1),
+	}
+	notifier := &mockNotifier{}
+
+	sndr, err := sender.NewTxSender(
+		st,
+		bidderImpl,
+		testPricer,
+		blockTracker,
+		&mockTransferer{},
+		notifier,
+		&mockSimulator{},
+		big.NewInt(1), // Settlement chain ID
+		util.NewTestLogger(io.Discard),
+	)
+	if err != nil {
+		t.Fatalf("failed to create sender: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := sndr.Start(ctx)
+
+	tx1 := &sender.Transaction{
+		Transaction: types.NewTransaction(
+			1,
+			common.HexToAddress("0x1234567890123456789012345678901234567890"),
+			big.NewInt(100),
+			21000,
+			big.NewInt(1),
+			nil,
+		),
+		Sender: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		Type:   sender.TxTypeRegular,
+		Raw:    "0x1234567890123456789012345678901234567890",
+	}
+
+	if err := st.AddBalance(ctx, tx1.Sender, big.NewInt(5e18)); err != nil {
+		t.Fatalf("failed to add balance: %v", err)
+	}
+
+	if err := sndr.Enqueue(ctx, tx1); err != nil {
+		t.Fatalf("failed to enqueue transaction: %v", err)
+	}
+
+	// Simulate opted in block
+	bidderImpl.optinEstimate <- 2
+
+	<-blockTracker.bnIn
+
+	blockTracker.bnOut <- blockNoOp{
+		block:             1,
+		timeTillNextBlock: 5 * time.Second,
+	}
+
+	// Simulate a price estimate
+	testPricer.out <- map[int64]float64{
+		90: 1.0,
+		95: 1.5,
+		99: 2.0,
+	}
+
+	// Simulate a bid response
+	bidOp := <-bidderImpl.in
+	if bidOp.rawTx != tx1.Raw[2:] {
+		t.Fatalf("expected raw transaction %s, got %s", tx1.Raw, bidOp.rawTx)
+	}
+	resC := make(chan bidder.BidStatus, 3)
+	resC <- bidder.BidStatus{
+		Type: bidder.BidStatusCommitment,
+		Arg: &bidderapiv1.Commitment{
+			TxHashes:        []string{tx1.Hash().Hex()},
+			BidAmount:       big.NewInt(100).String(),
+			BlockNumber:     1,
+			ProviderAddress: "provider1",
+		},
+	}
+	close(resC)
+	bidderImpl.out <- resC
+
+	bidderImpl.optinEstimate <- 2
+
+	<-blockTracker.bnIn
+
+	blockTracker.bnOut <- blockNoOp{
+		block:             1,
+		timeTillNextBlock: 2 * time.Second,
+	}
+
+	// Simulate a price estimate
+	testPricer.out <- map[int64]float64{
+		90: 1.0,
+		95: 1.5,
+		99: 2.0,
+	}
+
+	bidOp = <-bidderImpl.in
+	if len(bidOp.opts.IgnoreProviders) != 1 {
+		t.Fatalf("expected 1 ignored provider, got %d", len(bidOp.opts.IgnoreProviders))
+	}
+
+	resC = make(chan bidder.BidStatus, 3)
+	resC <- bidder.BidStatus{
+		Type: bidder.BidStatusCommitment,
+		Arg: &bidderapiv1.Commitment{
+			TxHashes:        []string{tx1.Hash().Hex()},
+			BidAmount:       big.NewInt(100).String(),
+			BlockNumber:     1,
+			ProviderAddress: "provider2",
+		},
+	}
+	close(resC)
+	bidderImpl.out <- resC
+	res := <-st.preconfirmedTxns
+	if res.txn == nil {
+		t.Fatal("expected a preconfirmed transaction, got nil")
 	}
 
 	cancel()

@@ -442,7 +442,7 @@ func (s *rpcstore) GetCurrentNonce(ctx context.Context, sender common.Address) u
 	query := `
 	SELECT COALESCE(MAX(nonce), 0)
 	FROM mcTransactions
-	WHERE sender = $1 AND (status = 'pending' OR status = 'pre-confirmed');
+	WHERE sender = $1 AND status != 'failed';
 	`
 	row := s.db.QueryRowContext(ctx, query, sender.Hex())
 	var nextNonce uint64

@@ -1,4 +1,4 @@
-package optinbidder
+package bidder
 
 import "time"
 

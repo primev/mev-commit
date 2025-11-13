@@ -1,4 +1,4 @@
-package optinbidder
+package bidder
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -171,8 +172,7 @@ func parseEpochInfo(msg *notificationsapiv1.Notification) (*epochInfo, error) {
 type BidStatusType int
 
 const (
-	BidStatusNoOfProviders BidStatusType = iota
-	BidStatusWaitSecs
+	BidStatusWaitSecs BidStatusType = iota
 	BidStatusAttempted
 	BidStatusFailed
 	BidStatusCancelled
@@ -190,6 +190,7 @@ type BidOpts struct {
 	RevertingTxHashes []string
 	DecayDuration     time.Duration
 	Constraint        *bidderapiv1.PositionConstraint
+	IgnoreProviders   []string
 }
 
 var defaultBidOpts = &BidOpts{
@@ -207,17 +208,6 @@ func (b *BidderClient) Bid(
 		opts = defaultBidOpts
 	}
 
-	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
-	if err != nil {
-		b.logger.Error("failed to get topology", "error", err)
-		return nil, err
-	}
-
-	providers := topo.Topology.Fields["connected_providers"].GetListValue()
-	if providers == nil || len(providers.Values) == 0 {
-		return nil, ErrNoProviders
-	}
-
 	// Channel length chosen is 3 so that sending the bid is not blocked by the first
 	// status message.
 	res := make(chan BidStatus, 3)
@@ -226,8 +216,6 @@ func (b *BidderClient) Bid(
 		defer fmt.Println("BidderClient goroutine exiting")
 		defer close(res)
 		defer b.bigWg.Done()
-
-		res <- BidStatus{Type: BidStatusNoOfProviders, Arg: len(providers.Values)}
 
 		if opts.WaitForOptIn {
 			nextSlot, err := b.getNextSlot()
@@ -261,9 +249,9 @@ func (b *BidderClient) Bid(
 				return
 			}
 			blkNumber = bNo + 1
+			res <- BidStatus{Type: BidStatusAttempted, Arg: blkNumber}
 		}
 
-		res <- BidStatus{Type: BidStatusAttempted, Arg: blkNumber}
 		b.logger.Info(
 			"attempting to send bid",
 			"blockNumber", blkNumber,
@@ -296,6 +284,15 @@ func (b *BidderClient) Bid(
 					},
 				},
 			}
+		}
+
+		if len(opts.IgnoreProviders) > 0 {
+			var pairs []string
+			for _, ip := range opts.IgnoreProviders {
+				pairs = append(pairs, "ignore-provider", ip)
+			}
+			md := metadata.Pairs(pairs...)
+			ctx = metadata.NewOutgoingContext(ctx, md)
 		}
 
 		pc, err := b.bidderClient.SendBid(ctx, bidReq)
@@ -331,6 +328,25 @@ func (b *BidderClient) Bid(
 	}()
 
 	return res, nil
+}
+
+func (b *BidderClient) ConnectedProviders(ctx context.Context) ([]string, error) {
+	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
+	if err != nil {
+		b.logger.Error("failed to get topology", "error", err)
+		return []string{}, err
+	}
+
+	providers := topo.Topology.Fields["connected_providers"].GetListValue()
+	if providers == nil {
+		return []string{}, nil
+	}
+
+	prvs := make([]string, 0, len(providers.Values))
+	for _, p := range providers.Values {
+		prvs = append(prvs, p.GetStringValue())
+	}
+	return prvs, nil
 }
 
 func (b *BidderClient) Estimate() (int64, error) {
