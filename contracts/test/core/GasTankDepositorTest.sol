@@ -8,7 +8,7 @@ contract GasTankDepositorTest is Test {
     uint256 public constant ALICE_PK = uint256(0xA11CE);
     uint256 public constant BOB_PK = uint256(0xB0B);
     uint256 public constant RPC_SERVICE_PK = uint256(0x1234567890);
-    uint256 public constant MINIMUM_DEPOSIT = 0.01 ether;
+    uint256 public constant MAXIMUM_DEPOSIT = 0.01 ether;
     address public constant ZERO_ADDRESS = address(0);
     bytes32 public constant EMPTY_CODEHASH = keccak256("");
 
@@ -22,7 +22,7 @@ contract GasTankDepositorTest is Test {
         vm.deal(alice, 10 ether);
         vm.deal(bob, 10 ether);
         vm.deal(rpcService, 10 ether);
-        _gasTankDepositorImpl = new GasTankDepositor(rpcService, MINIMUM_DEPOSIT);
+        _gasTankDepositorImpl = new GasTankDepositor(rpcService, MAXIMUM_DEPOSIT);
     }
 
     //=======================TESTS=======================
@@ -108,16 +108,16 @@ contract GasTankDepositorTest is Test {
 
     //=======================TESTS FOR FUNDING THE GAS TANK=======================
 
-    function testRpcServiceFundsMinimumDeposit() public {
+    function testRpcServiceFundsMaximumDeposit() public {
         _delegate();
 
         uint256 rpcBalanceBefore = rpcService.balance;
-        _expectGasTankFunded(rpcService, MINIMUM_DEPOSIT);
+        _expectGasTankFunded(rpcService, MAXIMUM_DEPOSIT);
 
         vm.prank(rpcService);
         GasTankDepositor(payable(alice)).fundGasTank();
 
-        assertEq(rpcService.balance, rpcBalanceBefore + MINIMUM_DEPOSIT, "rpc balance not increased");
+        assertEq(rpcService.balance, rpcBalanceBefore + MAXIMUM_DEPOSIT, "rpc balance not increased");
     }
 
     function testRpcServiceFundRevertsWhenCallerNotRpcService() public {
@@ -129,12 +129,12 @@ contract GasTankDepositorTest is Test {
     }
 
     function testRpcServiceFundRevertsWhenInsufficientBalance() public {
-        vm.deal(alice, MINIMUM_DEPOSIT - 1);
+        vm.deal(alice, MAXIMUM_DEPOSIT - 1);
         _delegate();
 
         vm.prank(rpcService);
         vm.expectRevert(
-            abi.encodeWithSelector(GasTankDepositor.InsufficientFunds.selector, MINIMUM_DEPOSIT - 1, MINIMUM_DEPOSIT)
+            abi.encodeWithSelector(GasTankDepositor.InsufficientFunds.selector, MAXIMUM_DEPOSIT - 1, MAXIMUM_DEPOSIT)
         );
         GasTankDepositor(payable(alice)).fundGasTank();
     }
@@ -152,34 +152,23 @@ contract GasTankDepositorTest is Test {
         assertEq(rpcService.balance, rpcBalanceBefore + amount, "rpc balance not increased");
     }
 
-    function testEOAFundRevertsBelowMinimumDeposit() public {
-        _delegate();
-        uint256 belowMinimumDeposit = MINIMUM_DEPOSIT - 1 wei;
-
-        vm.prank(alice);
-        vm.expectRevert(
-            abi.encodeWithSelector(GasTankDepositor.MinimumDepositNotMet.selector, belowMinimumDeposit, MINIMUM_DEPOSIT)
-        );
-        GasTankDepositor(payable(alice)).fundGasTank(belowMinimumDeposit);
-    }
-
     function testEOAFundRevertsWhenCallerNotEOA() public {
         _delegate();
 
         vm.prank(rpcService);
         vm.expectRevert(abi.encodeWithSelector(GasTankDepositor.NotThisEOA.selector, rpcService, alice));
-        GasTankDepositor(payable(alice)).fundGasTank(MINIMUM_DEPOSIT);
+        GasTankDepositor(payable(alice)).fundGasTank(MAXIMUM_DEPOSIT);
     }
 
     function testEOAFundRevertsWhenInsufficientBalance() public {
-        vm.deal(alice, MINIMUM_DEPOSIT - 1);
+        vm.deal(alice, MAXIMUM_DEPOSIT - 1);
         _delegate();
 
         vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(GasTankDepositor.InsufficientFunds.selector, MINIMUM_DEPOSIT - 1, MINIMUM_DEPOSIT)
+            abi.encodeWithSelector(GasTankDepositor.InsufficientFunds.selector, MAXIMUM_DEPOSIT - 1, MAXIMUM_DEPOSIT)
         );
-        GasTankDepositor(payable(alice)).fundGasTank(MINIMUM_DEPOSIT);
+        GasTankDepositor(payable(alice)).fundGasTank(MAXIMUM_DEPOSIT);
     }
 
     //=======================HELPERS=======================
