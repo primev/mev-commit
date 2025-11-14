@@ -3,10 +3,10 @@ pragma solidity 0.8.26;
 
 import {Errors} from "../utils/Errors.sol";
 
-/// @title GasTankManager
+/// @title GasTankDepositor
 /// @notice Coordinates on-demand ETH Transfers to the RPC Service for EOA custodial gas tanks.
 /// @dev This contract implicitly trusts the RPC_SERVICE address.
-contract GasTankManager {
+contract GasTankDepositor {
     address public immutable RPC_SERVICE;
     uint256 public immutable MINIMUM_DEPOSIT;
 
