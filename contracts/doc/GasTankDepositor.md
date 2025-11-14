@@ -30,13 +30,13 @@ The contract facilitates a custodial gas tank system where:
 
 2. **Initial Funding**:
    - User calls `fundGasTank(uint256 _amount)` with their desired initial deposit
-   - Amount must be >= `MINIMUM_DEPOSIT`
+   - Amount must be >= `MAXIMUM_DEPOSIT`
    - ETH is transferred from user's EOA to the RPC service EOA
    - RPC service updates off-chain ledger to reflect the deposit
 
 3. **Automatic Top-Ups**:
    - When a user's off-chain ledger balance drops below threshold, RPC service calls `fundGasTank()`
-   - This always transfers exactly `MINIMUM_DEPOSIT` amount
+   - This always transfers exactly `MAXIMUM_DEPOSIT` amount
    - Transfer occurs directly from user's EOA balance (if sufficient funds available)
    - No user interaction required - fully automated
    - No need for `maxTransferAllowance` as RPC is restricted to minimum amount only

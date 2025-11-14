@@ -8,7 +8,7 @@ import {Errors} from "../utils/Errors.sol";
 /// @dev This contract implicitly trusts the RPC_SERVICE address.
 contract GasTankDepositor {
     address public immutable RPC_SERVICE;
-    uint256 public immutable MINIMUM_DEPOSIT;
+    uint256 public immutable MAXIMUM_DEPOSIT;
 
     event FundsRecovered(address indexed owner, uint256 indexed amount);
     event GasTankFunded(address indexed smartAccount, address indexed caller, uint256 indexed amount);
@@ -21,7 +21,7 @@ contract GasTankDepositor {
     error NotRPCService(address caller);
     error InsufficientFunds(uint256 currentBalance, uint256 requiredBalance);
     error NotThisEOA(address msgSender, address thisAddress);
-    error MinimumDepositNotMet(uint256 amountToTransfer, uint256 minimumDeposit);
+    error MaximumDepositNotMet(uint256 amountToTransfer, uint256 maximumDeposit);
 
     modifier onlyThisEOA() {
         require(msg.sender == address(this), NotThisEOA(msg.sender, address(this)));
@@ -33,11 +33,13 @@ contract GasTankDepositor {
         _;
     }
 
-    constructor(address rpcService, uint256 _minDeposit) {
+    /// @dev Writes the variables into the contract bytecode.
+    /// @dev No storage is used in this contract.
+    constructor(address rpcService, uint256 _maxDeposit) {
         require(rpcService != address(0), RPCServiceNotSet(rpcService));
-        require(_minDeposit > 0, MinimumDepositNotMet(0, _minDeposit));
+        require(_maxDeposit > 0, MaximumDepositNotMet(0, _maxDeposit));
         RPC_SERVICE = rpcService;
-        MINIMUM_DEPOSIT = _minDeposit;
+        MAXIMUM_DEPOSIT = _maxDeposit;
     }
 
     receive() external payable { /* ETH transfers allowed. */ }
@@ -60,14 +62,13 @@ contract GasTankDepositor {
     /// @param _amount The amount to fund the gas tank with.
     /// @dev Only the EOA can call this function.
     function fundGasTank(uint256 _amount) external onlyThisEOA {
-        require(_amount >= MINIMUM_DEPOSIT, MinimumDepositNotMet(_amount, MINIMUM_DEPOSIT));
         _fundGasTank(_amount);
     }
 
-    /// @notice Transfers the minimum deposit amount of ETH from the EOA's balance to the Gas RPC Service.
+    /// @notice Transfers the maximum deposit amount of ETH from the EOA's balance to the Gas RPC Service.
     /// @dev Only the RPC Service can call this function.
     function fundGasTank() external onlyRPCService {
-        _fundGasTank(MINIMUM_DEPOSIT);
+        _fundGasTank(MAXIMUM_DEPOSIT);
     }
 
     /// @dev `fundGasTank` Internal function to fund the gas tank.
