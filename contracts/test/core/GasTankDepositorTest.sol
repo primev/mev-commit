@@ -2,9 +2,9 @@
 pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
-import {GasTankManager} from "../../contracts/core/GasTankManager.sol";
+import {GasTankDepositor} from "../../contracts/core/GasTankDepositor.sol";
 
-contract GasTankManagerTest is Test {
+contract GasTankDepositorTest is Test {
     uint256 public constant ALICE_PK = uint256(0xA11CE);
     uint256 public constant BOB_PK = uint256(0xB0B);
     uint256 public constant RPC_SERVICE_PK = uint256(0x1234567890);
@@ -16,13 +16,13 @@ contract GasTankManagerTest is Test {
     address public bob = payable(vm.addr(BOB_PK));
     address public rpcService = payable(vm.addr(RPC_SERVICE_PK));
 
-    GasTankManager private _gasTankManagerImpl;
+    GasTankDepositor private _gasTankDepositorImpl;
 
     function setUp() public {
         vm.deal(alice, 10 ether);
         vm.deal(bob, 10 ether);
         vm.deal(rpcService, 10 ether);
-        _gasTankManagerImpl = new GasTankManager(rpcService, MINIMUM_DEPOSIT);
+        _gasTankDepositorImpl = new GasTankDepositor(rpcService, MINIMUM_DEPOSIT);
     }
 
     //=======================TESTS=======================
@@ -31,17 +31,17 @@ contract GasTankManagerTest is Test {
         // Initial code is empty
         assertEq(alice.code.length, 0);
 
-        // Set delegation as the GasTankManager
-        _signAndAttachDelegation(address(_gasTankManagerImpl), ALICE_PK);
+        // Set delegation as the GasTankDepositor
+        _signAndAttachDelegation(address(_gasTankDepositorImpl), ALICE_PK);
 
-        assertEq(alice.codehash, _delegateCodeHash(address(_gasTankManagerImpl)));
+        assertEq(alice.codehash, _delegateCodeHash(address(_gasTankDepositorImpl)));
         assertEq(alice.code.length, 23);
     }
 
     function testRemovesDelegationCodeAtAddress() public {
-        // Set delegation as the GasTankManager
-        _signAndAttachDelegation(address(_gasTankManagerImpl), ALICE_PK);
-        assertEq(alice.codehash, _delegateCodeHash(address(_gasTankManagerImpl)));
+        // Set delegation as the GasTankDepositor
+        _signAndAttachDelegation(address(_gasTankDepositorImpl), ALICE_PK);
+        assertEq(alice.codehash, _delegateCodeHash(address(_gasTankDepositorImpl)));
         assertEq(alice.code.length, 23);
 
         // Remove delegation
@@ -54,9 +54,9 @@ contract GasTankManagerTest is Test {
 
     function testFallbackRevert() public {
         bytes memory badData =
-            abi.encodeWithSelector(GasTankManager.recoverFunds.selector, address(0x55555), 1 ether, 1 ether, 1 ether);
+            abi.encodeWithSelector(GasTankDepositor.recoverFunds.selector, address(0x55555), 1 ether, 1 ether, 1 ether);
         vm.prank(alice);
-        (bool success,) = address(_gasTankManagerImpl).call{value: 1 ether}(badData);
+        (bool success,) = address(_gasTankDepositorImpl).call{value: 1 ether}(badData);
         assertFalse(success);
     }
 
@@ -70,40 +70,40 @@ contract GasTankManagerTest is Test {
     }
 
     function testFundsSentDirectlyToDelegateAddress() public {
-        uint256 beforeBalance = address(_gasTankManagerImpl).balance;
+        uint256 beforeBalance = address(_gasTankDepositorImpl).balance;
 
         vm.prank(bob);
-        (bool success,) = address(_gasTankManagerImpl).call{value: 1 ether}("");
+        (bool success,) = address(_gasTankDepositorImpl).call{value: 1 ether}("");
         assertTrue(success);
 
-        uint256 afterBalance = address(_gasTankManagerImpl).balance;
+        uint256 afterBalance = address(_gasTankDepositorImpl).balance;
         assertEq(afterBalance, beforeBalance + 1 ether, "balance not increased");
     }
 
     function testWithdrawsFundsDirectlyFromDelegateAddress() public {
-        uint256 gasTankBeforeBalance = address(_gasTankManagerImpl).balance;
+        uint256 gasTankBeforeBalance = address(_gasTankDepositorImpl).balance;
         uint256 depositAmount = 1 ether;
 
         vm.prank(bob);
-        (bool success,) = address(_gasTankManagerImpl).call{value: depositAmount}("");
+        (bool success,) = address(_gasTankDepositorImpl).call{value: depositAmount}("");
         assertTrue(success);
 
-        uint256 gasTankAfterBalance = address(_gasTankManagerImpl).balance;
+        uint256 gasTankAfterBalance = address(_gasTankDepositorImpl).balance;
         assertEq(gasTankAfterBalance, gasTankBeforeBalance + depositAmount, "balance not increased");
 
         vm.prank(rpcService);
         uint256 rpcServiceBeforeBalance = rpcService.balance;
-        _gasTankManagerImpl.recoverFunds();
+        _gasTankDepositorImpl.recoverFunds();
         uint256 rpcServiceAfterBalance = rpcService.balance;
 
-        assertEq(address(_gasTankManagerImpl).balance, 0, "funds not drained");
+        assertEq(address(_gasTankDepositorImpl).balance, 0, "funds not drained");
         assertEq(rpcServiceAfterBalance, rpcServiceBeforeBalance + depositAmount, "balance not recovered");
     }
 
     function testRevertsWhenRecoverFundsIsCalledByUnknownCaller() public {
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(GasTankManager.NotRPCService.selector, bob));
-        _gasTankManagerImpl.recoverFunds();
+        vm.expectRevert(abi.encodeWithSelector(GasTankDepositor.NotRPCService.selector, bob));
+        _gasTankDepositorImpl.recoverFunds();
     }
 
     //=======================TESTS FOR FUNDING THE GAS TANK=======================
@@ -115,7 +115,7 @@ contract GasTankManagerTest is Test {
         _expectGasTankFunded(rpcService, MINIMUM_DEPOSIT);
 
         vm.prank(rpcService);
-        GasTankManager(payable(alice)).fundGasTank();
+        GasTankDepositor(payable(alice)).fundGasTank();
 
         assertEq(rpcService.balance, rpcBalanceBefore + MINIMUM_DEPOSIT, "rpc balance not increased");
     }
@@ -124,8 +124,8 @@ contract GasTankManagerTest is Test {
         _delegate();
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(GasTankManager.NotRPCService.selector, alice));
-        GasTankManager(payable(alice)).fundGasTank();
+        vm.expectRevert(abi.encodeWithSelector(GasTankDepositor.NotRPCService.selector, alice));
+        GasTankDepositor(payable(alice)).fundGasTank();
     }
 
     function testRpcServiceFundRevertsWhenInsufficientBalance() public {
@@ -134,9 +134,9 @@ contract GasTankManagerTest is Test {
 
         vm.prank(rpcService);
         vm.expectRevert(
-            abi.encodeWithSelector(GasTankManager.InsufficientFunds.selector, MINIMUM_DEPOSIT - 1, MINIMUM_DEPOSIT)
+            abi.encodeWithSelector(GasTankDepositor.InsufficientFunds.selector, MINIMUM_DEPOSIT - 1, MINIMUM_DEPOSIT)
         );
-        GasTankManager(payable(alice)).fundGasTank();
+        GasTankDepositor(payable(alice)).fundGasTank();
     }
 
     function testEOAFundsGasTank() public {
@@ -147,7 +147,7 @@ contract GasTankManagerTest is Test {
         _expectGasTankFunded(alice, amount);
 
         vm.prank(alice);
-        GasTankManager(payable(alice)).fundGasTank(amount);
+        GasTankDepositor(payable(alice)).fundGasTank(amount);
 
         assertEq(rpcService.balance, rpcBalanceBefore + amount, "rpc balance not increased");
     }
@@ -158,17 +158,17 @@ contract GasTankManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(GasTankManager.MinimumDepositNotMet.selector, belowMinimumDeposit, MINIMUM_DEPOSIT)
+            abi.encodeWithSelector(GasTankDepositor.MinimumDepositNotMet.selector, belowMinimumDeposit, MINIMUM_DEPOSIT)
         );
-        GasTankManager(payable(alice)).fundGasTank(belowMinimumDeposit);
+        GasTankDepositor(payable(alice)).fundGasTank(belowMinimumDeposit);
     }
 
     function testEOAFundRevertsWhenCallerNotEOA() public {
         _delegate();
 
         vm.prank(rpcService);
-        vm.expectRevert(abi.encodeWithSelector(GasTankManager.NotThisEOA.selector, rpcService, alice));
-        GasTankManager(payable(alice)).fundGasTank(MINIMUM_DEPOSIT);
+        vm.expectRevert(abi.encodeWithSelector(GasTankDepositor.NotThisEOA.selector, rpcService, alice));
+        GasTankDepositor(payable(alice)).fundGasTank(MINIMUM_DEPOSIT);
     }
 
     function testEOAFundRevertsWhenInsufficientBalance() public {
@@ -177,20 +177,20 @@ contract GasTankManagerTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(GasTankManager.InsufficientFunds.selector, MINIMUM_DEPOSIT - 1, MINIMUM_DEPOSIT)
+            abi.encodeWithSelector(GasTankDepositor.InsufficientFunds.selector, MINIMUM_DEPOSIT - 1, MINIMUM_DEPOSIT)
         );
-        GasTankManager(payable(alice)).fundGasTank(MINIMUM_DEPOSIT);
+        GasTankDepositor(payable(alice)).fundGasTank(MINIMUM_DEPOSIT);
     }
 
     //=======================HELPERS=======================
 
     function _delegate() internal {
-        _signAndAttachDelegation(address(_gasTankManagerImpl), ALICE_PK);
+        _signAndAttachDelegation(address(_gasTankDepositorImpl), ALICE_PK);
     }
 
     function _expectGasTankFunded(address caller, uint256 amount) internal {
         vm.expectEmit(true, true, true, true);
-        emit GasTankManager.GasTankFunded(alice, caller, amount);
+        emit GasTankDepositor.GasTankFunded(alice, caller, amount);
     }
 
     function _signAndAttachDelegation(address contractAddress, uint256 pk) internal {
