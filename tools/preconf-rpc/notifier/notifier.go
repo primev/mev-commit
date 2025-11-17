@@ -49,6 +49,7 @@ type Field struct {
 type txnInfo struct {
 	txn          *sender.Transaction
 	noOfAttempts int
+	noOfBlocks   int
 	timeTaken    time.Duration
 }
 
@@ -295,6 +296,8 @@ func (n *Notifier) StartTransactionNotifier(
 						Field{Title: "Type", Value: buildType(t), Short: true},
 						Field{Title: "Attempts", Value: fmt.Sprintf("%d", t.noOfAttempts), Short: true},
 						Field{Title: "Duration", Value: t.timeTaken.String(), Short: true},
+						Field{Title: "Included Block", Value: fmt.Sprintf("%d", t.txn.BlockNumber), Short: true},
+						Field{Title: "No. of Blocks to confirm", Value: fmt.Sprintf("%d", t.noOfBlocks), Short: true},
 					)
 					if t.txn.Constraint != nil {
 						fields = append(fields,
@@ -325,6 +328,7 @@ func (n *Notifier) StartTransactionNotifier(
 func (n *Notifier) NotifyTransactionStatus(
 	txn *sender.Transaction,
 	noOfAttempts int,
+	noOfBlocks int,
 	timeTaken time.Duration,
 ) {
 	n.queuedMu.Lock()
