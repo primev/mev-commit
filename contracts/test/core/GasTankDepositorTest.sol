@@ -26,6 +26,24 @@ contract GasTankDepositorTest is Test {
         _gasTankDepositorImpl = new GasTankDepositor(rpcService, MAXIMUM_DEPOSIT);
     }
 
+    //=======================TESTS FOR CONSTRUCTOR=======================
+
+    function testConstructorRevertsWhenRpcServiceIsZeroAddress() public {
+        vm.expectRevert(abi.encodeWithSelector(GasTankDepositor.RPCServiceNotSet.selector, ZERO_ADDRESS));
+        new GasTankDepositor(ZERO_ADDRESS, MAXIMUM_DEPOSIT);
+    }
+
+    function testConstructorRevertsWhenMaximumDepositIsZero() public {
+        vm.expectRevert(abi.encodeWithSelector(GasTankDepositor.MaximumDepositNotMet.selector, 0, 0));
+        new GasTankDepositor(rpcService, 0);
+    }
+
+    function testConstructorSetsVariables() public view {
+        assertEq(_gasTankDepositorImpl.RPC_SERVICE(), rpcService);
+        assertEq(_gasTankDepositorImpl.MAXIMUM_DEPOSIT(), MAXIMUM_DEPOSIT);
+        assertEq(_gasTankDepositorImpl.GAS_TANK_ADDRESS(), address(_gasTankDepositorImpl));
+    }
+
     //=======================TESTS=======================
 
     function testSetsDelegationCodeAtAddress() public {
@@ -49,19 +67,6 @@ contract GasTankDepositorTest is Test {
         _signAndAttachDelegation(ZERO_ADDRESS, ALICE_PK);
         assertEq(alice.codehash, EMPTY_CODEHASH);
         assertEq(alice.code.length, 0);
-    }
-
-    //=======================TESTS FOR RECEIVING FUNDS=======================
-
-    function testReceivesFunds() public {
-        _delegate();
-
-        uint256 beforeBalance = alice.balance;
-        vm.prank(bob);
-        (bool success,) = address(alice).call{value: 1 ether}("");
-        assertTrue(success);
-        uint256 afterBalance = alice.balance;
-        assertEq(afterBalance, beforeBalance + 1 ether, "balance not increased");
     }
 
     //=======================TESTS FOR RECEIVE AND FALLBACK=======================
