@@ -14,8 +14,6 @@ contract GasTankDepositor {
     event GasTankFunded(address indexed smartAccount, address indexed caller, uint256 indexed amount);
 
     error FailedToRecoverFunds(address owner, uint256 amount);
-    error NotValidCaller(address caller);
-    error InvalidAmount();
     error FailedToFundGasTank(address rpcProvider, uint256 transferAmount);
     error RPCServiceNotSet(address provider);
     error NotRPCService(address caller);
