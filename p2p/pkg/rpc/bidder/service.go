@@ -197,6 +197,19 @@ func (s *Service) SendBid(
 		txnsStr = strBuilder.String()
 	}
 
+	bidAmt, ok := big.NewInt(0).SetString(bid.Amount, 10)
+	if ok && bidAmt.Sign() == -1 {
+		bidAmt = big.NewInt(0).Abs(bidAmt)
+		if bid.BidOptions == nil {
+			bid.BidOptions = &bidderapiv1.BidOptions{}
+		}
+		bid.BidOptions.Options = append(bid.BidOptions.Options, &bidderapiv1.BidOption{
+			Opt: &bidderapiv1.BidOption_IsNegativeBid{
+				IsNegativeBid: true,
+			},
+		})
+	}
+
 	if bid.SlashAmount == "" {
 		s.logger.Info("slash amount is empty in bid, using bid amount as slash amount", "bid amount", bid.Amount)
 		bid.SlashAmount = bid.Amount
@@ -215,7 +228,7 @@ func (s *Service) SendBid(
 		ctx,
 		&preconfirmationv1.Bid{
 			TxHash:              txnsStr,
-			BidAmount:           bid.Amount,
+			BidAmount:           bidAmt.String(),
 			SlashAmount:         bid.SlashAmount,
 			BlockNumber:         bid.BlockNumber,
 			DecayStartTimestamp: bid.DecayStartTimestamp,
@@ -234,7 +247,7 @@ func (s *Service) SendBid(
 		b := resp.Bid
 		err := srv.Send(&bidderapiv1.Commitment{
 			TxHashes:             strings.Split(b.TxHash, ","),
-			BidAmount:            b.BidAmount,
+			BidAmount:            bidAmt.String(),
 			SlashAmount:          b.SlashAmount,
 			BlockNumber:          b.BlockNumber,
 			ReceivedBidDigest:    hex.EncodeToString(b.Digest),

@@ -293,7 +293,7 @@ definitions:
       bidAmount:
         type: string
         description: Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block.
-        pattern: '[0-9]+'
+        pattern: ^-?[1-9][0-9]*$
       blockNumber:
         type: string
         format: int64
@@ -347,6 +347,10 @@ definitions:
       shutterisedBidOption:
         $ref: '#/definitions/providerapiv1ShutterisedBidOption'
         description: Shutterised bid option for the transaction in the block.
+      decayEndAmount:
+        type: string
+        description: Amount of ETH in wei that the bid decays to at the decay end timestamp.
+        pattern: ^-?[1-9][0-9]*$
   providerapiv1BidOptions:
     type: object
     properties:

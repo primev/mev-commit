@@ -100,17 +100,25 @@ type CommitmentStore interface {
 
 type OptsGetter func(ctx context.Context) (*bind.TransactOpts, error)
 
-func decodeBidOptions(bidOptionsBytes []byte) (*providerapiv1.BidOptions, error) {
+func decodeBidOptions(bidOptionsBytes []byte) (*providerapiv1.BidOptions, bool, error) {
 	if len(bidOptionsBytes) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	bidderOpts := new(bidderapiv1.BidOptions)
 	if err := proto.Unmarshal(bidOptionsBytes, bidderOpts); err != nil {
-		return nil, fmt.Errorf("unmarshalling bid options: %w", err)
+		return nil, false, fmt.Errorf("unmarshalling bid options: %w", err)
 	}
 
-	return translateBidOptions(bidderOpts), nil
+	isNegativeBid := false
+	for _, opt := range bidderOpts.Options {
+		if opt.GetIsNegativeBid() {
+			isNegativeBid = true
+			break
+		}
+	}
+
+	return translateBidOptions(bidderOpts), isNegativeBid, nil
 }
 
 func translateBidOptions(bidderOpts *bidderapiv1.BidOptions) *providerapiv1.BidOptions {
@@ -142,6 +150,13 @@ func translateBidOptions(bidderOpts *bidderapiv1.BidOptions) *providerapiv1.BidO
 						EncryptedTx:    c.GetEncryptedTx(),
 						EonId:          c.GetEonId(),
 					},
+				},
+			}
+			opts.Options = append(opts.Options, opt)
+		case bOpt.GetDecayEndAmount() != "":
+			opt := &providerapiv1.BidOption{
+				Opt: &providerapiv1.BidOption_DecayEndAmount{
+					DecayEndAmount: bOpt.GetDecayEndAmount(),
 				},
 			}
 			opts.Options = append(opts.Options, opt)
@@ -197,13 +212,21 @@ func (s *Service) ProcessBid(
 	if bid.RevertingTxHashes != "" {
 		revertingTxnHashes = strings.Split(bid.RevertingTxHashes, ",")
 	}
-	opts, err := decodeBidOptions(bid.BidOptions)
+	opts, isNegative, err := decodeBidOptions(bid.BidOptions)
 	if err != nil {
 		return nil, err
 	}
+	bidAmt, ok := new(big.Int).SetString(bid.BidAmount, 10)
+	if !ok {
+		return nil, status.Errorf(codes.InvalidArgument, "parsing bid amount: %v", bid.BidAmount)
+	}
+	if isNegative {
+		bidAmt = big.NewInt(0).Neg(bidAmt)
+	}
+
 	bidMsg := &providerapiv1.Bid{
 		TxHashes:            strings.Split(bid.TxHash, ","),
-		BidAmount:           bid.BidAmount,
+		BidAmount:           bidAmt.String(),
 		SlashAmount:         bid.SlashAmount,
 		BlockNumber:         bid.BlockNumber,
 		BidDigest:           bid.Digest,
@@ -626,9 +649,17 @@ func (s *Service) GetCommitmentInfo(
 			revertableTxnHashes = strings.Split(c.Bid.RevertingTxHashes, ",")
 		}
 
-		bidOpts, err := decodeBidOptions(c.Bid.BidOptions)
+		bidOpts, isNegative, err := decodeBidOptions(c.Bid.BidOptions)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "decoding bid options: %v", err)
+		}
+
+		bidAmt, ok := new(big.Int).SetString(c.Bid.BidAmount, 10)
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "parsing bid amount: %v", c.Bid.BidAmount)
+		}
+		if isNegative {
+			bidAmt = big.NewInt(0).Neg(bidAmt)
 		}
 
 		if len(blockCommitments) == 0 || blockCommitments[len(blockCommitments)-1].BlockNumber != c.Bid.BlockNumber {
@@ -637,22 +668,25 @@ func (s *Service) GetCommitmentInfo(
 				Commitments: make([]*providerapiv1.CommitmentInfoResponse_Commitment, 0),
 			})
 		}
-		blockCommitments[len(blockCommitments)-1].Commitments = append(blockCommitments[len(blockCommitments)-1].Commitments, &providerapiv1.CommitmentInfoResponse_Commitment{
-			TxnHashes:           strings.Split(c.Bid.TxHash, ","),
-			RevertableTxnHashes: revertableTxnHashes,
-			Amount:              c.Bid.BidAmount,
-			BlockNumber:         c.Bid.BlockNumber,
-			ProviderAddress:     common.Bytes2Hex(c.ProviderAddress),
-			DecayStartTimestamp: c.Bid.DecayStartTimestamp,
-			DecayEndTimestamp:   c.Bid.DecayEndTimestamp,
-			DispatchTimestamp:   c.EncryptedPreConfirmation.DispatchTimestamp,
-			SlashAmount:         c.Bid.SlashAmount,
-			Status:              string(c.Status),
-			Details:             c.Details,
-			Payment:             c.Payment,
-			Refund:              c.Refund,
-			BidOptions:          bidOpts,
-		})
+		blockCommitments[len(blockCommitments)-1].Commitments = append(
+			blockCommitments[len(blockCommitments)-1].Commitments,
+			&providerapiv1.CommitmentInfoResponse_Commitment{
+				TxnHashes:           strings.Split(c.Bid.TxHash, ","),
+				RevertableTxnHashes: revertableTxnHashes,
+				Amount:              bidAmt.String(),
+				BlockNumber:         c.Bid.BlockNumber,
+				ProviderAddress:     common.Bytes2Hex(c.ProviderAddress),
+				DecayStartTimestamp: c.Bid.DecayStartTimestamp,
+				DecayEndTimestamp:   c.Bid.DecayEndTimestamp,
+				DispatchTimestamp:   c.EncryptedPreConfirmation.DispatchTimestamp,
+				SlashAmount:         c.Bid.SlashAmount,
+				Status:              string(c.Status),
+				Details:             c.Details,
+				Payment:             c.Payment,
+				Refund:              c.Refund,
+				BidOptions:          bidOpts,
+			},
+		)
 	}
 
 	return &providerapiv1.CommitmentInfoResponse{

@@ -263,6 +263,14 @@ message BidOption {
     ShutterisedBidOption shutterised_bid_option = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Shutterised bid option for the transaction in the block."
     }];
+    string decay_end_amount = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Amount of ETH in wei that the bid decays to at the decay end timestamp."
+      pattern: "^-?[1-9][0-9]*$"
+    }, (buf.validate.field).cel = {
+        id: "decay_end_amount",
+        message: "decay_end_amount must be a valid integer.",
+        expression: "this.matches('^-?[1-9][0-9]*$')"
+    }];
   }
 };
 
@@ -301,11 +309,11 @@ message Bid {
   }];
   string bid_amount = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block."
-    pattern: "[0-9]+"
+    pattern: "^-?[1-9][0-9]*$"
   }, (buf.validate.field).cel = {
       id: "bid_amount",
       message: "bid_amount must be a valid integer.",
-      expression: "this.matches('^[1-9][0-9]*$')"
+      expression: "this.matches('^-?[1-9][0-9]*$')"
   }];
   int64 block_number = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Max block number that the bidder wants to include the transaction in."
