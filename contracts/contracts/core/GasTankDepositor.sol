@@ -9,11 +9,10 @@ import {Errors} from "../utils/Errors.sol";
 contract GasTankDepositor {
     address public immutable RPC_SERVICE;
     uint256 public immutable MAXIMUM_DEPOSIT;
+    address public immutable GAS_TANK_ADDRESS;
 
-    event FundsRecovered(address indexed owner, uint256 indexed amount);
     event GasTankFunded(address indexed smartAccount, address indexed caller, uint256 indexed amount);
 
-    error FailedToRecoverFunds(address owner, uint256 amount);
     error FailedToFundGasTank(address rpcProvider, uint256 transferAmount);
     error RPCServiceNotSet(address provider);
     error NotRPCService(address caller);
@@ -38,22 +37,17 @@ contract GasTankDepositor {
         require(_maxDeposit > 0, MaximumDepositNotMet(0, _maxDeposit));
         RPC_SERVICE = rpcService;
         MAXIMUM_DEPOSIT = _maxDeposit;
+        GAS_TANK_ADDRESS = address(this);
     }
 
-    receive() external payable { /* ETH transfers allowed. */ }
+    receive() external payable {
+        if (address(this) == GAS_TANK_ADDRESS) {
+            revert Errors.InvalidReceive();
+        }
+    }
 
     fallback() external payable {
         revert Errors.InvalidFallback();
-    }
-
-    /// @notice Recovers funds inadvertently sent to this contract directly.
-    function recoverFunds() external onlyRPCService {
-        uint256 balance = address(this).balance;
-
-        (bool success,) = RPC_SERVICE.call{value: balance}("");
-        require(success, FailedToRecoverFunds(RPC_SERVICE, balance));
-
-        emit FundsRecovered(RPC_SERVICE, balance);
     }
 
     /// @notice Transfers ETH from the EOA's balance to the Gas RPC Service.
@@ -69,7 +63,6 @@ contract GasTankDepositor {
         _fundGasTank(MAXIMUM_DEPOSIT);
     }
 
-    /// @dev `fundGasTank` Internal function to fund the gas tank.
     function _fundGasTank(uint256 _amountToTransfer) internal {
         require(address(this).balance >= _amountToTransfer, InsufficientFunds(address(this).balance, _amountToTransfer));
 

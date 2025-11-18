@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
 import {GasTankDepositor} from "../../contracts/core/GasTankDepositor.sol";
+import {Errors} from "../../contracts/utils/Errors.sol";
 
 contract GasTankDepositorTest is Test {
     uint256 public constant ALICE_PK = uint256(0xA11CE);
@@ -50,17 +51,11 @@ contract GasTankDepositorTest is Test {
         assertEq(alice.code.length, 0);
     }
 
-    //=======================TESTS FOR IMPROPER CALLS TO THE GAS TANK MANAGER=======================
+    //=======================TESTS FOR RECEIVING FUNDS=======================
 
-    function testFallbackRevert() public {
-        bytes memory badData =
-            abi.encodeWithSelector(GasTankDepositor.recoverFunds.selector, address(0x55555), 1 ether, 1 ether, 1 ether);
-        vm.prank(alice);
-        (bool success,) = address(_gasTankDepositorImpl).call{value: 1 ether}(badData);
-        assertFalse(success);
-    }
+    function testReceivesFunds() public {
+        _delegate();
 
-    function testReceiveNoRevert() public {
         uint256 beforeBalance = alice.balance;
         vm.prank(bob);
         (bool success,) = address(alice).call{value: 1 ether}("");
@@ -69,43 +64,45 @@ contract GasTankDepositorTest is Test {
         assertEq(afterBalance, beforeBalance + 1 ether, "balance not increased");
     }
 
+    //=======================TESTS FOR RECEIVE AND FALLBACK=======================
+
+    function testFallbackRevert() public {
+        bytes memory badData = abi.encodeWithSelector(bytes4(keccak256("invalidFunction()")));
+        vm.prank(alice);
+        (bool success,) = address(_gasTankDepositorImpl).call{value: 1 ether}(badData);
+        assertFalse(success);
+    }
+
     function testFundsSentDirectlyToDelegateAddress() public {
-        uint256 beforeBalance = address(_gasTankDepositorImpl).balance;
-
         vm.prank(bob);
-        (bool success,) = address(_gasTankDepositorImpl).call{value: 1 ether}("");
-        assertTrue(success);
+        (bool success, bytes memory data) = address(_gasTankDepositorImpl).call{value: 1 ether}("");
+        assertFalse(success);
+        bytes4 selector;
+        assembly {
+            selector := mload(add(data, 0x20))
+        }
+        assertEq(selector, Errors.InvalidReceive.selector);
+    }
 
-        uint256 afterBalance = address(_gasTankDepositorImpl).balance;
+    function testFundsSentDirectlyToEOAAddressWithDelegation() public {
+        _delegate();
+
+        uint256 beforeBalance = alice.balance;
+        vm.prank(bob);
+        (bool success,) = alice.call{value: 1 ether}("");
+        assertTrue(success);
+        uint256 afterBalance = alice.balance;
         assertEq(afterBalance, beforeBalance + 1 ether, "balance not increased");
     }
 
-    function testWithdrawsFundsDirectlyFromDelegateAddress() public {
-        uint256 gasTankBeforeBalance = address(_gasTankDepositorImpl).balance;
-        uint256 depositAmount = 1 ether;
-
+    function testFundsSentDirectlyToEOAAddressWithoutDelegation() public {
+        uint256 beforeBalance = alice.balance;
         vm.prank(bob);
-        (bool success,) = address(_gasTankDepositorImpl).call{value: depositAmount}("");
+        (bool success,) = address(alice).call{value: 1 ether}("");
         assertTrue(success);
-
-        uint256 gasTankAfterBalance = address(_gasTankDepositorImpl).balance;
-        assertEq(gasTankAfterBalance, gasTankBeforeBalance + depositAmount, "balance not increased");
-
-        vm.prank(rpcService);
-        uint256 rpcServiceBeforeBalance = rpcService.balance;
-        _gasTankDepositorImpl.recoverFunds();
-        uint256 rpcServiceAfterBalance = rpcService.balance;
-
-        assertEq(address(_gasTankDepositorImpl).balance, 0, "funds not drained");
-        assertEq(rpcServiceAfterBalance, rpcServiceBeforeBalance + depositAmount, "balance not recovered");
+        uint256 afterBalance = alice.balance;
+        assertEq(afterBalance, beforeBalance + 1 ether, "balance not increased");
     }
-
-    function testRevertsWhenRecoverFundsIsCalledByUnknownCaller() public {
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(GasTankDepositor.NotRPCService.selector, bob));
-        _gasTankDepositorImpl.recoverFunds();
-    }
-
     //=======================TESTS FOR FUNDING THE GAS TANK=======================
 
     function testRpcServiceFundsMaximumDeposit() public {
