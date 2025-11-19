@@ -24,12 +24,13 @@ The contract facilitates a custodial gas tank system where:
 ### How It Works
 
 1. **User Authorization** (One-time setup):
+   - User adds FastRPC network to their wallet.
    - User authorizes the `GasTankDepositor` contract using ERC-7702
    - User sends a network transaction to attach the delegation
    - After delegation, the user's EOA can execute contract functions as if it were a smart contract
 
 2. **Initial Funding**:
-   - User calls `fundGasTank(uint256 _amount)` with their desired initial deposit
+   - User just needs to perform a transaction once the FastRPC network is added to their wallet and EOA has the `MAXIMUM_DEPOSIT`
    - Amount must be >= `MAXIMUM_DEPOSIT`
    - ETH is transferred from user's EOA to the RPC service EOA
    - RPC service updates off-chain ledger to reflect the deposit
@@ -39,7 +40,6 @@ The contract facilitates a custodial gas tank system where:
    - This always transfers exactly `MAXIMUM_DEPOSIT` amount
    - Transfer occurs directly from user's EOA balance (if sufficient funds available)
    - No user interaction required - fully automated
-   - No need for `maxTransferAllowance` as RPC is restricted to minimum amount only
 
 4. **Off-Chain Ledger Operations**:
    - RPC service tracks user balances in off-chain ledger
