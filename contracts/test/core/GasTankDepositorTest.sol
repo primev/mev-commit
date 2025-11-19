@@ -41,7 +41,7 @@ contract GasTankDepositorTest is Test {
     function testConstructorSetsVariables() public view {
         assertEq(_gasTankDepositorImpl.RPC_SERVICE(), rpcService);
         assertEq(_gasTankDepositorImpl.MAXIMUM_DEPOSIT(), MAXIMUM_DEPOSIT);
-        assertEq(_gasTankDepositorImpl.GAS_TANK_ADDRESS(), address(_gasTankDepositorImpl));
+        assertEq(_gasTankDepositorImpl.DELEGATION_ADDR(), address(_gasTankDepositorImpl));
     }
 
     //=======================TESTS=======================

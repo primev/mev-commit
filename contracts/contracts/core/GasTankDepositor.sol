@@ -9,7 +9,7 @@ import {Errors} from "../utils/Errors.sol";
 contract GasTankDepositor {
     address public immutable RPC_SERVICE;
     uint256 public immutable MAXIMUM_DEPOSIT;
-    address public immutable GAS_TANK_ADDRESS;
+    address public immutable DELEGATION_ADDR;
 
     event GasTankFunded(address indexed smartAccount, address indexed caller, uint256 indexed amount);
 
@@ -37,11 +37,11 @@ contract GasTankDepositor {
         require(_maxDeposit > 0, MaximumDepositNotMet(0, _maxDeposit));
         RPC_SERVICE = rpcService;
         MAXIMUM_DEPOSIT = _maxDeposit;
-        GAS_TANK_ADDRESS = address(this);
+        DELEGATION_ADDR = address(this);
     }
 
     receive() external payable {
-        if (address(this) == GAS_TANK_ADDRESS) {
+        if (address(this) == DELEGATION_ADDR) {
             revert Errors.InvalidReceive();
         }
     }
