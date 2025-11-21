@@ -249,9 +249,9 @@ func processBatchSQL(blocks []*types.Block, receipts []types.Receipts, db *sql.D
 
 			// Attempt to decode tx input if To is set
 			if indexTx.To != nil {
-				abiObj, err := getParsedABI(db, *indexTx.To)
+				abiObjs, err := getParsedABI(db, *indexTx.To)
 				if err == nil {
-					decoded := decodeTxInput(indexTx.Input, abiObj)
+					decoded := decodeTxInput(indexTx.Input, abiObjs)
 					if decoded != nil {
 						decodedJSON, _ := json.Marshal(decoded)
 						indexTx.DecodedJSON = string(decodedJSON)
@@ -317,9 +317,9 @@ func processBatchSQL(blocks []*types.Block, receipts []types.Receipts, db *sql.D
 				}
 
 				// Attempt to decode log
-				abiObj, err := getParsedABI(db, indexLog.Address)
+				abiObjs, err := getParsedABI(db, indexLog.Address)
 				if err == nil && len(topics) > 0 {
-					decoded := decodeLog(topics, indexLog.Data, abiObj)
+					decoded := decodeLog(topics, indexLog.Data, abiObjs)
 					if decoded != nil {
 						decodedJSON, _ := json.Marshal(decoded)
 						indexLog.DecodedJSON = string(decodedJSON)

@@ -120,7 +120,7 @@ type IndexLog struct {
 	DecodedJSON    string  `json:"decoded,omitempty"`
 }
 
-var abiCache = make(map[string]abi.ABI)
+var abiCache = make(map[string][]abi.ABI)
 
 const maxRowsPerInsert = 10_000
 
@@ -155,26 +155,36 @@ func ptrString(s string) *string {
 }
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	// Create JSON logger with source location
+	// Note: ANSI colors don't work in kubectl logs, so we skip them
+	opts := &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelInfo,
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
 	rpcURL := flag.String("rpc", "http://localhost:8545", "Ethereum RPC URL")
 	dsn := flag.String("dsn", "root:@tcp(127.0.0.1:9030)/mevcommit?parseTime=true&interpolateParams=true", "StarRocks DSN")
-	mode := flag.String("mode", "dual", "Mode: dual, forward, or backfill")
+	mode := flag.String("mode", "dual", "Mode: dual, forward, backfill, or decode")
 	fromBlock := flag.Int64("from", 0, "Starting block for backfill (lowest)")
 	toBlock := flag.Int64("to", 0, "Ending block for backfill (highest)")
 	pollInterval := flag.Duration("poll", 100*time.Millisecond, "Poll interval for forward mode")
-	batchSize := flag.Int("batch-size", 50, "Batch size for RPC calls")
+	batchSize := flag.Int("batch-size", 2000, "Batch size for RPC calls (or decode batch size in decode mode)")
 	flushInterval := flag.Duration("flush-interval", 2*time.Second, "Maximum time to buffer rows before flushing to the database")
 	startBlock := flag.Int64("start-block", 0, "Starting block for forward mode when no history exists")
 	abiDir := flag.String("abi-dir", "./contracts-abi/abi", "Directory containing ABI files")
 	abiConfig := flag.String("abi-config", "", "Optional path to ABI manifest JSON")
+	abiDSN := flag.String("abi-dsn", "", "Separate DSN for ABI database (optional, uses main DSN if not specified)")
 	enableKafka := flag.Bool("enable-kafka", true, "Enable Kafka output")
 	kafkaBrokers := flag.String("kafka-brokers", "mevcommit-message-queue-cluster-kafka-bootstrap.kafka.svc:9092", "Comma-separated list of Kafka brokers")
 	chainName := flag.String("chain-name", "eth-mainnet", "Chain name to use as topic prefix (e.g., 'mevcommit', 'eth-mainnet')")
+	decodeInput := flag.Bool("decode-input", false, "Decode transaction input in decode mode")
+	decodeLogs := flag.Bool("decode-logs", false, "Decode event logs in decode mode")
+	dryRun := flag.Bool("dry-run", false, "Dry run mode for decode - show what would be decoded without updating database")
 	flag.Parse()
 
 	// Validate inputs
-	if *mode != "forward" && *mode != "backfill" && *mode != "dual" {
+	if *mode != "forward" && *mode != "backfill" && *mode != "dual" && *mode != "decode" {
 		logger.Error("Invalid mode", "mode", *mode)
 		os.Exit(1)
 	}
@@ -186,6 +196,16 @@ func main() {
 		logger.Error("Dual mode requires --start-block to be set (target for backward indexer)")
 		os.Exit(1)
 	}
+	if *mode == "decode" {
+		if *abiConfig == "" {
+			logger.Error("Decode mode requires --abi-config to be set")
+			os.Exit(1)
+		}
+		if !*decodeInput && !*decodeLogs {
+			logger.Error("Decode mode requires at least one of --decode-input or --decode-logs to be set")
+			os.Exit(1)
+		}
+	}
 	if *enableKafka && strings.TrimSpace(*chainName) == "" {
 		logger.Error("Chain name cannot be empty when Kafka is enabled")
 		os.Exit(1)
@@ -195,12 +215,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	client, err := w3.Dial(*rpcURL)
-	if err != nil {
-		logger.Error("Failed to connect to Ethereum RPC", "err", err)
-		os.Exit(1)
+	// Skip RPC connection if in decode mode (doesn't need chain access)
+	var client *w3.Client
+	if *mode != "decode" {
+		var err error
+		client, err = w3.Dial(*rpcURL)
+		if err != nil {
+			logger.Error("Failed to connect to Ethereum RPC", "err", err)
+			os.Exit(1)
+		}
+		defer client.Close()
 	}
-	defer client.Close()
 
 	// Parse DSN to extract database name and create database if not exists
 	cfg, err := mysql.ParseDSN(*dsn)
@@ -239,9 +264,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize Kafka client if enabled
+	// Initialize Kafka client if enabled (skip in decode mode)
 	var kafkaOpts kafkaOptions
-	if *enableKafka {
+	if *enableKafka && *mode != "decode" {
 		brokers := strings.Split(*kafkaBrokers, ",")
 		// Trim whitespace from broker addresses
 		for i := range brokers {
@@ -317,8 +342,20 @@ func main() {
 		}()
 	}
 
-	// Load ABIs
-	if err := loadABIs(db, *abiDir, *abiConfig); err != nil {
+	// Load ABIs - use separate database if specified
+	abiDB := db
+	if *abiDSN != "" {
+		var err error
+		abiDB, err = sql.Open("mysql", *abiDSN)
+		if err != nil {
+			logger.Error("Failed to connect to ABI database", "err", err)
+			os.Exit(1)
+		}
+		defer abiDB.Close()
+		logger.Info("Using separate database for ABIs", "abi_dsn", *abiDSN)
+	}
+
+	if err := loadABIs(abiDB, *abiDir, *abiConfig, *mode); err != nil {
 		logger.Error("Failed to load ABIs", "err", err)
 		// Continue or exit based on preference; here continue
 	}
@@ -352,7 +389,33 @@ func main() {
 		cancel()
 	}()
 
-	if *mode == "dual" {
+	if *mode == "decode" {
+		// Decode mode: decode existing transactions and logs in database
+		logger.Info("Starting decode mode",
+			"decode_input", *decodeInput,
+			"decode_logs", *decodeLogs,
+			"batch_size", *batchSize,
+			"dry_run", *dryRun,
+			"abis_loaded", len(abiCache))
+
+		// Process logs first if requested
+		if *decodeLogs {
+			if err := decodeExistingLogs(ctx, db, *batchSize, *dryRun, logger); err != nil {
+				logger.Error("Failed to decode event logs", "err", err)
+				os.Exit(1)
+			}
+		}
+
+		// Process transactions second if requested
+		if *decodeInput {
+			if err := decodeExistingTransactions(ctx, db, *batchSize, *dryRun, logger); err != nil {
+				logger.Error("Failed to decode transaction inputs", "err", err)
+				os.Exit(1)
+			}
+		}
+
+		logger.Info("Decode mode completed successfully")
+	} else if *mode == "dual" {
 		// Run both forward and backward indexers concurrently
 		logger.Info("Starting dual-direction indexer",
 			"mode", "dual",
@@ -383,7 +446,14 @@ func main() {
 	}
 }
 
-func loadABIs(db *sql.DB, abiDir, abiConfig string) error {
+func loadABIs(db *sql.DB, abiDir, abiConfig, mode string) error {
+	// In decode mode, load ALL ABIs from database (including historical versions)
+	if mode == "decode" {
+		slog.Info("Decode mode: loading all ABIs from database")
+		return loadABIsFromDatabase(db)
+	}
+
+	// In other modes, load from manifest and insert into database
 	if abiConfig == "" {
 		slog.Warn("No ABI manifest provided; contract ABI decoding will be skipped")
 		return nil
@@ -434,7 +504,7 @@ func loadABIsFromManifest(db *sql.DB, abiDir, abiConfig string) error {
 		}
 
 		address := strings.ToLower(entry.Address)
-		if _, err := db.Exec("INSERT INTO contract_abis (address, name, abi) VALUES (?, ?, parse_json(?))", address, name, abiStr); err != nil {
+		if _, err := db.Exec("INSERT INTO contract_abis (abi_hash, address, name, version, abi) VALUES (MD5(?), ?, ?, ?, parse_json(?))", abiStr, address, name, "manifest", abiStr); err != nil {
 			slog.Error("Failed to insert ABI from manifest", "address", address, "err", err)
 			continue
 		}
@@ -444,8 +514,59 @@ func loadABIsFromManifest(db *sql.DB, abiDir, abiConfig string) error {
 			slog.Error("Failed to parse ABI from manifest", "address", address, "err", err)
 			continue
 		}
-		abiCache[address] = abiObj
+		abiCache[address] = append(abiCache[address], abiObj)
 	}
+
+	return nil
+}
+
+// loadABIsFromDatabase loads all ABIs from the contract_abis table into abiCache
+// This is used in decode mode to load ALL ABI versions (including historical versions)
+func loadABIsFromDatabase(db *sql.DB) error {
+	// Clear existing cache to avoid duplicates
+	abiCache = make(map[string][]abi.ABI)
+
+	rows, err := db.Query("SELECT address, name, version, CAST(abi AS CHAR) as abi_str FROM contract_abis")
+	if err != nil {
+		return fmt.Errorf("failed to query contract_abis: %w", err)
+	}
+	defer rows.Close()
+
+	abiCount := 0
+	for rows.Next() {
+		var address, name, version, abiStr string
+		if err := rows.Scan(&address, &name, &version, &abiStr); err != nil {
+			slog.Error("Failed to scan ABI row", "err", err)
+			continue
+		}
+
+		address = strings.ToLower(address)
+
+		abiObj, err := abi.JSON(strings.NewReader(abiStr))
+		if err != nil {
+			slog.Error("Failed to parse ABI from database",
+				"address", address,
+				"name", name,
+				"version", version,
+				"err", err)
+			continue
+		}
+
+		abiCache[address] = append(abiCache[address], abiObj)
+		abiCount++
+		slog.Debug("Loaded ABI from database",
+			"address", address,
+			"name", name,
+			"version", version)
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating ABI rows: %w", err)
+	}
+
+	slog.Info("Loaded ABIs from database",
+		"total_abis", abiCount,
+		"unique_addresses", len(abiCache))
 
 	return nil
 }
@@ -549,13 +670,16 @@ func createTables(db *sql.DB) error {
 		PROPERTIES("replication_num"="1")`,
 
 		`CREATE TABLE IF NOT EXISTS contract_abis (
+			abi_hash VARCHAR(64),
 			address VARCHAR(255),
 			name VARCHAR(255),
-			abi JSON
-		) 
-		ENGINE=olap 
-		PRIMARY KEY(address) 
-		DISTRIBUTED BY HASH(address) BUCKETS 1 
+			version VARCHAR(50),
+			abi JSON,
+			INDEX idx_address (address)
+		)
+		ENGINE=olap
+		PRIMARY KEY(abi_hash)
+		DISTRIBUTED BY HASH(abi_hash) BUCKETS 1
 		PROPERTIES("replication_num"="1")`,
 	}
 
@@ -1240,15 +1364,15 @@ func blockExists(db *sql.DB, number int64) (bool, error) {
 	return count > 0, nil
 }
 
-func getParsedABI(db *sql.DB, address string) (abi.ABI, error) {
+func getParsedABI(db *sql.DB, address string) ([]abi.ABI, error) {
 	lowAddr := strings.ToLower(address)
-	if obj, ok := abiCache[lowAddr]; ok {
-		return obj, nil
+	if objs, ok := abiCache[lowAddr]; ok && len(objs) > 0 {
+		return objs, nil
 	}
 
 	// If not in cache, we don't have the ABI - skip decoding
 	// All ABIs are loaded into abiCache at startup, so no need to query database
-	return abi.ABI{}, sql.ErrNoRows
+	return nil, sql.ErrNoRows
 }
 
 // formatValue converts values to human-readable format
@@ -1269,7 +1393,7 @@ func formatValue(value interface{}) interface{} {
 	}
 }
 
-func decodeTxInput(input string, abiObj abi.ABI) *Decoded {
+func decodeTxInput(input string, abiObjs []abi.ABI) *Decoded {
 	if input == "" || !strings.HasPrefix(input, "0x") || len(input) < 10 {
 		return nil
 	}
@@ -1278,87 +1402,108 @@ func decodeTxInput(input string, abiObj abi.ABI) *Decoded {
 		return nil
 	}
 	sig := inputBytes[:4]
-	method, err := abiObj.MethodById(sig)
-	if err != nil {
-		return nil
+
+	// Try each ABI until one succeeds
+	for _, abiObj := range abiObjs {
+		method, err := abiObj.MethodById(sig)
+		if err != nil {
+			continue // Try next ABI
+		}
+		argValues, err := method.Inputs.Unpack(inputBytes[4:])
+		if err != nil {
+			continue // Try next ABI
+		}
+		argsMap := make(map[string]interface{})
+		for i, input := range method.Inputs {
+			argsMap[input.Name] = formatValue(argValues[i])
+		}
+		return &Decoded{
+			Name: method.Name,
+			Sig:  method.Sig,
+			Args: argsMap,
+		}
 	}
-	argValues, err := method.Inputs.Unpack(inputBytes[4:])
-	if err != nil {
-		return nil
-	}
-	argsMap := make(map[string]interface{})
-	for i, input := range method.Inputs {
-		argsMap[input.Name] = formatValue(argValues[i])
-	}
-	return &Decoded{
-		Name: method.Name,
-		Sig:  method.Sig,
-		Args: argsMap,
-	}
+
+	// All ABIs failed
+	return nil
 }
 
-func decodeLog(topics []string, data string, abiObj abi.ABI) *Decoded {
+func decodeLog(topics []string, data string, abiObjs []abi.ABI) *Decoded {
 	if len(topics) == 0 {
 		return nil
 	}
 	eventID := common.HexToHash(topics[0])
-	event, err := abiObj.EventByID(eventID)
-	if err != nil {
-		return nil
-	}
 
-	// Unpack the data portion using the event name
-	dataBytes := common.FromHex(data)
-	dataList, err := abiObj.Unpack(event.Name, dataBytes)
-	if err != nil {
-		return nil
-	}
+	// Try each ABI until one succeeds
+	for _, abiObj := range abiObjs {
+		event, err := abiObj.EventByID(eventID)
+		if err != nil {
+			continue // Try next ABI
+		}
 
-	argsMap := make(map[string]interface{})
+		// Unpack the data portion using the event name
+		dataBytes := common.FromHex(data)
+		dataList, err := abiObj.Unpack(event.Name, dataBytes)
+		if err != nil {
+			continue // Try next ABI
+		}
 
-	// Process indexed and non-indexed arguments
-	topicIndex := 1 // Start at 1 because topics[0] is the event signature
-	dataIndex := 0
+		argsMap := make(map[string]interface{})
 
-	for _, input := range event.Inputs {
-		if input.Indexed {
-			// Indexed arguments are in topics
-			if topicIndex >= len(topics) {
-				return nil
-			}
-			topic := common.HexToHash(topics[topicIndex])
+		// Process indexed and non-indexed arguments
+		topicIndex := 1 // Start at 1 because topics[0] is the event signature
+		dataIndex := 0
+		failed := false
 
-			// For dynamic types (string, bytes, arrays), only the hash is stored in topics
-			// But we still show it in a readable format with a note
-			if isDynamicType(&input.Type) {
-				argsMap[input.Name] = map[string]interface{}{
-					"indexed_hash": topic.Hex(),
-					"note":         "indexed dynamic type - only hash available on-chain",
+		for _, input := range event.Inputs {
+			if input.Indexed {
+				// Indexed arguments are in topics
+				if topicIndex >= len(topics) {
+					failed = true
+					break
 				}
-			} else {
-				// For static types, decode the actual value from the topic
-				args := abi.Arguments{{Type: input.Type}}
-				unpacked, err := args.Unpack(topic[:])
-				if err != nil || len(unpacked) == 0 {
-					argsMap[input.Name] = topic.Hex()
+				topic := common.HexToHash(topics[topicIndex])
+
+				// For dynamic types (string, bytes, arrays), only the hash is stored in topics
+				// But we still show it in a readable format with a note
+				if isDynamicType(&input.Type) {
+					argsMap[input.Name] = map[string]interface{}{
+						"indexed_hash": topic.Hex(),
+						"note":         "indexed dynamic type - only hash available on-chain",
+					}
 				} else {
-					argsMap[input.Name] = formatValue(unpacked[0])
+					// For static types, decode the actual value from the topic
+					args := abi.Arguments{{Type: input.Type}}
+					unpacked, err := args.Unpack(topic[:])
+					if err != nil || len(unpacked) == 0 {
+						argsMap[input.Name] = topic.Hex()
+					} else {
+						argsMap[input.Name] = formatValue(unpacked[0])
+					}
 				}
+				topicIndex++
+			} else {
+				// Non-indexed arguments are in data - these have full values
+				if dataIndex >= len(dataList) {
+					failed = true
+					break
+				}
+				argsMap[input.Name] = formatValue(dataList[dataIndex])
+				dataIndex++
 			}
-			topicIndex++
-		} else {
-			// Non-indexed arguments are in data - these have full values
-			if dataIndex >= len(dataList) {
-				return nil
-			}
-			argsMap[input.Name] = formatValue(dataList[dataIndex])
-			dataIndex++
+		}
+
+		if failed {
+			continue // Try next ABI
+		}
+
+		return &Decoded{
+			Name: event.Name,
+			Sig:  event.Sig,
+			Args: argsMap,
 		}
 	}
 
-	return &Decoded{
-		Name: event.Name,
-		Sig:  event.Sig,
-		Args: argsMap,
-	}
+	// All ABIs failed
+	return nil
 }

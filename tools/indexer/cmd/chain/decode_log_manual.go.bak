@@ -1,0 +1,140 @@
+package main
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"golang.org/x/crypto/sha3"
+)
+
+func main() {
+	// Row 2 log details
+	topics := []string{
+		"0xd26f9e20ff994b4298fe22216ee15de6c9b7a46164d7a5509f2c4d065d8b408a",
+		"0x831d7dc92825177b50069418b100b976d6e7e8a7d52f8c9562e4ada206c2513c",
+		"0x0000000000000000000000004d41ab0e0b71677dfd6d02343afae96641a4c429",
+		"0x000000000000000000000000b3998135372f1ee16cb510af70ed212b5155af62",
+	}
+	data := "0x000000000000000000000000000000000000000000000000000000000023a4b7000000000000000000000000000000000000000000000000000053e8912f9755"
+	address := "0xC973D09e51A20C9Ab0214c439e4B34Dbac52AD67"
+
+	fmt.Printf("Decoding log from address: %s\n", address)
+	fmt.Printf("Event signature: %s\n\n", topics[0])
+
+	// Try all 3 ABIs
+	abiFiles := []string{
+		"abi/BidderRegistry.abi",
+		"contracts/BidderRegistry.abi",
+		"contracts-old/BidderRegistry.abi",
+	}
+
+	for _, abiFile := range abiFiles {
+		fmt.Printf("=== Testing with %s ===\n", abiFile)
+
+		// Read ABI
+		abiData, err := os.ReadFile(abiFile)
+		if err != nil {
+			fmt.Printf("Error reading file: %v\n\n", err)
+			continue
+		}
+
+		// Parse ABI
+		contractABI, err := abi.JSON(strings.NewReader(string(abiData)))
+		if err != nil {
+			fmt.Printf("Error parsing ABI: %v\n\n", err)
+			continue
+		}
+
+		// First, list all events and their signatures
+		fmt.Println("Events in this ABI:")
+		for _, event := range contractABI.Events {
+			sig := event.Sig
+			hash := sha3.NewLegacyKeccak256()
+			hash.Write([]byte(sig))
+			eventID := hex.EncodeToString(hash.Sum(nil))
+			fmt.Printf("  0x%s - %s\n", eventID, sig)
+		}
+		fmt.Println()
+
+		// Try to decode
+		decoded := decodeLogWithABI(topics, data, &contractABI)
+		if decoded != nil {
+			fmt.Printf("✅ DECODE SUCCESS!\n")
+			decodedJSON, _ := json.MarshalIndent(decoded, "", "  ")
+			fmt.Printf("%s\n\n", string(decodedJSON))
+		} else {
+			fmt.Printf("❌ DECODE FAILED\n\n")
+		}
+	}
+}
+
+func decodeLogWithABI(topics []string, dataHex string, contractABI *abi.ABI) map[string]interface{} {
+	if len(topics) == 0 {
+		return nil
+	}
+
+	eventSig := topics[0]
+	if !strings.HasPrefix(eventSig, "0x") {
+		return nil
+	}
+
+	// Convert topics to common.Hash
+	topicHashes := make([]common.Hash, len(topics))
+	for i, topic := range topics {
+		topicHashes[i] = common.HexToHash(topic)
+	}
+
+	// Find the event by signature
+	var foundEvent *abi.Event
+	for _, event := range contractABI.Events {
+		eventID := event.ID
+		if eventID == topicHashes[0] {
+			foundEvent = &event
+			break
+		}
+	}
+
+	if foundEvent == nil {
+		fmt.Printf("  Event signature %s not found in ABI\n", eventSig)
+		return nil
+	}
+
+	// Decode data
+	dataBytes, err := hex.DecodeString(strings.TrimPrefix(dataHex, "0x"))
+	if err != nil {
+		fmt.Printf("  Error decoding data hex: %v\n", err)
+		return nil
+	}
+
+	// Unpack the event
+	eventData := make(map[string]interface{})
+	err = contractABI.UnpackIntoMap(eventData, foundEvent.Name, dataBytes)
+	if err != nil {
+		fmt.Printf("  Error unpacking event data: %v\n", err)
+		return nil
+	}
+
+	// Handle indexed parameters from topics
+	topicIndex := 1
+	for _, input := range foundEvent.Inputs {
+		if input.Indexed {
+			if topicIndex < len(topicHashes) {
+				eventData[input.Name] = topicHashes[topicIndex].Hex()
+				topicIndex++
+			}
+		}
+	}
+
+	result := map[string]interface{}{
+		"name": foundEvent.Name,
+		"sig":  foundEvent.Sig,
+		"args": eventData,
+	}
+
+	return result
+}

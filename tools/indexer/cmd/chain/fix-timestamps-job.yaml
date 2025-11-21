@@ -1,0 +1,300 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fix-timestamps
+  namespace: default
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: fix-timestamps
+        image: golang:1.21
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          # Write the Go source code
+          cat > /tmp/fix_timestamps.go << 'GOCODE'
+          package main
+
+          import (
+          	"bytes"
+          	"context"
+          	"database/sql"
+          	"encoding/json"
+          	"flag"
+          	"fmt"
+          	"io"
+          	"log"
+          	"net/http"
+          	"strconv"
+          	"strings"
+          	"sync"
+          	"time"
+
+          	_ "github.com/go-sql-driver/mysql"
+          )
+
+          type BlockInfo struct {
+          	Number    int64
+          	Hash      string
+          	Timestamp int64
+          }
+
+          type RPCRequest struct {
+          	JSONRPC string        `json:"jsonrpc"`
+          	Method  string        `json:"method"`
+          	Params  []interface{} `json:"params"`
+          	ID      int           `json:"id"`
+          }
+
+          type RPCResponse struct {
+          	JSONRPC string          `json:"jsonrpc"`
+          	ID      int             `json:"id"`
+          	Result  json.RawMessage `json:"result"`
+          	Error   *RPCError       `json:"error,omitempty"`
+          }
+
+          type RPCError struct {
+          	Code    int    `json:"code"`
+          	Message string `json:"message"`
+          }
+
+          type BlockResult struct {
+          	Number    string `json:"number"`
+          	Timestamp string `json:"timestamp"`
+          	Hash      string `json:"hash"`
+          }
+
+          func main() {
+          	rpcURL := flag.String("rpc", "https://chainrpc-v1.mev-commit.xyz", "RPC endpoint URL")
+          	dsn := flag.String("dsn", "", "Database DSN (required)")
+          	batchSize := flag.Int("batch-size", 100, "Number of blocks to process per batch")
+          	workers := flag.Int("workers", 10, "Number of concurrent workers")
+          	dryRun := flag.Bool("dry-run", false, "Dry run mode (don't update database)")
+          	startBlock := flag.Int64("start-block", 0, "Start block number (optional)")
+          	endBlock := flag.Int64("end-block", -1, "End block number (optional, -1 for all)")
+          	flag.Parse()
+
+          	if *dsn == "" {
+          		log.Fatal("--dsn is required")
+          	}
+
+          	log.Printf("Starting timestamp fix")
+          	log.Printf("RPC: %s", *rpcURL)
+          	log.Printf("Batch size: %d", *batchSize)
+          	log.Printf("Workers: %d", *workers)
+          	log.Printf("Dry run: %v", *dryRun)
+
+          	// Connect to database
+          	db, err := sql.Open("mysql", *dsn)
+          	if err != nil {
+          		log.Fatalf("Failed to connect to database: %v", err)
+          	}
+          	defer db.Close()
+
+          	// Get block range
+          	var minBlock, maxBlock int64
+          	query := "SELECT MIN(number), MAX(number) FROM blocks"
+          	if err := db.QueryRow(query).Scan(&minBlock, &maxBlock); err != nil {
+          		log.Fatalf("Failed to get block range: %v", err)
+          	}
+
+          	if *startBlock > 0 {
+          		minBlock = *startBlock
+          	}
+          	if *endBlock >= 0 && *endBlock < maxBlock {
+          		maxBlock = *endBlock
+          	}
+
+          	log.Printf("Block range: %d to %d (total: %d blocks)", minBlock, maxBlock, maxBlock-minBlock+1)
+
+          	// Create worker pool
+          	ctx := context.Background()
+          	blockChan := make(chan int64, *workers*2)
+          	var wg sync.WaitGroup
+
+          	// Stats
+          	var (
+          		totalProcessed int64
+          		totalUpdated   int64
+          		totalErrors    int64
+          		mu             sync.Mutex
+          	)
+
+          	// Start workers
+          	for i := 0; i < *workers; i++ {
+          		wg.Add(1)
+          		go func(workerID int) {
+          			defer wg.Done()
+          			client := &http.Client{Timeout: 30 * time.Second}
+
+          			for blockNum := range blockChan {
+          				// Fetch block from RPC
+          				correctTimestamp, blockHash, err := fetchBlockTimestamp(client, *rpcURL, blockNum)
+          				if err != nil {
+          					log.Printf("[Worker %d] Error fetching block %d: %v", workerID, blockNum, err)
+          					mu.Lock()
+          					totalErrors++
+          					mu.Unlock()
+          					continue
+          				}
+
+          				// Validate timestamp (should be between 2020 and 2030 in milliseconds)
+          				if correctTimestamp < 1577836800000 || correctTimestamp > 1893456000000 {
+          					log.Printf("[Worker %d] WARNING: Block %d has suspicious timestamp: %d (%.2f)",
+          						workerID, blockNum, correctTimestamp, float64(correctTimestamp)/1000)
+          				}
+
+          				// Update database if not dry run
+          				if !*dryRun {
+          					updateQuery := "UPDATE blocks SET timestamp = ? WHERE number = ?"
+          					if _, err := db.ExecContext(ctx, updateQuery, correctTimestamp, blockNum); err != nil {
+          						log.Printf("[Worker %d] Error updating block %d: %v", workerID, blockNum, err)
+          						mu.Lock()
+          						totalErrors++
+          						mu.Unlock()
+          						continue
+          					}
+          				}
+
+          				mu.Lock()
+          				totalProcessed++
+          				totalUpdated++
+          				if totalProcessed%1000 == 0 {
+          					log.Printf("Progress: %d/%d blocks processed (%d updated, %d errors) - Block %d hash: %s ts: %d",
+          						totalProcessed, maxBlock-minBlock+1, totalUpdated, totalErrors, blockNum, blockHash, correctTimestamp)
+          				}
+          				mu.Unlock()
+          			}
+          		}(i)
+          	}
+
+          	// Feed blocks to workers
+          	startTime := time.Now()
+          	go func() {
+          		for blockNum := minBlock; blockNum <= maxBlock; blockNum++ {
+          			blockChan <- blockNum
+          		}
+          		close(blockChan)
+          	}()
+
+          	// Wait for completion
+          	wg.Wait()
+          	elapsed := time.Since(startTime)
+
+          	log.Printf("========================================")
+          	log.Printf("Timestamp fix completed!")
+          	log.Printf("Total processed: %d", totalProcessed)
+          	log.Printf("Total updated: %d", totalUpdated)
+          	log.Printf("Total errors: %d", totalErrors)
+          	log.Printf("Duration: %v", elapsed)
+          	log.Printf("Rate: %.2f blocks/sec", float64(totalProcessed)/elapsed.Seconds())
+          	log.Printf("========================================")
+
+          	if *dryRun {
+          		log.Printf("DRY RUN MODE - No changes were made to the database")
+          	}
+          }
+
+          func fetchBlockTimestamp(client *http.Client, rpcURL string, blockNum int64) (int64, string, error) {
+          	// Convert block number to hex
+          	blockHex := fmt.Sprintf("0x%x", blockNum)
+
+          	// Create RPC request
+          	reqBody := RPCRequest{
+          		JSONRPC: "2.0",
+          		Method:  "eth_getBlockByNumber",
+          		Params:  []interface{}{blockHex, false},
+          		ID:      1,
+          	}
+
+          	reqBytes, err := json.Marshal(reqBody)
+          	if err != nil {
+          		return 0, "", fmt.Errorf("failed to marshal request: %w", err)
+          	}
+
+          	// Make HTTP request
+          	resp, err := client.Post(rpcURL, "application/json", bytes.NewReader(reqBytes))
+          	if err != nil {
+          		return 0, "", fmt.Errorf("HTTP request failed: %w", err)
+          	}
+          	defer resp.Body.Close()
+
+          	if resp.StatusCode != http.StatusOK {
+          		return 0, "", fmt.Errorf("HTTP status: %d", resp.StatusCode)
+          	}
+
+          	// Parse response
+          	body, err := io.ReadAll(resp.Body)
+          	if err != nil {
+          		return 0, "", fmt.Errorf("failed to read response: %w", err)
+          	}
+
+          	var rpcResp RPCResponse
+          	if err := json.Unmarshal(body, &rpcResp); err != nil {
+          		return 0, "", fmt.Errorf("failed to parse response: %w", err)
+          	}
+
+          	if rpcResp.Error != nil {
+          		return 0, "", fmt.Errorf("RPC error: %s", rpcResp.Error.Message)
+          	}
+
+          	// Parse block result
+          	var block BlockResult
+          	if err := json.Unmarshal(rpcResp.Result, &block); err != nil {
+          		return 0, "", fmt.Errorf("failed to parse block: %w", err)
+          	}
+
+          	// Block doesn't exist
+          	if block.Timestamp == "" {
+          		return 0, "", fmt.Errorf("block %d does not exist", blockNum)
+          	}
+
+          	// Convert hex timestamp to int64 (milliseconds)
+          	timestampHex := strings.TrimPrefix(block.Timestamp, "0x")
+          	timestamp, err := strconv.ParseInt(timestampHex, 16, 64)
+          	if err != nil {
+          		return 0, "", fmt.Errorf("failed to parse timestamp: %w", err)
+          	}
+
+          	return timestamp, block.Hash, nil
+          }
+          GOCODE
+
+          # Setup working directory
+          mkdir -p /app
+          cd /app
+
+          # Create go.mod with dependencies
+          cat > go.mod << 'GOMOD'
+          module fix-timestamps
+
+          go 1.21
+
+          require github.com/go-sql-driver/mysql v1.7.1
+          GOMOD
+
+          # Move source file
+          mv /tmp/fix_timestamps.go .
+
+          # Download dependencies and build
+          go mod tidy
+          go build -o fix-timestamps fix_timestamps.go
+
+          # Run with provided arguments
+          ./fix-timestamps \
+            --dsn="root:4NbvoV1yw0ONZpzd4DHSVGWE2oeBTReiTaDfDsvLvSgH7v7bl9MQib9fgyeVCjZB@tcp(starrocks-cluster-fe-service.starrocks.svc.cluster.local:9030)/mev_commit_8855?parseTime=true&interpolateParams=true" \
+            --workers=20 \
+            --batch-size=100
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"

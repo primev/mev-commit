@@ -1,0 +1,39 @@
+{
+  "contracts": [
+    {
+      "address": "0x145a9f4cbae2ec281f417195ea3464dbd04289a2",
+      "name": "BidderRegistry",
+      "abi_path": "BidderRegistry.abi"
+    },
+    {
+      "address": "0x5d64b933739558101f9359e2750acc228f0cb64f",
+      "name": "BlockTracker",
+      "abi_path": "BlockTracker.abi"
+    },
+    {
+      "address": "0x5d64b933739558101f9359e2750acc228f0cb64f",
+      "name": "L1Gateway",
+      "abi_path": "L1Gateway.abi"
+    },
+    {
+      "address": "0x37a037d2423221f403cfa146f5fb962e19582d90",
+      "name": "Oracle",
+      "abi_path": "Oracle.abi"
+    },
+    {
+      "address": "0x2ee9e88f57a7db801e114a4df7a99eb7257871e2",
+      "name": "PreconfManager",
+      "abi_path": "PreconfManager.abi"
+    },
+    {
+      "address": "0xeb6d22309062a86fa194520344530874221ef48c",
+      "name": "ProviderRegistry",
+      "abi_path": "ProviderRegistry.abi"
+    },
+    {
+      "address": "0x21f5f1142200a515248a2eef5b0654581c7f2b46",
+      "name": "SettlementGateway",
+      "abi_path": "SettlementGateway.abi"
+    }
+  ]
+}

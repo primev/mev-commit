@@ -153,6 +153,12 @@ func initializeDatabase(ctx context.Context, dbURL string, logger *slog.Logger) 
 	}
 	logger.Info("[DB] bids table ready")
 
+	if err := db.EnsureRelayFailuresTable(ctx); err != nil {
+		logger.Error("[DB] failed to ensure relay_failures table", "error", err)
+		return nil, err
+	}
+	logger.Info("[DB] relay_failures table ready")
+
 	return db, nil
 }
 
@@ -612,6 +618,9 @@ func runForwardLoop(ctx context.Context, c *cli.Context, db *database.DB, httpc 
 func processValidatorsBatch(ctx context.Context, c *cli.Context, db *database.DB, httpc *retryablehttp.Client, beaconLimiter *rate.Limiter, blocks []*beacon.ExecInfo, beaconBase, beaconchaAPIKey string, logger *slog.Logger) error {
 	t0 := time.Now()
 
+	// OptIn contract deployment block - skip opt-in checks for earlier blocks
+	const optInContractDeploymentBlock = 21400000
+
 	// Step 1: Collect all proposer indices from blocks
 	var proposerIndices []int64
 	slotToProposerIdx := make(map[int64]int64) // slot -> proposerIdx
@@ -652,19 +661,9 @@ func processValidatorsBatch(ctx context.Context, c *cli.Context, db *database.DB
 	saveDuration := time.Since(t2)
 
 	// Step 4: Batch check opt-in status for all validators
+	// Skip if blocks are before contract deployment
 	t3 := time.Now()
-
-	// Collect all pubkeys and map them to slots
-	var pubkeysForOptIn [][]byte
-	pubkeyHexToSlot := make(map[string]int64)
-	slotToPubkeyHex := make(map[int64]string)
-
-	for slot, pubkey := range slotToPubkey {
-		pubkeysForOptIn = append(pubkeysForOptIn, pubkey)
-		pkHex := common.Bytes2Hex(pubkey)
-		pubkeyHexToSlot[pkHex] = slot
-		slotToPubkeyHex[slot] = pkHex
-	}
+	var optInDuration time.Duration
 
 	// Get block number for opt-in check (use first block's number as they should be close)
 	var blockNum int64
@@ -672,26 +671,53 @@ func processValidatorsBatch(ctx context.Context, c *cli.Context, db *database.DB
 		blockNum = blocks[0].BlockNumber
 	}
 
-	// Batch check opt-in status
-	optInMap, err := ethereum.CallAreOptedInAtBlockBatch(httpc.HTTPClient, createOptionsFromCLI(c), blockNum, pubkeysForOptIn)
-	if err != nil {
-		logger.Error("[VALIDATOR] batch opt-in check failed", "error", err)
-		return fmt.Errorf("batch opt-in check: %w", err)
-	}
-
-	// Step 5: Batch save opt-in statuses
 	slotToOptIn := make(map[int64]bool)
-	for slot, pkHex := range slotToPubkeyHex {
-		if opted, found := optInMap[pkHex]; found {
-			slotToOptIn[slot] = opted
-		}
-	}
 
-	if err := db.UpdateValidatorOptInStatusBatch(ctx, slotToOptIn); err != nil {
-		logger.Error("[VALIDATOR] failed to batch save opt-in status", "error", err)
-		return fmt.Errorf("batch save opt-in status: %w", err)
+	// Only check opt-in for blocks after contract deployment
+	if blockNum >= optInContractDeploymentBlock {
+		// Collect all pubkeys and map them to slots
+		var pubkeysForOptIn [][]byte
+		pubkeyHexToSlot := make(map[string]int64)
+		slotToPubkeyHex := make(map[int64]string)
+
+		for slot, pubkey := range slotToPubkey {
+			pubkeysForOptIn = append(pubkeysForOptIn, pubkey)
+			pkHex := common.Bytes2Hex(pubkey)
+			pubkeyHexToSlot[pkHex] = slot
+			slotToPubkeyHex[slot] = pkHex
+		}
+
+		// Batch check opt-in status
+		optInMap, err := ethereum.CallAreOptedInAtBlockBatch(httpc.HTTPClient, createOptionsFromCLI(c), blockNum, pubkeysForOptIn)
+		if err != nil {
+			logger.Error("[VALIDATOR] batch opt-in check failed", "error", err)
+			return fmt.Errorf("batch opt-in check: %w", err)
+		}
+
+		// Step 5: Batch save opt-in statuses
+		for slot, pkHex := range slotToPubkeyHex {
+			if opted, found := optInMap[pkHex]; found {
+				slotToOptIn[slot] = opted
+			}
+		}
+
+		if err := db.UpdateValidatorOptInStatusBatch(ctx, slotToOptIn); err != nil {
+			logger.Error("[VALIDATOR] failed to batch save opt-in status", "error", err)
+			return fmt.Errorf("batch save opt-in status: %w", err)
+		}
+		optInDuration = time.Since(t3)
+	} else {
+		// For blocks before contract deployment, set all validators as not opted-in
+		for slot := range slotToPubkey {
+			slotToOptIn[slot] = false
+		}
+		if err := db.UpdateValidatorOptInStatusBatch(ctx, slotToOptIn); err != nil {
+			logger.Error("[VALIDATOR] failed to batch save opt-in status", "error", err)
+			return fmt.Errorf("batch save opt-in status: %w", err)
+		}
+		optInDuration = time.Since(t3)
+		logger.Debug("[VALIDATOR] skipped opt-in check for historical blocks", "block", blockNum, "deployment_block", optInContractDeploymentBlock)
 	}
-	optInDuration := time.Since(t3)
 
 	totalDuration := time.Since(t0)
 
@@ -927,7 +953,13 @@ func runBidWorker(ctx context.Context, db *database.DB, httpc *retryablehttp.Cli
 
 			for result := range resultsChan {
 				if result.err != nil {
-					errors = append(errors, fmt.Sprintf("relay_%d: %v", result.relayID, result.err))
+					errMsg := fmt.Sprintf("%v", result.err)
+				errors = append(errors, fmt.Sprintf("relay_%d: %s", result.relayID, errMsg))
+
+				// Record relay failure for later retry
+				if recordErr := db.RecordRelayFailure(ctx, block.BlockNumber, block.Slot, result.relayID, errMsg); recordErr != nil {
+					logger.Error("failed to record relay failure", "error", recordErr)
+				}
 				} else {
 					successfulRelays++ // Relay responded successfully (even if 0 bids)
 					if len(result.bidRows) > 0 {
@@ -1109,6 +1141,129 @@ func runBidWorker(ctx context.Context, db *database.DB, httpc *retryablehttp.Cli
 	}
 }
 
+// runRelayFailureCleanup periodically retries failed relay fetches
+func runRelayFailureCleanup(ctx context.Context, db *database.DB, httpc *retryablehttp.Client, relays []relay.Row, logger *slog.Logger) error {
+	logger.Info("relay failure cleanup worker started")
+
+	// Create relay lookup map for quick access
+	relayMap := make(map[int64]relay.Row)
+	for _, r := range relays {
+		relayMap[r.ID] = r
+	}
+
+	ticker := time.NewTicker(60 * time.Second) // Check every minute
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("relay failure cleanup worker shutting down")
+			return nil
+		case <-ticker.C:
+			// Get relay failures that need retry (max 100 at a time, max 10 attempts per failure)
+			failures, err := db.GetRelayFailures(ctx, 10, 100)
+			if err != nil {
+				logger.Error("failed to query relay failures", "error", err)
+				continue
+			}
+
+			if len(failures) == 0 {
+				logger.Debug("no relay failures to retry")
+				continue
+			}
+
+			logger.Info("retrying failed relay fetches", "count", len(failures))
+
+			successCount := 0
+			failCount := 0
+
+			for _, failure := range failures {
+				if err := ctx.Err(); err != nil {
+					return nil
+				}
+
+				// Look up relay info
+				r, found := relayMap[failure.RelayID]
+				if !found {
+					logger.Warn("relay ID not found in config, skipping", "relay_id", failure.RelayID)
+					// Delete this failure since relay no longer exists
+					db.DeleteRelayFailure(ctx, failure.BlockNumber, failure.RelayID)
+					continue
+				}
+
+				// Retry fetching bids for this relay+block combination
+				retryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				bids, err := relay.FetchBuilderBlocksReceived(retryCtx, httpc, r.URL, failure.Slot)
+				cancel()
+
+				if err != nil {
+					logger.Warn("relay failure retry failed",
+						"relay_id", failure.RelayID,
+						"block", failure.BlockNumber,
+						"slot", failure.Slot,
+						"attempt", failure.AttemptCount+1,
+						"error", err)
+
+					// Update failure record with new attempt
+					errMsg := fmt.Sprintf("%v", err)
+					if recordErr := db.RecordRelayFailure(ctx, failure.BlockNumber, failure.Slot, failure.RelayID, errMsg); recordErr != nil {
+						logger.Error("failed to update relay failure record", "error", recordErr)
+					}
+					failCount++
+					continue
+				}
+
+				// Success! Insert bids and delete failure record
+				if len(bids) > 0 {
+					bidRows := make([]database.BidRow, 0, len(bids))
+					for _, bid := range bids {
+						if row, ok := relay.BuildBidInsert(failure.Slot, failure.RelayID, bid); ok {
+							bidRows = append(bidRows, row)
+						}
+					}
+
+					if len(bidRows) > 0 {
+						insertCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+						if err := db.InsertBidsBatch(insertCtx, bidRows); err != nil {
+							logger.Error("failed to insert retried bids",
+								"relay_id", failure.RelayID,
+								"block", failure.BlockNumber,
+								"bids", len(bidRows),
+								"error", err)
+							cancel()
+							failCount++
+							continue
+						}
+						cancel()
+
+						logger.Info("relay failure retry succeeded",
+							"relay_id", failure.RelayID,
+							"block", failure.BlockNumber,
+							"slot", failure.Slot,
+							"bids_inserted", len(bidRows))
+					}
+				} else {
+					logger.Debug("relay retry returned 0 bids (valid case)",
+						"relay_id", failure.RelayID,
+						"block", failure.BlockNumber,
+						"slot", failure.Slot)
+				}
+
+				// Delete failure record
+				if err := db.DeleteRelayFailure(ctx, failure.BlockNumber, failure.RelayID); err != nil {
+					logger.Error("failed to delete relay failure record", "error", err)
+				}
+				successCount++
+			}
+
+			logger.Info("relay failure cleanup batch completed",
+				"total", len(failures),
+				"succeeded", successCount,
+				"failed", failCount)
+		}
+	}
+}
+
 func startIndexer(c *cli.Context) error {
 
 	initLogger := slog.With("component", "init")
@@ -1240,6 +1395,14 @@ func startIndexer(c *cli.Context) error {
 			logger := initLogger.With("worker", "bid-backward")
 			logger.Info("launching backward bid worker")
 			err := runBidWorker(ctx, db, httpc, relays, maxBlock, "backward", logger)
+			errChan <- err
+		}()
+
+		// Launch relay failure cleanup worker
+		go func() {
+			logger := initLogger.With("worker", "relay-failure-cleanup")
+			logger.Info("launching relay failure cleanup worker")
+			err := runRelayFailureCleanup(ctx, db, httpc, relays, logger)
 			errChan <- err
 		}()
 	}

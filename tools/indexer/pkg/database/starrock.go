@@ -327,6 +327,32 @@ func (db *DB) EnsureBidsTable(ctx context.Context) error {
 	return nil
 }
 
+func (db *DB) EnsureRelayFailuresTable(ctx context.Context) error {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	ddl := `
+	CREATE TABLE IF NOT EXISTS relay_failures (
+		block_number BIGINT,
+		relay_id BIGINT,
+		slot BIGINT,
+		error_message VARCHAR(1000),
+		last_attempt DATETIME,
+		attempt_count INT
+	) ENGINE=OLAP
+	PRIMARY KEY(block_number, relay_id)
+	DISTRIBUTED BY HASH(block_number) BUCKETS 10
+	PROPERTIES (
+		"replication_num" = "1"
+	)`
+
+	if _, err := db.conn.ExecContext(ctx2, ddl); err != nil {
+		return fmt.Errorf("failed to create relay_failures table: %w", err)
+	}
+
+	return nil
+}
+
 func (db *DB) GetMaxBlockNumber(ctx context.Context) (int64, error) {
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -446,6 +472,115 @@ func (db *DB) SaveBackwardCheckpoint(ctx context.Context, bn int64) error {
 		return fmt.Errorf("save backward checkpoint failed: %w", err)
 	}
 	return nil
+}
+
+// RecordRelayFailure tracks a relay failure for a specific block
+func (db *DB) RecordRelayFailure(ctx context.Context, blockNumber, slot, relayID int64, errMsg string) error {
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	// Truncate error message to fit in VARCHAR(1000)
+	if len(errMsg) > 1000 {
+		errMsg = errMsg[:997] + "..."
+	}
+
+	// StarRocks doesn't support ON DUPLICATE KEY UPDATE, so we use UPDATE + INSERT pattern
+	// First, try to get existing record
+	var existingAttemptCount int
+	selectQuery := `SELECT attempt_count FROM relay_failures WHERE block_number = ? AND relay_id = ?`
+	err := db.conn.QueryRowContext(ctx2, selectQuery, blockNumber, relayID).Scan(&existingAttemptCount)
+
+	if err == sql.ErrNoRows {
+		// No existing record, insert new one
+		insertQuery := `
+			INSERT INTO relay_failures (block_number, relay_id, slot, error_message, last_attempt, attempt_count)
+			VALUES (?, ?, ?, ?, NOW(), 1)
+		`
+		_, err := db.conn.ExecContext(ctx2, insertQuery, blockNumber, relayID, slot, errMsg)
+		if err != nil {
+			return fmt.Errorf("failed to insert relay failure: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to query existing relay failure: %w", err)
+	} else {
+		// Record exists, update it
+		updateQuery := `
+			UPDATE relay_failures
+			SET error_message = ?, last_attempt = NOW(), attempt_count = ?
+			WHERE block_number = ? AND relay_id = ?
+		`
+		_, err := db.conn.ExecContext(ctx2, updateQuery, errMsg, existingAttemptCount+1, blockNumber, relayID)
+		if err != nil {
+			return fmt.Errorf("failed to update relay failure: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// DeleteRelayFailure removes a relay failure record after successful retry
+func (db *DB) DeleteRelayFailure(ctx context.Context, blockNumber, relayID int64) error {
+	ctx2, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	query := `DELETE FROM relay_failures WHERE block_number = ? AND relay_id = ?`
+	_, err := db.conn.ExecContext(ctx2, query, blockNumber, relayID)
+	if err != nil {
+		return fmt.Errorf("failed to delete relay failure: %w", err)
+	}
+	return nil
+}
+
+// RelayFailure represents a failed relay fetch that needs retry
+type RelayFailure struct {
+	BlockNumber  int64
+	Slot         int64
+	RelayID      int64
+	ErrorMessage string
+	LastAttempt  time.Time
+	AttemptCount int
+}
+
+// GetRelayFailures returns relay failures that need retry
+// maxAttempts: only return failures with attempt_count < maxAttempts (0 = no limit)
+// limit: maximum number of failures to return
+func (db *DB) GetRelayFailures(ctx context.Context, maxAttempts, limit int64) ([]RelayFailure, error) {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	whereClause := ""
+	if maxAttempts > 0 {
+		whereClause = fmt.Sprintf("WHERE attempt_count < %d", maxAttempts)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT block_number, slot, relay_id, error_message, last_attempt, attempt_count
+		FROM relay_failures
+		%s
+		ORDER BY block_number ASC, relay_id ASC
+		LIMIT ?
+	`, whereClause)
+
+	rows, err := db.conn.QueryContext(ctx2, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query relay failures: %w", err)
+	}
+	defer rows.Close()
+
+	var failures []RelayFailure
+	for rows.Next() {
+		var f RelayFailure
+		if err := rows.Scan(&f.BlockNumber, &f.Slot, &f.RelayID, &f.ErrorMessage, &f.LastAttempt, &f.AttemptCount); err != nil {
+			return nil, fmt.Errorf("failed to scan relay failure: %w", err)
+		}
+		failures = append(failures, f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return failures, nil
 }
 
 func (db *DB) UpsertBlockFromExec(ctx context.Context, ei *beacon.ExecInfo) error {

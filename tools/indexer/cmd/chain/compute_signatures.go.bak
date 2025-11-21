@@ -1,0 +1,79 @@
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"golang.org/x/crypto/sha3"
+)
+
+type ABIElement struct {
+	Type   string `json:"type"`
+	Name   string `json:"name"`
+	Inputs []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	} `json:"inputs"`
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run compute_signatures.go <abi_file>")
+		os.Exit(1)
+	}
+
+	abiFile := os.Args[1]
+	data, err := os.ReadFile(abiFile)
+	if err != nil {
+		fmt.Printf("Error reading file: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Parse the ABI
+	contractABI, err := abi.JSON(strings.NewReader(string(data)))
+	if err != nil {
+		fmt.Printf("Error parsing ABI: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Also parse as JSON to get raw elements
+	var elements []ABIElement
+	if err := json.Unmarshal(data, &elements); err != nil {
+		fmt.Printf("Error parsing JSON: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\n=== %s ===\n", abiFile)
+	fmt.Printf("\nMETHODS:\n")
+
+	// Print method signatures
+	for _, method := range contractABI.Methods {
+		sig := method.Sig
+		hash := sha3.NewLegacyKeccak256()
+		hash.Write([]byte(sig))
+		methodID := hex.EncodeToString(hash.Sum(nil)[:4])
+		fmt.Printf("0x%s - %s\n", methodID, sig)
+	}
+
+	fmt.Printf("\nEVENTS:\n")
+
+	// Print event signatures
+	for _, event := range contractABI.Events {
+		sig := event.Sig
+		hash := sha3.NewLegacyKeccak256()
+		hash.Write([]byte(sig))
+		eventID := hex.EncodeToString(hash.Sum(nil))
+		fmt.Printf("0x%s - %s\n", eventID, sig)
+	}
+
+	// Compute file hash
+	hash := sha256.New()
+	hash.Write(data)
+	fileHash := hex.EncodeToString(hash.Sum(nil))
+	fmt.Printf("\nFile SHA256: %s\n", fileHash)
+}

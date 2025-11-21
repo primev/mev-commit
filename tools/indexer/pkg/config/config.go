@@ -37,16 +37,18 @@ func ResolveRelays(c *cli.Context) ([]Relay, error) {
 }
 
 type Config struct {
-	BlockTick       time.Duration
-	ValidatorWait   time.Duration
-	BatchSize       int
-	FetchWorkers    int
-	HTTPTimeout     time.Duration
-	OptInContract   string
-	RPCURL          string
-	BeaconBase      string
-	BeaconchaAPIKey string
-	BeaconchaRPS    int
-	RelayData       bool
-	RelaysJSON      string
+	BlockTick        time.Duration
+	ValidatorWait    time.Duration
+	BatchSize        int
+	FetchWorkers     int
+	HTTPTimeout      time.Duration
+	OptInContract    string
+	RPCURL           string
+	BeaconBase       string
+	BeaconchaAPIKey  string
+	BeaconchaRPS     int
+	RelayData        bool
+	RelaysJSON       string
+	BackfillLookback int64
+	BackfillBatch    int
 }
