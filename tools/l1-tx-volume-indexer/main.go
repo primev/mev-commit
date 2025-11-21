@@ -150,7 +150,9 @@ func fillDatabase(apiKey string) error {
 	if err != nil {
 		return fmt.Errorf("sql.Open: %w", err)
 	}
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	if err := db.Ping(); err != nil {
 		return fmt.Errorf("db.Ping: %w", err)
@@ -195,12 +197,15 @@ PROPERTIES(
 	for exRows.Next() {
 		var ci string
 		if err := exRows.Scan(&ci); err != nil {
-			exRows.Close()
+			_ = exRows.Close()
 			return fmt.Errorf("scan existing commitment_index: %w", err)
 		}
 		existing[ci] = struct{}{}
 	}
-	exRows.Close()
+	if err := exRows.Close(); err != nil {
+		// best-effort, log and continue
+		log.Printf("error closing exRows: %v", err)
+	}
 	log.Printf("Found %d commitments with existing non-null total_vol_eth", len(existing))
 
 	// 3) Query StarRocks view for commitment_index + bidder/committer + L1 tx hash
@@ -258,7 +263,9 @@ PROPERTIES(
 	if err != nil {
 		return fmt.Errorf("query StarRocks commitments: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	// 4) Plain INSERT (StarRocks PK table → behaves like upsert)
 	insertStmt := `
@@ -340,7 +347,9 @@ func processFile(path, apiKey string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	scanner := bufio.NewScanner(f)
 	lineNum := 0
@@ -522,10 +531,11 @@ func fetchTransaction(txHash, apiKey string) (*TxResponse, error) {
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("http request error: %w", err)
-			// network error → retry
 		} else {
 			body, readErr := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			if cerr := resp.Body.Close(); cerr != nil {
+				log.Printf("error closing tx response body: %v", cerr)
+			}
 			if readErr != nil {
 				lastErr = fmt.Errorf("reading response body: %w", readErr)
 			} else {
@@ -606,7 +616,9 @@ func fetchTokenPricesETH(apiKey string, tokenSet map[string]struct{}, dateStr st
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	var pr PricingResponse
 	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
@@ -693,11 +705,4 @@ func weiStringToEth(s string) (float64, error) {
 
 func sameAddress(a, b string) bool {
 	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
-}
-
-func getenvDefault(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
 }
