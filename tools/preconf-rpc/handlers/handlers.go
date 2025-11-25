@@ -443,6 +443,15 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		)
 	}
 
+	commitments, err := h.store.GetTransactionCommitments(ctx, txHash)
+	if err != nil {
+		h.logger.Error("Failed to get transaction commitments", "error", err, "txHash", txHash)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to get transaction commitments",
+		)
+	}
+
 	result := map[string]interface{}{
 		"type":              hexutil.Uint(txn.Transaction.Type()),
 		"transactionHash":   txn.Hash().Hex(),
@@ -463,6 +472,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		result["status"] = hexutil.Uint64(types.ReceiptStatusSuccessful)
 		result["blockHash"] = txn.Hash().Hex()
 		result["blockNumber"] = hexutil.EncodeBig(big.NewInt(txn.BlockNumber))
+		result["maxBidAmount"] = getFinalBidAmount(commitments).String()
 	}
 
 	receiptJSON, err := json.Marshal(result)
@@ -653,4 +663,17 @@ func (r *rpcMethodHandler) handleCancelTransaction(ctx context.Context, params .
 
 	r.logger.Info("Transaction cancelled successfully", "txHash", txHash)
 	return json.RawMessage(fmt.Sprintf(`{"cancelled": true, "txHash": "%s"}`, txHash.Hex())), false, nil
+}
+
+func getFinalBidAmount(cmts []*bidderapiv1.Commitment) *big.Int {
+	finalBid := big.NewInt(0)
+	for _, cmt := range cmts {
+		bidAmount, ok := new(big.Int).SetString(cmt.BidAmount, 10)
+		if ok {
+			if bidAmount.Cmp(finalBid) > 0 {
+				finalBid = bidAmount
+			}
+		}
+	}
+	return finalBid
 }

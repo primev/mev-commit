@@ -91,15 +91,19 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 					b.log.Error("Block not found in cache", "blockNumber", bNo)
 					continue
 				}
+				txnsToClear := make([]common.Hash, 0)
+				b.txnToCheckMu.Lock()
 				for txHash, resultCh := range b.txnsToCheck {
 					if txn := block.Transaction(txHash); txn != nil {
 						resultCh <- bNo
 						close(resultCh)
-						b.txnToCheckMu.Lock()
-						delete(b.txnsToCheck, txHash)
-						b.txnToCheckMu.Unlock()
+						txnsToClear = append(txnsToClear, txHash)
 					}
 				}
+				for _, txHash := range txnsToClear {
+					delete(b.txnsToCheck, txHash)
+				}
+				b.txnToCheckMu.Unlock()
 			}
 		}
 	})

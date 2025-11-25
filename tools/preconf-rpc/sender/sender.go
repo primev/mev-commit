@@ -682,7 +682,7 @@ func (t *TxSender) sendBid(
 	if !isRetry {
 		logs, err := t.simulator.Simulate(ctx, txn.Raw)
 		if err != nil {
-			if t.blockTracker.LatestBlockNumber() < bidBlockNo {
+			if t.blockTracker.LatestBlockNumber()+1 < bidBlockNo {
 				logger.Warn(
 					"Simulation failed, but block may not be mined yet, will retry",
 					"error", err,
