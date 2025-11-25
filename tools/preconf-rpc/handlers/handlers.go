@@ -189,6 +189,25 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 		h.logger.Debug("Estimated bridge price", "bidAmount", bridgeCost, "bridgeAddress", h.bridgeAddress.Hex())
 		return resultJSON, false, nil
 	})
+	server.RegisterHandler("mevcommit_estimateGasPrice", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		blockPrices := h.pricer.EstimatePrice(ctx)
+
+		minPrice, maxPrice := getMinMaxPrice(blockPrices)
+		result := map[string]interface{}{
+			"minGasPrice": hexutil.EncodeBig(minPrice),
+			"maxGasPrice": hexutil.EncodeBig(maxPrice),
+		}
+		resultJSON, err := json.Marshal(result)
+		if err != nil {
+			h.logger.Error("Failed to marshal gas price estimate to JSON", "error", err)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal gas price estimate",
+			)
+		}
+		return resultJSON, false, nil
+	})
+
 	server.RegisterHandler("mevcommit_cancelTransaction", h.handleCancelTransaction)
 	server.RegisterHandler("mevcommit_getTransactionCommitments", h.handleGetTxCommitments)
 	server.RegisterHandler("mevcommit_getBalance", h.handleMevCommitGetBalance)
@@ -203,6 +222,24 @@ func getNextBlockPrice(blockPrices map[int64]float64) *big.Int {
 	}
 
 	return big.NewInt(0) // Return zero if no suitable estimate is found
+}
+
+func getMinMaxPrice(blockPrices map[int64]float64) (*big.Int, *big.Int) {
+	minPrice := big.NewInt(0)
+	maxPrice := big.NewInt(0)
+
+	for confidence, price := range blockPrices {
+		if confidence == 90 {
+			minPriceInWei := price * 1e9 // Convert Gwei to Wei
+			minPrice = new(big.Int).SetUint64(uint64(minPriceInWei))
+		}
+		if confidence == 99 {
+			maxPriceInWei := price * 1e9 // Convert Gwei to Wei
+			maxPrice = new(big.Int).SetUint64(uint64(maxPriceInWei))
+		}
+	}
+
+	return minPrice, maxPrice
 }
 
 func (h *rpcMethodHandler) handleGetBlockByHash(
