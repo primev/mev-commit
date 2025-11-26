@@ -198,13 +198,13 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 		h.logger.Debug("Estimated bridge price", "bidAmount", bridgeCost, "bridgeAddress", h.bridgeAddress.Hex())
 		return resultJSON, false, nil
 	})
-	server.RegisterHandler("mevcommit_estimateGasPrice", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+	server.RegisterHandler("mevcommit_estimateBidPricePerGas", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
 		blockPrices := h.pricer.EstimatePrice(ctx)
 
 		minPrice, maxPrice := getMinMaxPrice(blockPrices)
 		result := map[string]interface{}{
-			"minGasPrice": hexutil.EncodeBig(minPrice),
-			"maxGasPrice": hexutil.EncodeBig(maxPrice),
+			"minGasPrice": minPrice.String(),
+			"maxGasPrice": maxPrice.String(),
 		}
 		resultJSON, err := json.Marshal(result)
 		if err != nil {
