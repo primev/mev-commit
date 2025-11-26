@@ -20,6 +20,8 @@ const (
 	bridgeLimitWei = 1000000000000000000 // 1 ETH
 )
 
+type positionConstraintKey struct{}
+
 type Bidder interface {
 	Estimate() (int64, error)
 }
@@ -32,17 +34,28 @@ type Store interface {
 	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error)
 	GetTransactionsForBlock(ctx context.Context, blockNumber int64) ([]*sender.Transaction, error)
 	GetTransactionCommitments(ctx context.Context, txnHash common.Hash) ([]*bidderapiv1.Commitment, error)
+	GetTransactionLogs(ctx context.Context, txnHash common.Hash) ([]*types.Log, error)
 	GetBalance(ctx context.Context, account common.Address) (*big.Int, error)
 	GetCurrentNonce(ctx context.Context, account common.Address) uint64
 }
 
 type BlockTracker interface {
 	LatestBlockNumber() uint64
+	AccountNonce(ctx context.Context, account common.Address) (uint64, error)
 }
 
 type Sender interface {
 	Enqueue(ctx context.Context, txn *sender.Transaction) error
 	CancelTransaction(ctx context.Context, txHash common.Hash) (bool, error)
+}
+
+func SetPositionConstraint(ctx context.Context, constraint *bidderapiv1.PositionConstraint) context.Context {
+	return context.WithValue(ctx, positionConstraintKey{}, constraint)
+}
+
+func getPositionConstraint(ctx context.Context) (*bidderapiv1.PositionConstraint, bool) {
+	value, ok := ctx.Value(positionConstraintKey{}).(*bidderapiv1.PositionConstraint)
+	return value, ok
 }
 
 type rpcMethodHandler struct {
@@ -83,7 +96,7 @@ func NewRPCMethodHandler(
 
 func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 	// Ethereum JSON-RPC methods overridden
-	server.RegisterHandler("eth_getBlockNumber", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+	server.RegisterHandler("eth_blockNumber", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
 		blockNumber := h.blockTracker.LatestBlockNumber()
 
 		blockNumberJSON, err := json.Marshal(hexutil.Uint64(blockNumber))
@@ -356,12 +369,18 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		}
 	}
 
-	err = h.sndr.Enqueue(ctx, &sender.Transaction{
+	txnToEnqueue := &sender.Transaction{
 		Transaction: txn,
 		Raw:         rawTxHex,
 		Sender:      txSender,
 		Type:        txType,
-	})
+	}
+	constraint, ok := getPositionConstraint(ctx)
+	if ok {
+		txnToEnqueue.Constraint = constraint
+	}
+
+	err = h.sndr.Enqueue(ctx, txnToEnqueue)
 	if err != nil {
 		h.logger.Error("Failed to enqueue transaction for sending", "error", err, "sender", txSender.Hex())
 		return nil, false, rpcserver.NewJSONErr(
@@ -411,9 +430,17 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		return nil, true, nil
 	}
 
-	if txn.Status != sender.TxStatusFailed &&
-		(txn.Status != sender.TxStatusPreConfirmed || h.blockTracker.LatestBlockNumber() > uint64(txn.BlockNumber)) {
+	if txn.Status != sender.TxStatusFailed && txn.Status != sender.TxStatusPreConfirmed {
 		return nil, true, nil
+	}
+
+	logs, err := h.store.GetTransactionLogs(ctx, txHash)
+	if err != nil {
+		h.logger.Error("Failed to get transaction logs", "error", err, "txHash", txHash)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to get transaction logs",
+		)
 	}
 
 	result := map[string]interface{}{
@@ -425,7 +452,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 		"contractAddress":   (common.Address{}).Hex(),
 		"gasUsed":           hexutil.Uint64(0),
 		"cumulativeGasUsed": hexutil.Uint64(1),
-		"logs":              []*types.Log{}, // should be [] not null
+		"logs":              logs,
 		"logsBloom":         hexutil.Bytes(types.Bloom{}.Bytes()),
 		"effectiveGasPrice": hexutil.EncodeBig(big.NewInt(0)),
 	}
@@ -479,6 +506,13 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 	}
 
 	accNonce += 1
+
+	backendNonce, err := h.blockTracker.AccountNonce(ctx, common.HexToAddress(account))
+	if err == nil {
+		if backendNonce > accNonce {
+			accNonce = backendNonce
+		}
+	}
 
 	nonceJSON, err := json.Marshal(accNonce)
 	if err != nil {
@@ -571,11 +605,8 @@ func (h *rpcMethodHandler) handleMevCommitGetBalance(ctx context.Context, params
 
 	balance, err := h.store.GetBalance(ctx, common.HexToAddress(account))
 	if err != nil {
-		h.logger.Error("Failed to get balance for account", "error", err, "account", account)
-		return nil, false, rpcserver.NewJSONErr(
-			rpcserver.CodeCustomError,
-			"failed to get balance for account",
-		)
+		h.logger.Warn("Failed to get balance for account, returning 0", "error", err, "account", account)
+		balance = big.NewInt(0)
 	}
 
 	return json.RawMessage(fmt.Sprintf(`{"balance": "%s"}`, balance)), false, nil

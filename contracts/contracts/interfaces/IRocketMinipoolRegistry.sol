@@ -2,7 +2,6 @@
 pragma solidity 0.8.26;
 
 interface IRocketMinipoolRegistry {
-
     struct ValidatorRegistration {
         bool exists;
         uint64 deregTimestamp;
@@ -46,9 +45,18 @@ interface IRocketMinipoolRegistry {
 
     error NotMinipoolOperator(bytes validatorPubkey);
 
+    error ExpiredSignature();
+    error InvalidSignature();
+
+    error NotWithdrawalAddress(address withdrawalAddress);
+
+    error NoKeysProvided();
+
+    error MixedNodeBatch(bytes validatorPubkey);
+
     error MinipoolNotActive(bytes validatorPubkey);
 
-    error NoMinipoolForKey(bytes validatorPubkey);
+    error NoMinipoolForKey();
 
     error DeregRequestDoesNotExist(bytes validatorPubkey);
 
@@ -75,6 +83,21 @@ interface IRocketMinipoolRegistry {
     /// @notice Deregisters validators.
     function deregisterValidators(bytes[] calldata validatorPubkeys) external;
 
+    /// @notice Registers validators with a signature from the node address.
+    function registerValidatorsWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline)
+        external;
+
+    /// @notice Requests deregistration for validators with a signature from the node address.
+    function requestValidatorDeregistrationWithSig(
+        bytes[] calldata valPubKeys,
+        bytes calldata signature,
+        uint256 deadline
+    ) external;
+
+    /// @notice Deregisters validators with a signature from the node address.
+    function deregisterValidatorsWithSig(bytes[] calldata valPubKeys, bytes calldata signature, uint256 deadline)
+        external;
+
     /// @notice Freezes validators.
     function freeze(bytes[] calldata validatorPubkeys) external;
 
@@ -99,9 +122,7 @@ interface IRocketMinipoolRegistry {
     /// @notice Returns the validator registration info.
     function getValidatorRegInfo(bytes calldata validatorPubkey) external view returns (ValidatorRegistration memory);
 
-    /// @notice Checks if a validator is opted-in.  
+    /// @notice Checks if a validator is opted-in.
     function isValidatorOptedIn(bytes calldata validatorPubkey) external view returns (bool);
 
-    /// @notice Checks if an operator is valid to interact on behalf of a validator.
-    function isOperatorValidForKey(address operator, bytes calldata validatorPubkey) external view returns (bool);
 }

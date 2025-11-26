@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	optinbidder "github.com/primev/mev-commit/x/opt-in-bidder"
+	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -37,23 +37,26 @@ const (
 )
 
 const (
-	blockTime                    = 12                     // seconds, typical Ethereum block time
-	bidTimeout                   = 100 * time.Millisecond // timeout for bid operations
-	defaultConfidence            = 90                     // default confidence level for the next block
-	confidenceSecondAttempt      = 95                     // confidence level for the second attempt
-	confidenceSubsequentAttempts = 99                     // confidence level for subsequent attempts
-	transactionTimeout           = 10 * time.Minute       // timeout for transaction processing
+	blockTime                    = 12               // seconds, typical Ethereum block time
+	bidTimeout                   = 3 * time.Second  // timeout for bid operation
+	defaultConfidence            = 90               // default confidence level for the next block
+	confidenceSecondAttempt      = 95               // confidence level for the second attempt
+	confidenceSubsequentAttempts = 99               // confidence level for subsequent attempts
+	transactionTimeout           = 10 * time.Minute // timeout for transaction processing
+	maxAttemptsPerBlock          = 10               // maximum attempts per block
+	defaultRetryDelay            = 500 * time.Millisecond
 )
 
 var (
-	ErrInvalidTransaction       = errors.New("invalid transaction")
-	ErrUnsupportedTxType        = errors.New("unsupported transaction type")
-	ErrEmptyRawTransaction      = errors.New("empty raw transaction")
-	ErrEmptyTransactionTo       = errors.New("empty transaction 'to' address")
-	ErrNegativeTransactionValue = errors.New("negative transaction value")
-	ErrZeroGasLimit             = errors.New("zero gas limit")
-	ErrTransactionCancelled     = errors.New("transaction cancelled by user")
-	ErrTimeoutExceeded          = errors.New("timeout exceeded while waiting for transaction to be processed")
+	ErrInvalidTransaction          = errors.New("invalid transaction")
+	ErrUnsupportedTxType           = errors.New("unsupported transaction type")
+	ErrEmptyRawTransaction         = errors.New("empty raw transaction")
+	ErrEmptyTransactionTo          = errors.New("empty transaction 'to' address")
+	ErrNegativeTransactionValue    = errors.New("negative transaction value")
+	ErrZeroGasLimit                = errors.New("zero gas limit")
+	ErrTransactionCancelled        = errors.New("transaction cancelled by user")
+	ErrTimeoutExceeded             = errors.New("timeout exceeded while waiting for transaction to be processed")
+	ErrMaxAttemptsPerBlockExceeded = errors.New("maximum attempts exceeded for transaction in the current block")
 )
 
 type Transaction struct {
@@ -64,6 +67,11 @@ type Transaction struct {
 	Status      TxStatus
 	Details     string
 	BlockNumber int64
+	Constraint  *bidderapiv1.PositionConstraint
+	// local fields not stored in DB
+	noOfProviders int
+	commitments   []*bidderapiv1.Commitment
+	logs          []*types.Log
 }
 
 type Store interface {
@@ -73,7 +81,7 @@ type Store interface {
 	HasBalance(ctx context.Context, sender common.Address, amount *big.Int) bool
 	AddBalance(ctx context.Context, account common.Address, amount *big.Int) error
 	DeductBalance(ctx context.Context, account common.Address, amount *big.Int) error
-	StoreTransaction(ctx context.Context, txn *Transaction, commitments []*bidderapiv1.Commitment) error
+	StoreTransaction(ctx context.Context, txn *Transaction, commitments []*bidderapiv1.Commitment, logs []*types.Log) error
 	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*Transaction, error)
 }
 
@@ -84,8 +92,9 @@ type Bidder interface {
 		bidAmount *big.Int,
 		slashAmount *big.Int,
 		rawTx string,
-		opts *optinbidder.BidOpts,
-	) (chan optinbidder.BidStatus, error)
+		opts *bidder.BidOpts,
+	) (chan bidder.BidStatus, error)
+	ConnectedProviders(ctx context.Context) ([]string, error)
 }
 
 type Pricer interface {
@@ -93,12 +102,17 @@ type Pricer interface {
 }
 
 type BlockTracker interface {
-	CheckTxnInclusion(ctx context.Context, txnHash common.Hash, blockNumber uint64) (bool, error)
+	WaitForTxnInclusion(txnHash common.Hash) chan uint64
 	NextBlockNumber() (uint64, time.Duration, error)
+	LatestBlockNumber() uint64
 }
 
 type Transferer interface {
 	Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error
+}
+
+type Simulator interface {
+	Simulate(ctx context.Context, txRaw string) ([]*types.Log, error)
 }
 
 type blockAttempt struct {
@@ -113,7 +127,7 @@ type txnAttempt struct {
 }
 
 type Notifier interface {
-	NotifyTransactionStatus(txn *Transaction, noOfAttempts int, start time.Time)
+	NotifyTransactionStatus(txn *Transaction, noOfAttempts, noOfBlocks int, timeTaken time.Duration)
 }
 
 type TxSender struct {
@@ -134,7 +148,10 @@ type TxSender struct {
 	processMu         sync.RWMutex
 	txnAttemptHistory *lru.Cache[common.Hash, *txnAttempt]
 	notifier          Notifier
+	simulator         Simulator
 	fastTrack         func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool
+	bidTimeout        time.Duration
+	timeoutMtx        sync.RWMutex
 }
 
 func noOpFastTrack(_ []*bidderapiv1.Commitment, _ bool) bool {
@@ -148,18 +165,14 @@ func NewTxSender(
 	blockTracker BlockTracker,
 	transferer Transferer,
 	notifier Notifier,
+	simulator Simulator,
 	settlementChainId *big.Int,
-	fastTrack func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool,
 	logger *slog.Logger,
 ) (*TxSender, error) {
 	txnAttemptHistory, err := lru.New[common.Hash, *txnAttempt](1000)
 	if err != nil {
 		logger.Error("Failed to create transaction attempt history cache", "error", err)
 		return nil, fmt.Errorf("failed to create transaction attempt history cache: %w", err)
-	}
-
-	if fastTrack == nil {
-		fastTrack = noOpFastTrack
 	}
 
 	return &TxSender{
@@ -176,7 +189,9 @@ func NewTxSender(
 		inflightAccount:   make(map[common.Address]struct{}),
 		txnAttemptHistory: txnAttemptHistory,
 		notifier:          notifier,
-		fastTrack:         fastTrack,
+		simulator:         simulator,
+		fastTrack:         noOpFastTrack,
+		bidTimeout:        bidTimeout,
 	}, nil
 }
 
@@ -213,6 +228,10 @@ func (t *TxSender) triggerSender() {
 	default:
 		// Non-blocking send, if the channel is full, we do nothing
 	}
+}
+
+func (t *TxSender) SetFastTrackFunc(fastTrack func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool) {
+	t.fastTrack = fastTrack
 }
 
 func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
@@ -252,7 +271,7 @@ func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (
 				if txn.Status == TxStatusPending {
 					txn.Status = TxStatusFailed
 					txn.Details = ErrTransactionCancelled.Error()
-					if err := t.store.StoreTransaction(ctx, txn, nil); err != nil {
+					if err := t.store.StoreTransaction(ctx, txn, nil, nil); err != nil {
 						t.logger.Error("Failed to store cancelled transaction", "hash", txnHash.Hex(), "error", err)
 						return false, fmt.Errorf("failed to store cancelled transaction: %w", err)
 					}
@@ -305,6 +324,20 @@ func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (
 			}
 		}
 	}
+}
+
+func (t *TxSender) UpdateBidTimeout(timeout time.Duration) {
+	t.timeoutMtx.Lock()
+	defer t.timeoutMtx.Unlock()
+
+	t.bidTimeout = timeout
+}
+
+func (t *TxSender) getBidTimeout() time.Duration {
+	t.timeoutMtx.RLock()
+	defer t.timeoutMtx.RUnlock()
+
+	return t.bidTimeout
 }
 
 func (t *TxSender) Start(ctx context.Context) chan struct{} {
@@ -374,7 +407,7 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 		t.logger.Info("No queued transactions to process")
 		return
 	}
-	t.logger.Info("Processing queued transactions", "count", len(txns))
+	t.logger.Debug("Processing queued transactions", "count", len(txns))
 	for _, txn := range txns {
 		txn := txn // capture range variable
 		select {
@@ -398,8 +431,8 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 					t.logger.Error("Failed to process transaction", "sender", txn.Sender.Hex(), "error", err)
 					txn.Status = TxStatusFailed
 					txn.Details = err.Error()
-					t.clearBlockAttemptHistory(txn)
-					return t.store.StoreTransaction(ctx, txn, nil)
+					t.clearBlockAttemptHistory(txn, time.Now())
+					return t.store.StoreTransaction(ctx, txn, nil, nil)
 				}
 				return nil
 			})
@@ -412,129 +445,108 @@ func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction, can
 		result bidResult
 		err    error
 	)
+	logger := t.logger.With(
+		"transactionHash", txn.Hash().Hex(),
+		"sender", txn.Sender.Hex(),
+		"type", txn.Type,
+	)
+
+	retryTicker := time.NewTicker(defaultRetryDelay)
+	defer retryTicker.Stop()
+	inclusion := t.blockTracker.WaitForTxnInclusion(txn.Hash())
+
 BID_LOOP:
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-cancel:
-			return ErrTransactionCancelled
-		default:
-		}
-
 		result, err = t.sendBid(ctx, txn)
 		switch {
 		case err != nil:
 			if retryErr, ok := err.(*errRetry); ok {
-				t.logger.Warn(
+				logger.Warn(
 					"Retrying bid due to error",
 					"error", retryErr.err,
 					"retryAfter", retryErr.retryAfter,
 				)
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(retryErr.retryAfter):
-					// Wait for the specified retry duration before retrying
-				case <-cancel:
-					return ErrTransactionCancelled
-				}
-				continue
+				retryTicker.Reset(retryErr.retryAfter)
+			} else if errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
+				retryTicker.Reset(result.timeUntillNextBlock + 500*time.Millisecond)
+			} else {
+				return err
 			}
-			return err
-		case t.fastTrack(result.commitments, result.optedInSlot):
-			// If the commitments indicate that the transaction can be fast-tracked,
-			// we consider it pre-confirmed and skip further checks
-			txn.Status = TxStatusPreConfirmed
-			txn.BlockNumber = int64(result.blockNumber)
-			t.logger.Info(
-				"Transaction fast-tracked based on commitments",
-				"sender", txn.Sender.Hex(),
-				"type", txn.Type,
-				"blockNumber", result.blockNumber,
-				"bidAmount", result.bidAmount.String(),
-			)
-			t.clearBlockAttemptHistory(txn)
-			break BID_LOOP
-		case result.optedInSlot:
-			if result.noOfProviders == len(result.commitments) {
+		case txn.noOfProviders == len(txn.commitments):
+			if result.optedInSlot {
 				// This means that all builders have committed to the bid and it
 				// is a primev opted in slot. We can safely proceed to inform the
 				// user that the txn was successfully sent and will be processed
 				txn.Status = TxStatusPreConfirmed
 				txn.BlockNumber = int64(result.blockNumber)
-				t.logger.Info(
+				logger.Info(
 					"Transaction pre-confirmed",
-					"sender", txn.Sender.Hex(),
-					"type", txn.Type,
 					"blockNumber", result.blockNumber,
 					"bidAmount", result.bidAmount.String(),
 				)
-				t.clearBlockAttemptHistory(txn)
-				break BID_LOOP
+				if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
+					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
+				}
 			}
+			retryTicker.Reset(result.timeUntillNextBlock + 1*time.Second)
 		default:
-		}
-
-		if result.noOfProviders > len(result.commitments) {
-			t.logger.Warn(
+			logger.Warn(
 				"Not all builders committed to the bid",
-				"noOfProviders", result.noOfProviders,
-				"noOfCommitments", len(result.commitments),
-				"sender", txn.Sender.Hex(),
-				"type", txn.Type,
+				"noOfProviders", txn.noOfProviders,
+				"noOfCommitments", len(txn.commitments),
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
 			)
-			if (result.timeUntillNextBlock - time.Second) > time.Since(result.startTime) {
-				// If not all builders committed, we will retry the bid process
-				// immediately if we have atleast 1 second left before the next block
-				continue
+			retryTicker.Reset(defaultRetryDelay)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-cancel:
+			return ErrTransactionCancelled
+		case <-retryTicker.C:
+			// Continue to the next iteration after the retry delay
+		case bNo := <-inclusion:
+			if txn.Status != TxStatusPreConfirmed {
+				// It could happen that the transaction got included but we got the signal
+				// late and made a failed attempt. So we should update the commitments and
+				// logs from the last successful bid attempt.
+				txn.Status = TxStatusConfirmed
+				txn.BlockNumber = int64(bNo)
+				logger.Info(
+					"Transaction confirmed",
+					"blockNumber", bNo,
+					"bidAmount", result.bidAmount.String(),
+				)
+				if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
+					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
+				}
 			}
-		}
-
-		// Wait for block number to be updated to confirm transaction. If failed
-		// we will retry the bid process till user cancels the operation
-		included, err := t.blockTracker.CheckTxnInclusion(ctx, txn.Hash(), result.blockNumber)
-		if err != nil {
-			t.logger.Error("Failed to check transaction inclusion", "error", err)
-			return fmt.Errorf("failed to check transaction inclusion: %w", err)
-		}
-		if included {
-			txn.Status = TxStatusConfirmed
-			txn.BlockNumber = int64(result.blockNumber)
-			t.logger.Info(
-				"Transaction confirmed for non opted-in slot",
-				"sender", txn.Sender.Hex(),
-				"type", txn.Type,
-				"blockNumber", result.blockNumber,
-				"bidAmount", result.bidAmount.String(),
-			)
-			t.clearBlockAttemptHistory(txn)
+			endTime := time.Now()
+			if len(txn.commitments) > 0 {
+				endTime = time.UnixMilli(txn.commitments[0].DispatchTimestamp)
+			}
+			t.clearBlockAttemptHistory(txn, endTime)
 			break BID_LOOP
 		}
-	}
-
-	if err := t.store.StoreTransaction(ctx, txn, result.commitments); err != nil {
-		return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 	}
 
 	switch txn.Type {
 	case TxTypeRegular:
 		if err := t.store.DeductBalance(ctx, txn.Sender, result.bidAmount); err != nil {
-			t.logger.Error("Failed to deduct balance for sender", "sender", txn.Sender.Hex(), "error", err)
+			logger.Error("Failed to deduct balance for sender", "error", err)
 			return fmt.Errorf("failed to deduct balance for sender: %w", err)
 		}
 	case TxTypeDeposit:
 		balanceToAdd := new(big.Int).Sub(txn.Value(), result.bidAmount)
 		if err := t.store.AddBalance(ctx, txn.Sender, balanceToAdd); err != nil {
-			t.logger.Error("Failed to add balance for sender", "sender", txn.Sender.Hex(), "error", err)
+			logger.Error("Failed to add balance for sender", "error", err)
 			return fmt.Errorf("failed to add balance for sender: %w", err)
 		}
 	case TxTypeInstantBridge:
 		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(result.bidAmount, big.NewInt(2)))
 		if err := t.transferer.Transfer(ctx, txn.Sender, t.settlementChainId, amountToBridge); err != nil {
-			t.logger.Error("Failed to transfer funds for instant bridge", "sender", txn.Sender.Hex(), "error", err)
+			logger.Error("Failed to transfer funds for instant bridge", "error", err)
 			return fmt.Errorf("failed to transfer funds for instant bridge: %w", err)
 		}
 	}
@@ -554,41 +566,45 @@ func (e *errRetry) Error() string {
 type bidResult struct {
 	startTime           time.Time
 	timeUntillNextBlock time.Duration
-	noOfProviders       int
 	blockNumber         uint64
 	optedInSlot         bool
 	bidAmount           *big.Int
-	commitments         []*bidderapiv1.Commitment
 }
 
 func (t *TxSender) sendBid(
 	ctx context.Context,
 	txn *Transaction,
 ) (bidResult, error) {
+	start := time.Now()
+	logger := t.logger.With(
+		"transactionHash", txn.Hash().Hex(),
+		"sender", txn.Sender.Hex(),
+		"type", txn.Type,
+	)
+
 	timeToOptIn, err := t.bidder.Estimate()
 	if err != nil {
-		t.logger.Warn("Failed to estimate time to opt-in", "error", err)
+		logger.Warn("Failed to estimate time to opt-in", "error", err)
 		// If we cannot estimate the time to opt-in, we assume a default value and
 		// proceed with the bid process. The default value should be higher than
 		// the typical block time to ensure we consider the next slot as a non-opt-in slot.
 		timeToOptIn = blockTime * 32
 	}
 
-	start := time.Now()
 	bidBlockNo, timeUntilNextBlock, err := t.blockTracker.NextBlockNumber()
 	if err != nil {
-		t.logger.Error("Failed to get next block number", "error", err)
+		logger.Error("Failed to get next block number", "error", err)
 		return bidResult{}, &errRetry{
 			err:        fmt.Errorf("failed to get next block number: %w", err),
 			retryAfter: time.Second,
 		}
 	}
 
-	if timeUntilNextBlock <= time.Second {
-		t.logger.Warn("Next block time is too short, skipping bid", "timeUntilNextBlock", timeUntilNextBlock)
+	if timeUntilNextBlock <= 500*time.Millisecond {
+		logger.Warn("Next block time is too short, skipping bid", "timeUntilNextBlock", timeUntilNextBlock)
 		return bidResult{}, &errRetry{
 			err:        fmt.Errorf("next block time is too short: %s", timeUntilNextBlock),
-			retryAfter: time.Second,
+			retryAfter: defaultRetryDelay,
 		}
 	}
 
@@ -597,15 +613,15 @@ func (t *TxSender) sendBid(
 	// Allow for certain level of tolerance w.r.t timestamps
 	optedInSlot := math.Abs(float64(timeToOptIn)-float64(timeUntilNextBlock.Seconds())) < float64(blockTime/3)
 
-	cctx, cancel := context.WithTimeout(ctx, bidTimeout)
+	cctx, cancel := context.WithTimeout(ctx, t.getBidTimeout())
 	defer cancel()
 
-	cost, err := t.calculatePriceForNextBlock(txn, bidBlockNo, prices, optedInSlot)
+	cost, isRetry, err := t.calculatePriceForNextBlock(txn, bidBlockNo, prices, optedInSlot)
 	if err != nil {
-		t.logger.Error("Failed to calculate price for next block", "error", err)
-		if errors.Is(err, ErrTimeoutExceeded) {
-			t.logger.Warn("Timeout exceeded while trying to process transaction", "txnHash", txn.Hash().Hex())
-			return bidResult{}, ErrTimeoutExceeded
+		logger.Error("Failed to calculate price for next block", "error", err)
+		if errors.Is(err, ErrTimeoutExceeded) || errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
+			// We propagate these errors as is
+			return bidResult{}, err
 		}
 		return bidResult{}, &errRetry{
 			err:        fmt.Errorf("failed to calculate price: %w", err),
@@ -613,18 +629,28 @@ func (t *TxSender) sendBid(
 		}
 	}
 
+	var ignoreProviders []string
+	if isRetry && len(txn.commitments) > 0 {
+		for _, cmt := range txn.commitments {
+			ignoreProviders = append(ignoreProviders, cmt.ProviderAddress)
+		}
+		logger.Info(
+			"Retrying bid, ignoring previously committed providers",
+			"ignoreProviders", ignoreProviders,
+		)
+	}
+
 	slashAmount := big.NewInt(0)
 	switch txn.Type {
 	case TxTypeRegular:
 		if !t.store.HasBalance(ctx, txn.Sender, cost) {
-			t.logger.Error("Insufficient balance for sender", "sender", txn.Sender.Hex())
+			logger.Error("Insufficient balance for sender")
 			return bidResult{}, fmt.Errorf("insufficient balance for sender: %s", txn.Sender.Hex())
 		}
 	case TxTypeDeposit:
 		if txn.Value().Cmp(cost) < 0 {
-			t.logger.Error(
+			logger.Error(
 				"Deposit amount is less than price of deposit",
-				"sender", txn.Sender.Hex(),
 				"deposit", txn.Value().String(),
 				"price", cost.String(),
 			)
@@ -638,9 +664,8 @@ func (t *TxSender) sendBid(
 	case TxTypeInstantBridge:
 		costOfBridge := new(big.Int).Mul(cost, big.NewInt(2)) // 2x the price for instant bridge
 		if txn.Value().Cmp(costOfBridge) < 0 {
-			t.logger.Error(
+			logger.Error(
 				"Instant bridge amount is less than price of bridge",
-				"sender", txn.Sender.Hex(),
 				"bridge", txn.Value().String(),
 				"price", costOfBridge.String(),
 			)
@@ -654,26 +679,58 @@ func (t *TxSender) sendBid(
 		slashAmount = new(big.Int).Set(txn.Value())
 	}
 
+	if !isRetry {
+		logs, err := t.simulator.Simulate(ctx, txn.Raw)
+		if err != nil {
+			if t.blockTracker.LatestBlockNumber() < bidBlockNo {
+				logger.Warn(
+					"Simulation failed, but block may not be mined yet, will retry",
+					"error", err,
+					"blockNumber", bidBlockNo,
+				)
+				return bidResult{}, &errRetry{
+					err:        fmt.Errorf("simulation may have failed due to unmined block: %w", err),
+					retryAfter: time.Second,
+				}
+			}
+			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
+			return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
+		}
+		providers, err := t.bidder.ConnectedProviders(ctx)
+		if err != nil {
+			logger.Error("Failed to get connected providers", "error", err)
+			return bidResult{}, fmt.Errorf("failed to get connected providers: %w", err)
+		}
+		txn.logs = logs
+		txn.noOfProviders = len(providers)
+		// We could have already made a attempt on the previous block but the block
+		// update hasn't happened yet. This means that the bid might fail, but
+		// we should retain the previous commitments. Only clear if we get new
+		// commitments for the new block.
+	}
+
 	bidC, err := t.bidder.Bid(
 		cctx,
 		cost,
 		slashAmount,
 		strings.TrimPrefix(txn.Raw, "0x"),
-		&optinbidder.BidOpts{
+		&bidder.BidOpts{
 			WaitForOptIn:      false,
 			BlockNumber:       uint64(bidBlockNo),
 			RevertingTxHashes: []string{txn.Hash().Hex()},
-			DecayDuration:     bidTimeout * 2,
+			DecayDuration:     t.getBidTimeout() * 2,
+			Constraint:        txn.Constraint,
+			IgnoreProviders:   ignoreProviders,
 		},
 	)
 	if err != nil {
-		t.logger.Error("Failed to place bid", "error", err)
+		logger.Error("Failed to place bid", "error", err)
 		return bidResult{}, fmt.Errorf("failed to place bid: %w", err)
 	}
 
 	result := bidResult{
-		commitments:         make([]*bidderapiv1.Commitment, 0),
 		bidAmount:           cost,
+		blockNumber:         bidBlockNo,
 		startTime:           start,
 		timeUntillNextBlock: timeUntilNextBlock,
 	}
@@ -681,33 +738,46 @@ BID_LOOP:
 	for {
 		select {
 		case <-ctx.Done():
-			t.logger.Info("Context cancelled while waiting for bid status")
+			logger.Info("Context cancelled while waiting for bid status")
 			return bidResult{}, ctx.Err()
 		case bidStatus, more := <-bidC:
 			if !more {
-				t.logger.Info("Bid channel closed, no more bid statuses")
+				logger.Info("Bid channel closed, no more bid statuses")
 				break BID_LOOP
 			}
 			switch bidStatus.Type {
-			case optinbidder.BidStatusNoOfProviders:
-				result.noOfProviders = bidStatus.Arg.(int)
-			case optinbidder.BidStatusAttempted:
-				result.blockNumber = bidStatus.Arg.(uint64)
-			case optinbidder.BidStatusCommitment:
-				result.commitments = append(result.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
-			case optinbidder.BidStatusCancelled:
-				t.logger.Warn("Bid context cancelled by the bidder")
+			case bidder.BidStatusCommitment:
+				if len(txn.commitments) > 0 {
+					if txn.commitments[0].BlockNumber != int64(bidBlockNo) {
+						txn.commitments = nil // clear previous commitments for new block
+					}
+				}
+				txn.commitments = append(txn.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
+				if t.fastTrack(txn.commitments, optedInSlot) && txn.Status != TxStatusPreConfirmed {
+					txn.Status = TxStatusPreConfirmed
+					txn.BlockNumber = int64(bidBlockNo)
+					logger.Info(
+						"Transaction fast-tracked based on commitments",
+						"blockNumber", result.blockNumber,
+						"bidAmount", result.bidAmount.String(),
+					)
+					if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
+						logger.Error("Failed to store fast-tracked transaction", "error", err)
+					}
+				}
+			case bidder.BidStatusCancelled:
+				logger.Warn("Bid context cancelled by the bidder")
 				break BID_LOOP
-			case optinbidder.BidStatusFailed:
-				t.logger.Error("Bid failed", "error", bidStatus.Arg)
+			case bidder.BidStatusFailed:
+				logger.Error("Bid failed", "error", bidStatus.Arg)
 				break BID_LOOP
 			}
 		}
 	}
-	t.logger.Info(
+	logger.Info(
 		"Bid operation complete",
-		"noOfProviders", result.noOfProviders,
-		"noOfCommitments", len(result.commitments),
+		"noOfProviders", txn.noOfProviders,
+		"noOfCommitments", len(txn.commitments),
 		"blockNumber", result.blockNumber,
 		"optedInSlot", optedInSlot,
 	)
@@ -721,7 +791,7 @@ func (t *TxSender) calculatePriceForNextBlock(
 	bidBlockNo uint64,
 	prices map[int64]float64,
 	optedInSlot bool,
-) (*big.Int, error) {
+) (*big.Int, bool, error) {
 	attempts, found := t.txnAttemptHistory.Get(txn.Hash())
 	if !found {
 		attempts = &txnAttempt{
@@ -731,7 +801,7 @@ func (t *TxSender) calculatePriceForNextBlock(
 	}
 
 	if time.Since(attempts.startTime) > transactionTimeout {
-		return nil, ErrTimeoutExceeded
+		return nil, false, ErrTimeoutExceeded
 	}
 
 	// default confidence level for the next block
@@ -750,6 +820,8 @@ func (t *TxSender) calculatePriceForNextBlock(
 				confidence = confidenceSecondAttempt
 			case attempts.attempts[i].attempts > 2:
 				confidence = confidenceSubsequentAttempts
+			case attempts.attempts[i].attempts > maxAttemptsPerBlock:
+				return nil, false, fmt.Errorf("%w: block %d", ErrMaxAttemptsPerBlockExceeded, bidBlockNo)
 			}
 			break // No need to check further attempts for the same block
 		}
@@ -773,16 +845,16 @@ func (t *TxSender) calculatePriceForNextBlock(
 		if conf == int64(confidence) {
 			// the gwei value is in float, so we need to convert it to wei before multiplying with gas limit
 			priceInWei := price * 1e9 // Convert Gwei to Wei
-			return new(big.Int).Mul(big.NewInt(int64(priceInWei)), big.NewInt(int64(txn.Gas()))), nil
+			return new(big.Int).Mul(big.NewInt(int64(priceInWei)), big.NewInt(int64(txn.Gas()))), isRetry, nil
 		}
 	}
 
-	return nil, fmt.Errorf(
+	return nil, false, fmt.Errorf(
 		"no estimated price found for block %d with confidence %d", bidBlockNo, confidence,
 	)
 }
 
-func (t *TxSender) clearBlockAttemptHistory(txn *Transaction) {
+func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time) {
 	attempts, found := t.txnAttemptHistory.Get(txn.Hash())
 	if !found {
 		return
@@ -795,14 +867,17 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction) {
 
 	t.logger.Info(
 		"Clearing block attempt history for transaction",
-		"hash", txn.Hash().Hex(),
+		"transactionHash", txn.Hash().Hex(),
+		"blockNumber", txn.BlockNumber,
 		"blockAttempts", len(attempts.attempts),
 		"startTime", attempts.startTime.Format(time.RFC3339),
 		"startBlockNumber", attempts.attempts[0].blockNumber,
 		"totalAttempts", totalAttempts,
+		"totalBlockAttempts", len(attempts.attempts),
 	)
 
 	_ = t.txnAttemptHistory.Remove(txn.Hash())
 
-	t.notifier.NotifyTransactionStatus(txn, totalAttempts, attempts.startTime)
+	timeTaken := endTime.Sub(attempts.startTime).Round(time.Millisecond)
+	t.notifier.NotifyTransactionStatus(txn, totalAttempts, len(attempts.attempts), timeTaken)
 }

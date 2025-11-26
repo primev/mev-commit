@@ -101,6 +101,16 @@ func TestStore(t *testing.T) {
 		Type:        sender.TxTypeRegular,
 		Status:      sender.TxStatusPending,
 	}
+	txn1Logs := []*types.Log{
+		{
+			Address:     common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+			Topics:      []common.Hash{common.HexToHash("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")},
+			Data:        []byte{0x01, 0x02, 0x03},
+			BlockNumber: 1,
+			TxHash:      txn1.Hash(),
+			TxIndex:     0,
+		},
+	}
 
 	txn2 := types.NewTransaction(
 		1,
@@ -120,6 +130,11 @@ func TestStore(t *testing.T) {
 		Sender:      common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"),
 		Type:        sender.TxTypeRegular,
 		Status:      sender.TxStatusPending,
+		Constraint: &bidderapiv1.PositionConstraint{
+			Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
+			Basis:  bidderapiv1.PositionConstraint_BASIS_PERCENTILE,
+			Value:  10,
+		},
 	}
 
 	commitments := []*bidderapiv1.Commitment{
@@ -190,7 +205,7 @@ func TestStore(t *testing.T) {
 		if len(retrievedTxns) != 1 {
 			t.Fatalf("expected 1 queued transaction, got %d", len(retrievedTxns))
 		}
-		if diff := cmp.Diff(wrappedTxn1, retrievedTxns[0], cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{})); diff != "" {
+		if diff := cmp.Diff(wrappedTxn1, retrievedTxns[0], cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{}, bidderapiv1.PositionConstraint{})); diff != "" {
 			t.Fatalf("queued transaction mismatch (-want +got):\n%s", diff)
 		}
 	})
@@ -199,7 +214,7 @@ func TestStore(t *testing.T) {
 		wrappedTxn1.Status = sender.TxStatusPreConfirmed
 		wrappedTxn1.BlockNumber = 1
 
-		err := st.StoreTransaction(context.Background(), wrappedTxn1, commitments)
+		err := st.StoreTransaction(context.Background(), wrappedTxn1, commitments, txn1Logs)
 		if err != nil {
 			t.Errorf("failed to store preconfirmed transaction: %v", err)
 		}
@@ -212,7 +227,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("expected 2 commitments, got %d", len(commitments))
 		}
 		for i, commitment := range commitments {
-			if diff := cmp.Diff(commitment, commitments[i], cmpopts.IgnoreUnexported(bidderapiv1.Commitment{}, types.Transaction{})); diff != "" {
+			if diff := cmp.Diff(commitment, commitments[i], cmpopts.IgnoreUnexported(bidderapiv1.Commitment{}, types.Transaction{}, bidderapiv1.PositionConstraint{})); diff != "" {
 				t.Errorf("commitment mismatch (-want +got):\n%s", diff)
 			}
 		}
@@ -224,7 +239,7 @@ func TestStore(t *testing.T) {
 		if len(nextTxns) != 1 {
 			t.Errorf("expected 1 queued transaction, got %d", len(nextTxns))
 		}
-		if diff := cmp.Diff(wrappedTxn2, nextTxns[0], cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{})); diff != "" {
+		if diff := cmp.Diff(wrappedTxn2, nextTxns[0], cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{}, bidderapiv1.PositionConstraint{})); diff != "" {
 			t.Errorf("queued transaction mismatch (-want +got):\n%s", diff)
 		}
 
@@ -239,10 +254,18 @@ func TestStore(t *testing.T) {
 			t.Errorf("transaction mismatch (-want +got):\n%s", diff)
 		}
 
+		logs, err := st.GetTransactionLogs(context.Background(), wrappedTxn1.Hash())
+		if err != nil {
+			t.Errorf("failed to get transaction logs: %v", err)
+		}
+		if diff := cmp.Diff(txn1Logs, logs, cmpopts.IgnoreUnexported(types.Log{})); diff != "" {
+			t.Errorf("transaction logs mismatch (-want +got):\n%s", diff)
+		}
+
 		wrappedTxn2.Status = sender.TxStatusFailed
 		wrappedTxn2.Details = "Transaction failed due to insufficient funds"
 		wrappedTxn2.BlockNumber = 2
-		err = st.StoreTransaction(context.Background(), wrappedTxn2, nil)
+		err = st.StoreTransaction(context.Background(), wrappedTxn2, nil, nil)
 		if err != nil {
 			t.Errorf("failed to store failed transaction: %v", err)
 		}
@@ -252,7 +275,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("failed to get failed transaction by hash: %v", err)
 		}
 
-		if diff := cmp.Diff(wrappedTxn2, failedTxn, cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{})); diff != "" {
+		if diff := cmp.Diff(wrappedTxn2, failedTxn, cmpopts.IgnoreUnexported(sender.Transaction{}, types.Transaction{}, bidderapiv1.PositionConstraint{})); diff != "" {
 			t.Errorf("failed transaction mismatch (-want +got):\n%s", diff)
 		}
 

@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
+	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
@@ -28,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
 )
 
 type testRegistryContract struct {
@@ -206,6 +208,7 @@ func startServerWithStore(t *testing.T, ts *testStore) (providerapiv1.ProviderCl
 			}, nil
 		},
 		validator,
+		"",
 	)
 
 	baseServer := grpc.NewServer()
@@ -675,6 +678,35 @@ func TestGetCommitmentInfo(t *testing.T) {
 
 	t.Run("get commitment info", func(t *testing.T) {
 		// Create a test commitment
+		identityPrefix := strings.Repeat("ab", 32)
+		encryptedTx := strings.Repeat("cd", 32)
+		bidderOpts := &bidderapiv1.BidOptions{
+			Options: []*bidderapiv1.BidOption{
+				{
+					Opt: &bidderapiv1.BidOption_PositionConstraint{
+						PositionConstraint: &bidderapiv1.PositionConstraint{
+							Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
+							Basis:  bidderapiv1.PositionConstraint_BASIS_PERCENTILE,
+							Value:  5,
+						},
+					},
+				},
+				{
+					Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+						ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+							IdentityPrefix: identityPrefix,
+							EncryptedTx:    encryptedTx,
+							EonId:          7,
+						},
+					},
+				},
+			},
+		}
+		bidOptionsBytes, marshalErr := proto.Marshal(bidderOpts)
+		if marshalErr != nil {
+			t.Fatalf("error marshaling bid options: %v", marshalErr)
+		}
+
 		testCommitment := &preconfstore.Commitment{
 			EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
 				DispatchTimestamp: 123456889,
@@ -686,6 +718,8 @@ func TestGetCommitmentInfo(t *testing.T) {
 					BidAmount:           "1000000000000000000",
 					DecayStartTimestamp: 123456789,
 					DecayEndTimestamp:   123457896,
+					RevertingTxHashes:   "",
+					BidOptions:          bidOptionsBytes,
 				},
 				ProviderAddress: common.HexToAddress("0x1234").Bytes(),
 			},
@@ -745,6 +779,32 @@ func TestGetCommitmentInfo(t *testing.T) {
 		}
 		if resp.Commitments[0].Commitments[0].Refund != "100000000000000000" {
 			t.Fatalf("expected refund to be 100000000000000000, got %s", resp.Commitments[0].Commitments[0].Refund)
+		}
+		if len(resp.Commitments[0].Commitments[0].RevertableTxnHashes) != 0 {
+			t.Fatalf("expected no revertable txn hashes, got %v", resp.Commitments[0].Commitments[0].RevertableTxnHashes)
+		}
+		if resp.Commitments[0].Commitments[0].BidOptions == nil {
+			t.Fatalf("expected bid options to be present")
+		}
+		if len(resp.Commitments[0].Commitments[0].BidOptions.Options) != 2 {
+			t.Fatalf("expected 2 bid options, got %d", len(resp.Commitments[0].Commitments[0].BidOptions.Options))
+		}
+		positionOpt := resp.Commitments[0].Commitments[0].BidOptions.Options[0].GetPositionConstraint()
+		if positionOpt == nil || positionOpt.Value != 5 {
+			t.Fatalf("expected position constraint value 5, got %+v", positionOpt)
+		}
+		if positionOpt == nil || positionOpt.Anchor != providerapiv1.PositionConstraint_ANCHOR_TOP {
+			t.Fatalf("expected position constraint anchor TOP, got %+v", positionOpt)
+		}
+		shutterOpt := resp.Commitments[0].Commitments[0].BidOptions.Options[1].GetShutterisedBidOption()
+		if shutterOpt == nil {
+			t.Fatalf("expected shutterised option to be present")
+		}
+		if shutterOpt.IdentityPrefix != identityPrefix {
+			t.Fatalf("expected identity prefix %s, got %s", identityPrefix, shutterOpt.IdentityPrefix)
+		}
+		if shutterOpt.EncryptedTx != encryptedTx {
+			t.Fatalf("expected encrypted tx %s, got %s", encryptedTx, shutterOpt.EncryptedTx)
 		}
 	})
 
@@ -859,4 +919,243 @@ func TestGetCommitmentInfo(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestShutterisedBidOptionsProcessing(t *testing.T) {
+	t.Parallel()
+
+	type testCase struct {
+		name           string
+		identityPrefix string
+		encryptedTx    string
+		eonId          int64
+		expectedStatus providerapiv1.BidResponse_Status
+		expectError    bool
+		errorContains  string
+		txHashes       []string
+	}
+
+	for _, tc := range []testCase{
+		{
+			name:           "valid shutterised bid option",
+			identityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			encryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			eonId:          1,
+			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
+			expectError:    false,
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:]},
+		},
+		{
+			name:           "nil shutterised bid option",
+			identityPrefix: "",
+			encryptedTx:    "",
+			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
+			expectError:    false,
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:]},
+		},
+		{
+			name:           "multiple shutterised bid options",
+			identityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
+			encryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0987654321fedcba0987654321fedcba0987654321fedcba0987654321fedcba",
+			eonId:          1,
+			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
+			expectError:    false,
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:], common.HexToHash("0x00002").Hex()[2:]},
+		},
+		{
+			name:           "mixed bid options",
+			identityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			encryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			eonId:          1,
+			expectedStatus: providerapiv1.BidResponse_STATUS_ACCEPTED,
+			expectError:    false,
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:], common.HexToHash("0x00002").Hex()[2:]},
+		},
+		{
+			name:           "invalid bid options marshaling",
+			expectedStatus: providerapiv1.BidResponse_STATUS_UNSPECIFIED,
+			expectError:    true,
+			errorContains:  "unmarshalling bid options",
+			txHashes:       []string{common.HexToHash("0x00001").Hex()[2:]},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client, svc := startServer(t)
+
+			// Create bid options based on test case
+			var bidderOpts *bidderapiv1.BidOptions
+			var bidOptionsBytes []byte
+			var err error
+
+			switch tc.name {
+			case "mixed bid options":
+				// Mixed options with position constraint and shutterised option
+				bidderOpts = &bidderapiv1.BidOptions{
+					Options: []*bidderapiv1.BidOption{
+						{
+							Opt: &bidderapiv1.BidOption_PositionConstraint{
+								PositionConstraint: &bidderapiv1.PositionConstraint{
+									Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
+									Basis:  bidderapiv1.PositionConstraint_BASIS_PERCENTILE,
+									Value:  10,
+								},
+							},
+						},
+						{
+							Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+									IdentityPrefix: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+									EncryptedTx:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+									EonId:          1,
+								},
+							},
+						},
+					},
+				}
+			case "multiple shutterised bid options":
+				// Multiple shutterised options - parse comma-separated values
+				identityPrefixes := strings.Split(tc.identityPrefix, ",")
+				encryptedTxs := strings.Split(tc.encryptedTx, ",")
+
+				bidderOpts = &bidderapiv1.BidOptions{
+					Options: []*bidderapiv1.BidOption{
+						{
+							Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+									IdentityPrefix: identityPrefixes[0],
+									EncryptedTx:    encryptedTxs[0],
+									EonId:          tc.eonId,
+								},
+							},
+						},
+						{
+							Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+									IdentityPrefix: identityPrefixes[1],
+									EncryptedTx:    encryptedTxs[1],
+									EonId:          tc.eonId,
+								},
+							},
+						},
+					},
+				}
+			case "invalid bid options marshaling":
+				// Invalid protobuf data
+				bidOptionsBytes = []byte("invalid protobuf data")
+			case "nil shutterised bid option":
+				// Nil bid options for nil case
+				bidderOpts = nil
+			default:
+				// Single valid shutterised option
+				bidderOpts = &bidderapiv1.BidOptions{
+					Options: []*bidderapiv1.BidOption{
+						{
+							Opt: &bidderapiv1.BidOption_ShutterisedBidOption{
+								ShutterisedBidOption: &bidderapiv1.ShutterisedBidOption{
+									IdentityPrefix: tc.identityPrefix,
+									EncryptedTx:    tc.encryptedTx,
+									EonId:          tc.eonId,
+								},
+							},
+						},
+					},
+				}
+			}
+
+			// Marshal bid options if not already set
+			if tc.name != "invalid bid options marshaling" && bidderOpts != nil {
+				bidOptionsBytes, err = proto.Marshal(bidderOpts)
+				if err != nil {
+					t.Fatalf("error marshaling bid options: %v", err)
+				}
+			}
+
+			bidCh := make(chan *providerapiv1.Bid)
+
+			rcvr, err := client.ReceiveBids(context.Background(), &providerapiv1.EmptyMessage{})
+			if err != nil {
+				t.Fatalf("error receiving bids: %v", err)
+			}
+			go func() {
+				defer func() { _ = rcvr.CloseSend() }()
+				for {
+					bid, err := rcvr.Recv()
+					if err != nil {
+						break
+					}
+					bidCh <- bid
+				}
+			}()
+
+			// Wait for active receivers
+			activeReceiverTimeout := time.Now().Add(2 * time.Second)
+			for svc.ActiveReceivers() <= 0 {
+				if time.Now().After(activeReceiverTimeout) {
+					t.Fatalf("timed out waiting for active receivers")
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+
+			sndr, err := client.SendProcessedBids(context.Background())
+			if err != nil {
+				t.Fatalf("error sending processed bids: %v", err)
+			}
+			go func() {
+				defer func() { _ = sndr.CloseSend() }()
+				for {
+					bid, more := <-bidCh
+					if !more {
+						break
+					}
+					err := sndr.Send(&providerapiv1.BidResponse{
+						BidDigest:         bid.BidDigest,
+						Status:            tc.expectedStatus,
+						DispatchTimestamp: 10,
+					})
+					if err != nil {
+						break
+					}
+				}
+			}()
+
+			// Create bid
+			txHash := strings.Join(tc.txHashes, ",")
+			bid := &preconfpb.Bid{
+				TxHash:              txHash,
+				BidAmount:           "1000000000000000000",
+				SlashAmount:         "0",
+				BlockNumber:         1,
+				Digest:              []byte("digest"),
+				Signature:           []byte("signature"),
+				DecayStartTimestamp: 199,
+				DecayEndTimestamp:   299,
+				BidOptions:          bidOptionsBytes,
+			}
+
+			respC, err := svc.ProcessBid(context.Background(), bid, common.HexToAddress("0xe3f21915b2C9745aB383925533b7f6aC35c409f5"))
+
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("expected error processing bid")
+				}
+				if tc.errorContains != "" && !strings.Contains(err.Error(), tc.errorContains) {
+					t.Fatalf("expected error to contain '%s', got %v", tc.errorContains, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("error processing bid: %v", err)
+			}
+
+			select {
+			case resp := <-respC:
+				if resp.Status != tc.expectedStatus {
+					t.Fatalf("expected status to be %v, got %v", tc.expectedStatus, resp.Status)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatalf("expected status to be %v, got timeout", tc.expectedStatus)
+			}
+		})
+	}
 }

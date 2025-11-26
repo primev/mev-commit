@@ -210,6 +210,13 @@ var (
 		Value:   "",
 	}
 
+	optionSimulationURL = &cli.StringFlag{
+		Name:     "simulation-url",
+		Usage:    "URL for the transaction simulation service",
+		EnvVars:  []string{"PRECONF_RPC_SIMULATION_URL"},
+		Required: true,
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -285,6 +292,7 @@ func main() {
 			optionBidderThreshold,
 			optionBidderTopup,
 			optionAuthToken,
+			optionSimulationURL,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -370,6 +378,7 @@ func main() {
 				PricerAPIKey:           c.String(optionBlocknativeAPIKey.Name),
 				Webhooks:               c.StringSlice(optionWebhookURLs.Name),
 				Token:                  c.String(optionAuthToken.Name),
+				SimulatorURL:           c.String(optionSimulationURL.Name),
 			}
 
 			s, err := service.New(&config)

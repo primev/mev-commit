@@ -12,7 +12,9 @@ import (
 	"math/big"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,18 +23,19 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	bidder "github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
 	"github.com/primev/mev-commit/tools/preconf-rpc/notifier"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
+	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 	"github.com/primev/mev-commit/x/accountsync"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
-	bidder "github.com/primev/mev-commit/x/opt-in-bidder"
 	"github.com/primev/mev-commit/x/transfer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -67,6 +70,7 @@ type Config struct {
 	PricerAPIKey           string
 	Webhooks               []string
 	Token                  string
+	SimulatorURL           string
 }
 
 type Service struct {
@@ -242,9 +246,147 @@ func New(config *Config) (*Service, error) {
 	blockTrackerDone := blockTracker.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
 
+	simulator := sim.NewSimulator(config.SimulatorURL)
+
+	sndr, err := sender.NewTxSender(
+		rpcstore,
+		bidderClient,
+		bidpricer,
+		blockTracker,
+		transferer,
+		notifier,
+		simulator,
+		settlementChainID,
+		config.Logger.With("module", "txsender"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction sender: %w", err)
+	}
+
+	senderDone := sndr.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("TxSender", senderDone))
+
+	rpcHandlers := handlers.NewRPCMethodHandler(
+		config.Logger.With("module", "handlers"),
+		bidpricer,
+		bidderClient,
+		rpcstore,
+		blockTracker,
+		sndr,
+		config.DepositAddress,
+		config.BridgeAddress,
+		l1ChainID,
+	)
+
+	rpcHandlers.RegisterMethods(rpcServer)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		if err := healthChecker.Health(); err != nil {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/{option...}", func(w http.ResponseWriter, r *http.Request) {
+		options := r.PathValue("option")
+
+		if options != "" {
+			splits := strings.Split(options, "/")
+			if len(splits) != 3 {
+				http.Error(w, "invalid position constraint format", http.StatusBadRequest)
+				return
+			}
+			constraint := new(bidderapiv1.PositionConstraint)
+			switch splits[0] {
+			case "top":
+				constraint.Anchor = bidderapiv1.PositionConstraint_ANCHOR_TOP
+			case "bottom":
+				constraint.Anchor = bidderapiv1.PositionConstraint_ANCHOR_BOTTOM
+			default:
+				http.Error(w, "invalid position constraint", http.StatusBadRequest)
+				return
+			}
+
+			switch splits[1] {
+			case "absolute":
+				constraint.Basis = bidderapiv1.PositionConstraint_BASIS_ABSOLUTE
+			case "percentile":
+				constraint.Basis = bidderapiv1.PositionConstraint_BASIS_PERCENTILE
+			case "gas_percentile":
+				constraint.Basis = bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE
+			default:
+				http.Error(w, "invalid position constraint type", http.StatusBadRequest)
+				return
+			}
+
+			value, err := strconv.Atoi(splits[2])
+			if err != nil {
+				http.Error(w, "invalid position constraint value", http.StatusBadRequest)
+				return
+			}
+			constraint.Value = int32(value)
+
+			r = r.WithContext(handlers.SetPositionConstraint(r.Context(), constraint))
+		}
+		rpcServer.ServeHTTP(w, r)
+	})
+
+	registerAdminAPIs(mux, config.Token, sndr, rpcstore)
+
+	srv := http.Server{
+		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
+		Handler: mux,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			config.Logger.Error("failed to start HTTP server", "error", err)
+		}
+	}()
+
+	s.closers = append(s.closers, &srv)
+
+	return s, nil
+}
+
+type RPCStore interface {
+	AddSubsidy(ctx context.Context, account common.Address, amount *big.Int) error
+}
+
+func registerAdminAPIs(mux *http.ServeMux, token string, sndr *sender.TxSender, rpcstore RPCStore) {
+	checkAuthorization := func(r *http.Request) error {
+		if token == "" {
+			return errors.New("server not configured with authorization token")
+		}
+
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			return errors.New("authorization header missing")
+		}
+
+		// Expected format "Bearer <token>"
+		headerToken, found := strings.CutPrefix(authHeader, "Bearer ")
+		if !found {
+			return errors.New("invalid authorization header format")
+		}
+
+		if headerToken != token {
+			return errors.New("unauthorized: invalid token")
+		}
+
+		return nil
+	}
+
+	var fastTrackMutex sync.RWMutex
 	allSlots := false
 	providers := []common.Address{}
+
 	fastTrackFn := func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool {
+		fastTrackMutex.RLock()
+		defer fastTrackMutex.RUnlock()
+
 		if !allSlots && !optedInSlot {
 			return false
 		}
@@ -261,71 +403,7 @@ func New(config *Config) (*Service, error) {
 		return true
 	}
 
-	sndr, err := sender.NewTxSender(
-		rpcstore,
-		bidderClient,
-		bidpricer,
-		blockTracker,
-		transferer,
-		notifier,
-		settlementChainID,
-		fastTrackFn,
-		config.Logger.With("module", "txsender"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create transaction sender: %w", err)
-	}
-
-	senderDone := sndr.Start(ctx)
-	healthChecker.Register(health.CloseChannelHealthCheck("TxSender", senderDone))
-
-	handlers := handlers.NewRPCMethodHandler(
-		config.Logger.With("module", "handlers"),
-		bidpricer,
-		bidderClient,
-		rpcstore,
-		blockTracker,
-		sndr,
-		config.DepositAddress,
-		config.BridgeAddress,
-		l1ChainID,
-	)
-
-	handlers.RegisterMethods(rpcServer)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		if err := healthChecker.Health(); err != nil {
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
-	})
-	mux.Handle("/", rpcServer)
-
-	checkAuthorization := func(r *http.Request) error {
-		if config.Token == "" {
-			return errors.New("server not configured with authorization token")
-		}
-
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			return errors.New("authorization header missing")
-		}
-
-		// Expected format "Bearer <token>"
-		headerToken, found := strings.CutPrefix(authHeader, "Bearer ")
-		if !found {
-			return errors.New("invalid authorization header format")
-		}
-
-		if headerToken != config.Token {
-			return errors.New("unauthorized: invalid token")
-		}
-
-		return nil
-	}
+	sndr.SetFastTrackFunc(fastTrackFn)
 
 	mux.HandleFunc("POST /fast-track/enable", func(w http.ResponseWriter, r *http.Request) {
 		if err := checkAuthorization(r); err != nil {
@@ -349,6 +427,9 @@ func New(config *Config) (*Service, error) {
 			http.Error(w, fmt.Sprintf("failed to decode body: %v", err), http.StatusBadRequest)
 			return
 		}
+
+		fastTrackMutex.Lock()
+		defer fastTrackMutex.Unlock()
 
 		allSlots = req.AllSlots
 		providers = make([]common.Address, 0, len(req.Providers))
@@ -404,20 +485,51 @@ func New(config *Config) (*Service, error) {
 		}
 	})
 
-	srv := http.Server{
-		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
-		Handler: mux,
-	}
-
-	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			config.Logger.Error("failed to start HTTP server", "error", err)
+	mux.HandleFunc("POST /subsidize", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
 		}
-	}()
 
-	s.closers = append(s.closers, &srv)
+		// Get account address and amount from URL params
+		account := r.URL.Query().Get("account")
+		if account == "" || !common.IsHexAddress(account) {
+			http.Error(w, "invalid or missing account address", http.StatusBadRequest)
+			return
+		}
 
-	return s, nil
+		amountStr := r.URL.Query().Get("amount")
+		amount, ok := new(big.Int).SetString(amountStr, 10)
+		if !ok {
+			http.Error(w, "invalid amount", http.StatusBadRequest)
+			return
+		}
+
+		if err := rpcstore.AddSubsidy(r.Context(), common.HexToAddress(account), amount); err != nil {
+			http.Error(w, fmt.Sprintf("failed to add subsidy: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+
+	mux.HandleFunc("POST /update_bid_timeout", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		timeoutStr := r.URL.Query().Get("timeout")
+		timeout, err := time.ParseDuration(timeoutStr)
+		if err != nil {
+			http.Error(w, "invalid timeout", http.StatusBadRequest)
+			return
+		}
+		sndr.UpdateBidTimeout(timeout)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
 }
 
 func (s *Service) Close() error {

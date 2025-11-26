@@ -2,18 +2,16 @@ package main
 
 import (
 	"context"
-
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/primev/mev-commit/tools/indexer/pkg/config"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
-
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 var (
@@ -34,15 +32,10 @@ var (
 		EnvVars: []string{"INDEXER_OPT_IN_CONTRACT"},
 		Value:   "0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64",
 	})
-	optionEtherscanKey = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "etherscan-key",
-		Usage:   "Etherscan API key",
-		EnvVars: []string{"INDEXER_ETHERSCAN_KEY"},
-	})
-	optionInfuraRPC = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:     "infura-rpc",
-		Usage:    "Infura RPC URL",
-		EnvVars:  []string{"INDEXER_INFURA_RPC"},
+	optionAlchemyRPC = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "alchemy-rpc",
+		Usage:    "Alchemy RPC URL",
+		EnvVars:  []string{"INDEXER_ALCHEMY_RPC"},
 		Required: true,
 	})
 	optionBeaconBase = altsrc.NewStringFlag(&cli.StringFlag{
@@ -85,6 +78,30 @@ var (
 		EnvVars: []string{"INDEXER_HTTP_TIMEOUT"},
 		Value:   15 * time.Second,
 	})
+
+	optionRelayFlag = altsrc.NewBoolFlag(&cli.BoolFlag{
+		Name:    "relay",
+		Usage:   "Whether to run in relay mode",
+		EnvVars: []string{"INDEXER_RELAY"},
+		Value:   false,
+	})
+	optionRelaysJSON = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "relays-json",
+		Usage:   "JSON array overriding default relays (fields: relay_id,name,tag,url)",
+		EnvVars: []string{"INDEXER_RELAYS_JSON"},
+	})
+	optionRatedAPIKey = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "rated-api-key",
+		Usage:   "Rated Network API key",
+		EnvVars: []string{"INDEXER_RATED_API_KEY"},
+		// don't mark Required here to keep runtime flexible; we'll validate only when needed
+	})
+
+	optionQuickNodeBase = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "quicknode-base",
+		Usage:   "QuickNode Beacon API base, e.g. https://<subdomain>.quiknode.pro/<token>",
+		EnvVars: []string{"INDEXER_QUICKNODE_BASE"},
+	})
 )
 
 func createOptionsFromCLI(c *cli.Context) *config.Config {
@@ -95,9 +112,12 @@ func createOptionsFromCLI(c *cli.Context) *config.Config {
 		BackfillBatch:    c.Int("backfill-batch"),
 		HTTPTimeout:      c.Duration("http-timeout"),
 		OptInContract:    c.String("opt-in-contract"),
-		EtherscanKey:     c.String("etherscan-key"),
-		InfuraRPC:        c.String("infura-rpc"),
+		AlchemyRPC:       c.String("alchemy-rpc"),
 		BeaconBase:       c.String("beacon-base"),
+		RelayData:        c.Bool("relay"),
+		RelaysJSON:       c.String("relays-json"),
+		RatedAPIKey:      c.String("rated-api-key"),
+		QuickNodeBase:    c.String("quicknode-base"),
 	}
 }
 
@@ -105,16 +125,18 @@ func main() {
 	flags := []cli.Flag{
 		optionConfig,
 		optionDatabaseURL,
-		optionInfuraRPC,
+		optionAlchemyRPC,
 		optionBeaconBase,
 		optionBlockInterval,
 		optionValidatorDelay,
-
 		optionBackfillLookback,
 		optionBackfillBatch,
 		optionHTTPTimeout,
 		optionOptInContract,
-		optionEtherscanKey,
+		optionRelayFlag,
+		optionRelaysJSON,
+		optionRatedAPIKey,
+		optionQuickNodeBase,
 	}
 
 	app := &cli.App{
@@ -148,5 +170,4 @@ func main() {
 	if err := app.RunContext(ctx, os.Args); err != nil {
 		_, _ = fmt.Fprintf(app.Writer, "exited with error: %v\n", err)
 	}
-
 }

@@ -70,8 +70,6 @@ var cacheMethods = map[string]bool{
 	"eth_call":         true,
 	"eth_getCode":      true,
 	"eth_getStorageAt": true,
-	"eth_feeHistory":   true,
-	"eth_gasPrice":     true,
 	"eth_getLogs":      true,
 	"net_version":      true,
 }
@@ -168,7 +166,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	defer func() {
-		s.logger.Debug("Request processing time", "method", req.Method, "id", req.ID, "duration", time.Since(start))
+		s.logger.Info("Request processing time", "method", req.Method, "id", req.ID, "duration", time.Since(start).String())
 	}()
 
 	if cacheMethods[req.Method] {
@@ -201,7 +199,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if cacheMethods[req.Method] && resp.Result != nil {
 			key := cacheKey(req.Method, req.Params)
-			s.cache.Add(key, cacheEntry{
+			_ = s.cache.Add(key, cacheEntry{
 				until: time.Now().Add(pickTTL(req.Method, *resp.Result)),
 				data:  *resp.Result,
 			})
@@ -350,8 +348,6 @@ func pickTTL(method string, params json.RawMessage) time.Duration {
 		return 24 * time.Hour
 	case "eth_getCode":
 		return 24 * time.Hour
-	case "eth_feeHistory":
-		return 3 * time.Second
 	case "eth_call":
 		// if block tag provided and hex number → immutable
 		if strings.HasSuffix(string(params), "\"") { // cheap check
@@ -359,7 +355,7 @@ func pickTTL(method string, params json.RawMessage) time.Duration {
 				return 24 * time.Hour
 			}
 		}
-		return 1 * time.Second
+		return 1 * time.Millisecond
 	default:
 		return 2 * time.Second
 	}

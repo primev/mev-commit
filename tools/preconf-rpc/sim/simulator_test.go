@@ -1,0 +1,81 @@
+package sim_test
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
+)
+
+var jsonRPCResponse1 = []byte(`[{"baseFeePerGas":"0x2d04732e","blobGasUsed":"0x0","calls":[{"gasUsed":"0x5208","logs":[],"returnData":"0x","status":"0x1"}],"difficulty":"0x0","excessBlobGas":"0x100000","extraData":"0x726574682f76312e382e322f6c696e7578","gasLimit":"0x2aea540","gasUsed":"0x5208","hash":"0xaf51a6fb4ea22f5175baeaeac9fb15c55bf96f5a42974fec5cdc0e9b5e41e7a0","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0x1f9090aae28b8a3dceadf281b0f12828e676c326","mixHash":"0x8f829a3c6bfe34dc0224d2b4bf80190fdabc184c5f56f70a5d462f4696f1309c","nonce":"0x0000000000000000","number":"0x168d7c9","parentBeaconBlockRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","parentHash":"0x63eea0ad2621b94f49340c8b7ef7ead45967083894af3aab1ff7b67d9dbd7df7","receiptsRoot":"0xf78dfb743fbd92ade140711c8bbc542b5e307f0ab7984eff35d751969fe57efa","requestsHash":"0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x2af","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","timestamp":"0x68fb9a4b","transactions":["0xe0310102ffb7651c28cb3114f1e9137f6b6fd9ccf8326ba9657c333b0cb0ad1a"],"transactionsRoot":"0x8ae72c26cb403244bb8de6039212a55eb00bb7372c2459b0967df5c5e97a526c","uncles":[],"withdrawals":[],"withdrawalsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"}]`)
+
+var jsonRPCResponse2 = []byte(`[{"baseFeePerGas":"0x2d04732e","blobGasUsed":"0x0","calls":[{"gasUsed":"0x5208","logs":[{"address":"0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","blockHash":null,"blockNumber":"0x168d7c9","blockTimestamp":"0x68fb9a4b","data":"0x0000000000000000000000000000000000000000000000000000000000000007","logIndex":"0x0","removed":false,"topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x000000000000000000000000ae2885e0e7a6c5f99b93b4dbc43d206c7cf67c7e","0x000000000000000000000000ae2885e0e7a6c5f99b93b4dbc43d206c7cf67c7e"],"transactionHash":"0xe0310102ffb7651c28cb3114f1e9137f6b6fd9ccf8326ba9657c333b0cb0ad1a","transactionIndex":"0x0"}],"returnData":"0x","status":"0x1"}],"difficulty":"0x0","excessBlobGas":"0x100000","extraData":"0x726574682f76312e382e322f6c696e7578","gasLimit":"0x2aea540","gasUsed":"0x5208","hash":"0x0b99997c087f1ffd50628a2a4e3e147c0c728a5bffdb1bb2d069f1e4254ba1d3","logsBloom":"0x00000000000000001000000000000000001000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000040000000000000000000000000000000000000000000000000000000000000000002000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0x1f9090aae28b8a3dceadf281b0f12828e676c326","mixHash":"0x71b40dd1254adf5a9834608fc6e73325eb1ddacff14ee2b3d6bfd031b678c30e","nonce":"0x0000000000000000","number":"0x168d7c9","parentBeaconBlockRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","parentHash":"0x63eea0ad2621b94f49340c8b7ef7ead45967083894af3aab1ff7b67d9dbd7df7","receiptsRoot":"0x7df755b885cf2890db03b44cacb889bda231ba87a572a4cec66a06bdaff31f5d","requestsHash":"0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x2af","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","timestamp":"0x68fb9a4b","transactions":["0xe0310102ffb7651c28cb3114f1e9137f6b6fd9ccf8326ba9657c333b0cb0ad1a"],"transactionsRoot":"0x8ae72c26cb403244bb8de6039212a55eb00bb7372c2459b0967df5c5e97a526c","uncles":[],"withdrawals":[],"withdrawalsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"}]`)
+
+var errResponse = []byte(`[{"baseFeePerGas":"0xddacfa4","blobGasUsed":"0x0","calls":[{"error":{"code":3,"message":"execution reverted"},"gasUsed":"0x194714","logs":[],"returnData":"0x064a4ec600000000000000000000000000000000000000000000000000000038af10569100000000000000000000000000000000000000000000000000000038ddca493d","status":"0x0"}],"difficulty":"0x0","excessBlobGas":"0x620000","extraData":"0x726574682f76312e382e322f6c696e7578","gasLimit":"0x2adf7c0","gasUsed":"0x194714","hash":"0xcdb8b3f1cda9f148c44e51e9f9400568fb8479120c8b2da0599207cd9b9846b5","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xdadb0d80178819f2319190d340ce9a924f783711","mixHash":"0x4f51b3d0ea08e01914bb86339aec2c2ab66b382711059331fbc0c2f56e0e7134","nonce":"0x0000000000000000","number":"0x168bac7","parentBeaconBlockRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","parentHash":"0xb54623fcd9d11cb692091209c4feb1988dc2a9aef1c9e54ce7cee4a8332eeba7","receiptsRoot":"0x7b3251ff8a2414ac1cbcc4b091493cffeaecb6530daf2c2012e7269f07a80cab","requestsHash":"0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x1b41","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","timestamp":"0x68fa3a5b","transactions":["0x61d03e5e6754f7e13a2d09024a5be07a44bf1b68e5d363275fb75fa45a224918"],"transactionsRoot":"0xa255a72d9dfcb7143b10ec681f5d5804b1aa3f1f12f67715665a9d90fdcb1370","uncles":[],"withdrawals":[],"withdrawalsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"}]`)
+
+func TestSimulator(t *testing.T) {
+	txns := map[string][]byte{
+		"1234": jsonRPCResponse1,
+		"5678": jsonRPCResponse2,
+		"abcd": errResponse,
+	}
+	srv := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/rethsim/simulate/raw":
+				var req map[string]interface{}
+				defer func() { _ = r.Body.Close() }()
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					http.Error(w, "bad request", http.StatusBadRequest)
+					return
+				}
+				rawTx := req["raw"].(string)
+				if resp, ok := txns[rawTx]; ok {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write(resp)
+					return
+				}
+				http.Error(w, "transaction not found", http.StatusNotFound)
+			default:
+				http.NotFound(w, r)
+			}
+		}),
+	)
+
+	defer srv.Close()
+
+	t.Logf("Test server running at %s", srv.URL)
+	simulator := sim.NewSimulator(srv.URL)
+
+	t.Run("SuccessfulSimulation1", func(t *testing.T) {
+		result, err := simulator.Simulate(context.Background(), "1234")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if len(result) != 0 {
+			t.Fatalf("expected non-empty result")
+		}
+	})
+	t.Run("SuccessfulSimulation2", func(t *testing.T) {
+		result, err := simulator.Simulate(context.Background(), "5678")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if len(result) == 0 {
+			t.Fatalf("expected non-empty result")
+		}
+	})
+	t.Run("ErrorSimulation", func(t *testing.T) {
+		_, err := simulator.Simulate(context.Background(), "abcd")
+		if err == nil {
+			t.Fatalf("expected error, got none")
+		}
+		if !strings.Contains(err.Error(), "reverted") {
+			t.Fatalf("unexpected error")
+		}
+	})
+}

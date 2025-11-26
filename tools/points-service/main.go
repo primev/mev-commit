@@ -676,7 +676,7 @@ func main() {
 			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
 			done := pub.Start(ctx)
 
-			// Choose contracts from mainnet vs Holesky
+			// Choose contracts from mainnet vs Hoodi
 			var contractAddresses []common.Address
 			if c.Bool(optionMainnet.Name) {
 				contractAddresses = []common.Address{

@@ -114,7 +114,7 @@ To avoid issues with etherscan verification, use a non-public RPC that can suppo
 
 > **After completing any upgrade, immediately record it in the “Upgrade History” table above.**
 
-Contract upgrades are not always possible, as there are [strict limitations as enforced by Solidity](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#modifying-your-contracts). When a contract feat/fix cannot be implemented as a contract upgrade, simply PR the changes into main, and release/deploy a new contract instance as needed.
+Contract upgrades are not always possible, as there are [strict limitations as enforced by Solidity](https://docs.openzeppelin.com/upgrades-plugins/writing-upgradeable#modifying-your-contracts). When a contract feat/fix cannot be implemented as a contract upgrade, simply PR the changes into main, and release/deploy a new contract instance as needed.
 
 See [#360](https://github.com/primev/mev-commit/pull/360) for a reference example of a complete contract upgrade.
 
@@ -136,9 +136,18 @@ If the feat/fix required changes to the storage contract (see limitations above)
 
 Example: `MevCommitAVSV2.sol` would inherit `MevCommitAVSV2Storage.sol`.
 
-Now [define the reference contract](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-core#define-reference-contracts) for the upgrade right above the new contract implementation. E.g `/// @custom:oz-upgrades-from MevCommitAVS`.
+Now [define the reference contract](https://docs.openzeppelin.com/upgrades-plugins/api-core#define-reference-contracts) for the upgrade right above the new contract implementation. E.g `/// @custom:oz-upgrades-from MevCommitAVS`.
 
-Finally, build the contracts and use [openzeppelin's cli](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-core#usage) to validate the upgrade, similar to `npx @openzeppelin/upgrades-core validate --contract MevCommitAVSV2`. If this command fails, you'll need to address whether a contract upgrade is still possible/appropriate.
+Finally, build the contracts and validate the upgrade.
+
+```bash
+forge clean && forge build
+npx @openzeppelin/upgrades-core validate --contract MevCommitAVSV2 --reference MevCommitAVS
+```
+
+If validation fails, you'll need to address whether a contract upgrade is still possible/appropriate.
+
+**Note:** The `l1-upgrade-cli.sh` script automatically runs validation before executing the upgrade (unless `--skip-validation` is used), so you don't need to run it manually if using the CLI. However, it's recommended to validate during development to catch issues early.
 
 ### Note on ABI changes
 
@@ -150,9 +159,32 @@ If possible it's recommended to avoid changing a contract's ABI for an upgrade.
 
 Once your "upgrade branch" is reviewed and merged into the release branch, tag the latest commit from the release branch. This tag will be used to populate the **Upgrade History** table above.
 
-Invoking the upgrade involves creating a script in which a new implementation contract is deployed, then calling `upgradeToAndCall` on the proxy contract, passing in the address of the new implementation contract.
+The upgrade is performed via the [l1-upgrade-cli.sh](./l1-upgrade-cli.sh) script. This CLI tool automates the upgrade process, handles validation, and supports multiple wallet types and chains.
 
-See example below
+#### Using l1-upgrade-cli.sh (Recommended)
+
+The `l1-upgrade-cli.sh` script provides a streamlined way to upgrade contracts. It automatically:
+- Validates upgrade safety (unless `--skip-validation` is used)
+- Finds contract files automatically
+- Handles chain-specific configurations
+- Supports multiple wallet types (keystore, ledger, trezor, private-key)
+
+**Basic Usage:**
+
+```bash
+./l1-upgrade-cli.sh upgrade \
+  --old-contract MevCommitAVS \
+  --new-contract MevCommitAVSV2 \
+  --proxy-address 0x1234... \
+  --chain mainnet \
+  --keystore
+```
+
+
+
+#### Manual Upgrade Scripts (Advanced)
+
+For custom upgrade logic or multisig scenarios, you can create manual upgrade scripts. See example below:
 
 ```solidity
 pragma solidity 0.8.26;
@@ -191,33 +223,44 @@ contract UpgradeAnvil is UpgradeAVS {
 }
 ```
 
-In this example, no function call is made during the upgrade. However [these examples](https://docs.openzeppelin.com/upgrades-plugins/1.x/foundry-upgrades#examples) demonstrate how to make a function call during the upgrade.
+In this example, no function call is made during the upgrade. However [these examples](https://docs.openzeppelin.com/upgrades-plugins/foundry/foundry-upgrades#examples) demonstrate how to make a function call during the upgrade.
 
-It's encouraged to test your upgrade process using anvil, then use identical code to invoke the upgrade on Holesky/mainnet.
+It's encouraged to test your upgrade process using anvil, then use the `l1-upgrade-cli.sh` to invoke the upgrade on Holesky/mainnet.
 
 ### Note on multisig vs EOA
 
-The aforementioned process can be followed exactly for contracts that are owned by a single EOA, where the forge script can be run directly using a keystore.
+**For EOA-owned contracts:**
 
-For contracts that are owned by a multisig, simply deploy an uninitialized new implementation contract from any account using a forge script etc.,
+The `l1-upgrade-cli.sh` script handles the complete upgrade process for contracts owned by a single EOA. You can use keystore, ledger, trezor, or private-key wallet options as described above.
 
-```solidity
-import {MevCommitAVSV2} from "../../../contracts/validator-registry/avs/MevCommitAVSV2.sol";
-import {Script} from "forge-std/Script.sol";
-import {console} from "forge-std/console.sol";
+**For multisig-owned contracts:**
 
-contract DeployNewImpl is Script {
-    function run() external {
-        vm.startBroadcast();
-        MevCommitAVSV2 newImplementation = new MevCommitAVSV2();
-        console.log("Deployed new implementation contract at address: ", address(newImplementation));
-        vm.stopBroadcast();
-    }
-}
-```
+Contracts owned by a multisig require a different approach since the multisig must approve the upgrade transaction. The process is:
 
-Then call the `upgradeToAndCall(newImplAddr, callData)` function directly on the proxy contract using your multisig UI (e.g Safe wallet).
+1. **Validate the upgrade** (critical step):
+   ```bash
+   ./validate-upgrade.sh --contract MevCommitAVSV2 --reference MevCommitAVS
+   ```
 
-Ownership of the implementation contract itself would be irrelevant in this scenario, as the implementation is deployed without calling its initializer, or setting any state. Ie. the implementation contract serves only as a blueprint for state transition functionality.
+2. **Deploy the new implementation contract** from any account. You can use a simple forge script:
 
-The multisig option bypasses safety checks that would otherwise happen by using a forge script in tandem with [OpenZeppelin Foundry Upgrades](https://github.com/OpenZeppelin/openzeppelin-foundry-upgrades). Therefore it's very important to use the `validate` command from above to ensure the upgrade is safe to proceed with.
+   ```solidity
+   import {MevCommitAVSV2} from "../../../contracts/validator-registry/avs/MevCommitAVSV2.sol";
+   import {Script} from "forge-std/Script.sol";
+   import {console} from "forge-std/console.sol";
+
+   contract DeployNewImpl is Script {
+       function run() external {
+           vm.startBroadcast();
+           MevCommitAVSV2 newImplementation = new MevCommitAVSV2();
+           console.log("Deployed new implementation contract at address: ", address(newImplementation));
+           vm.stopBroadcast();
+       }
+   }
+   ```
+
+3. **Call `upgradeToAndCall(newImplAddr, callData)`** directly on the proxy contract using your multisig UI (e.g., Safe wallet).
+
+Ownership of the implementation contract itself is irrelevant in this scenario, as the implementation is deployed without calling its initializer or setting any state. The implementation contract serves only as a blueprint for state transition functionality.
+
+**Important:** The multisig workflow bypasses the automatic safety checks that `l1-upgrade-cli.sh` performs. Therefore, it's essential to manually validate the upgrade using `validate-upgrade.sh` before proceeding. See the [validation section](#implementing-the-featfix) above for details.

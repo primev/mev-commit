@@ -30,5 +30,5 @@ contract VanillaRegistryStorage {
     mapping(address staker => bool whitelisted) public whitelistedStakers;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 }

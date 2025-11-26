@@ -1,0 +1,8 @@
+# syntax=docker/dockerfile:1.4
+FROM alpine:3.10
+
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder_ctx /go/bin/l1-tx-volume-indexer /usr/local/bin/l1-tx-volume-indexer
+
+ENTRYPOINT ["l1-tx-volume-indexer"]

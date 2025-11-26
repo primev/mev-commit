@@ -1,0 +1,43 @@
+image:
+  repository: primev/primev
+  pullPolicy: IfNotPresent
+  tag: "l1-volume-indexer-v1"
+
+nameOverride: ""
+fullnameOverride: ""
+
+# CronJob configuration
+cronjob:
+  schedule: "0 0 * * *"  # Daily at midnight UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  backoffLimit: 2
+  activeDeadlineSeconds: 3600  # 1 hour timeout
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Global configuration for External Secrets
+global:
+  externalSecrets:
+    enabled: true
+    secretStore: ""
+    secretStoreKind: "ClusterSecretStore"
+    refreshInterval: "12h"
+
+
+envVars:
+  secretName: ""
+  database:
+    host: ""
+    user: ""
+    password: ""
+    port: ""
+    name: ""
+  covalentKey: ""
