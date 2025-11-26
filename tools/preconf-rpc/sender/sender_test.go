@@ -334,6 +334,8 @@ func TestSender(t *testing.T) {
 		t.Fatalf("failed to enqueue transaction: %v", err)
 	}
 
+	waitCh := sndr.WaitForReceiptAvailable(ctx, tx1.Hash())
+
 	// Simulate opted in block
 	bidderImpl.optinEstimate <- 2
 
@@ -385,6 +387,8 @@ func TestSender(t *testing.T) {
 	}
 	close(resC)
 	bidderImpl.out <- resC
+
+	<-waitCh
 
 	res := <-st.preconfirmedTxns
 	if res.txn == nil {

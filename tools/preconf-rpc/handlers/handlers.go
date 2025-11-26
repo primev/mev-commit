@@ -47,6 +47,7 @@ type BlockTracker interface {
 type Sender interface {
 	Enqueue(ctx context.Context, txn *sender.Transaction) error
 	CancelTransaction(ctx context.Context, txHash common.Hash) (bool, error)
+	WaitForReceiptAvailable(ctx context.Context, txHash common.Hash) <-chan struct{}
 }
 
 func SetPositionConstraint(ctx context.Context, constraint *bidderapiv1.PositionConstraint) context.Context {
@@ -135,9 +136,17 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 		return maxPriorityFeeJSON, false, nil
 	})
 	server.RegisterHandler("eth_sendRawTransaction", h.handleSendRawTx)
+	server.RegisterHandler("eth_sendRawTransactionSync", h.handleSendRawTxSync)
 	server.RegisterHandler("eth_getTransactionReceipt", h.handleGetTxReceipt)
 	server.RegisterHandler("eth_getTransactionCount", h.handleGetTxCount)
 	server.RegisterHandler("eth_getBlockByHash", h.handleGetBlockByHash)
+	// Prevent spam
+	server.RegisterHandler("eth_sendBundle", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeInvalidRequest,
+			"eth_sendBundle is not supported",
+		)
+	})
 	// Custom methods for MEV Commit
 	server.RegisterHandler("mevcommit_optInBlock", func(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
 		timeToOptIn, err := h.bidder.Estimate()
@@ -436,6 +445,106 @@ func (h *rpcMethodHandler) handleSendRawTx(
 	}
 
 	return txHashJSON, false, nil
+}
+
+func (h *rpcMethodHandler) handleSendRawTxSync(
+	ctx context.Context,
+	params ...any,
+) (json.RawMessage, bool, error) {
+	if len(params) != 1 {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeInvalidRequest,
+			"sendRawTx requires exactly one parameter",
+		)
+	}
+	if params[0] == nil {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"sendRawTx parameter cannot be null",
+		)
+	}
+
+	rawTxHex := params[0].(string)
+	if len(rawTxHex) < 2 || rawTxHex[:2] != "0x" {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"sendRawTx parameter must be a hex string starting with '0x'",
+		)
+	}
+
+	decodedTxn, err := hex.DecodeString(rawTxHex[2:])
+	if err != nil {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"sendRawTx parameter must be a valid hex string",
+		)
+	}
+
+	txn := new(types.Transaction)
+	if err := txn.UnmarshalBinary(decodedTxn); err != nil {
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeParseError,
+			"sendRawTx parameter must be a valid transaction",
+		)
+	}
+
+	txSender, err := types.Sender(types.LatestSignerForChainID(txn.ChainId()), txn)
+	if err != nil {
+		h.logger.Error("Failed to get transaction sender", "error", err)
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to get transaction sender",
+		)
+	}
+
+	txType := sender.TxTypeRegular
+	switch {
+	case txn.To().Cmp(h.depositAddress) == 0:
+		txType = sender.TxTypeDeposit
+	case txn.To().Cmp(h.bridgeAddress) == 0:
+		txType = sender.TxTypeInstantBridge
+		if txn.Value().Cmp(big.NewInt(bridgeLimitWei)) > 0 {
+			h.logger.Error("Bridge transaction with value greater than limit", "value", txn.Value().String())
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				fmt.Sprintf("bridge transaction value exceeds limit %d wei", bridgeLimitWei),
+			)
+		}
+	}
+
+	txnToEnqueue := &sender.Transaction{
+		Transaction: txn,
+		Raw:         rawTxHex,
+		Sender:      txSender,
+		Type:        txType,
+	}
+	constraint, ok := getPositionConstraint(ctx)
+	if ok {
+		txnToEnqueue.Constraint = constraint
+	}
+
+	err = h.sndr.Enqueue(ctx, txnToEnqueue)
+	if err != nil {
+		h.logger.Error("Failed to enqueue transaction for sending", "error", err, "sender", txSender.Hex())
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"failed to enqueue transaction for sending",
+		)
+	}
+
+	waitCh := h.sndr.WaitForReceiptAvailable(ctx, txn.Hash())
+	select {
+	case <-waitCh:
+		// Receipt is now available
+	case <-ctx.Done():
+		h.logger.Error("Context cancelled while waiting for transaction receipt", "txHash", txn.Hash().Hex())
+		return nil, false, rpcserver.NewJSONErr(
+			rpcserver.CodeCustomError,
+			"context cancelled while waiting for transaction receipt",
+		)
+	}
+
+	return h.handleGetTxReceipt(ctx, txn.Hash().Hex())
 }
 
 func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any) (json.RawMessage, bool, error) {
