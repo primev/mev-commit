@@ -253,6 +253,10 @@ func (m *mockBlockTracker) LatestBlockNumber() uint64 {
 	return 0
 }
 
+func (m *mockBlockTracker) AccountNonce(ctx context.Context, account common.Address) (uint64, error) {
+	return 0, nil
+}
+
 type mockTransferer struct{}
 
 func (m *mockTransferer) Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error {
