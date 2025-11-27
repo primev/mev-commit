@@ -439,7 +439,7 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		h.logger.Error("Failed to enqueue transaction for sending", "error", err, "sender", txSender.Hex())
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeCustomError,
-			"failed to enqueue transaction for sending",
+			err.Error(),
 		)
 	}
 
@@ -540,7 +540,7 @@ func (h *rpcMethodHandler) handleSendRawTxSync(
 		h.logger.Error("Failed to enqueue transaction for sending", "error", err, "sender", txSender.Hex())
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeCustomError,
-			"failed to enqueue transaction for sending",
+			err.Error(),
 		)
 	}
 

@@ -57,6 +57,8 @@ var (
 	ErrTransactionCancelled        = errors.New("transaction cancelled by user")
 	ErrTimeoutExceeded             = errors.New("timeout exceeded while waiting for transaction to be processed")
 	ErrMaxAttemptsPerBlockExceeded = errors.New("maximum attempts exceeded for transaction in the current block")
+	ErrNonceTooHigh                = errors.New("nonce too high")
+	ErrNonceTooLow                 = errors.New("nonce too low")
 )
 
 type Transaction struct {
@@ -105,6 +107,7 @@ type BlockTracker interface {
 	WaitForTxnInclusion(txnHash common.Hash) chan uint64
 	NextBlockNumber() (uint64, time.Duration, error)
 	LatestBlockNumber() uint64
+	AccountNonce(ctx context.Context, account common.Address) (uint64, error)
 }
 
 type Transferer interface {
@@ -220,9 +223,22 @@ func validateTransaction(tx *Transaction) error {
 	return nil
 }
 
-func (t *TxSender) hasLowerNonce(ctx context.Context, tx *Transaction) bool {
-	currentNonce := t.store.GetCurrentNonce(ctx, tx.Sender)
-	return tx.Nonce() < currentNonce
+func (t *TxSender) hasCorrectNonce(ctx context.Context, tx *Transaction) error {
+	currentNonce := t.store.GetCurrentNonce(ctx, tx.Sender) + 1
+	backendNonce, err := t.blockTracker.AccountNonce(ctx, tx.Sender)
+	if err == nil {
+		if backendNonce > currentNonce {
+			currentNonce = backendNonce
+		}
+	}
+	switch {
+	case tx.Nonce() < currentNonce:
+		return ErrNonceTooLow
+	case tx.Nonce() > currentNonce:
+		return ErrNonceTooHigh
+	}
+
+	return nil
 }
 
 func (t *TxSender) triggerSender() {
@@ -243,8 +259,8 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 		return err
 	}
 
-	if t.hasLowerNonce(ctx, tx) {
-		return errors.New("transaction has a lower nonce than the current highest nonce")
+	if err := t.hasCorrectNonce(ctx, tx); err != nil {
+		return err
 	}
 
 	if err := t.store.AddQueuedTransaction(ctx, tx); err != nil {
