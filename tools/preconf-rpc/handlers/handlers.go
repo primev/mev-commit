@@ -602,7 +602,7 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 	}
 
 	commitments, err := h.store.GetTransactionCommitments(ctx, txHash)
-	if err != nil {
+	if err != nil && txn.Status != sender.TxStatusFailed {
 		h.logger.Error("Failed to get transaction commitments", "error", err, "txHash", txHash)
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeCustomError,
