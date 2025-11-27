@@ -596,3 +596,31 @@ func (s *rpcstore) AddSubsidy(
 
 	return s.AddBalance(ctx, account, amount)
 }
+
+func (s *rpcstore) AlreadySubsidized(
+	ctx context.Context,
+	account common.Address,
+) bool {
+	if account == (common.Address{}) {
+		return false
+	}
+
+	query := `
+	SELECT balance
+	FROM subsidies
+	WHERE account = $1;
+	`
+	row := s.db.QueryRowContext(ctx, query, account.Hex())
+	var currentBalanceString string
+	err := row.Scan(&currentBalanceString)
+	if err != nil {
+		return false
+	}
+
+	currentBalance, ok := new(big.Int).SetString(currentBalanceString, 10)
+	if !ok {
+		return false
+	}
+
+	return currentBalance.Sign() > 0
+}
