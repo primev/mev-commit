@@ -18,6 +18,7 @@ import (
 
 const (
 	bridgeLimitWei = 1000000000000000000 // 1 ETH
+	defaultSubsidy = 10000000000000000   // 0.01 ETH
 )
 
 type positionConstraintKey struct{}
@@ -37,6 +38,9 @@ type Store interface {
 	GetTransactionLogs(ctx context.Context, txnHash common.Hash) ([]*types.Log, error)
 	GetBalance(ctx context.Context, account common.Address) (*big.Int, error)
 	GetCurrentNonce(ctx context.Context, account common.Address) uint64
+	HasBalance(ctx context.Context, account common.Address, amount *big.Int) bool
+	AlreadySubsidized(ctx context.Context, account common.Address) bool
+	AddSubsidy(ctx context.Context, account common.Address, amount *big.Int) error
 }
 
 type BlockTracker interface {
@@ -415,6 +419,10 @@ func (h *rpcMethodHandler) handleSendRawTx(
 		}
 	}
 
+	if err := h.subsidizeOnce(ctx, txSender); err != nil {
+		h.logger.Warn("Failed to subsidize user", "error", err, "sender", txSender.Hex())
+	}
+
 	txnToEnqueue := &sender.Transaction{
 		Transaction: txn,
 		Raw:         rawTxHex,
@@ -510,6 +518,10 @@ func (h *rpcMethodHandler) handleSendRawTxSync(
 				fmt.Sprintf("bridge transaction value exceeds limit %d wei", bridgeLimitWei),
 			)
 		}
+	}
+
+	if err := h.subsidizeOnce(ctx, txSender); err != nil {
+		h.logger.Warn("Failed to subsidize user", "error", err, "sender", txSender.Hex())
 	}
 
 	txnToEnqueue := &sender.Transaction{
@@ -809,6 +821,17 @@ func (r *rpcMethodHandler) handleCancelTransaction(ctx context.Context, params .
 
 	r.logger.Info("Transaction cancelled successfully", "txHash", txHash)
 	return json.RawMessage(fmt.Sprintf(`{"cancelled": true, "txHash": "%s"}`, txHash.Hex())), false, nil
+}
+
+func (r *rpcMethodHandler) subsidizeOnce(ctx context.Context, account common.Address) error {
+	if r.store.HasBalance(ctx, account, big.NewInt(1)) {
+		return nil
+	}
+	if r.store.AlreadySubsidized(ctx, account) {
+		return nil
+	}
+	r.logger.Info("Subsidizing account for first transaction", "account", account.Hex())
+	return r.store.AddSubsidy(ctx, account, big.NewInt(defaultSubsidy))
 }
 
 func getFinalBidAmount(cmts []*bidderapiv1.Commitment) *big.Int {
