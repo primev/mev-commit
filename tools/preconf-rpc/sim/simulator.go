@@ -31,7 +31,7 @@ type SimBlock struct {
 	LogsBloom     string    `json:"logsBloom"`
 	Transactions  []string  `json:"transactions"`
 	Calls         []SimCall `json:"calls"`
-	TraceErrors   []string  `json: traceErrors`
+	TraceErrors   []string  `json:"traceErrors"`
 }
 
 type Simulator struct {
