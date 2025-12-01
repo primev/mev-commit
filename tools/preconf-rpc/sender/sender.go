@@ -57,6 +57,8 @@ var (
 	ErrTransactionCancelled        = errors.New("transaction cancelled by user")
 	ErrTimeoutExceeded             = errors.New("timeout exceeded while waiting for transaction to be processed")
 	ErrMaxAttemptsPerBlockExceeded = errors.New("maximum attempts exceeded for transaction in the current block")
+	ErrNonceTooHigh                = errors.New("nonce too high")
+	ErrNonceTooLow                 = errors.New("nonce too low")
 )
 
 type Transaction struct {
@@ -105,6 +107,7 @@ type BlockTracker interface {
 	WaitForTxnInclusion(txnHash common.Hash) chan uint64
 	NextBlockNumber() (uint64, time.Duration, error)
 	LatestBlockNumber() uint64
+	AccountNonce(ctx context.Context, account common.Address) (uint64, error)
 }
 
 type Transferer interface {
@@ -152,6 +155,8 @@ type TxSender struct {
 	fastTrack         func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool
 	bidTimeout        time.Duration
 	timeoutMtx        sync.RWMutex
+	receiptSignal     map[common.Hash][]chan struct{}
+	receiptMtx        sync.Mutex
 }
 
 func noOpFastTrack(_ []*bidderapiv1.Commitment, _ bool) bool {
@@ -192,6 +197,7 @@ func NewTxSender(
 		simulator:         simulator,
 		fastTrack:         noOpFastTrack,
 		bidTimeout:        bidTimeout,
+		receiptSignal:     make(map[common.Hash][]chan struct{}),
 	}, nil
 }
 
@@ -217,9 +223,22 @@ func validateTransaction(tx *Transaction) error {
 	return nil
 }
 
-func (t *TxSender) hasLowerNonce(ctx context.Context, tx *Transaction) bool {
-	currentNonce := t.store.GetCurrentNonce(ctx, tx.Sender)
-	return tx.Nonce() < currentNonce
+func (t *TxSender) hasCorrectNonce(ctx context.Context, tx *Transaction) error {
+	currentNonce := t.store.GetCurrentNonce(ctx, tx.Sender) + 1
+	backendNonce, err := t.blockTracker.AccountNonce(ctx, tx.Sender)
+	if err == nil {
+		if backendNonce > currentNonce {
+			currentNonce = backendNonce
+		}
+	}
+	switch {
+	case tx.Nonce() < currentNonce:
+		return ErrNonceTooLow
+	case tx.Nonce() > currentNonce:
+		return ErrNonceTooHigh
+	}
+
+	return nil
 }
 
 func (t *TxSender) triggerSender() {
@@ -240,8 +259,8 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 		return err
 	}
 
-	if t.hasLowerNonce(ctx, tx) {
-		return errors.New("transaction has a lower nonce than the current highest nonce")
+	if err := t.hasCorrectNonce(ctx, tx); err != nil {
+		return err
 	}
 
 	if err := t.store.AddQueuedTransaction(ctx, tx); err != nil {
@@ -251,6 +270,34 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	t.triggerSender()
 
 	return nil
+}
+
+func (t *TxSender) WaitForReceiptAvailable(ctx context.Context, txnHash common.Hash) <-chan struct{} {
+	t.receiptMtx.Lock()
+	defer t.receiptMtx.Unlock()
+
+	signal, found := t.receiptSignal[txnHash]
+	if !found {
+		signal = []chan struct{}{}
+	}
+	newSignal := make(chan struct{})
+	signal = append(signal, newSignal)
+	t.receiptSignal[txnHash] = signal
+	return newSignal
+}
+
+func (t *TxSender) signalReceiptAvailable(txnHash common.Hash) {
+	t.receiptMtx.Lock()
+	defer t.receiptMtx.Unlock()
+
+	signals, found := t.receiptSignal[txnHash]
+	if !found {
+		return
+	}
+	for _, sig := range signals {
+		close(sig)
+	}
+	delete(t.receiptSignal, txnHash)
 }
 
 func (t *TxSender) CancelTransaction(ctx context.Context, txnHash common.Hash) (bool, error) {
@@ -432,6 +479,7 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 					txn.Status = TxStatusFailed
 					txn.Details = err.Error()
 					t.clearBlockAttemptHistory(txn, time.Now())
+					defer t.signalReceiptAvailable(txn.Hash())
 					return t.store.StoreTransaction(ctx, txn, nil, nil)
 				}
 				return nil
@@ -487,6 +535,7 @@ BID_LOOP:
 				if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
+				t.signalReceiptAvailable(txn.Hash())
 			}
 			retryTicker.Reset(result.timeUntillNextBlock + 1*time.Second)
 		default:
@@ -521,6 +570,7 @@ BID_LOOP:
 				if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
+				t.signalReceiptAvailable(txn.Hash())
 			}
 			endTime := time.Now()
 			if len(txn.commitments) > 0 {
@@ -682,17 +732,6 @@ func (t *TxSender) sendBid(
 	if !isRetry {
 		logs, err := t.simulator.Simulate(ctx, txn.Raw)
 		if err != nil {
-			if t.blockTracker.LatestBlockNumber() < bidBlockNo {
-				logger.Warn(
-					"Simulation failed, but block may not be mined yet, will retry",
-					"error", err,
-					"blockNumber", bidBlockNo,
-				)
-				return bidResult{}, &errRetry{
-					err:        fmt.Errorf("simulation may have failed due to unmined block: %w", err),
-					retryAfter: time.Second,
-				}
-			}
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
 			return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
 		}
@@ -764,6 +803,7 @@ BID_LOOP:
 					if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 						logger.Error("Failed to store fast-tracked transaction", "error", err)
 					}
+					t.signalReceiptAvailable(txn.Hash())
 				}
 			case bidder.BidStatusCancelled:
 				logger.Warn("Bid context cancelled by the bidder")
