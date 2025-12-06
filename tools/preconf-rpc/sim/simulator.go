@@ -31,6 +31,7 @@ type SimBlock struct {
 	LogsBloom     string    `json:"logsBloom"`
 	Transactions  []string  `json:"transactions"`
 	Calls         []SimCall `json:"calls"`
+	TraceErrors   []string  `json:"traceErrors"`
 }
 
 type Simulator struct {
@@ -60,14 +61,18 @@ func NewSimulator(apiURL string) *Simulator {
 }
 
 type reqBody struct {
-	TxRaw string `json:"raw"`
-	Block string `json:"block,omitempty"`
+	TxRaw      string `json:"raw"`
+	Block      string `json:"block,omitempty"`
+	Validation bool   `json:"validation,omitempty"`
+	TraceCalls bool   `json:"traceCalls,omitempty"`
 }
 
 func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, error) {
 	body := reqBody{
-		TxRaw: txRaw,
-		Block: "latest",
+		TxRaw:      txRaw,
+		Block:      "latest",
+		Validation: true,
+		TraceCalls: true,
 	}
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
@@ -134,6 +139,13 @@ func parseResponse(body []byte) ([]*types.Log, error) {
 	if strings.EqualFold(root.Status, "0x0") {
 		reason := decodeRevert(root.ReturnData, "execution reverted")
 		return nil, fmt.Errorf("reverted: %s", reason)
+	}
+
+	// Check trace errors for internal reverts
+	for _, te := range blk.TraceErrors {
+		if strings.Contains(strings.ToLower(te), "execution reverted") {
+			return nil, errors.New(te)
+		}
 	}
 
 	// Success → collect all logs (depth-first, execution order)

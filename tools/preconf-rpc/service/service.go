@@ -353,6 +353,7 @@ func New(config *Config) (*Service, error) {
 
 type RPCStore interface {
 	AddSubsidy(ctx context.Context, account common.Address, amount *big.Int) error
+	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error)
 }
 
 func registerAdminAPIs(mux *http.ServeMux, token string, sndr *sender.TxSender, rpcstore RPCStore) {
@@ -529,6 +530,37 @@ func registerAdminAPIs(mux *http.ServeMux, token string, sndr *sender.TxSender, 
 		sndr.UpdateBidTimeout(timeout)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
+	})
+
+	mux.HandleFunc("GET /status/{txnHash}", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		txnHash := common.HexToHash(r.PathValue("txnHash"))
+
+		txn, err := rpcstore.GetTransactionByHash(r.Context(), txnHash)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get transaction: %v", err), http.StatusNotFound)
+			return
+		}
+
+		status := struct {
+			Hash    string
+			Status  string
+			Details string
+		}{
+			Hash:    txn.Hash().Hex(),
+			Status:  string(txn.Status),
+			Details: txn.Details,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(status); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+			return
+		}
 	})
 }
 
