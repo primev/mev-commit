@@ -2,13 +2,14 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {VanillaRegistry} from "../../contracts/validator-registry/VanillaRegistry.sol";
+import {VanillaRegistryV2} from "../../contracts/validator-registry/VanillaRegistryV2.sol";
 import {ValidatorOptInRouter} from "../../contracts/validator-registry/ValidatorOptInRouter.sol";
 import {MevCommitAVS} from "../../contracts/validator-registry/avs/MevCommitAVS.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {VanillaRegistryTest} from "./VanillaRegistryTest.sol";
+import {VanillaRegistryV2Test} from "./VanillaRegistryV2Test.sol";
 import {MevCommitAVSTest} from "./avs/MevCommitAVSTest.sol";
 import {IValidatorOptInRouter} from "../../contracts/interfaces/IValidatorOptInRouter.sol";
+import {IVanillaRegistryV2} from "../../contracts/interfaces/IVanillaRegistryV2.sol";
 import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
 import {IMevCommitAVS} from "../../contracts/interfaces/IMevCommitAVS.sol";
 import {IMevCommitMiddleware} from "../../contracts/interfaces/IMevCommitMiddleware.sol";
@@ -18,8 +19,8 @@ import {MevCommitMiddlewareTestCont} from "./middleware/MevCommitMiddlewareTestC
 contract ValidatorOptInRouterTest is Test {
     ValidatorOptInRouter public validatorOptInRouter;
 
-    VanillaRegistry public vanillaRegistry;
-    VanillaRegistryTest public vanillaRegistryTest;
+    VanillaRegistryV2 public vanillaRegistry;
+    VanillaRegistryV2Test public vanillaRegistryTest;
     MevCommitAVS public mevCommitAVS;
     MevCommitAVSTest public mevCommitAVSTest;
     MevCommitMiddleware public mevCommitMiddleware;
@@ -38,7 +39,7 @@ contract ValidatorOptInRouterTest is Test {
         user1 = address(0x123);
         user2 = address(0x456);
 
-        vanillaRegistryTest = new VanillaRegistryTest();
+        vanillaRegistryTest = new VanillaRegistryV2Test();
         vanillaRegistryTest.setUp();
         vanillaRegistry = vanillaRegistryTest.validatorRegistry();
 
@@ -64,12 +65,12 @@ contract ValidatorOptInRouterTest is Test {
     }
 
     function testSetters() public {
-        IVanillaRegistry newValReg = new VanillaRegistry();
-        IVanillaRegistry oldValReg = vanillaRegistry;
+        IVanillaRegistryV2 newValReg = new VanillaRegistryV2();
+        IVanillaRegistryV2 oldValReg = vanillaRegistry;
         vm.prank(owner);
         vm.expectEmit();
         emit VanillaRegistrySet(address(oldValReg), address(newValReg));
-        validatorOptInRouter.setVanillaRegistry(newValReg);
+        validatorOptInRouter.setVanillaRegistry((IVanillaRegistry((address(newValReg)))));
         assertEq(address(validatorOptInRouter.vanillaRegistry()), address(newValReg));
 
         IMevCommitAVS newMevCommitAVS = new MevCommitAVS();

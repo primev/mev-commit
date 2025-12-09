@@ -3,9 +3,9 @@ pragma solidity 0.8.26;
 
 import { BlockHeightOccurrence } from "../utils/Occurrence.sol";
 
-/// @title IVanillaRegistry
+/// @title IVanillaRegistryV2
 /// @notice Interface for the VanillaRegistry contract for validators.
-interface IVanillaRegistry {
+interface IVanillaRegistryV2 {
 
     /// @dev Struct representing a validator staked with the registry.
     struct StakedValidator {
@@ -48,6 +48,12 @@ interface IVanillaRegistry {
     /// @dev Event emitted when the slashing payout period blocks parameter is set.
     event SlashingPayoutPeriodBlocksSet(address indexed msgSender, uint256 newSlashingPayoutPeriodBlocks);
 
+    /// @dev Event emitted when a staker is whitelisted.
+    event StakerWhitelisted(address indexed msgSender, address staker);
+
+    /// @dev Event emitted when a staker is removed from the whitelist.
+    event StakerRemovedFromWhitelist(address indexed msgSender, address staker);
+
     error ValidatorRecordMustExist(bytes valBLSPubKey);
     error ValidatorRecordMustNotExist(bytes valBLSPubKey);
     error ValidatorCannotBeUnstaking(bytes valBLSPubKey);
@@ -63,13 +69,15 @@ interface IVanillaRegistry {
     error WithdrawalFailed();
     error NoFundsToWithdraw();
     error SlashingTransferFailed();
-    error MinStakeMustBePositive();
     error SlashAmountMustBePositive();
     error SlashAmountMustBeLessThanMinStake();
     error SlashOracleMustBeSet();
     error SlashReceiverMustBeSet();
     error UnstakePeriodMustBePositive();
     error SlashingPayoutPeriodMustBePositive();
+    error SenderIsNotWhitelistedStaker(address sender);
+    error StakerAlreadyWhitelisted(address staker);
+    error StakerNotWhitelisted(address staker);
 
     /// @dev Initializes the contract with the provided parameters.
     function initialize(
