@@ -329,5 +329,8 @@ func unmarshalCommitment(data []byte) (*bidderapiv1.Commitment, error) {
 
 func checkPreconfLatency(c *bidderapiv1.Commitment) int {
 	actualStart := c.DecayStartTimestamp - 200
+	if c.DispatchTimestamp < actualStart {
+		return 0
+	}
 	return int(c.DispatchTimestamp - actualStart)
 }
