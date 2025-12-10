@@ -733,7 +733,7 @@ func (t *TxSender) sendBid(
 		logs, err := t.simulator.Simulate(ctx, txn.Raw)
 		if err != nil {
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
-			if txn.blockNumber+1 == int64(bidBlockNo) {
+			if len(txn.commitments) > 0 && txn.commitments[0].BlockNumber+1 == int64(bidBlockNo) {
 				// Could happen that it takes time to get confirmation of txn inclusion
 				// so simulation would return error but we should retry after a delay to allow
 				// the transaction to be included
