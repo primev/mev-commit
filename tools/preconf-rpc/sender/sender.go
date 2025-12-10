@@ -733,6 +733,15 @@ func (t *TxSender) sendBid(
 		logs, err := t.simulator.Simulate(ctx, txn.Raw)
 		if err != nil {
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
+			if txn.blockNumber+1 == int64(bidBlockNo) {
+				// Could happen that it takes time to get confirmation of txn inclusion
+				// so simulation would return error but we should retry after a delay to allow
+				// the transaction to be included
+				return bidResult{}, &errRetry{
+					err:        fmt.Errorf("failed to simulate transaction: %w", err),
+					retryAfter: 2 * time.Second,
+				}
+			}
 			return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
 		}
 		providers, err := t.bidder.ConnectedProviders(ctx)
@@ -901,6 +910,8 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time)
 	}
 
 	totalAttempts := 0
+	blockAttempts := len(attempts.attempts)
+
 	for _, attempt := range attempts.attempts {
 		totalAttempts += attempt.attempts
 	}
@@ -909,15 +920,14 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time)
 		"Clearing block attempt history for transaction",
 		"transactionHash", txn.Hash().Hex(),
 		"blockNumber", txn.BlockNumber,
-		"blockAttempts", len(attempts.attempts),
+		"blockAttempts", blockAttempts,
 		"startTime", attempts.startTime.Format(time.RFC3339),
 		"startBlockNumber", attempts.attempts[0].blockNumber,
 		"totalAttempts", totalAttempts,
-		"totalBlockAttempts", len(attempts.attempts),
 	)
 
 	_ = t.txnAttemptHistory.Remove(txn.Hash())
 
 	timeTaken := endTime.Sub(attempts.startTime).Round(time.Millisecond)
-	t.notifier.NotifyTransactionStatus(txn, totalAttempts, len(attempts.attempts), timeTaken)
+	t.notifier.NotifyTransactionStatus(txn, totalAttempts, blockAttempts, timeTaken)
 }
