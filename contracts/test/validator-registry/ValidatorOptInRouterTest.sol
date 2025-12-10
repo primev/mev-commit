@@ -10,7 +10,7 @@ import {VanillaRegistryV2Test} from "./VanillaRegistryV2Test.sol";
 import {MevCommitAVSTest} from "./avs/MevCommitAVSTest.sol";
 import {IValidatorOptInRouter} from "../../contracts/interfaces/IValidatorOptInRouter.sol";
 import {IVanillaRegistryV2} from "../../contracts/interfaces/IVanillaRegistryV2.sol";
-import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
+import {IVanillaRegistry} from "../../contracts/upgrades/IVanillaRegistry.sol";
 import {IMevCommitAVS} from "../../contracts/interfaces/IMevCommitAVS.sol";
 import {IMevCommitMiddleware} from "../../contracts/interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddleware} from "../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";

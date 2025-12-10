@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-import {IVanillaRegistry} from "../interfaces/IVanillaRegistry.sol";
+import {IVanillaRegistry} from "./IVanillaRegistry.sol";
 import {FeePayout} from "../utils/FeePayout.sol";
 
 /// @title VanillaRegistryStorage
