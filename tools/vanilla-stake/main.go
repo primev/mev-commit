@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli/v2"
 
-	vanillaregistry "github.com/primev/mev-commit/contracts-abi/clients/VanillaRegistry"
+	vanillaregistry "github.com/primev/mev-commit/contracts-abi/clients/VanillaRegistryV2"
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
@@ -114,7 +114,7 @@ func stakeVanilla(c *cli.Context) error {
 		return fmt.Errorf("failed to get chain ID: %w", err)
 	}
 
-	vrc, err := vanillaregistry.NewVanillaregistryCaller(common.HexToAddress(vanillaRegistryAddress), client)
+	vrc, err := vanillaregistry.NewVanillaregistryv2Caller(common.HexToAddress(vanillaRegistryAddress), client)
 	if err != nil {
 		return fmt.Errorf("failed to create Vanilla Registry caller: %w", err)
 	}
@@ -136,7 +136,7 @@ func stakeVanilla(c *cli.Context) error {
 		return fmt.Errorf("caller %v is not whitelisted", signer.GetAddress())
 	}
 
-	vrt, err := vanillaregistry.NewVanillaregistryTransactor(common.HexToAddress(vanillaRegistryAddress), client)
+	vrt, err := vanillaregistry.NewVanillaregistryv2Transactor(common.HexToAddress(vanillaRegistryAddress), client)
 	if err != nil {
 		return fmt.Errorf("failed to create Vanilla Registry transactor: %w", err)
 	}
