@@ -27,7 +27,7 @@ import (
 
 const (
 	ProtocolName    = "preconfirmation"
-	ProtocolVersion = "4.0.0"
+	ProtocolVersion = "5.0.0"
 )
 
 type Preconfirmation struct {
