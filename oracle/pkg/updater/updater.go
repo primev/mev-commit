@@ -339,6 +339,19 @@ func (u *Updater) handleOpenedCommitment(
 				"revertible", revertableTxnsMap[commitmentTxnHashes[i]],
 			)
 
+			for _, opt := range opts.Options {
+				if sOpt := opt.GetShutterisedBidOption(); sOpt != nil {
+					u.logger.Info(
+						"shutterised bid option present, skipping slash",
+						"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+						"txnHash", update.TxnHash,
+						"blockNumber", update.BlockNumber,
+						"shutter option", sOpt,
+					)
+					return nil
+				}
+			}
+
 			// The committer did not include the transactions in the block
 			// correctly, so this is a slash to be processed
 			return u.settle(
