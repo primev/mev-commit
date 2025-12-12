@@ -337,6 +337,7 @@ func (n *Notifier) NotifyTransactionStatus(
 	n.queuedTxns = append(n.queuedTxns, txnInfo{
 		txn:          txn,
 		noOfAttempts: noOfAttempts,
+		noOfBlocks:   noOfBlocks,
 		timeTaken:    timeTaken,
 	})
 }
