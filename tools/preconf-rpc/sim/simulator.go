@@ -32,6 +32,7 @@ type SimBlock struct {
 	Transactions  []string  `json:"transactions"`
 	Calls         []SimCall `json:"calls"`
 	TraceErrors   []string  `json:"traceErrors"`
+	IsSwap        bool      `json:"swapDetected"`
 }
 
 type simResp struct {
@@ -72,7 +73,7 @@ type reqBody struct {
 	TraceCalls bool   `json:"traceCalls,omitempty"`
 }
 
-func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, error) {
+func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, bool, error) {
 	body := reqBody{
 		TxRaw:      txRaw,
 		Block:      "latest",
@@ -81,7 +82,7 @@ func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, e
 	}
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
-		return nil, fmt.Errorf("marshal request: %w", err)
+		return nil, false, fmt.Errorf("marshal request: %w", err)
 	}
 	req, err := http.NewRequestWithContext(
 		ctx,
@@ -90,13 +91,13 @@ func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, e
 		strings.NewReader(string(bodyJSON)),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, false, fmt.Errorf("create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
+		return nil, false, fmt.Errorf("do request: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -104,19 +105,19 @@ func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, e
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
+		return nil, false, fmt.Errorf("read response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status %d: %s", resp.StatusCode, string(respBody))
+		return nil, false, fmt.Errorf("bad status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	return parseResponse(respBody)
 }
 
-func parseResponse(body []byte) ([]*types.Log, error) {
+func parseResponse(body []byte) ([]*types.Log, bool, error) {
 	trim := strings.TrimSpace(string(body))
 	if len(trim) == 0 {
-		return nil, errors.New("empty response")
+		return nil, false, errors.New("empty response")
 	}
 
 	var blk SimBlock
@@ -125,10 +126,10 @@ func parseResponse(body []byte) ([]*types.Log, error) {
 	if strings.HasPrefix(trim, "[") {
 		var arr []SimBlock
 		if err := json.Unmarshal(body, &arr); err != nil {
-			return nil, fmt.Errorf("decode array: %w", err)
+			return nil, false, fmt.Errorf("decode array: %w", err)
 		}
 		if len(arr) == 0 {
-			return nil, errors.New("no blocks in response")
+			return nil, false, errors.New("no blocks in response")
 		}
 		blk = arr[0]
 	} else {
@@ -138,20 +139,20 @@ func parseResponse(body []byte) ([]*types.Log, error) {
 			traceErrors = w.TraceErrors
 		} else {
 			if err := json.Unmarshal(body, &blk); err != nil {
-				return nil, fmt.Errorf("decode object: %w", err)
+				return nil, false, fmt.Errorf("decode object: %w", err)
 			}
 		}
 	}
 
 	if len(blk.Calls) == 0 {
-		return nil, errors.New("no calls in response")
+		return nil, false, errors.New("no calls in response")
 	}
 	root := blk.Calls[0]
 
 	// Failure → build extended error
 	if strings.EqualFold(root.Status, "0x0") {
 		reason := decodeRevert(root.ReturnData, "execution reverted")
-		return nil, fmt.Errorf("reverted: %s", reason)
+		return nil, false, fmt.Errorf("reverted: %s", reason)
 	}
 
 	// Check trace errors for internal reverts
@@ -160,14 +161,14 @@ func parseResponse(body []byte) ([]*types.Log, error) {
 	}
 	for _, te := range traceErrors {
 		if strings.Contains(strings.ToLower(te), "execution reverted") {
-			return nil, errors.New(te)
+			return nil, false, errors.New(te)
 		}
 	}
 
 	// Success → collect all logs (depth-first, execution order)
 	var out []*types.Log
 	collectLogs(&root, &out)
-	return out, nil
+	return out, blk.IsSwap, nil
 }
 
 func collectLogs(n *SimCall, acc *[]*types.Log) {

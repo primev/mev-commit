@@ -55,16 +55,19 @@ func TestSimulator(t *testing.T) {
 	simulator := sim.NewSimulator(srv.URL)
 
 	t.Run("SuccessfulSimulation1", func(t *testing.T) {
-		result, err := simulator.Simulate(context.Background(), "1234")
+		result, isSwap, err := simulator.Simulate(context.Background(), "1234")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 		if len(result) != 0 {
 			t.Fatalf("expected non-empty result")
 		}
+		if isSwap {
+			t.Fatalf("expected isSwap to be false")
+		}
 	})
 	t.Run("SuccessfulSimulation2", func(t *testing.T) {
-		result, err := simulator.Simulate(context.Background(), "5678")
+		result, _, err := simulator.Simulate(context.Background(), "5678")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -82,7 +85,7 @@ func TestSimulator(t *testing.T) {
 		}
 	})
 	t.Run("ErrorSimulation", func(t *testing.T) {
-		_, err := simulator.Simulate(context.Background(), "abcd")
+		_, _, err := simulator.Simulate(context.Background(), "abcd")
 		if err == nil {
 			t.Fatalf("expected error, got none")
 		}

@@ -74,6 +74,7 @@ type Transaction struct {
 	noOfProviders int
 	commitments   []*bidderapiv1.Commitment
 	logs          []*types.Log
+	isSwap        bool
 }
 
 type Store interface {
@@ -115,7 +116,7 @@ type Transferer interface {
 }
 
 type Simulator interface {
-	Simulate(ctx context.Context, txRaw string) ([]*types.Log, error)
+	Simulate(ctx context.Context, txRaw string) ([]*types.Log, bool, error)
 }
 
 type blockAttempt struct {
@@ -730,7 +731,7 @@ func (t *TxSender) sendBid(
 	}
 
 	if !isRetry {
-		logs, err := t.simulator.Simulate(ctx, txn.Raw)
+		logs, isSwap, err := t.simulator.Simulate(ctx, txn.Raw)
 		if err != nil {
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
 			if len(txn.commitments) > 0 && txn.commitments[0].BlockNumber+1 == int64(bidBlockNo) {
@@ -750,6 +751,7 @@ func (t *TxSender) sendBid(
 			return bidResult{}, fmt.Errorf("failed to get connected providers: %w", err)
 		}
 		txn.logs = logs
+		txn.isSwap = isSwap
 		txn.noOfProviders = len(providers)
 		// We could have already made a attempt on the previous block but the block
 		// update hasn't happened yet. This means that the bid might fail, but
