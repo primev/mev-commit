@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {ValidatorOptInRouterStorage} from "./ValidatorOptInRouterStorage.sol";
 import {IValidatorOptInRouter} from "../interfaces/IValidatorOptInRouter.sol";
-import {IVanillaRegistry} from "../interfaces/IVanillaRegistry.sol";
+import {IVanillaRegistry} from "../upgrades/IVanillaRegistry.sol";
 import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
