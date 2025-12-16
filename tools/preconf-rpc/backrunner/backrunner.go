@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -24,19 +25,27 @@ var builders = map[common.Address]string{
 }
 
 type Store interface {
-	AddSwapInfo(ctx context.Context, bundleHash common.Hash, txnHash common.Hash) error
-	RewardsToCheck(ctx context.Context) (map[common.Hash]common.Hash, error)
+	AddBackrunInfo(ctx context.Context, txnHash common.Hash, blockNumber int64) error
+	RewardsToCheck(ctx context.Context, uptoBlockNumber int64) ([]common.Hash, uint64, error)
 	UpdateSwapReward(ctx context.Context, bundleHash common.Hash, reward *big.Int) error
 }
 
-type backrunner struct {
-	client *http.Client
-	apiURL string
-	store  Store
+type BlockNumberGetter interface {
+	BlockNumber(ctx context.Context) (uint64, error)
 }
 
-func New(client *http.Client, apiKey, apiURL string) (*backrunner, error) {
-	urlParsed, err := url.Parse(apiURL)
+type backrunner struct {
+	client    *http.Client
+	rpcURL    string
+	apiURL    string
+	apiKey    string
+	store     Store
+	bNoGetter BlockNumberGetter
+	logger    *slog.Logger
+}
+
+func New(client *http.Client, apiKey, apiURL, rpcURL string) (*backrunner, error) {
+	urlParsed, err := url.Parse(rpcURL)
 	if err != nil {
 		return nil, err
 	}
@@ -45,9 +54,16 @@ func New(client *http.Client, apiKey, apiURL string) (*backrunner, error) {
 	q.Add("mode", "primev")
 	urlParsed.RawQuery = q.Encode()
 
+	apiParsed, err := url.Parse(fmt.Sprintf("%s/api/transactions", apiURL))
+	if err != nil {
+		return nil, err
+	}
+
 	return &backrunner{
 		client: client,
-		apiURL: urlParsed.String(),
+		rpcURL: urlParsed.String(),
+		apiURL: apiParsed.String(),
+		apiKey: apiKey,
 	}, nil
 }
 
@@ -107,8 +123,20 @@ func (b *backrunner) Start(ctx context.Context) <-chan struct{} {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				bundles, err := b.store.RewardsToCheck(ctx)
+				currentBlock, err := b.bNoGetter.BlockNumber(ctx)
 				if err != nil {
+					b.logger.Error("getting current block number", "error", err)
+					continue
+				}
+				txns, start, err := b.store.RewardsToCheck(ctx, int64(currentBlock))
+				if err != nil {
+					continue
+				}
+				if len(txns) == 0 {
+					continue
+				}
+				if err := b.checkRewards(ctx, txns, start); err != nil {
+					b.logger.Error("checking backrun rewards", "error", err)
 					continue
 				}
 			}
@@ -116,6 +144,69 @@ func (b *backrunner) Start(ctx context.Context) <-chan struct{} {
 	}()
 
 	return done
+}
+
+type transactionRecord struct {
+	Amount       string   `json:"amount"`
+	BundleId     string   `json:"bundleId"`
+	BundleHashes []string `json:"bundleHashes"`
+}
+
+type transactionRecords struct {
+	Records []transactionRecord `json:"records"`
+}
+
+type transactionsResponse struct {
+	Success bool               `json:"success"`
+	Data    transactionRecords `json:"data"`
+}
+
+func (b *backrunner) checkRewards(ctx context.Context, txns []common.Hash, start uint64) error {
+	reqURL, err := url.Parse(b.apiURL)
+	if err != nil {
+		return fmt.Errorf("parsing backrun API URL: %w", err)
+	}
+	q := reqURL.Query()
+	q.Add("chainId", "1")
+	q.Add("revenueType", "Backrun")
+	q.Add("start", fmt.Sprintf("%d", start))
+	reqURL.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
+	if err != nil {
+		return fmt.Errorf("creating backrun HTTP request: %w", err)
+	}
+
+	req.Header.Set("Authorization", b.apiKey)
+	resp, err := b.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("sending backrun HTTP request: %w", err)
+	}
+
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("bad status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading backrun HTTP response: %w", err)
+	}
+
+	var respStruct transactionsResponse
+	if err := json.Unmarshal(respBody, &respStruct); err != nil {
+		return fmt.Errorf("unmarshaling backrun HTTP response: %w", err)
+	}
+
+	if !respStruct.Success {
+		return fmt.Errorf("unsuccessful backrun API response: %s", string(respBody))
+	}
+
+	return nil
 }
 
 func (b *backrunner) Backrun(
@@ -135,7 +226,7 @@ func (b *backrunner) Backrun(
 		return fmt.Errorf("encoding backrun request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.apiURL, buf)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.rpcURL, buf)
 	if err != nil {
 		return fmt.Errorf("creating backrun HTTP request: %w", err)
 	}
@@ -181,5 +272,7 @@ func (b *backrunner) Backrun(
 	}
 
 	bundleHash := common.HexToHash(bundleHashStr)
-	return b.store.AddSwapInfo(ctx, bundleHash, txHash)
+	b.logger.Info("backrun submitted", "txHash", txHash.Hex(), "bundleHash", bundleHash.Hex())
+
+	return b.store.AddBackrunInfo(ctx, txHash, commitments[0].BlockNumber)
 }
