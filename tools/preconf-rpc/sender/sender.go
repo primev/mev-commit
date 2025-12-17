@@ -134,6 +134,10 @@ type Notifier interface {
 	NotifyTransactionStatus(txn *Transaction, noOfAttempts, noOfBlocks int, timeTaken time.Duration)
 }
 
+type Backrunner interface {
+	Backrun(ctx context.Context, rawTx string, commitments []*bidderapiv1.Commitment) error
+}
+
 type TxSender struct {
 	logger            *slog.Logger
 	store             Store
@@ -141,6 +145,7 @@ type TxSender struct {
 	pricer            Pricer
 	blockTracker      BlockTracker
 	transferer        Transferer
+	backrunner        Backrunner
 	settlementChainId *big.Int
 	eg                *errgroup.Group
 	egCtx             context.Context
@@ -172,6 +177,7 @@ func NewTxSender(
 	transferer Transferer,
 	notifier Notifier,
 	simulator Simulator,
+	backrunner Backrunner,
 	settlementChainId *big.Int,
 	logger *slog.Logger,
 ) (*TxSender, error) {
@@ -187,6 +193,7 @@ func NewTxSender(
 		pricer:            pricer,
 		blockTracker:      blockTracker,
 		transferer:        transferer,
+		backrunner:        backrunner,
 		settlementChainId: settlementChainId,
 		logger:            logger.With("component", "TxSender"),
 		workerPool:        make(chan struct{}, 512),
@@ -571,6 +578,11 @@ BID_LOOP:
 				if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
+				if txn.isSwap {
+					if err := t.backrunner.Backrun(ctx, txn.Raw, txn.commitments); err != nil {
+						logger.Error("Failed to backrun transaction", "error", err)
+					}
+				}
 				t.signalReceiptAvailable(txn.Hash())
 			}
 			endTime := time.Now()
@@ -813,6 +825,11 @@ BID_LOOP:
 					)
 					if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 						logger.Error("Failed to store fast-tracked transaction", "error", err)
+					}
+					if txn.isSwap {
+						if err := t.backrunner.Backrun(ctx, txn.Raw, txn.commitments); err != nil {
+							logger.Error("Failed to backrun transaction", "error", err)
+						}
 					}
 					t.signalReceiptAvailable(txn.Hash())
 				}

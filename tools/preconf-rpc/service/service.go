@@ -23,6 +23,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"github.com/primev/mev-commit/tools/preconf-rpc/backrunner"
 	bidder "github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
@@ -71,6 +72,9 @@ type Config struct {
 	Webhooks               []string
 	Token                  string
 	SimulatorURL           string
+	BackrunnerRPC          string
+	BackrunnerAPIURL       string
+	BackrunnerAPIKey       string
 }
 
 type Service struct {
@@ -248,6 +252,13 @@ func New(config *Config) (*Service, error) {
 
 	simulator := sim.NewSimulator(config.SimulatorURL)
 
+	brunner, err := backrunner.New(config.BackrunnerAPIKey, config.BackrunnerRPC, config.BackrunnerAPIURL, config.Logger.With("module", "backrunner"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create backrunner: %w", err)
+	}
+	backrunnerDone := brunner.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("Backrunner", backrunnerDone))
+
 	sndr, err := sender.NewTxSender(
 		rpcstore,
 		bidderClient,
@@ -256,6 +267,7 @@ func New(config *Config) (*Service, error) {
 		transferer,
 		notifier,
 		simulator,
+		brunner,
 		settlementChainID,
 		config.Logger.With("module", "txsender"),
 	)

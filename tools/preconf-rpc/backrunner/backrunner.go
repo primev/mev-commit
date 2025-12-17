@@ -9,12 +9,14 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	"golang.org/x/sync/errgroup"
 )
 
 var builders = map[common.Address]string{
@@ -41,10 +43,11 @@ type backrunner struct {
 	apiKey    string
 	store     Store
 	bNoGetter BlockNumberGetter
+	reqChan   chan backrunRequest
 	logger    *slog.Logger
 }
 
-func New(client *http.Client, apiKey, apiURL, rpcURL string) (*backrunner, error) {
+func New(apiKey, apiURL, rpcURL string, logger *slog.Logger) (*backrunner, error) {
 	urlParsed, err := url.Parse(rpcURL)
 	if err != nil {
 		return nil, err
@@ -60,10 +63,25 @@ func New(client *http.Client, apiKey, apiURL, rpcURL string) (*backrunner, error
 	}
 
 	return &backrunner{
-		client: client,
+		client: &http.Client{
+			Transport: &http.Transport{
+				Proxy:               http.ProxyFromEnvironment,
+				MaxIdleConns:        256,
+				MaxIdleConnsPerHost: 256,
+				IdleConnTimeout:     90 * time.Second,
+				ForceAttemptHTTP2:   true,
+				DialContext: (&net.Dialer{
+					Timeout:   5 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				TLSHandshakeTimeout: 5 * time.Second,
+			},
+			Timeout: 15 * time.Second,
+		},
 		rpcURL: urlParsed.String(),
 		apiURL: apiParsed.String(),
 		apiKey: apiKey,
+		logger: logger,
 	}, nil
 }
 
@@ -112,34 +130,54 @@ func newReq(id int, rawTx string, cmts []*bidderapiv1.Commitment) (backrunReques
 
 func (b *backrunner) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
-	go func() {
-		defer close(done)
-
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
 		ticker := time.NewTicker(time.Second * 15)
 		defer ticker.Stop()
 
 		for {
 			select {
-			case <-ctx.Done():
-				return
+			case <-egCtx.Done():
+				return egCtx.Err()
 			case <-ticker.C:
-				currentBlock, err := b.bNoGetter.BlockNumber(ctx)
+				currentBlock, err := b.bNoGetter.BlockNumber(egCtx)
 				if err != nil {
 					b.logger.Error("getting current block number", "error", err)
 					continue
 				}
-				txns, start, err := b.store.RewardsToCheck(ctx, int64(currentBlock))
+				txns, start, err := b.store.RewardsToCheck(egCtx, int64(currentBlock))
 				if err != nil {
 					continue
 				}
 				if len(txns) == 0 {
 					continue
 				}
-				if err := b.checkRewards(ctx, txns, start); err != nil {
+				if err := b.checkRewards(egCtx, txns, start); err != nil {
 					b.logger.Error("checking backrun rewards", "error", err)
 					continue
 				}
 			}
+		}
+	})
+
+	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				return egCtx.Err()
+			case req := <-b.reqChan:
+				if err := b.doBackrun(egCtx, req); err != nil {
+					b.logger.Error("doing backrun", "error", err)
+				}
+			}
+		}
+	})
+
+	go func() {
+		defer close(done)
+
+		if err := eg.Wait(); err != nil {
+			b.logger.Error("backrunner exited with error", "error", err)
 		}
 	}()
 
@@ -206,6 +244,34 @@ func (b *backrunner) checkRewards(ctx context.Context, txns []common.Hash, start
 		return fmt.Errorf("unsuccessful backrun API response: %s", string(respBody))
 	}
 
+	bundleTxns := make(map[common.Hash]int)
+	bundleReward := make(map[int]*big.Int)
+	for idx, record := range respStruct.Data.Records {
+		amount, ok := new(big.Int).SetString(record.Amount, 10)
+		if !ok {
+			continue
+		}
+		for _, bundleHashStr := range record.BundleHashes {
+			txnHash := common.HexToHash(bundleHashStr)
+			bundleTxns[txnHash] = idx
+			bundleReward[idx] = amount
+		}
+	}
+
+	for _, txnHash := range txns {
+		bundleIdx, found := bundleTxns[txnHash]
+		var reward *big.Int
+		if !found {
+			reward = big.NewInt(0)
+		} else {
+			reward = bundleReward[bundleIdx]
+		}
+		err := b.store.UpdateSwapReward(ctx, txnHash, reward)
+		if err != nil {
+			return fmt.Errorf("updating backrun reward: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -221,18 +287,33 @@ func (b *backrunner) Backrun(
 
 	txHash := common.HexToHash(commitments[0].TxHashes[0])
 
+	if err := b.store.AddBackrunInfo(ctx, txHash, commitments[0].BlockNumber); err != nil {
+		return fmt.Errorf("storing backrun info: %w", err)
+	}
+
+	select {
+	case b.reqChan <- body:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return nil
+}
+
+func (b *backrunner) doBackrun(ctx context.Context, req backrunRequest) error {
 	buf := bytes.NewBuffer(nil)
-	if err := json.NewEncoder(buf).Encode(body); err != nil {
+	if err := json.NewEncoder(buf).Encode(req); err != nil {
 		return fmt.Errorf("encoding backrun request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.rpcURL, buf)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, b.rpcURL, buf)
 	if err != nil {
 		return fmt.Errorf("creating backrun HTTP request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := b.client.Do(req)
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := b.client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("sending backrun HTTP request: %w", err)
 	}
@@ -246,33 +327,5 @@ func (b *backrunner) Backrun(
 		return fmt.Errorf("bad status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("reading backrun HTTP response: %w", err)
-	}
-
-	respStruct := map[string]any{}
-	if err := json.Unmarshal(respBody, &respStruct); err != nil {
-		return fmt.Errorf("unmarshaling backrun HTTP response: %w", err)
-	}
-
-	result, found := respStruct["result"]
-	if !found {
-		return fmt.Errorf("no result in backrun response: %s", string(respBody))
-	}
-
-	resultMap, ok := result.(map[string]any)
-	if !ok {
-		return fmt.Errorf("invalid result format in backrun response: %s", string(respBody))
-	}
-
-	bundleHashStr, ok := resultMap["bundle_hash"].(string)
-	if !ok {
-		return fmt.Errorf("invalid bundle_hash format in backrun response: %s", string(respBody))
-	}
-
-	bundleHash := common.HexToHash(bundleHashStr)
-	b.logger.Info("backrun submitted", "txHash", txHash.Hex(), "bundleHash", bundleHash.Hex())
-
-	return b.store.AddBackrunInfo(ctx, txHash, commitments[0].BlockNumber)
+	return nil
 }

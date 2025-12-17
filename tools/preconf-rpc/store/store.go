@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -66,8 +67,9 @@ CREATE TABLE IF NOT EXISTS simulationLogs (
 
 var swapInfo = `
 CREATE TABLE IF NOT EXISTS swapInfo (
-	bundle_hash TEXT PRIMARY KEY,
-	transaction_hash TEXT,
+	transaction_hash TEXT PRIMARY KEY,
+	block_number BIGINT,
+	attempt BIGINT,
 	reward NUMERIC(24, 0),
 	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
 );`
@@ -637,18 +639,18 @@ func (s *rpcstore) AlreadySubsidized(
 
 func (s *rpcstore) AddSwapInfo(
 	ctx context.Context,
-	bundleHash common.Hash,
 	txnHash common.Hash,
+	blockNumber int64,
 ) error {
 	query := `
-	INSERT INTO swapInfo (bundle_hash, transaction_hash)
-	VALUES ($1, $2)
-	ON CONFLICT (bundle_hash) DO UPDATE SET transaction_hash = EXCLUDED.transaction_hash;
+	INSERT INTO swapInfo (transaction_hash, block_number, attempt)
+	VALUES ($1, $2, $3)
+	ON CONFLICT (transaction_hash) DO UPDATE SET block_number = EXCLUDED.block_number, attempt = EXCLUDED.attempt, reward = NULL;
 	`
 
-	_, err := s.db.ExecContext(ctx, query, bundleHash.Hex(), txnHash.Hex())
+	_, err := s.db.ExecContext(ctx, query, txnHash.Hex(), blockNumber, time.Now().Unix())
 	if err != nil {
-		return fmt.Errorf("failed to add swap info for bundle %s: %w", bundleHash.Hex(), err)
+		return fmt.Errorf("failed to add swap info for txn %s: %w", txnHash.Hex(), err)
 	}
 
 	return nil
@@ -656,51 +658,60 @@ func (s *rpcstore) AddSwapInfo(
 
 func (s *rpcstore) UpdateSwapReward(
 	ctx context.Context,
-	bundleHash common.Hash,
+	txnHash common.Hash,
 	reward *big.Int,
 ) error {
 	query := `
 	UPDATE swapInfo
 	SET reward = $1
-	WHERE bundle_hash = $2;
+	WHERE transaction_hash = $2;
 	`
 
-	_, err := s.db.ExecContext(ctx, query, reward.String(), bundleHash.Hex())
+	_, err := s.db.ExecContext(ctx, query, reward.String(), txnHash.Hex())
 	if err != nil {
-		return fmt.Errorf("failed to update swap reward for bundle %s: %w", bundleHash.Hex(), err)
+		return fmt.Errorf("failed to update swap reward for transaction %s: %w", txnHash.Hex(), err)
 	}
 
 	return nil
 }
 
-func (s *rpcstore) RewardsToCheck(ctx context.Context) (map[common.Hash]common.Hash, error) {
+func (s *rpcstore) RewardsToCheck(ctx context.Context, blockNumber int64) ([]common.Hash, uint64, error) {
 	query := `
-	SELECT bundle_hash, transaction_hash
+	SELECT transaction_hash, attempt
 	FROM swapInfo
-	WHERE reward IS NULL;
+	WHERE reward IS NULL
+	ORDER BY attempt ASC;
 	`
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get rewards to check: %w", err)
+		return nil, 0, fmt.Errorf("failed to get rewards to check: %w", err)
 	}
 
-	rewards := make(map[common.Hash]common.Hash)
+	var (
+		rewards []common.Hash
+		start   uint64
+	)
 	for rows.Next() {
-		var bundleHashStr, txnHashStr string
-		err := rows.Scan(&bundleHashStr, &txnHashStr)
+		var (
+			txnHashStr string
+			attempt    uint64
+		)
+		err := rows.Scan(&txnHashStr, &attempt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan row: %w", err)
+			return nil, 0, fmt.Errorf("failed to scan row: %w", err)
 		}
-		bundleHash := common.HexToHash(bundleHashStr)
 		txnHash := common.HexToHash(txnHashStr)
-		rewards[bundleHash] = txnHash
+		rewards = append(rewards, txnHash)
+		if start == 0 || attempt < start {
+			start = attempt
+		}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, 0, fmt.Errorf("error iterating rows: %w", err)
 	}
 
-	return rewards, nil
+	return rewards, start, nil
 }
 
 type UserTxnsResponse struct {
