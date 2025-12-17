@@ -49,7 +49,7 @@ var balancesTable = `
 CREATE TABLE IF NOT EXISTS balances (
 	account TEXT PRIMARY KEY,
 	balance NUMERIC(24, 0),
-	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );`
 
 var subsidiesTable = `
