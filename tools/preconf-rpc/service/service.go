@@ -38,6 +38,8 @@ import (
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/transfer"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -224,10 +226,13 @@ func New(config *Config) (*Service, error) {
 		return nil, fmt.Errorf("failed to create RPC server: %w", err)
 	}
 
+	metricsRegistry := prometheus.NewRegistry()
+
 	bidpricer, err := pricer.NewPricer(config.PricerAPIKey, config.Logger.With("module", "bidpricer"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bid pricer: %w", err)
 	}
+	metricsRegistry.MustRegister(bidpricer.Metrics()...)
 
 	db, err := initDB(config)
 	if err != nil {
@@ -249,8 +254,10 @@ func New(config *Config) (*Service, error) {
 
 	blockTrackerDone := blockTracker.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
+	s.closers = append(s.closers, channelCloser(blockTrackerDone))
 
 	simulator := sim.NewSimulator(config.SimulatorURL)
+	metricsRegistry.MustRegister(simulator.Metrics()...)
 
 	brunner, err := backrunner.New(
 		config.BackrunnerAPIKey,
@@ -265,6 +272,8 @@ func New(config *Config) (*Service, error) {
 	}
 	backrunnerDone := brunner.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("Backrunner", backrunnerDone))
+	s.closers = append(s.closers, channelCloser(backrunnerDone))
+	metricsRegistry.MustRegister(brunner.Metrics()...)
 
 	sndr, err := sender.NewTxSender(
 		rpcstore,
@@ -284,6 +293,8 @@ func New(config *Config) (*Service, error) {
 
 	senderDone := sndr.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("TxSender", senderDone))
+	s.closers = append(s.closers, channelCloser(senderDone))
+	metricsRegistry.MustRegister(sndr.Metrics()...)
 
 	rpcHandlers := handlers.NewRPCMethodHandler(
 		config.Logger.With("module", "handlers"),
@@ -308,6 +319,7 @@ func New(config *Config) (*Service, error) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
 	})
+	mux.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
 	mux.HandleFunc("/{option...}", func(w http.ResponseWriter, r *http.Request) {
 		options := r.PathValue("option")
 

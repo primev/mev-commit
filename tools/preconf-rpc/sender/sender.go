@@ -16,6 +16,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -209,6 +210,21 @@ func NewTxSender(
 		receiptSignal:     make(map[common.Hash][]chan struct{}),
 		metrics:           newMetrics(),
 	}, nil
+}
+
+func (t *TxSender) Metrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		t.metrics.connectedProviders,
+		t.metrics.queuedTransactions,
+		t.metrics.inflightTransactions,
+		t.metrics.preconfDurationsProvider,
+		t.metrics.preconfCountsProvider,
+		t.metrics.blockAttemptsToConfirmation,
+		t.metrics.totalAttemptsToConfirmation,
+		t.metrics.timeToConfirmation,
+		t.metrics.timeToFirstPreconfirmation,
+		t.metrics.bidPriorityFee,
+	}
 }
 
 func validateTransaction(tx *Transaction) error {

@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -88,6 +89,17 @@ func New(apiKey, apiURL, rpcURL string, store Store, bNoGetter BlockNumberGetter
 		reqChan:   make(chan backrunRequest, 100),
 		metrics:   newMetrics(),
 	}, nil
+}
+
+func (b *backrunner) Metrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		b.metrics.attempts,
+		b.metrics.success,
+		b.metrics.fail,
+		b.metrics.latency,
+		b.metrics.rewards,
+		b.metrics.rewardsTotal,
+	}
 }
 
 type backrunRequest struct {

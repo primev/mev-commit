@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type SimCall struct {
@@ -65,6 +66,15 @@ func NewSimulator(apiURL string) *Simulator {
 			Timeout: 15 * time.Second,
 		},
 		metrics: newMetrics(),
+	}
+}
+
+func (s *Simulator) Metrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		s.metrics.attempts,
+		s.metrics.success,
+		s.metrics.fail,
+		s.metrics.latency,
 	}
 }
 

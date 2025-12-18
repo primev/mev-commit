@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var apiURL = "https://api.blocknative.com/gasprices/blockprices?chainid=1"
@@ -53,6 +55,12 @@ func NewPricer(apiKey string, logger *slog.Logger) (*BidPricer, error) {
 		return nil, err
 	}
 	return bp, nil
+}
+
+func (b *BidPricer) Metrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		b.metrics.bidPrices,
+	}
 }
 
 func (b *BidPricer) Start(ctx context.Context) <-chan struct{} {
