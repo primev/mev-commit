@@ -66,14 +66,14 @@ func newMetrics() *metrics {
 			Subsystem: "sender",
 			Name:      "time_to_confirmation_ms",
 			Help:      "Histogram of time taken to confirm transactions in milliseconds.",
-			Buckets:   prometheus.ExponentialBuckets(10, 2, 15),
+			Buckets:   prometheus.ExponentialBuckets(0.01, 2, 16),
 		}),
 		timeToFirstPreconfirmation: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: "fastrpc",
 			Subsystem: "sender",
 			Name:      "time_to_first_preconfirmation_ms",
 			Help:      "Histogram of time taken to first pre-confirmation in milliseconds.",
-			Buckets:   prometheus.ExponentialBuckets(10, 2, 15),
+			Buckets:   prometheus.ExponentialBuckets(0.005, 2, 12),
 		}),
 		bidPriorityFee: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: "fastrpc",

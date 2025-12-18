@@ -34,7 +34,7 @@ func newMetrics() *metrics {
 			Subsystem: "simulator",
 			Name:      "latency_ms",
 			Help:      "Histogram of simulation latencies in milliseconds.",
-			Buckets:   prometheus.ExponentialBuckets(1, 2, 10),
+			Buckets:   prometheus.ExponentialBuckets(0.005, 2, 12),
 		}),
 	}
 }
