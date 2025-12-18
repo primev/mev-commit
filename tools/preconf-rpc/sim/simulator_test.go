@@ -76,7 +76,7 @@ func TestSimulator(t *testing.T) {
 		}
 	})
 	t.Run("SuccessfulSimulation_SwapWrappedResult", func(t *testing.T) {
-		result, err := simulator.Simulate(context.Background(), "swap")
+		result, _, err := simulator.Simulate(context.Background(), "swap")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
