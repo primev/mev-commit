@@ -44,6 +44,7 @@ type backrunner struct {
 	store     Store
 	bNoGetter BlockNumberGetter
 	reqChan   chan backrunRequest
+	metrics   *metrics
 	logger    *slog.Logger
 }
 
@@ -85,6 +86,7 @@ func New(apiKey, apiURL, rpcURL string, store Store, bNoGetter BlockNumberGetter
 		bNoGetter: bNoGetter,
 		logger:    logger,
 		reqChan:   make(chan backrunRequest, 100),
+		metrics:   newMetrics(),
 	}, nil
 }
 
@@ -281,6 +283,8 @@ func (b *backrunner) checkRewards(ctx context.Context, txns []common.Hash, start
 					return fmt.Errorf("updating backrun reward: %w", err)
 				}
 				b.logger.Info("updated backrun reward", "transactionHash", bundleHashStr, "amount", amount.String())
+				b.metrics.rewards.Inc()
+				b.metrics.rewardsTotal.Add(float64(amount.Int64()))
 				delete(txnsToCheck, common.HexToHash(bundleHashStr))
 			}
 		}
@@ -333,6 +337,9 @@ func (b *backrunner) doBackrun(ctx context.Context, req backrunRequest) error {
 		return fmt.Errorf("creating backrun HTTP request: %w", err)
 	}
 
+	b.metrics.attempts.Inc()
+	start := time.Now()
+
 	httpReq.Header.Set("Content-Type", "application/json")
 	resp, err := b.client.Do(httpReq)
 	if err != nil {
@@ -344,10 +351,14 @@ func (b *backrunner) doBackrun(ctx context.Context, req backrunRequest) error {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
+		b.metrics.fail.Inc()
+		b.metrics.latency.Observe(float64(time.Since(start).Milliseconds()))
 		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("bad status %d: %s", resp.StatusCode, string(respBody))
 	}
 
+	b.metrics.success.Inc()
+	b.metrics.latency.Observe(float64(time.Since(start).Milliseconds()))
 	b.logger.Info("backrun sent", "request", req.String())
 
 	return nil

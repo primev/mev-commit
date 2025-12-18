@@ -41,8 +41,9 @@ type simResp struct {
 }
 
 type Simulator struct {
-	apiURL string
-	client *http.Client
+	apiURL  string
+	client  *http.Client
+	metrics *metrics
 }
 
 func NewSimulator(apiURL string) *Simulator {
@@ -63,6 +64,7 @@ func NewSimulator(apiURL string) *Simulator {
 			},
 			Timeout: 15 * time.Second,
 		},
+		metrics: newMetrics(),
 	}
 }
 
@@ -94,9 +96,12 @@ func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, b
 		return nil, false, fmt.Errorf("create request: %w", err)
 	}
 
+	s.metrics.attempts.Inc()
+
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.client.Do(req)
 	if err != nil {
+		s.metrics.fail.Inc()
 		return nil, false, fmt.Errorf("do request: %w", err)
 	}
 	defer func() {
@@ -105,13 +110,21 @@ func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, b
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		s.metrics.fail.Inc()
 		return nil, false, fmt.Errorf("read response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
+		s.metrics.fail.Inc()
 		return nil, false, fmt.Errorf("bad status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	return parseResponse(respBody)
+	logs, isSwap, err := parseResponse(respBody)
+	if err != nil {
+		s.metrics.fail.Inc()
+		return nil, false, err
+	}
+	s.metrics.success.Inc()
+	return logs, isSwap, nil
 }
 
 func parseResponse(body []byte) ([]*types.Log, bool, error) {
