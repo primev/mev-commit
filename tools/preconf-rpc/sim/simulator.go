@@ -157,6 +157,7 @@ func parseResponse(body []byte) ([]*types.Log, bool, error) {
 			return nil, false, errors.New("no blocks in response")
 		}
 		blk = arr[0]
+		isSwap = blk.IsSwap
 	} else {
 		var w simResp
 		if err := json.Unmarshal(body, &w); err == nil && len(w.Result) > 0 {
