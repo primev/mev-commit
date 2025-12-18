@@ -110,7 +110,11 @@ type backrunRequest struct {
 }
 
 func (b *backrunRequest) Builders() []string {
-	paramsMap, ok := b.Params.(map[string]any)
+	params, ok := b.Params.([]any)
+	if !ok || len(params) == 0 {
+		return nil
+	}
+	paramsMap, ok := params[0].(map[string]any)
 	if !ok {
 		return nil
 	}

@@ -111,17 +111,22 @@ func TestBackrun(t *testing.T) {
 					http.Error(w, "bad version", http.StatusBadRequest)
 					return
 				}
-				if params, ok := req["params"].(map[string]any); !ok {
+				if params, ok := req["params"].([]any); !ok || len(params) != 1 {
 					http.Error(w, "bad params", http.StatusBadRequest)
+					return
 				} else {
-					if bundles, ok := params["txs"].([]any); !ok || len(bundles) == 0 {
-						http.Error(w, "bad bundles", http.StatusBadRequest)
-					}
-					if builders, ok := params["trustedBuilders"].([]any); !ok || len(builders) == 0 {
-						http.Error(w, "bad builders", http.StatusBadRequest)
-					}
-					if blockNum, ok := params["blockNumber"].(string); !ok || blockNum == "" {
-						http.Error(w, "bad block number", http.StatusBadRequest)
+					if p, ok := params[0].(map[string]any); !ok {
+						http.Error(w, "bad param type", http.StatusBadRequest)
+					} else {
+						if _, ok := p["version"].(string); !ok {
+							http.Error(w, "bad version param", http.StatusBadRequest)
+						}
+						if _, ok := p["bundle"].([]any); !ok {
+							http.Error(w, "bad bundle param", http.StatusBadRequest)
+						}
+						if _, ok := p["blockNumber"].(string); !ok {
+							http.Error(w, "bad blockNumber param", http.StatusBadRequest)
+						}
 					}
 				}
 				w.Header().Set("Content-Type", "application/json")
