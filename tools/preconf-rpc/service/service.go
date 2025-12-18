@@ -252,7 +252,14 @@ func New(config *Config) (*Service, error) {
 
 	simulator := sim.NewSimulator(config.SimulatorURL)
 
-	brunner, err := backrunner.New(config.BackrunnerAPIKey, config.BackrunnerRPC, config.BackrunnerAPIURL, config.Logger.With("module", "backrunner"))
+	brunner, err := backrunner.New(
+		config.BackrunnerAPIKey,
+		config.BackrunnerRPC,
+		config.BackrunnerAPIURL,
+		rpcstore,
+		l1RPCClient,
+		config.Logger.With("module", "backrunner"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create backrunner: %w", err)
 	}

@@ -70,7 +70,9 @@ CREATE TABLE IF NOT EXISTS swapInfo (
 	transaction_hash TEXT PRIMARY KEY,
 	block_number BIGINT,
 	attempt BIGINT,
+	builders TEXT,
 	reward NUMERIC(24, 0),
+	bundle TEXT,
 	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
 );`
 
@@ -641,14 +643,17 @@ func (s *rpcstore) AddSwapInfo(
 	ctx context.Context,
 	txnHash common.Hash,
 	blockNumber int64,
+	builders []string,
 ) error {
 	query := `
-	INSERT INTO swapInfo (transaction_hash, block_number, attempt)
-	VALUES ($1, $2, $3)
-	ON CONFLICT (transaction_hash) DO UPDATE SET block_number = EXCLUDED.block_number, attempt = EXCLUDED.attempt, reward = NULL;
+	INSERT INTO swapInfo (transaction_hash, block_number, attempt, builders)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT (transaction_hash) DO UPDATE SET block_number = EXCLUDED.block_number, attempt = EXCLUDED.attempt, reward = NULL, builders = EXCLUDED.builders;
 	`
 
-	_, err := s.db.ExecContext(ctx, query, txnHash.Hex(), blockNumber, time.Now().Unix())
+	buildersStr := strings.Join(builders, ",")
+
+	_, err := s.db.ExecContext(ctx, query, txnHash.Hex(), blockNumber, time.Now().Unix(), buildersStr)
 	if err != nil {
 		return fmt.Errorf("failed to add swap info for txn %s: %w", txnHash.Hex(), err)
 	}
@@ -660,14 +665,17 @@ func (s *rpcstore) UpdateSwapReward(
 	ctx context.Context,
 	txnHash common.Hash,
 	reward *big.Int,
+	bundle []string,
 ) error {
 	query := `
 	UPDATE swapInfo
-	SET reward = $1
+	SET reward = $1, bundle = $3
 	WHERE transaction_hash = $2;
 	`
 
-	_, err := s.db.ExecContext(ctx, query, reward.String(), txnHash.Hex())
+	bundleStr := strings.Join(bundle, ",")
+
+	_, err := s.db.ExecContext(ctx, query, reward.String(), txnHash.Hex(), bundleStr)
 	if err != nil {
 		return fmt.Errorf("failed to update swap reward for transaction %s: %w", txnHash.Hex(), err)
 	}
@@ -679,11 +687,11 @@ func (s *rpcstore) RewardsToCheck(ctx context.Context, blockNumber int64) ([]com
 	query := `
 	SELECT transaction_hash, attempt
 	FROM swapInfo
-	WHERE reward IS NULL
+	WHERE reward IS NULL AND block_number <= $1
 	ORDER BY attempt ASC;
 	`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.db.QueryContext(ctx, query, blockNumber)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get rewards to check: %w", err)
 	}
@@ -712,6 +720,66 @@ func (s *rpcstore) RewardsToCheck(ctx context.Context, blockNumber int64) ([]com
 	}
 
 	return rewards, start, nil
+}
+
+type SwapInfo struct {
+	TransactionHash common.Hash `json:"transaction_hash"`
+	BlockNumber     int64       `json:"block_number"`
+	Attempt         int64       `json:"attempt"`
+	Builders        []string    `json:"builders"`
+	Reward          *big.Int    `json:"reward"`
+	Bundle          []string    `json:"bundle"`
+}
+
+func (s *rpcstore) GetSwapInfo(ctx context.Context, txnHash common.Hash) (SwapInfo, error) {
+	query := `
+	SELECT block_number, attempt, builders, reward, bundle
+	FROM swapInfo
+	WHERE transaction_hash = $1;
+	`
+
+	row := s.db.QueryRowContext(ctx, query, txnHash.Hex())
+	var (
+		blockNumber int64
+		attempt     int64
+		buildersStr string
+		rewardStr   sql.NullString
+		bundleStr   sql.NullString
+	)
+	err := row.Scan(&blockNumber, &attempt, &buildersStr, &rewardStr, &bundleStr)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SwapInfo{}, fmt.Errorf("swap info not found for transaction %s: %w", txnHash.Hex(), ErrNotFound)
+		}
+		return SwapInfo{}, fmt.Errorf("failed to get swap info for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	builders := []string{}
+	if buildersStr != "" {
+		builders = strings.Split(buildersStr, ",")
+	}
+
+	var reward *big.Int
+	if rewardStr.Valid && rewardStr.String != "" {
+		reward = new(big.Int)
+		if _, ok := reward.SetString(rewardStr.String, 10); !ok {
+			return SwapInfo{}, fmt.Errorf("failed to parse reward %q for transaction %s", rewardStr.String, txnHash.Hex())
+		}
+	}
+
+	bundle := []string{}
+	if bundleStr.Valid && bundleStr.String != "" {
+		bundle = strings.Split(bundleStr.String, ",")
+	}
+
+	return SwapInfo{
+		TransactionHash: txnHash,
+		BlockNumber:     blockNumber,
+		Attempt:         attempt,
+		Builders:        builders,
+		Reward:          reward,
+		Bundle:          bundle,
+	}, nil
 }
 
 type UserTxnsResponse struct {

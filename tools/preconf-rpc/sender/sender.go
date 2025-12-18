@@ -578,11 +578,6 @@ BID_LOOP:
 				if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
-				if txn.isSwap {
-					if err := t.backrunner.Backrun(ctx, txn.Raw, txn.commitments); err != nil {
-						logger.Error("Failed to backrun transaction", "error", err)
-					}
-				}
 				t.signalReceiptAvailable(txn.Hash())
 			}
 			endTime := time.Now()
@@ -826,11 +821,6 @@ BID_LOOP:
 					if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
 						logger.Error("Failed to store fast-tracked transaction", "error", err)
 					}
-					if txn.isSwap {
-						if err := t.backrunner.Backrun(ctx, txn.Raw, txn.commitments); err != nil {
-							logger.Error("Failed to backrun transaction", "error", err)
-						}
-					}
 					t.signalReceiptAvailable(txn.Hash())
 				}
 			case bidder.BidStatusCancelled:
@@ -849,6 +839,13 @@ BID_LOOP:
 		"blockNumber", result.blockNumber,
 		"optedInSlot", optedInSlot,
 	)
+
+	if len(txn.commitments) > 0 && txn.isSwap {
+		if err := t.backrunner.Backrun(ctx, txn.Raw, txn.commitments); err != nil {
+			logger.Error("Failed to backrun transaction", "error", err)
+		}
+		logger.Info("Backrun operation initiated for transaction", "hash", txn.Hash().Hex())
+	}
 
 	result.optedInSlot = optedInSlot
 	return result, nil

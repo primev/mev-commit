@@ -27,9 +27,9 @@ var builders = map[common.Address]string{
 }
 
 type Store interface {
-	AddBackrunInfo(ctx context.Context, txnHash common.Hash, blockNumber int64) error
+	AddSwapInfo(ctx context.Context, txnHash common.Hash, blockNumber int64, builders []string) error
 	RewardsToCheck(ctx context.Context, uptoBlockNumber int64) ([]common.Hash, uint64, error)
-	UpdateSwapReward(ctx context.Context, bundleHash common.Hash, reward *big.Int) error
+	UpdateSwapReward(ctx context.Context, bundleHash common.Hash, reward *big.Int, bundle []string) error
 }
 
 type BlockNumberGetter interface {
@@ -47,7 +47,7 @@ type backrunner struct {
 	logger    *slog.Logger
 }
 
-func New(apiKey, apiURL, rpcURL string, logger *slog.Logger) (*backrunner, error) {
+func New(apiKey, apiURL, rpcURL string, store Store, bNoGetter BlockNumberGetter, logger *slog.Logger) (*backrunner, error) {
 	urlParsed, err := url.Parse(rpcURL)
 	if err != nil {
 		return nil, err
@@ -78,10 +78,13 @@ func New(apiKey, apiURL, rpcURL string, logger *slog.Logger) (*backrunner, error
 			},
 			Timeout: 15 * time.Second,
 		},
-		rpcURL: urlParsed.String(),
-		apiURL: apiParsed.String(),
-		apiKey: apiKey,
-		logger: logger,
+		rpcURL:    urlParsed.String(),
+		apiURL:    apiParsed.String(),
+		apiKey:    apiKey,
+		store:     store,
+		bNoGetter: bNoGetter,
+		logger:    logger,
+		reqChan:   make(chan backrunRequest, 100),
 	}, nil
 }
 
@@ -90,6 +93,24 @@ type backrunRequest struct {
 	Method  string `json:"method"`
 	Params  any    `json:"params"`
 	ID      int    `json:"id"`
+}
+
+func (b *backrunRequest) Builders() []string {
+	paramsMap, ok := b.Params.(map[string]any)
+	if !ok {
+		return nil
+	}
+	builders, ok := paramsMap["trustedBuilders"].([]string)
+	if !ok {
+		return nil
+	}
+	return builders
+}
+
+func (b *backrunRequest) String() string {
+	buf := bytes.NewBuffer(nil)
+	_ = json.NewEncoder(buf).Encode(b)
+	return buf.String()
 }
 
 func newReq(id int, rawTx string, cmts []*bidderapiv1.Commitment) (backrunRequest, error) {
@@ -132,7 +153,7 @@ func (b *backrunner) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		ticker := time.NewTicker(time.Second * 15)
+		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 
 		for {
@@ -244,31 +265,33 @@ func (b *backrunner) checkRewards(ctx context.Context, txns []common.Hash, start
 		return fmt.Errorf("unsuccessful backrun API response: %s", string(respBody))
 	}
 
-	bundleTxns := make(map[common.Hash]int)
-	bundleReward := make(map[int]*big.Int)
-	for idx, record := range respStruct.Data.Records {
+	txnsToCheck := make(map[common.Hash]struct{})
+	for _, txn := range txns {
+		txnsToCheck[txn] = struct{}{}
+	}
+	for _, record := range respStruct.Data.Records {
 		amount, ok := new(big.Int).SetString(record.Amount, 10)
 		if !ok {
 			continue
 		}
 		for _, bundleHashStr := range record.BundleHashes {
-			txnHash := common.HexToHash(bundleHashStr)
-			bundleTxns[txnHash] = idx
-			bundleReward[idx] = amount
+			if _, found := txnsToCheck[common.HexToHash(bundleHashStr)]; found {
+				err := b.store.UpdateSwapReward(ctx, common.HexToHash(bundleHashStr), amount, record.BundleHashes)
+				if err != nil {
+					return fmt.Errorf("updating backrun reward: %w", err)
+				}
+				b.logger.Info("updated backrun reward", "transactionHash", bundleHashStr, "amount", amount.String())
+				delete(txnsToCheck, common.HexToHash(bundleHashStr))
+			}
 		}
 	}
-
-	for _, txnHash := range txns {
-		bundleIdx, found := bundleTxns[txnHash]
-		var reward *big.Int
-		if !found {
-			reward = big.NewInt(0)
-		} else {
-			reward = bundleReward[bundleIdx]
-		}
-		err := b.store.UpdateSwapReward(ctx, txnHash, reward)
-		if err != nil {
-			return fmt.Errorf("updating backrun reward: %w", err)
+	if len(txnsToCheck) > 0 {
+		for txn := range txnsToCheck {
+			b.logger.Info("no reward found for backrun", "transactionHash", txn.Hex())
+			err := b.store.UpdateSwapReward(ctx, txn, big.NewInt(0), nil)
+			if err != nil {
+				return fmt.Errorf("updating backrun reward to zero: %w", err)
+			}
 		}
 	}
 
@@ -287,7 +310,7 @@ func (b *backrunner) Backrun(
 
 	txHash := common.HexToHash(commitments[0].TxHashes[0])
 
-	if err := b.store.AddBackrunInfo(ctx, txHash, commitments[0].BlockNumber); err != nil {
+	if err := b.store.AddSwapInfo(ctx, txHash, commitments[0].BlockNumber, body.Builders()); err != nil {
 		return fmt.Errorf("storing backrun info: %w", err)
 	}
 
@@ -297,8 +320,6 @@ func (b *backrunner) Backrun(
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-
-	return nil
 }
 
 func (b *backrunner) doBackrun(ctx context.Context, req backrunRequest) error {
@@ -326,6 +347,8 @@ func (b *backrunner) doBackrun(ctx context.Context, req backrunRequest) error {
 		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("bad status %d: %s", resp.StatusCode, string(respBody))
 	}
+
+	b.logger.Info("backrun sent", "request", req.String())
 
 	return nil
 }

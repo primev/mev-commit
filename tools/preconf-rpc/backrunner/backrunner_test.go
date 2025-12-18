@@ -1,0 +1,208 @@
+package backrunner_test
+
+import (
+	"context"
+	"encoding/json"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	"github.com/primev/mev-commit/tools/preconf-rpc/backrunner"
+	"github.com/primev/mev-commit/x/util"
+)
+
+var txnsResp = []byte(`{"success":true,"data":{"totalRecords":1,"limit":10,"offset":0,"records":[{"chainId":1,"amount":"111444335163840","userAmount":"0","userAddress":"","userPercent":"0","createdAt":"2025-12-08T18:08:09.508Z","revenueType":"Backrun","bundleId":"0xf16f498f05b85cc93d6f498f05b8","bundleHashes":["0xd92eadf1fc432cbfc8db9b06d1a809e3a826666e66052daf28d29ea0417e6965","0xa3d8155e77cc46237e007e7a1274ca277209c47f27bae4405c74f01bb14673ec"],"signalTxHash":""}],"lastRecordTime":"2025-12-08T18:08:09.508Z"}}`)
+
+type swapInfo struct {
+	txnHash     string
+	blockNumber int64
+	builders    []string
+}
+
+type mockStore struct {
+	mtx      sync.Mutex
+	swapInfo map[common.Hash]swapInfo
+	rewards  map[common.Hash]*big.Int
+}
+
+func (m *mockStore) AddSwapInfo(ctx context.Context, txnHash common.Hash, blockNumber int64, builders []string) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	m.swapInfo[txnHash] = swapInfo{
+		txnHash:     txnHash.Hex(),
+		blockNumber: blockNumber,
+		builders:    builders,
+	}
+	return nil
+}
+
+func (m *mockStore) RewardsToCheck(ctx context.Context, uptoBlockNumber int64) ([]common.Hash, uint64, error) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	var txns []common.Hash
+	for hash, info := range m.swapInfo {
+		if info.blockNumber <= uptoBlockNumber {
+			txns = append(txns, hash)
+		}
+	}
+	return txns, 1, nil
+}
+
+func (m *mockStore) UpdateSwapReward(ctx context.Context, bundleHash common.Hash, reward *big.Int, bundle []string) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	m.rewards[bundleHash] = reward
+	delete(m.swapInfo, bundleHash)
+	return nil
+}
+
+func (m *mockStore) GetReward(bundleHash common.Hash) (*big.Int, bool) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	reward, exists := m.rewards[bundleHash]
+	return reward, exists
+}
+
+func (m *mockStore) GetSwapInfo(bundleHash common.Hash) (swapInfo, bool) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	info, exists := m.swapInfo[bundleHash]
+	return info, exists
+}
+
+type mockBlockGetter struct {
+	block chan uint64
+}
+
+func (m *mockBlockGetter) BlockNumber(ctx context.Context) (uint64, error) {
+	return <-m.block, nil
+}
+
+func TestBackrun(t *testing.T) {
+	srv := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/transactions":
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(txnsResp)
+			case "/rpc":
+				var req map[string]interface{}
+				defer func() { _ = r.Body.Close() }()
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					http.Error(w, "bad request", http.StatusBadRequest)
+					return
+				}
+				if req["method"] != "eth_sendBundle" {
+					http.Error(w, "method not supported", http.StatusBadRequest)
+					return
+				}
+				if req["jsonrpc"] != "2.0" {
+					http.Error(w, "bad version", http.StatusBadRequest)
+					return
+				}
+				if params, ok := req["params"].(map[string]any); !ok {
+					http.Error(w, "bad params", http.StatusBadRequest)
+				} else {
+					if bundles, ok := params["txs"].([]any); !ok || len(bundles) == 0 {
+						http.Error(w, "bad bundles", http.StatusBadRequest)
+					}
+					if builders, ok := params["trustedBuilders"].([]any); !ok || len(builders) == 0 {
+						http.Error(w, "bad builders", http.StatusBadRequest)
+					}
+					if blockNum, ok := params["blockNumber"].(string); !ok || blockNum == "" {
+						http.Error(w, "bad block number", http.StatusBadRequest)
+					}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0xbundlehash"}`))
+			default:
+				http.NotFound(w, r)
+			}
+		}),
+	)
+
+	defer srv.Close()
+
+	st := &mockStore{
+		swapInfo: make(map[common.Hash]swapInfo),
+		rewards:  make(map[common.Hash]*big.Int),
+	}
+
+	bNoGetter := &mockBlockGetter{
+		block: make(chan uint64, 1),
+	}
+
+	commitments := []*bidderapiv1.Commitment{
+		{
+			BlockNumber:     12345678,
+			TxHashes:        []string{"0xa3d8155e77cc46237e007e7a1274ca277209c47f27bae4405c74f01bb14673ec"},
+			ProviderAddress: "0x2445e5e28890De3e93F39fCA817639c470F4d3b9",
+		},
+		{
+			BlockNumber:     12345678,
+			TxHashes:        []string{"0xa3d8155e77cc46237e007e7a1274ca277209c47f27bae4405c74f01bb14673ec"},
+			ProviderAddress: "0xB3998135372F1eE16Cb510af70ed212b5155Af62",
+		},
+	}
+
+	runner, err := backrunner.New(
+		"apiKey",
+		srv.URL,
+		srv.URL+"/rpc",
+		st,
+		bNoGetter,
+		util.NewTestLogger(os.Stdout),
+	)
+	if err != nil {
+		t.Fatalf("failed to create backrunner: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := runner.Start(ctx)
+
+	err = runner.Backrun(ctx, "0xdeadbeef", commitments)
+	if err != nil {
+		t.Fatalf("failed to backrun: %v", err)
+	}
+
+	sInfo, exists := st.GetSwapInfo(common.HexToHash("0xa3d8155e77cc46237e007e7a1274ca277209c47f27bae4405c74f01bb14673ec"))
+	if !exists {
+		t.Fatalf("swap info not found in store")
+	}
+
+	if sInfo.blockNumber != 12345678 {
+		t.Fatalf("unexpected block number: got %v, want %v", sInfo.blockNumber, 12345678)
+	}
+	if len(sInfo.builders) != 2 {
+		t.Fatalf("unexpected builders length: got %v, want %v", len(sInfo.builders), 2)
+	}
+
+	bNoGetter.block <- 12345679
+
+	for {
+		if reward, exists := st.GetReward(common.HexToHash("0xa3d8155e77cc46237e007e7a1274ca277209c47f27bae4405c74f01bb14673ec")); exists {
+			expectedReward := big.NewInt(111444335163840)
+			if reward.Cmp(expectedReward) != 0 {
+				t.Fatalf("unexpected reward: got %v, want %v", reward, expectedReward)
+			}
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	cancel()
+	<-done
+}

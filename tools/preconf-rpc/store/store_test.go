@@ -319,4 +319,123 @@ func TestStore(t *testing.T) {
 			t.Errorf("expected no balance after deduction, but still has %s", initialBalance.String())
 		}
 	})
+
+	t.Run("Swap Info", func(t *testing.T) {
+		txnHash := wrappedTxn1.Hash()
+		blockNumber := int64(10)
+		builders := []string{"builder1", "builder2"}
+
+		err := st.AddSwapInfo(context.Background(), txnHash, blockNumber, builders)
+		if err != nil {
+			t.Errorf("failed to add backrun info: %v", err)
+		}
+
+		txns, start, err := st.RewardsToCheck(context.Background(), 11)
+		if err != nil {
+			t.Errorf("failed to get rewards to check: %v", err)
+		}
+
+		if time.Now().Unix() < int64(start) {
+			t.Errorf("expected start time in the past, got %d", start)
+		}
+
+		if len(txns) != 1 || txns[0] != txnHash {
+			t.Errorf("expected txn hash %s in rewards to check, got %v", txnHash.Hex(), txns)
+		}
+
+		swapInfo, err := st.GetSwapInfo(context.Background(), txnHash)
+		if err != nil {
+			t.Errorf("failed to get swap info: %v", err)
+		}
+		if swapInfo.BlockNumber != blockNumber {
+			t.Errorf("expected block number %d, got %d", blockNumber, swapInfo.BlockNumber)
+		}
+		if swapInfo.TransactionHash != txnHash {
+			t.Errorf("expected txn hash %s, got %s", txnHash.Hex(), swapInfo.TransactionHash.Hex())
+		}
+		if len(swapInfo.Builders) != len(builders) {
+			t.Errorf("expected builders %v, got %v", builders, swapInfo.Builders)
+		} else {
+			for i, builder := range builders {
+				if swapInfo.Builders[i] != builder {
+					t.Errorf("expected builder %s, got %s", builder, swapInfo.Builders[i])
+				}
+			}
+		}
+
+		// simulate retry
+		blockNumber += 2
+		builders = append(builders, "builder3")
+		err = st.AddSwapInfo(context.Background(), txnHash, blockNumber, builders)
+		if err != nil {
+			t.Errorf("failed to add backrun info on retry: %v", err)
+		}
+
+		txns, _, err = st.RewardsToCheck(context.Background(), 11)
+		if err != nil {
+			t.Errorf("failed to get rewards to check after retry: %v", err)
+		}
+		if len(txns) != 0 {
+			t.Errorf("expected no txns in rewards to check after retry, got %v", txns)
+		}
+
+		swapInfo, err = st.GetSwapInfo(context.Background(), txnHash)
+		if err != nil {
+			t.Errorf("failed to get swap info after retry: %v", err)
+		}
+		if swapInfo.BlockNumber != blockNumber {
+			t.Errorf("expected block number %d after retry, got %d", blockNumber, swapInfo.BlockNumber)
+		}
+		if len(swapInfo.Builders) != len(builders) {
+			t.Errorf("expected builders %v after retry, got %v", builders, swapInfo.Builders)
+		} else {
+			for i, builder := range builders {
+				if swapInfo.Builders[i] != builder {
+					t.Errorf("expected builder %s after retry, got %s", builder, swapInfo.Builders[i])
+				}
+			}
+		}
+
+		bundle := []string{"0xdeadbeef", "0xfeedface"}
+		err = st.UpdateSwapReward(context.Background(), txnHash, big.NewInt(500000000), bundle)
+		if err != nil {
+			t.Errorf("failed to update swap reward: %v", err)
+		}
+
+		swapInfo, err = st.GetSwapInfo(context.Background(), txnHash)
+		if err != nil {
+			t.Errorf("failed to get swap info after reward update: %v", err)
+		}
+		if swapInfo.Reward.Cmp(big.NewInt(500000000)) != 0 {
+			t.Errorf("expected reward 500000000 after update, got %s", swapInfo.Reward.String())
+		}
+		if len(swapInfo.Bundle) != len(bundle) {
+			t.Errorf("expected bundle %v after update, got %v", bundle, swapInfo.Bundle)
+		} else {
+			for i, tx := range bundle {
+				if swapInfo.Bundle[i] != tx {
+					t.Errorf("expected bundle tx %s after update, got %s", tx, swapInfo.Bundle[i])
+				}
+			}
+		}
+	})
+
+	t.Run("GetUserTransactions", func(t *testing.T) {
+		userTxns, err := st.GetUserTransactions(context.Background(), common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"))
+		if err != nil {
+			t.Errorf("failed to get user transactions: %v", err)
+		}
+		if userTxns.TxnCount != 1 {
+			t.Errorf("expected user txn count 1, got %d", userTxns.TxnCount)
+		}
+		if userTxns.SwapCount != 1 {
+			t.Errorf("expected user swap count 1, got %d", userTxns.SwapCount)
+		}
+		if userTxns.MevReward == nil || userTxns.MevReward.Cmp(big.NewInt(500000000)) != 0 {
+			t.Errorf("expected user MEV reward 500000000, got %v", userTxns.MevReward)
+		}
+		if userTxns.DepositCount != 0 || userTxns.BridgeCount != 0 {
+			t.Errorf("expected user deposit and bridge count 0, got %d and %d", userTxns.DepositCount, userTxns.BridgeCount)
+		}
+	})
 }
