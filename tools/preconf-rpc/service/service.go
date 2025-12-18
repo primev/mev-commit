@@ -385,6 +385,7 @@ func New(config *Config) (*Service, error) {
 type RPCStore interface {
 	AddSubsidy(ctx context.Context, account common.Address, amount *big.Int) error
 	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error)
+	GetUserTransactions(ctx context.Context, user common.Address) (store.UserTxnsResponse, error)
 }
 
 func registerAdminAPIs(mux *http.ServeMux, token string, sndr *sender.TxSender, rpcstore RPCStore) {
@@ -589,6 +590,31 @@ func registerAdminAPIs(mux *http.ServeMux, token string, sndr *sender.TxSender, 
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(status); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+			return
+		}
+	})
+
+	mux.HandleFunc("GET /user-transactions", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		userAddress := r.URL.Query().Get("address")
+		if userAddress == "" || !common.IsHexAddress(userAddress) {
+			http.Error(w, "invalid or missing user address", http.StatusBadRequest)
+			return
+		}
+
+		txnList, err := rpcstore.GetUserTransactions(r.Context(), common.HexToAddress(userAddress))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get user transactions: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(txnList); err != nil {
 			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
 			return
 		}
