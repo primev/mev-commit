@@ -96,7 +96,7 @@ func TestSimulator(t *testing.T) {
 			t.Fatalf("expected non-empty logs for swap simulation")
 		}
 		if !isSwap {
-			t.Fatalf("expected isSwap=true for swap2 tx")
+			t.Fatalf("expected isSwap=true for swapArray tx")
 		}
 	})
 	t.Run("ErrorSimulation", func(t *testing.T) {
