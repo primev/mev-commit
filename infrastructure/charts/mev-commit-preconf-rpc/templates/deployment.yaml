@@ -50,6 +50,9 @@ spec:
             - --gas-tip-cap={{ .Values.config.gasTipCap }}
             - --gas-fee-cap={{ .Values.config.gasFeeCap }}
             - --auth-token=$(AUTH_TOKEN)
+            {{- with .Values.config.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}            
           env:
             - name: KEYSTORE_PASSWORD
               valueFrom:
