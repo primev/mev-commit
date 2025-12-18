@@ -39,6 +39,7 @@ type SimBlock struct {
 type simResp struct {
 	Result      []SimBlock `json:"result"`
 	TraceErrors []string   `json:"traceErrors"`
+	IsSwap      bool       `json:"swapDetected"`
 }
 
 type Simulator struct {
@@ -145,6 +146,7 @@ func parseResponse(body []byte) ([]*types.Log, bool, error) {
 
 	var blk SimBlock
 	var traceErrors []string
+	var isSwap bool
 
 	if strings.HasPrefix(trim, "[") {
 		var arr []SimBlock
@@ -160,10 +162,12 @@ func parseResponse(body []byte) ([]*types.Log, bool, error) {
 		if err := json.Unmarshal(body, &w); err == nil && len(w.Result) > 0 {
 			blk = w.Result[0]
 			traceErrors = w.TraceErrors
+			isSwap = w.IsSwap
 		} else {
 			if err := json.Unmarshal(body, &blk); err != nil {
 				return nil, false, fmt.Errorf("decode object: %w", err)
 			}
+			isSwap = blk.IsSwap
 		}
 	}
 
@@ -191,7 +195,7 @@ func parseResponse(body []byte) ([]*types.Log, bool, error) {
 	// Success → collect all logs (depth-first, execution order)
 	var out []*types.Log
 	collectLogs(&root, &out)
-	return out, blk.IsSwap, nil
+	return out, isSwap, nil
 }
 
 func collectLogs(n *SimCall, acc *[]*types.Log) {
