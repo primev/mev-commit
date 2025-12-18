@@ -261,8 +261,8 @@ func New(config *Config) (*Service, error) {
 
 	brunner, err := backrunner.New(
 		config.BackrunnerAPIKey,
-		config.BackrunnerRPC,
 		config.BackrunnerAPIURL,
+		config.BackrunnerRPC,
 		rpcstore,
 		l1RPCClient,
 		config.Logger.With("module", "backrunner"),
