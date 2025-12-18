@@ -673,7 +673,12 @@ func (s *rpcstore) UpdateSwapReward(
 	WHERE transaction_hash = $2;
 	`
 
-	bundleStr := strings.Join(bundle, ",")
+	var bundleStr string
+	if bundle != nil {
+		bundleStr = strings.Join(bundle, ",")
+	} else {
+		bundleStr = ""
+	}
 
 	_, err := s.db.ExecContext(ctx, query, reward.String(), txnHash.Hex(), bundleStr)
 	if err != nil {

@@ -154,10 +154,12 @@ func newReq(id int, rawTx string, cmts []*bidderapiv1.Commitment) (backrunReques
 	return backrunRequest{
 		Version: "2.0",
 		Method:  "eth_sendBundle",
-		Params: map[string]any{
-			"txs":             []string{rawTx},
-			"blockNumber":     fmt.Sprintf("0x%x", blkNo),
-			"trustedBuilders": buildersSelected,
+		Params: []any{
+			map[string]any{
+				"txs":             []string{rawTx},
+				"blockNumber":     fmt.Sprintf("0x%x", blkNo),
+				"trustedBuilders": buildersSelected,
+			},
 		},
 		ID: id,
 	}, nil
