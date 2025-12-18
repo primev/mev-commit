@@ -34,6 +34,11 @@ type SimBlock struct {
 	TraceErrors   []string  `json:"traceErrors"`
 }
 
+type simResp struct {
+	Result      []SimBlock `json:"result"`
+	TraceErrors []string   `json:"traceErrors"`
+}
+
 type Simulator struct {
 	apiURL string
 	client *http.Client
@@ -115,6 +120,8 @@ func parseResponse(body []byte) ([]*types.Log, error) {
 	}
 
 	var blk SimBlock
+	var traceErrors []string
+
 	if strings.HasPrefix(trim, "[") {
 		var arr []SimBlock
 		if err := json.Unmarshal(body, &arr); err != nil {
@@ -125,8 +132,14 @@ func parseResponse(body []byte) ([]*types.Log, error) {
 		}
 		blk = arr[0]
 	} else {
-		if err := json.Unmarshal(body, &blk); err != nil {
-			return nil, fmt.Errorf("decode object: %w", err)
+		var w simResp
+		if err := json.Unmarshal(body, &w); err == nil && len(w.Result) > 0 {
+			blk = w.Result[0]
+			traceErrors = w.TraceErrors
+		} else {
+			if err := json.Unmarshal(body, &blk); err != nil {
+				return nil, fmt.Errorf("decode object: %w", err)
+			}
 		}
 	}
 
@@ -142,7 +155,10 @@ func parseResponse(body []byte) ([]*types.Log, error) {
 	}
 
 	// Check trace errors for internal reverts
-	for _, te := range blk.TraceErrors {
+	if len(traceErrors) == 0 {
+		traceErrors = blk.TraceErrors
+	}
+	for _, te := range traceErrors {
 		if strings.Contains(strings.ToLower(te), "execution reverted") {
 			return nil, errors.New(te)
 		}
