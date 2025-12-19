@@ -87,6 +87,11 @@ type reqBody struct {
 }
 
 func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, bool, error) {
+	start := time.Now()
+	defer func() {
+		s.metrics.latency.Observe(float64(time.Since(start).Milliseconds()))
+	}()
+
 	body := reqBody{
 		TxRaw:      txRaw,
 		Block:      "latest",
