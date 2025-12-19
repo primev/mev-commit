@@ -264,7 +264,6 @@ func New(config *Config) (*Service, error) {
 		config.BackrunnerAPIURL,
 		config.BackrunnerRPC,
 		rpcstore,
-		l1RPCClient,
 		config.Logger.With("module", "backrunner"),
 	)
 	if err != nil {

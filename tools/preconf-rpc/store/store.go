@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/lib/pq"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 	"google.golang.org/protobuf/proto"
@@ -646,9 +647,10 @@ func (s *rpcstore) AddSwapInfo(
 	builders []string,
 ) error {
 	query := `
-	INSERT INTO swapInfo (transaction_hash, block_number, attempt, builders)
-	VALUES ($1, $2, $3, $4)
-	ON CONFLICT (transaction_hash) DO UPDATE SET block_number = EXCLUDED.block_number, attempt = EXCLUDED.attempt, reward = NULL, builders = EXCLUDED.builders;
+	INSERT INTO swapInfo (transaction_hash, block_number, attempt, builders, reward)
+	VALUES ($1, $2, $3, $4, 0)
+	ON CONFLICT (transaction_hash)
+	DO UPDATE SET block_number = EXCLUDED.block_number, attempt = EXCLUDED.attempt, reward = 0, builders = EXCLUDED.builders;
 	`
 
 	buildersStr := strings.Join(builders, ",")
@@ -663,68 +665,51 @@ func (s *rpcstore) AddSwapInfo(
 
 func (s *rpcstore) UpdateSwapReward(
 	ctx context.Context,
-	txnHash common.Hash,
 	reward *big.Int,
 	bundle []string,
-) error {
+) (bool, error) {
+	var txns []string
+	for _, b := range bundle {
+		txns = append(txns, common.HexToHash(b).Hex())
+	}
+
 	query := `
 	UPDATE swapInfo
 	SET reward = $1, bundle = $3
-	WHERE transaction_hash = $2;
+	WHERE transaction_hash = ANY($2::text[]);
 	`
 
-	var bundleStr string
-	if bundle != nil {
-		bundleStr = strings.Join(bundle, ",")
-	} else {
-		bundleStr = ""
-	}
+	bundleStr := strings.Join(bundle, ",")
 
-	_, err := s.db.ExecContext(ctx, query, reward.String(), txnHash.Hex(), bundleStr)
+	res, err := s.db.ExecContext(ctx, query, reward.String(), pq.Array(txns), bundleStr)
 	if err != nil {
-		return fmt.Errorf("failed to update swap reward for transaction %s: %w", txnHash.Hex(), err)
+		return false, fmt.Errorf("failed to update swap reward for bundle %v: %w", txns, err)
 	}
 
-	return nil
+	c, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to get rows affected for bundle %v: %w", txns, err)
+	}
+
+	return c > 0, nil
 }
 
-func (s *rpcstore) RewardsToCheck(ctx context.Context, blockNumber int64) ([]common.Hash, uint64, error) {
+func (s *rpcstore) GetStartHintForRewards(ctx context.Context) (int64, error) {
 	query := `
-	SELECT transaction_hash, attempt
+	SELECT MAX(attempt)::bigint
 	FROM swapInfo
-	WHERE reward IS NULL AND block_number <= $1
-	ORDER BY attempt ASC;
+	WHERE reward IS NOT NULL AND reward > 0;
 	`
-
-	rows, err := s.db.QueryContext(ctx, query, blockNumber)
+	row := s.db.QueryRowContext(ctx, query)
+	var maxAttempt sql.NullInt64
+	err := row.Scan(&maxAttempt)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get rewards to check: %w", err)
+		return 0, fmt.Errorf("failed to get start hint: %w", err)
 	}
-
-	var (
-		rewards []common.Hash
-		start   uint64
-	)
-	for rows.Next() {
-		var (
-			txnHashStr string
-			attempt    uint64
-		)
-		err := rows.Scan(&txnHashStr, &attempt)
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to scan row: %w", err)
-		}
-		txnHash := common.HexToHash(txnHashStr)
-		rewards = append(rewards, txnHash)
-		if start == 0 || attempt < start {
-			start = attempt
-		}
+	if !maxAttempt.Valid {
+		return 0, nil
 	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("error iterating rows: %w", err)
-	}
-
-	return rewards, start, nil
+	return maxAttempt.Int64 + 1, nil
 }
 
 type SwapInfo struct {

@@ -42,26 +42,24 @@ func (m *mockStore) AddSwapInfo(ctx context.Context, txnHash common.Hash, blockN
 	return nil
 }
 
-func (m *mockStore) RewardsToCheck(ctx context.Context, uptoBlockNumber int64) ([]common.Hash, uint64, error) {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-
-	var txns []common.Hash
-	for hash, info := range m.swapInfo {
-		if info.blockNumber <= uptoBlockNumber {
-			txns = append(txns, hash)
-		}
-	}
-	return txns, 1, nil
+func (m *mockStore) GetStartHintForRewards(ctx context.Context) (int64, error) {
+	return 0, nil
 }
 
-func (m *mockStore) UpdateSwapReward(ctx context.Context, bundleHash common.Hash, reward *big.Int, bundle []string) error {
+func (m *mockStore) UpdateSwapReward(ctx context.Context, reward *big.Int, bundle []string) (bool, error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	m.rewards[bundleHash] = reward
-	delete(m.swapInfo, bundleHash)
-	return nil
+	for _, b := range bundle {
+		bundleHash := common.HexToHash(b)
+		if _, exists := m.swapInfo[bundleHash]; !exists {
+			continue
+		}
+		m.rewards[bundleHash] = reward
+		delete(m.swapInfo, bundleHash)
+		return true, nil
+	}
+	return false, nil
 }
 
 func (m *mockStore) GetReward(bundleHash common.Hash) (*big.Int, bool) {
@@ -80,19 +78,13 @@ func (m *mockStore) GetSwapInfo(bundleHash common.Hash) (swapInfo, bool) {
 	return info, exists
 }
 
-type mockBlockGetter struct {
-	block chan uint64
-}
-
-func (m *mockBlockGetter) BlockNumber(ctx context.Context) (uint64, error) {
-	return <-m.block, nil
-}
-
 func TestBackrun(t *testing.T) {
+	waitForResp := make(chan struct{})
 	srv := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.URL.Path {
 			case "/api/transactions":
+				<-waitForResp
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write(txnsResp)
@@ -118,14 +110,17 @@ func TestBackrun(t *testing.T) {
 					if p, ok := params[0].(map[string]any); !ok {
 						http.Error(w, "bad param type", http.StatusBadRequest)
 					} else {
-						if _, ok := p["version"].(string); !ok {
-							http.Error(w, "bad version param", http.StatusBadRequest)
-						}
-						if _, ok := p["bundle"].([]any); !ok {
+						if _, ok := p["txs"].([]any); !ok {
 							http.Error(w, "bad bundle param", http.StatusBadRequest)
+							return
 						}
 						if _, ok := p["blockNumber"].(string); !ok {
 							http.Error(w, "bad blockNumber param", http.StatusBadRequest)
+							return
+						}
+						if _, ok := p["trustedBuilders"].([]any); !ok {
+							http.Error(w, "bad trustedBuilders param", http.StatusBadRequest)
+							return
 						}
 					}
 				}
@@ -143,10 +138,6 @@ func TestBackrun(t *testing.T) {
 	st := &mockStore{
 		swapInfo: make(map[common.Hash]swapInfo),
 		rewards:  make(map[common.Hash]*big.Int),
-	}
-
-	bNoGetter := &mockBlockGetter{
-		block: make(chan uint64, 1),
 	}
 
 	commitments := []*bidderapiv1.Commitment{
@@ -167,7 +158,6 @@ func TestBackrun(t *testing.T) {
 		srv.URL,
 		srv.URL+"/rpc",
 		st,
-		bNoGetter,
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -195,7 +185,7 @@ func TestBackrun(t *testing.T) {
 		t.Fatalf("unexpected builders length: got %v, want %v", len(sInfo.builders), 2)
 	}
 
-	bNoGetter.block <- 12345679
+	close(waitForResp)
 
 	for {
 		if reward, exists := st.GetReward(common.HexToHash("0xa3d8155e77cc46237e007e7a1274ca277209c47f27bae4405c74f01bb14673ec")); exists {

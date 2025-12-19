@@ -29,8 +29,8 @@ var builders = map[common.Address]string{
 
 type Store interface {
 	AddSwapInfo(ctx context.Context, txnHash common.Hash, blockNumber int64, builders []string) error
-	RewardsToCheck(ctx context.Context, uptoBlockNumber int64) ([]common.Hash, uint64, error)
-	UpdateSwapReward(ctx context.Context, bundleHash common.Hash, reward *big.Int, bundle []string) error
+	GetStartHintForRewards(ctx context.Context) (int64, error)
+	UpdateSwapReward(ctx context.Context, reward *big.Int, bundle []string) (bool, error)
 }
 
 type BlockNumberGetter interface {
@@ -38,18 +38,17 @@ type BlockNumberGetter interface {
 }
 
 type backrunner struct {
-	client    *http.Client
-	rpcURL    string
-	apiURL    string
-	apiKey    string
-	store     Store
-	bNoGetter BlockNumberGetter
-	reqChan   chan backrunRequest
-	metrics   *metrics
-	logger    *slog.Logger
+	client  *http.Client
+	rpcURL  string
+	apiURL  string
+	apiKey  string
+	store   Store
+	reqChan chan backrunRequest
+	metrics *metrics
+	logger  *slog.Logger
 }
 
-func New(apiKey, apiURL, rpcURL string, store Store, bNoGetter BlockNumberGetter, logger *slog.Logger) (*backrunner, error) {
+func New(apiKey, apiURL, rpcURL string, store Store, logger *slog.Logger) (*backrunner, error) {
 	urlParsed, err := url.Parse(rpcURL)
 	if err != nil {
 		return nil, err
@@ -80,14 +79,13 @@ func New(apiKey, apiURL, rpcURL string, store Store, bNoGetter BlockNumberGetter
 			},
 			Timeout: 15 * time.Second,
 		},
-		rpcURL:    urlParsed.String(),
-		apiURL:    apiParsed.String(),
-		apiKey:    apiKey,
-		store:     store,
-		bNoGetter: bNoGetter,
-		logger:    logger,
-		reqChan:   make(chan backrunRequest, 100),
-		metrics:   newMetrics(),
+		rpcURL:  urlParsed.String(),
+		apiURL:  apiParsed.String(),
+		apiKey:  apiKey,
+		store:   store,
+		logger:  logger,
+		reqChan: make(chan backrunRequest, 100),
+		metrics: newMetrics(),
 	}, nil
 }
 
@@ -181,19 +179,11 @@ func (b *backrunner) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				return egCtx.Err()
 			case <-ticker.C:
-				currentBlock, err := b.bNoGetter.BlockNumber(egCtx)
-				if err != nil {
-					b.logger.Error("getting current block number", "error", err)
-					continue
-				}
-				txns, start, err := b.store.RewardsToCheck(egCtx, int64(currentBlock))
+				start, err := b.store.GetStartHintForRewards(egCtx)
 				if err != nil {
 					continue
 				}
-				if len(txns) == 0 {
-					continue
-				}
-				if err := b.checkRewards(egCtx, txns, start); err != nil {
+				if err := b.checkRewards(egCtx, start); err != nil {
 					b.logger.Error("checking backrun rewards", "error", err)
 					continue
 				}
@@ -240,7 +230,7 @@ type transactionsResponse struct {
 	Data    transactionRecords `json:"data"`
 }
 
-func (b *backrunner) checkRewards(ctx context.Context, txns []common.Hash, start uint64) error {
+func (b *backrunner) checkRewards(ctx context.Context, start int64) error {
 	reqURL, err := url.Parse(b.apiURL)
 	if err != nil {
 		return fmt.Errorf("parsing backrun API URL: %w", err)
@@ -285,35 +275,17 @@ func (b *backrunner) checkRewards(ctx context.Context, txns []common.Hash, start
 		return fmt.Errorf("unsuccessful backrun API response: %s", string(respBody))
 	}
 
-	txnsToCheck := make(map[common.Hash]struct{})
-	for _, txn := range txns {
-		txnsToCheck[txn] = struct{}{}
-	}
 	for _, record := range respStruct.Data.Records {
 		amount, ok := new(big.Int).SetString(record.Amount, 10)
 		if !ok {
 			continue
 		}
-		for _, bundleHashStr := range record.BundleHashes {
-			if _, found := txnsToCheck[common.HexToHash(bundleHashStr)]; found {
-				err := b.store.UpdateSwapReward(ctx, common.HexToHash(bundleHashStr), amount, record.BundleHashes)
-				if err != nil {
-					return fmt.Errorf("updating backrun reward: %w", err)
-				}
-				b.logger.Info("updated backrun reward", "transactionHash", bundleHashStr, "amount", amount.String())
-				b.metrics.rewards.Inc()
-				b.metrics.rewardsTotal.Add(float64(amount.Int64()))
-				delete(txnsToCheck, common.HexToHash(bundleHashStr))
-			}
-		}
-	}
-	if len(txnsToCheck) > 0 {
-		for txn := range txnsToCheck {
-			b.logger.Info("no reward found for backrun", "transactionHash", txn.Hex())
-			err := b.store.UpdateSwapReward(ctx, txn, big.NewInt(0), nil)
-			if err != nil {
-				return fmt.Errorf("updating backrun reward to zero: %w", err)
-			}
+		if updated, err := b.store.UpdateSwapReward(ctx, amount, record.BundleHashes); err != nil {
+			return fmt.Errorf("updating backrun reward: %w", err)
+		} else if updated {
+			b.logger.Info("updated backrun reward", "bundle", record.BundleHashes, "amount", amount.String())
+			b.metrics.rewards.Inc()
+			b.metrics.rewardsTotal.Add(float64(amount.Int64()))
 		}
 	}
 

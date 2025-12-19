@@ -330,19 +330,6 @@ func TestStore(t *testing.T) {
 			t.Errorf("failed to add backrun info: %v", err)
 		}
 
-		txns, start, err := st.RewardsToCheck(context.Background(), 11)
-		if err != nil {
-			t.Errorf("failed to get rewards to check: %v", err)
-		}
-
-		if time.Now().Unix() < int64(start) {
-			t.Errorf("expected start time in the past, got %d", start)
-		}
-
-		if len(txns) != 1 || txns[0] != txnHash {
-			t.Errorf("expected txn hash %s in rewards to check, got %v", txnHash.Hex(), txns)
-		}
-
 		swapInfo, err := st.GetSwapInfo(context.Background(), txnHash)
 		if err != nil {
 			t.Errorf("failed to get swap info: %v", err)
@@ -371,14 +358,6 @@ func TestStore(t *testing.T) {
 			t.Errorf("failed to add backrun info on retry: %v", err)
 		}
 
-		txns, _, err = st.RewardsToCheck(context.Background(), 11)
-		if err != nil {
-			t.Errorf("failed to get rewards to check after retry: %v", err)
-		}
-		if len(txns) != 0 {
-			t.Errorf("expected no txns in rewards to check after retry, got %v", txns)
-		}
-
 		swapInfo, err = st.GetSwapInfo(context.Background(), txnHash)
 		if err != nil {
 			t.Errorf("failed to get swap info after retry: %v", err)
@@ -396,10 +375,21 @@ func TestStore(t *testing.T) {
 			}
 		}
 
-		bundle := []string{"0xdeadbeef", "0xfeedface"}
-		err = st.UpdateSwapReward(context.Background(), txnHash, big.NewInt(500000000), bundle)
+		startHint, err := st.GetStartHintForRewards(context.Background())
+		if err != nil {
+			t.Fatalf("failed to get start hint for rewards: %v", err)
+		}
+		if startHint != 0 {
+			t.Errorf("expected start hint 0, got %d", startHint)
+		}
+
+		bundle := []string{txnHash.String(), "0xfeedface"}
+		updated, err := st.UpdateSwapReward(context.Background(), big.NewInt(500000000), bundle)
 		if err != nil {
 			t.Errorf("failed to update swap reward: %v", err)
+		}
+		if !updated {
+			t.Errorf("expected reward update to return true, got false")
 		}
 
 		swapInfo, err = st.GetSwapInfo(context.Background(), txnHash)
@@ -417,6 +407,14 @@ func TestStore(t *testing.T) {
 					t.Errorf("expected bundle tx %s after update, got %s", tx, swapInfo.Bundle[i])
 				}
 			}
+		}
+
+		startHint, err = st.GetStartHintForRewards(context.Background())
+		if err != nil {
+			t.Fatalf("failed to get start hint for rewards after update: %v", err)
+		}
+		if startHint != swapInfo.Attempt+1 {
+			t.Fatalf("expected start hint %d after update, got %d", swapInfo.Attempt+1, startHint)
 		}
 	})
 
