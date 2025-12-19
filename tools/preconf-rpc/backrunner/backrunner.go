@@ -55,7 +55,7 @@ func New(apiKey, apiURL, rpcURL string, store Store, bNoGetter BlockNumberGetter
 		return nil, err
 	}
 	q := urlParsed.Query()
-	q.Add("apiKey", apiKey)
+	q.Add("api_key", apiKey)
 	q.Add("mode", "primev")
 	urlParsed.RawQuery = q.Encode()
 

@@ -617,20 +617,28 @@ BID_LOOP:
 		}
 	}
 
+	amount := big.NewInt(0)
+	for _, cmt := range txn.commitments {
+		amt, ok := new(big.Int).SetString(cmt.BidAmount, 10)
+		if ok && amt.Cmp(amount) > 0 {
+			amount = amt
+		}
+	}
+
 	switch txn.Type {
 	case TxTypeRegular:
-		if err := t.store.DeductBalance(ctx, txn.Sender, result.bidAmount); err != nil {
+		if err := t.store.DeductBalance(ctx, txn.Sender, amount); err != nil {
 			logger.Error("Failed to deduct balance for sender", "error", err)
 			return fmt.Errorf("failed to deduct balance for sender: %w", err)
 		}
 	case TxTypeDeposit:
-		balanceToAdd := new(big.Int).Sub(txn.Value(), result.bidAmount)
+		balanceToAdd := new(big.Int).Sub(txn.Value(), amount)
 		if err := t.store.AddBalance(ctx, txn.Sender, balanceToAdd); err != nil {
 			logger.Error("Failed to add balance for sender", "error", err)
 			return fmt.Errorf("failed to add balance for sender: %w", err)
 		}
 	case TxTypeInstantBridge:
-		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(result.bidAmount, big.NewInt(2)))
+		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(amount, big.NewInt(2)))
 		if err := t.transferer.Transfer(ctx, txn.Sender, t.settlementChainId, amountToBridge); err != nil {
 			logger.Error("Failed to transfer funds for instant bridge", "error", err)
 			return fmt.Errorf("failed to transfer funds for instant bridge: %w", err)
