@@ -48,7 +48,7 @@ func newMetrics() *metrics {
 			Subsystem: "backrunner",
 			Name:      "latency_ms",
 			Help:      "Histogram of backrun latencies in milliseconds.",
-			Buckets:   prometheus.ExponentialBuckets(0.005, 2, 12),
+			Buckets:   prometheus.ExponentialBuckets(5, 2, 12),
 		}),
 	}
 }
