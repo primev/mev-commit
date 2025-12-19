@@ -171,7 +171,7 @@ func (b *backrunner) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		ticker := time.NewTicker(time.Second)
+		ticker := time.NewTicker(3 * time.Second)
 		defer ticker.Stop()
 
 		for {

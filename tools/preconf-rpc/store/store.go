@@ -668,30 +668,55 @@ func (s *rpcstore) UpdateSwapReward(
 	reward *big.Int,
 	bundle []string,
 ) (bool, error) {
-	var txns []string
+	txns := make([]string, 0, len(bundle))
 	for _, b := range bundle {
 		txns = append(txns, common.HexToHash(b).Hex())
 	}
 
-	query := `
-	UPDATE swapInfo
-	SET reward = $1, bundle = $3
-	WHERE transaction_hash = ANY($2::text[]);
-	`
-
 	bundleStr := strings.Join(bundle, ",")
 
-	res, err := s.db.ExecContext(ctx, query, reward.String(), pq.Array(txns), bundleStr)
+	q1 := `
+      UPDATE swapInfo
+      SET reward = $1, bundle = $3
+      WHERE transaction_hash = ANY($2::text[]);
+    `
+
+	q2 := `
+      UPDATE balances b
+      SET balance = b.balance + $1::numeric
+      FROM (
+        SELECT DISTINCT sender
+        FROM mcTransactions
+        WHERE hash = ANY($2::text[])
+      ) t
+      WHERE b.account = t.sender;
+    `
+
+	dbtx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = dbtx.Rollback() }()
+
+	res1, err := dbtx.ExecContext(ctx, q1, reward.String(), pq.Array(txns), bundleStr)
 	if err != nil {
 		return false, fmt.Errorf("failed to update swap reward for bundle %v: %w", txns, err)
 	}
 
-	c, err := res.RowsAffected()
+	// Update balances for senders
+	if _, err := dbtx.ExecContext(ctx, q2, reward.String(), pq.Array(txns)); err != nil {
+		return false, fmt.Errorf("failed to update balances for bundle %v: %w", txns, err)
+	}
+
+	if err := dbtx.Commit(); err != nil {
+		return false, err
+	}
+
+	rows, err := res1.RowsAffected()
 	if err != nil {
 		return false, fmt.Errorf("failed to get rows affected for bundle %v: %w", txns, err)
 	}
-
-	return c > 0, nil
+	return rows > 0, nil
 }
 
 func (s *rpcstore) GetStartHintForRewards(ctx context.Context) (int64, error) {

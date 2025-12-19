@@ -289,7 +289,7 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("Account Balance", func(t *testing.T) {
-		address := common.HexToAddress("0x1234567890123456789012345678901234567890")
+		address := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
 		initialBalance := big.NewInt(1000000000) // 1 Gwei
 
 		err := st.AddBalance(context.Background(), address, initialBalance)
@@ -383,6 +383,11 @@ func TestStore(t *testing.T) {
 			t.Errorf("expected start hint 0, got %d", startHint)
 		}
 
+		balanceOld, err := st.GetBalance(context.Background(), common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"))
+		if err != nil {
+			t.Errorf("failed to get balance before reward update: %v", err)
+		}
+
 		bundle := []string{txnHash.String(), "0xfeedface"}
 		updated, err := st.UpdateSwapReward(context.Background(), big.NewInt(500000000), bundle)
 		if err != nil {
@@ -407,6 +412,15 @@ func TestStore(t *testing.T) {
 					t.Errorf("expected bundle tx %s after update, got %s", tx, swapInfo.Bundle[i])
 				}
 			}
+		}
+
+		balanceNew, err := st.GetBalance(context.Background(), common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"))
+		if err != nil {
+			t.Errorf("failed to get balance after reward update: %v", err)
+		}
+		expectedBalance := new(big.Int).Add(balanceOld, big.NewInt(500000000))
+		if balanceNew.Cmp(expectedBalance) != 0 {
+			t.Errorf("expected balance %s after reward update, got %s", expectedBalance.String(), balanceNew.String())
 		}
 
 		startHint, err = st.GetStartHintForRewards(context.Background())
