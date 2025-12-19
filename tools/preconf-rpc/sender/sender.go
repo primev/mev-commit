@@ -484,7 +484,7 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 	}
 	t.metrics.queuedTransactions.Set(float64(len(txns)))
 	if len(txns) == 0 {
-		t.logger.Info("No queued transactions to process")
+		t.logger.Debug("No queued transactions to process")
 		return
 	}
 	t.logger.Debug("Processing queued transactions", "count", len(txns))

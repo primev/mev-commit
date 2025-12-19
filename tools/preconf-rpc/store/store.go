@@ -675,6 +675,20 @@ func (s *rpcstore) UpdateSwapReward(
 
 	bundleStr := strings.Join(bundle, ",")
 
+	readQ := `
+	SELECT COUNT(*)
+	FROM swapInfo
+	WHERE transaction_hash = ANY($1::text[]) AND reward IS NOT NULL AND reward > 0;
+	`
+	row := s.db.QueryRowContext(ctx, readQ, pq.Array(txns))
+	var count int64
+	if err := row.Scan(&count); err != nil {
+		return false, fmt.Errorf("failed to check existing swap reward for bundle %v: %w", txns, err)
+	}
+	if count > 0 {
+		return false, nil // Reward already set for this bundle
+	}
+
 	q1 := `
       UPDATE swapInfo
       SET reward = $1, bundle = $3

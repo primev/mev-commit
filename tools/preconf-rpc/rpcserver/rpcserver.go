@@ -166,7 +166,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	defer func() {
-		s.logger.Info("Request processing time", "method", req.Method, "id", req.ID, "duration", time.Since(start).String())
+		s.logger.Debug("Request processing time", "method", req.Method, "id", req.ID, "duration", time.Since(start).String())
 	}()
 
 	if cacheMethods[req.Method] {
