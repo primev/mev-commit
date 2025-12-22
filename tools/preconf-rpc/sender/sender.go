@@ -693,6 +693,7 @@ func (t *TxSender) sendBid(
 			retryAfter: time.Second,
 		}
 	}
+	logger.Debug("Next block info", "bidBlockNo", bidBlockNo, "timeUntilNextBlock", timeUntilNextBlock)
 
 	if timeUntilNextBlock <= 500*time.Millisecond {
 		logger.Warn("Next block time is too short, skipping bid", "timeUntilNextBlock", timeUntilNextBlock)
