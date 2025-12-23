@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var apiURL = "https://api.blocknative.com/gasprices/blockprices?chainid=1"
@@ -34,6 +37,7 @@ type BidPricer struct {
 	mu                 sync.RWMutex // Protects currentEstimates
 	currentEstimates   map[int64]float64
 	currentBlockNumber int64
+	metrics            *metrics
 }
 
 func NewPricer(apiKey string, logger *slog.Logger) (*BidPricer, error) {
@@ -41,6 +45,7 @@ func NewPricer(apiKey string, logger *slog.Logger) (*BidPricer, error) {
 		apiKey:           apiKey,
 		log:              logger,
 		currentEstimates: make(map[int64]float64),
+		metrics:          newMetrics(),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -50,6 +55,12 @@ func NewPricer(apiKey string, logger *slog.Logger) (*BidPricer, error) {
 		return nil, err
 	}
 	return bp, nil
+}
+
+func (b *BidPricer) Metrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		b.metrics.bidPrices,
+	}
 }
 
 func (b *BidPricer) Start(ctx context.Context) <-chan struct{} {
@@ -138,6 +149,7 @@ func (b *BidPricer) syncEstimate(ctx context.Context) error {
 					case 99:
 						b.currentEstimates[int64(estimatedPrice.Confidence)] = estimatedPrice.PriorityFeePerGasGwei
 					}
+					b.metrics.bidPrices.WithLabelValues(fmt.Sprintf("%d", estimatedPrice.Confidence)).Set(estimatedPrice.PriorityFeePerGasGwei)
 				}
 				b.currentBlockNumber = price.BlockNumber
 				b.mu.Unlock()

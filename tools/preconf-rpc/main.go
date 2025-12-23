@@ -217,6 +217,27 @@ var (
 		Required: true,
 	}
 
+	optionBackrunnerAPIURL = &cli.StringFlag{
+		Name:     "backrunner-api-url",
+		Usage:    "URL for the transaction backrun service",
+		EnvVars:  []string{"PRECONF_RPC_BACKRUNNER_API_URL"},
+		Required: true,
+	}
+
+	optionBackrunnerRPCURL = &cli.StringFlag{
+		Name:     "backrunner-rpc-url",
+		Usage:    "URL for the backrun RPC",
+		EnvVars:  []string{"PRECONF_RPC_BACKRUNNER_RPC_URL"},
+		Required: true,
+	}
+
+	optionBackrunnerAPIKey = &cli.StringFlag{
+		Name:     "backrunner-api-key",
+		Usage:    "API key for the backrun service",
+		EnvVars:  []string{"PRECONF_RPC_BACKRUNNER_API_KEY"},
+		Required: true,
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -293,6 +314,9 @@ func main() {
 			optionBidderTopup,
 			optionAuthToken,
 			optionSimulationURL,
+			optionBackrunnerAPIURL,
+			optionBackrunnerRPCURL,
+			optionBackrunnerAPIKey,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -379,6 +403,9 @@ func main() {
 				Webhooks:               c.StringSlice(optionWebhookURLs.Name),
 				Token:                  c.String(optionAuthToken.Name),
 				SimulatorURL:           c.String(optionSimulationURL.Name),
+				BackrunnerAPIURL:       c.String(optionBackrunnerAPIURL.Name),
+				BackrunnerRPC:          c.String(optionBackrunnerRPCURL.Name),
+				BackrunnerAPIKey:       c.String(optionBackrunnerAPIKey.Name),
 			}
 
 			s, err := service.New(&config)

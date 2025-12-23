@@ -16,6 +16,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -74,6 +75,7 @@ type Transaction struct {
 	noOfProviders int
 	commitments   []*bidderapiv1.Commitment
 	logs          []*types.Log
+	isSwap        bool
 }
 
 type Store interface {
@@ -115,7 +117,7 @@ type Transferer interface {
 }
 
 type Simulator interface {
-	Simulate(ctx context.Context, txRaw string) ([]*types.Log, error)
+	Simulate(ctx context.Context, txRaw string) ([]*types.Log, bool, error)
 }
 
 type blockAttempt struct {
@@ -133,6 +135,10 @@ type Notifier interface {
 	NotifyTransactionStatus(txn *Transaction, noOfAttempts, noOfBlocks int, timeTaken time.Duration)
 }
 
+type Backrunner interface {
+	Backrun(ctx context.Context, rawTx string, commitments []*bidderapiv1.Commitment) error
+}
+
 type TxSender struct {
 	logger            *slog.Logger
 	store             Store
@@ -140,6 +146,7 @@ type TxSender struct {
 	pricer            Pricer
 	blockTracker      BlockTracker
 	transferer        Transferer
+	backrunner        Backrunner
 	settlementChainId *big.Int
 	eg                *errgroup.Group
 	egCtx             context.Context
@@ -157,6 +164,7 @@ type TxSender struct {
 	timeoutMtx        sync.RWMutex
 	receiptSignal     map[common.Hash][]chan struct{}
 	receiptMtx        sync.Mutex
+	metrics           *metrics
 }
 
 func noOpFastTrack(_ []*bidderapiv1.Commitment, _ bool) bool {
@@ -171,6 +179,7 @@ func NewTxSender(
 	transferer Transferer,
 	notifier Notifier,
 	simulator Simulator,
+	backrunner Backrunner,
 	settlementChainId *big.Int,
 	logger *slog.Logger,
 ) (*TxSender, error) {
@@ -186,6 +195,7 @@ func NewTxSender(
 		pricer:            pricer,
 		blockTracker:      blockTracker,
 		transferer:        transferer,
+		backrunner:        backrunner,
 		settlementChainId: settlementChainId,
 		logger:            logger.With("component", "TxSender"),
 		workerPool:        make(chan struct{}, 512),
@@ -198,7 +208,23 @@ func NewTxSender(
 		fastTrack:         noOpFastTrack,
 		bidTimeout:        bidTimeout,
 		receiptSignal:     make(map[common.Hash][]chan struct{}),
+		metrics:           newMetrics(),
 	}, nil
+}
+
+func (t *TxSender) Metrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		t.metrics.connectedProviders,
+		t.metrics.queuedTransactions,
+		t.metrics.inflightTransactions,
+		t.metrics.preconfDurationsProvider,
+		t.metrics.preconfCountsProvider,
+		t.metrics.blockAttemptsToConfirmation,
+		t.metrics.totalAttemptsToConfirmation,
+		t.metrics.timeToConfirmation,
+		t.metrics.timeToFirstPreconfirmation,
+		t.metrics.bidPriorityFee,
+	}
 }
 
 func validateTransaction(tx *Transaction) error {
@@ -392,16 +418,20 @@ func (t *TxSender) Start(ctx context.Context) chan struct{} {
 	done := make(chan struct{})
 
 	t.eg.Go(func() error {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-t.egCtx.Done():
 				t.logger.Info("Context cancelled, stopping TxSender")
 				return ctx.Err()
 			case <-t.trigger:
-				t.processMu.Lock()
-				t.processQueuedTransactions(t.egCtx)
-				t.processMu.Unlock()
+				ticker.Reset(1 * time.Second)
+			case <-ticker.C:
 			}
+			t.processMu.Lock()
+			t.processQueuedTransactions(t.egCtx)
+			t.processMu.Unlock()
 		}
 	})
 
@@ -433,6 +463,7 @@ func (t *TxSender) markInflight(txn *Transaction) (bool, <-chan struct{}) {
 	cancel := make(chan struct{})
 	t.inflightTxns[txn.Hash()] = cancel
 	t.inflightAccount[txn.Sender] = struct{}{}
+	t.metrics.inflightTransactions.Inc()
 	return true, cancel
 }
 
@@ -442,6 +473,7 @@ func (t *TxSender) markCompleted(txn *Transaction) {
 
 	delete(t.inflightTxns, txn.Hash())
 	delete(t.inflightAccount, txn.Sender)
+	t.metrics.inflightTransactions.Dec()
 }
 
 func (t *TxSender) processQueuedTransactions(ctx context.Context) {
@@ -450,8 +482,9 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 		t.logger.Error("Failed to get queued transactions", "error", err)
 		return
 	}
+	t.metrics.queuedTransactions.Set(float64(len(txns)))
 	if len(txns) == 0 {
-		t.logger.Info("No queued transactions to process")
+		t.logger.Debug("No queued transactions to process")
 		return
 	}
 	t.logger.Debug("Processing queued transactions", "count", len(txns))
@@ -522,6 +555,9 @@ BID_LOOP:
 			}
 		case txn.noOfProviders == len(txn.commitments):
 			if result.optedInSlot {
+				if txn.Status != TxStatusPreConfirmed {
+					t.metrics.timeToFirstPreconfirmation.Observe(float64(time.Since(result.startTime).Milliseconds()))
+				}
 				// This means that all builders have committed to the bid and it
 				// is a primev opted in slot. We can safely proceed to inform the
 				// user that the txn was successfully sent and will be processed
@@ -581,20 +617,28 @@ BID_LOOP:
 		}
 	}
 
+	amount := big.NewInt(0)
+	for _, cmt := range txn.commitments {
+		amt, ok := new(big.Int).SetString(cmt.BidAmount, 10)
+		if ok && amt.Cmp(amount) > 0 {
+			amount = amt
+		}
+	}
+
 	switch txn.Type {
 	case TxTypeRegular:
-		if err := t.store.DeductBalance(ctx, txn.Sender, result.bidAmount); err != nil {
+		if err := t.store.DeductBalance(ctx, txn.Sender, amount); err != nil {
 			logger.Error("Failed to deduct balance for sender", "error", err)
 			return fmt.Errorf("failed to deduct balance for sender: %w", err)
 		}
 	case TxTypeDeposit:
-		balanceToAdd := new(big.Int).Sub(txn.Value(), result.bidAmount)
+		balanceToAdd := new(big.Int).Sub(txn.Value(), amount)
 		if err := t.store.AddBalance(ctx, txn.Sender, balanceToAdd); err != nil {
 			logger.Error("Failed to add balance for sender", "error", err)
 			return fmt.Errorf("failed to add balance for sender: %w", err)
 		}
 	case TxTypeInstantBridge:
-		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(result.bidAmount, big.NewInt(2)))
+		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(amount, big.NewInt(2)))
 		if err := t.transferer.Transfer(ctx, txn.Sender, t.settlementChainId, amountToBridge); err != nil {
 			logger.Error("Failed to transfer funds for instant bridge", "error", err)
 			return fmt.Errorf("failed to transfer funds for instant bridge: %w", err)
@@ -649,6 +693,7 @@ func (t *TxSender) sendBid(
 			retryAfter: time.Second,
 		}
 	}
+	logger.Debug("Next block info", "bidBlockNo", bidBlockNo, "timeUntilNextBlock", timeUntilNextBlock)
 
 	if timeUntilNextBlock <= 500*time.Millisecond {
 		logger.Warn("Next block time is too short, skipping bid", "timeUntilNextBlock", timeUntilNextBlock)
@@ -730,7 +775,7 @@ func (t *TxSender) sendBid(
 	}
 
 	if !isRetry {
-		logs, err := t.simulator.Simulate(ctx, txn.Raw)
+		logs, isSwap, err := t.simulator.Simulate(ctx, txn.Raw)
 		if err != nil {
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
 			if len(txn.commitments) > 0 && txn.commitments[0].BlockNumber+1 == int64(bidBlockNo) {
@@ -750,13 +795,16 @@ func (t *TxSender) sendBid(
 			return bidResult{}, fmt.Errorf("failed to get connected providers: %w", err)
 		}
 		txn.logs = logs
+		txn.isSwap = isSwap
 		txn.noOfProviders = len(providers)
+		t.metrics.connectedProviders.Set(float64(len(providers)))
 		// We could have already made a attempt on the previous block but the block
 		// update hasn't happened yet. This means that the bid might fail, but
 		// we should retain the previous commitments. Only clear if we get new
 		// commitments for the new block.
 	}
 
+	bidStart := time.Now()
 	bidC, err := t.bidder.Bid(
 		cctx,
 		cost,
@@ -800,7 +848,8 @@ BID_LOOP:
 						txn.commitments = nil // clear previous commitments for new block
 					}
 				}
-				txn.commitments = append(txn.commitments, bidStatus.Arg.(*bidderapiv1.Commitment))
+				cmt := bidStatus.Arg.(*bidderapiv1.Commitment)
+				txn.commitments = append(txn.commitments, cmt)
 				if t.fastTrack(txn.commitments, optedInSlot) && txn.Status != TxStatusPreConfirmed {
 					txn.Status = TxStatusPreConfirmed
 					txn.BlockNumber = int64(bidBlockNo)
@@ -813,7 +862,10 @@ BID_LOOP:
 						logger.Error("Failed to store fast-tracked transaction", "error", err)
 					}
 					t.signalReceiptAvailable(txn.Hash())
+					t.metrics.timeToFirstPreconfirmation.Observe(float64(time.Since(start).Milliseconds()))
 				}
+				t.metrics.preconfDurationsProvider.WithLabelValues(cmt.ProviderAddress).Set(float64(time.Since(bidStart).Milliseconds()))
+				t.metrics.preconfCountsProvider.WithLabelValues(cmt.ProviderAddress).Inc()
 			case bidder.BidStatusCancelled:
 				logger.Warn("Bid context cancelled by the bidder")
 				break BID_LOOP
@@ -830,6 +882,13 @@ BID_LOOP:
 		"blockNumber", result.blockNumber,
 		"optedInSlot", optedInSlot,
 	)
+
+	if len(txn.commitments) > 0 && txn.isSwap {
+		if err := t.backrunner.Backrun(ctx, txn.Raw, txn.commitments); err != nil {
+			logger.Error("Failed to backrun transaction", "error", err)
+		}
+		logger.Info("Backrun operation initiated for transaction", "hash", txn.Hash().Hex())
+	}
 
 	result.optedInSlot = optedInSlot
 	return result, nil
@@ -894,6 +953,7 @@ func (t *TxSender) calculatePriceForNextBlock(
 		if conf == int64(confidence) {
 			// the gwei value is in float, so we need to convert it to wei before multiplying with gas limit
 			priceInWei := price * 1e9 // Convert Gwei to Wei
+			t.metrics.bidPriorityFee.Set(price)
 			return new(big.Int).Mul(big.NewInt(int64(priceInWei)), big.NewInt(int64(txn.Gas()))), isRetry, nil
 		}
 	}
@@ -926,8 +986,12 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time)
 		"totalAttempts", totalAttempts,
 	)
 
+	t.metrics.blockAttemptsToConfirmation.Observe(float64(blockAttempts))
+	t.metrics.totalAttemptsToConfirmation.Observe(float64(totalAttempts))
+
 	_ = t.txnAttemptHistory.Remove(txn.Hash())
 
 	timeTaken := endTime.Sub(attempts.startTime).Round(time.Millisecond)
+	t.metrics.timeToConfirmation.Observe(float64(timeTaken.Milliseconds()))
 	t.notifier.NotifyTransactionStatus(txn, totalAttempts, blockAttempts, timeTaken)
 }

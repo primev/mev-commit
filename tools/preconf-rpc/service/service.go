@@ -23,6 +23,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"github.com/primev/mev-commit/tools/preconf-rpc/backrunner"
 	bidder "github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
@@ -37,6 +38,8 @@ import (
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/transfer"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -71,6 +74,9 @@ type Config struct {
 	Webhooks               []string
 	Token                  string
 	SimulatorURL           string
+	BackrunnerRPC          string
+	BackrunnerAPIURL       string
+	BackrunnerAPIKey       string
 }
 
 type Service struct {
@@ -220,10 +226,13 @@ func New(config *Config) (*Service, error) {
 		return nil, fmt.Errorf("failed to create RPC server: %w", err)
 	}
 
+	metricsRegistry := prometheus.NewRegistry()
+
 	bidpricer, err := pricer.NewPricer(config.PricerAPIKey, config.Logger.With("module", "bidpricer"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bid pricer: %w", err)
 	}
+	metricsRegistry.MustRegister(bidpricer.Metrics()...)
 
 	db, err := initDB(config)
 	if err != nil {
@@ -245,8 +254,25 @@ func New(config *Config) (*Service, error) {
 
 	blockTrackerDone := blockTracker.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
+	s.closers = append(s.closers, channelCloser(blockTrackerDone))
 
 	simulator := sim.NewSimulator(config.SimulatorURL)
+	metricsRegistry.MustRegister(simulator.Metrics()...)
+
+	brunner, err := backrunner.New(
+		config.BackrunnerAPIKey,
+		config.BackrunnerAPIURL,
+		config.BackrunnerRPC,
+		rpcstore,
+		config.Logger.With("module", "backrunner"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create backrunner: %w", err)
+	}
+	backrunnerDone := brunner.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("Backrunner", backrunnerDone))
+	s.closers = append(s.closers, channelCloser(backrunnerDone))
+	metricsRegistry.MustRegister(brunner.Metrics()...)
 
 	sndr, err := sender.NewTxSender(
 		rpcstore,
@@ -256,6 +282,7 @@ func New(config *Config) (*Service, error) {
 		transferer,
 		notifier,
 		simulator,
+		brunner,
 		settlementChainID,
 		config.Logger.With("module", "txsender"),
 	)
@@ -265,6 +292,8 @@ func New(config *Config) (*Service, error) {
 
 	senderDone := sndr.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("TxSender", senderDone))
+	s.closers = append(s.closers, channelCloser(senderDone))
+	metricsRegistry.MustRegister(sndr.Metrics()...)
 
 	rpcHandlers := handlers.NewRPCMethodHandler(
 		config.Logger.With("module", "handlers"),
@@ -289,6 +318,7 @@ func New(config *Config) (*Service, error) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
 	})
+	mux.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
 	mux.HandleFunc("/{option...}", func(w http.ResponseWriter, r *http.Request) {
 		options := r.PathValue("option")
 
@@ -354,6 +384,7 @@ func New(config *Config) (*Service, error) {
 type RPCStore interface {
 	AddSubsidy(ctx context.Context, account common.Address, amount *big.Int) error
 	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*sender.Transaction, error)
+	GetUserTransactions(ctx context.Context, user common.Address) (store.UserTxnsResponse, error)
 }
 
 func registerAdminAPIs(mux *http.ServeMux, token string, sndr *sender.TxSender, rpcstore RPCStore) {
@@ -558,6 +589,31 @@ func registerAdminAPIs(mux *http.ServeMux, token string, sndr *sender.TxSender, 
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(status); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+			return
+		}
+	})
+
+	mux.HandleFunc("GET /user-transactions", func(w http.ResponseWriter, r *http.Request) {
+		if err := checkAuthorization(r); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		userAddress := r.URL.Query().Get("address")
+		if userAddress == "" || !common.IsHexAddress(userAddress) {
+			http.Error(w, "invalid or missing user address", http.StatusBadRequest)
+			return
+		}
+
+		txnList, err := rpcstore.GetUserTransactions(r.Context(), common.HexToAddress(userAddress))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get user transactions: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(txnList); err != nil {
 			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
 			return
 		}

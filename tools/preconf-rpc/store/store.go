@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/lib/pq"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 	"google.golang.org/protobuf/proto"
@@ -47,7 +49,8 @@ CREATE TABLE IF NOT EXISTS commitments (
 var balancesTable = `
 CREATE TABLE IF NOT EXISTS balances (
 	account TEXT PRIMARY KEY,
-	balance NUMERIC(24, 0)
+	balance NUMERIC(24, 0),
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );`
 
 var subsidiesTable = `
@@ -63,6 +66,17 @@ CREATE TABLE IF NOT EXISTS simulationLogs (
 	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
 );`
 
+var swapInfo = `
+CREATE TABLE IF NOT EXISTS swapInfo (
+	transaction_hash TEXT PRIMARY KEY,
+	block_number BIGINT,
+	attempt BIGINT,
+	builders TEXT,
+	reward NUMERIC(24, 0),
+	bundle TEXT,
+	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
+);`
+
 type rpcstore struct {
 	db *sql.DB
 }
@@ -74,6 +88,7 @@ func New(db *sql.DB) (*rpcstore, error) {
 		balancesTable,
 		subsidiesTable,
 		simulationLogs,
+		swapInfo,
 	} {
 		_, err := db.Exec(table)
 		if err != nil {
@@ -623,4 +638,233 @@ func (s *rpcstore) AlreadySubsidized(
 	}
 
 	return currentBalance.Sign() > 0
+}
+
+func (s *rpcstore) AddSwapInfo(
+	ctx context.Context,
+	txnHash common.Hash,
+	blockNumber int64,
+	builders []string,
+) error {
+	query := `
+	INSERT INTO swapInfo (transaction_hash, block_number, attempt, builders, reward)
+	VALUES ($1, $2, $3, $4, 0)
+	ON CONFLICT (transaction_hash)
+	DO UPDATE SET block_number = EXCLUDED.block_number, attempt = EXCLUDED.attempt, reward = 0, builders = EXCLUDED.builders;
+	`
+
+	buildersStr := strings.Join(builders, ",")
+
+	_, err := s.db.ExecContext(ctx, query, txnHash.Hex(), blockNumber, time.Now().Unix(), buildersStr)
+	if err != nil {
+		return fmt.Errorf("failed to add swap info for txn %s: %w", txnHash.Hex(), err)
+	}
+
+	return nil
+}
+
+func (s *rpcstore) UpdateSwapReward(
+	ctx context.Context,
+	reward *big.Int,
+	bundle []string,
+) (bool, error) {
+	txns := make([]string, 0, len(bundle))
+	for _, b := range bundle {
+		txns = append(txns, common.HexToHash(b).Hex())
+	}
+
+	bundleStr := strings.Join(bundle, ",")
+
+	readQ := `
+	SELECT COUNT(*)
+	FROM swapInfo
+	WHERE transaction_hash = ANY($1::text[]) AND reward IS NOT NULL AND reward > 0;
+	`
+	row := s.db.QueryRowContext(ctx, readQ, pq.Array(txns))
+	var count int64
+	if err := row.Scan(&count); err != nil {
+		return false, fmt.Errorf("failed to check existing swap reward for bundle %v: %w", txns, err)
+	}
+	if count > 0 {
+		return false, nil // Reward already set for this bundle
+	}
+
+	q1 := `
+      UPDATE swapInfo
+      SET reward = $1, bundle = $3
+      WHERE transaction_hash = ANY($2::text[]);
+    `
+
+	q2 := `
+      UPDATE balances b
+      SET balance = b.balance + $1::numeric
+      FROM (
+        SELECT DISTINCT sender
+        FROM mcTransactions
+        WHERE hash = ANY($2::text[])
+      ) t
+      WHERE b.account = t.sender;
+    `
+
+	dbtx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = dbtx.Rollback() }()
+
+	res1, err := dbtx.ExecContext(ctx, q1, reward.String(), pq.Array(txns), bundleStr)
+	if err != nil {
+		return false, fmt.Errorf("failed to update swap reward for bundle %v: %w", txns, err)
+	}
+
+	// Update balances for senders
+	if _, err := dbtx.ExecContext(ctx, q2, reward.String(), pq.Array(txns)); err != nil {
+		return false, fmt.Errorf("failed to update balances for bundle %v: %w", txns, err)
+	}
+
+	if err := dbtx.Commit(); err != nil {
+		return false, err
+	}
+
+	rows, err := res1.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to get rows affected for bundle %v: %w", txns, err)
+	}
+	return rows > 0, nil
+}
+
+func (s *rpcstore) GetStartHintForRewards(ctx context.Context) (int64, error) {
+	query := `
+	SELECT MAX(attempt)::bigint
+	FROM swapInfo
+	WHERE reward IS NOT NULL AND reward > 0;
+	`
+	row := s.db.QueryRowContext(ctx, query)
+	var maxAttempt sql.NullInt64
+	err := row.Scan(&maxAttempt)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get start hint: %w", err)
+	}
+	if !maxAttempt.Valid {
+		return 0, nil
+	}
+	return maxAttempt.Int64 + 1, nil
+}
+
+type SwapInfo struct {
+	TransactionHash common.Hash `json:"transaction_hash"`
+	BlockNumber     int64       `json:"block_number"`
+	Attempt         int64       `json:"attempt"`
+	Builders        []string    `json:"builders"`
+	Reward          *big.Int    `json:"reward"`
+	Bundle          []string    `json:"bundle"`
+}
+
+func (s *rpcstore) GetSwapInfo(ctx context.Context, txnHash common.Hash) (SwapInfo, error) {
+	query := `
+	SELECT block_number, attempt, builders, reward, bundle
+	FROM swapInfo
+	WHERE transaction_hash = $1;
+	`
+
+	row := s.db.QueryRowContext(ctx, query, txnHash.Hex())
+	var (
+		blockNumber int64
+		attempt     int64
+		buildersStr string
+		rewardStr   sql.NullString
+		bundleStr   sql.NullString
+	)
+	err := row.Scan(&blockNumber, &attempt, &buildersStr, &rewardStr, &bundleStr)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SwapInfo{}, fmt.Errorf("swap info not found for transaction %s: %w", txnHash.Hex(), ErrNotFound)
+		}
+		return SwapInfo{}, fmt.Errorf("failed to get swap info for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	builders := []string{}
+	if buildersStr != "" {
+		builders = strings.Split(buildersStr, ",")
+	}
+
+	var reward *big.Int
+	if rewardStr.Valid && rewardStr.String != "" {
+		reward = new(big.Int)
+		if _, ok := reward.SetString(rewardStr.String, 10); !ok {
+			return SwapInfo{}, fmt.Errorf("failed to parse reward %q for transaction %s", rewardStr.String, txnHash.Hex())
+		}
+	}
+
+	bundle := []string{}
+	if bundleStr.Valid && bundleStr.String != "" {
+		bundle = strings.Split(bundleStr.String, ",")
+	}
+
+	return SwapInfo{
+		TransactionHash: txnHash,
+		BlockNumber:     blockNumber,
+		Attempt:         attempt,
+		Builders:        builders,
+		Reward:          reward,
+		Bundle:          bundle,
+	}, nil
+}
+
+type UserTxnsResponse struct {
+	TxnCount     int64    `json:"txn_count"`
+	SwapCount    int64    `json:"swap_count"`
+	DepositCount int64    `json:"deposit_count"`
+	BridgeCount  int64    `json:"bridge_count"`
+	MevReward    *big.Int `json:"mev_reward"`
+}
+
+func (s *rpcstore) GetUserTransactions(ctx context.Context, account common.Address) (UserTxnsResponse, error) {
+	resp := UserTxnsResponse{
+		MevReward: big.NewInt(0),
+	}
+
+	query := `
+	SELECT
+	COUNT(*)::bigint                                                    AS txn_count,
+	COUNT(*) FILTER (WHERE t.tx_type = $2)::bigint                      AS deposit_count,
+	COUNT(*) FILTER (WHERE t.tx_type = $3)::bigint                      AS bridge_count,
+	COUNT(s.transaction_hash) FILTER (WHERE t.tx_type NOT IN ($2,$3))::bigint AS swap_count,
+	COALESCE(SUM(s.reward) FILTER (WHERE t.tx_type NOT IN ($2,$3)), 0)::text AS mev_reward
+	FROM mcTransactions t
+	LEFT JOIN swapInfo s
+		ON s.transaction_hash = t.hash
+	WHERE
+		t.sender = $1
+		AND t.status IN ('confirmed', 'pre-confirmed');
+	`
+
+	var mevRewardStr string
+	err := s.db.QueryRowContext(
+		ctx,
+		query,
+		account.Hex(),
+		int(sender.TxTypeDeposit),
+		int(sender.TxTypeInstantBridge),
+	).Scan(
+		&resp.TxnCount,
+		&resp.DepositCount,
+		&resp.BridgeCount,
+		&resp.SwapCount,
+		&mevRewardStr,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return resp, nil
+		}
+		return resp, fmt.Errorf("failed to get transactions for account %s: %w", account.Hex(), err)
+	}
+
+	if mevRewardStr != "" {
+		if _, ok := resp.MevReward.SetString(mevRewardStr, 10); !ok {
+			return resp, fmt.Errorf("failed to parse mev_reward %q for account %s", mevRewardStr, account.Hex())
+		}
+	}
+
+	return resp, nil
 }

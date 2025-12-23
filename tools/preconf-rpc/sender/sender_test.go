@@ -273,8 +273,14 @@ func (m *mockNotifier) NotifyTransactionStatus(txn *sender.Transaction, attempts
 
 type mockSimulator struct{}
 
-func (m *mockSimulator) Simulate(ctx context.Context, rawTx string) ([]*types.Log, error) {
-	return []*types.Log{}, nil
+func (m *mockSimulator) Simulate(ctx context.Context, rawTx string) ([]*types.Log, bool, error) {
+	return []*types.Log{}, false, nil
+}
+
+type mockBackrunner struct{}
+
+func (m *mockBackrunner) Backrun(ctx context.Context, rawTx string, commitments []*bidderapiv1.Commitment) error {
+	return nil
 }
 
 func TestSender(t *testing.T) {
@@ -305,6 +311,7 @@ func TestSender(t *testing.T) {
 		&mockTransferer{},
 		notifier,
 		&mockSimulator{},
+		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
 		util.NewTestLogger(os.Stdout),
 	)
@@ -558,6 +565,7 @@ func TestCancelTransaction(t *testing.T) {
 		&mockTransferer{},
 		&mockNotifier{},
 		&mockSimulator{},
+		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
 		util.NewTestLogger(os.Stdout),
 	)
@@ -645,6 +653,7 @@ func TestIgnoreProvidersOnRetry(t *testing.T) {
 		&mockTransferer{},
 		notifier,
 		&mockSimulator{},
+		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
 		util.NewTestLogger(io.Discard),
 	)
