@@ -277,6 +277,24 @@ var (
 			return nil
 		},
 	}
+
+	optionExplorerEndpoint = &cli.StringFlag{
+		Name:    "explorer-endpoint",
+		Usage:   "Explorer API endpoint for submitting transactions",
+		EnvVars: []string{"PRECONF_RPC_EXPLORER_ENDPOINT"},
+	}
+
+	optionExplorerApiKey = &cli.StringFlag{
+		Name:    "explorer-apikey",
+		Usage:   "Explorer API Key",
+		EnvVars: []string{"PRECONF_RPC_EXPLORER_APIKEY"},
+	}
+
+	optionExplorerAppCode = &cli.StringFlag{
+		Name:    "explorer-appcode",
+		Usage:   "Explorer App Code",
+		EnvVars: []string{"PRECONF_RPC_EXPLORER_APPCODE"},
+	}
 )
 
 func main() {
@@ -317,6 +335,9 @@ func main() {
 			optionBackrunnerAPIURL,
 			optionBackrunnerRPCURL,
 			optionBackrunnerAPIKey,
+			optionExplorerEndpoint,
+			optionExplorerApiKey,
+			optionExplorerAppCode,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -406,6 +427,9 @@ func main() {
 				BackrunnerAPIURL:       c.String(optionBackrunnerAPIURL.Name),
 				BackrunnerRPC:          c.String(optionBackrunnerRPCURL.Name),
 				BackrunnerAPIKey:       c.String(optionBackrunnerAPIKey.Name),
+				ExplorerEndpoint:       c.String(optionExplorerEndpoint.Name),
+				ExplorerApiKey:         c.String(optionExplorerApiKey.Name),
+				ExplorerAppCode:        c.String(optionExplorerAppCode.Name),
 			}
 
 			s, err := service.New(&config)

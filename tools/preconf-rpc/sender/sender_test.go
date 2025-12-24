@@ -13,7 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
+	bidder "github.com/primev/mev-commit/tools/preconf-rpc/bidder"
+	explorersubmitter "github.com/primev/mev-commit/tools/preconf-rpc/explorer-submitter"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 	"github.com/primev/mev-commit/x/util"
 )
@@ -313,6 +314,7 @@ func TestSender(t *testing.T) {
 		&mockSimulator{},
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
+		explorersubmitter.Config{},
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -567,6 +569,7 @@ func TestCancelTransaction(t *testing.T) {
 		&mockSimulator{},
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
+		explorersubmitter.Config{},
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -655,6 +658,7 @@ func TestIgnoreProvidersOnRetry(t *testing.T) {
 		&mockSimulator{},
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
+		explorersubmitter.Config{},
 		util.NewTestLogger(io.Discard),
 	)
 	if err != nil {
