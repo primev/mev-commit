@@ -300,13 +300,12 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	t.triggerSender()
 
 	go func() {
-		//extra caution in case of errors
+		// extra caution in case of errors
 		defer func() {
 			if r := recover(); r != nil {
 				t.logger.Error("Panic in explorer submitter", "error", r)
 			}
 		}()
-		chainID := "1"
 
 		// get tx info
 		from := tx.Sender.Hex()
@@ -318,7 +317,6 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 		err := explorersubmitter.Submit(
 			context.Background(),
 			t.explorerConfig,
-			chainID,
 			tx.Hash().Hex(),
 			from,
 			to,

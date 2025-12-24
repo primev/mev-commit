@@ -29,10 +29,12 @@ type TxInfo struct {
 	To   string `json:"to"`
 }
 
-func Submit(ctx context.Context, config Config, chainID string, txHash string, from string, to string) error {
+func Submit(ctx context.Context, config Config, txHash string, from string, to string) error {
 	if config.Endpoint == "" {
 		return nil
 	}
+
+	chainID := "1"
 
 	expireTs := time.Now().Add(15 * time.Minute).Unix()
 
@@ -73,7 +75,9 @@ func Submit(ctx context.Context, config Config, chainID string, txHash string, f
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)

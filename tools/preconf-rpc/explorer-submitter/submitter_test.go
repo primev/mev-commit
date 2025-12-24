@@ -25,6 +25,6 @@ func TestSubmit(t *testing.T) {
 		AppCode:  *explorerAppCode,
 	}
 
-	err := Submit(context.Background(), config, "1", "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", "0x123", "0x456")
+	err := Submit(context.Background(), config, "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", "0x123", "0x456")
 	require.NoError(t, err)
 }
