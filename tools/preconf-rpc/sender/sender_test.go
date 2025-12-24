@@ -228,6 +228,8 @@ type mockBlockTracker struct {
 	bnIn  chan struct{}
 	bnOut chan blockNoOp
 	bnErr chan error
+	lbf   *big.Int
+	nbf   *big.Int
 }
 
 func (m *mockBlockTracker) WaitForTxnInclusion(txnHash common.Hash) chan uint64 {
@@ -258,16 +260,18 @@ func (m *mockBlockTracker) AccountNonce(ctx context.Context, account common.Addr
 	return 0, nil
 }
 
-func (m *mockBlockTracker) MinNextFeeCapCmp(gasFeeCap *big.Int) bool {
-	return true
+func (m *mockBlockTracker) LatestBaseFee() *big.Int {
+	if m.lbf == nil {
+		return big.NewInt(0)
+	}
+	return new(big.Int).Set(m.lbf)
 }
 
-func (m *mockBlockTracker) MinNextFeeCap() *big.Int {
-	return big.NewInt(0)
-}
-
-func (m *mockBlockTracker) LatestMinGasFeeCap() *big.Int {
-	return big.NewInt(0)
+func (m *mockBlockTracker) NextBaseFee() *big.Int {
+	if m.nbf == nil {
+		return big.NewInt(0)
+	}
+	return new(big.Int).Set(m.nbf)
 }
 
 type mockTransferer struct{}

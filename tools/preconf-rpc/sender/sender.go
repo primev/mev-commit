@@ -79,6 +79,28 @@ type Transaction struct {
 	isSwap        bool
 }
 
+func effectiveFeePerGas(tx *types.Transaction) *big.Int {
+	if tx == nil {
+		return big.NewInt(0)
+	}
+
+	if tx.Type() == types.DynamicFeeTxType {
+		if tx.GasFeeCap() != nil {
+			return new(big.Int).Set(tx.GasFeeCap())
+		}
+	}
+
+	if tx.GasPrice() != nil {
+		return new(big.Int).Set(tx.GasPrice())
+	}
+
+	if tx.GasFeeCap() != nil {
+		return new(big.Int).Set(tx.GasFeeCap())
+	}
+
+	return big.NewInt(0)
+}
+
 type Store interface {
 	AddQueuedTransaction(ctx context.Context, tx *Transaction) error
 	GetQueuedTransactions(ctx context.Context) ([]*Transaction, error)
@@ -111,9 +133,8 @@ type BlockTracker interface {
 	NextBlockNumber() (uint64, time.Duration, error)
 	LatestBlockNumber() uint64
 	AccountNonce(ctx context.Context, account common.Address) (uint64, error)
-	MinNextFeeCapCmp(gasFeeCap *big.Int) bool
-	MinNextFeeCap() *big.Int
-	LatestMinGasFeeCap() *big.Int
+	LatestBaseFee() *big.Int
+	NextBaseFee() *big.Int
 }
 
 type Transferer interface {
@@ -729,17 +750,24 @@ func (t *TxSender) sendBid(
 		}
 	}
 
-	if !t.blockTracker.MinNextFeeCapCmp(txn.GasFeeCap()) {
+	feePerGas := effectiveFeePerGas(txn.Transaction)
+	nextBaseFee := t.blockTracker.NextBaseFee()
+	latestBaseFee := t.blockTracker.LatestBaseFee()
+	if nextBaseFee.Sign() == 0 {
+		nextBaseFee = latestBaseFee
+	}
+
+	if nextBaseFee.Sign() > 0 && feePerGas.Cmp(nextBaseFee) < 0 {
 		logger.Warn(
-			"Gas fee cap too low for next block",
-			"gasFeeCap", txn.GasFeeCap().String(),
-			"minNextFeeCap", t.blockTracker.MinNextFeeCap().String(),
+			"Fee per gas too low for next block",
+			"feePerGas", feePerGas.String(),
+			"nextBaseFee", nextBaseFee.String(),
 		)
 		return bidResult{}, &errRetry{
 			err: fmt.Errorf(
-				"gas fee cap too low for next block: %s min %s",
-				txn.GasFeeCap().String(),
-				t.blockTracker.MinNextFeeCap().String(),
+				"fee per gas too low for next block: %s min %s",
+				feePerGas.String(),
+				nextBaseFee.String(),
 			),
 			retryAfter: timeUntilNextBlock,
 		}
@@ -794,14 +822,12 @@ func (t *TxSender) sendBid(
 		slashAmount = new(big.Int).Set(txn.Value())
 	}
 
+	state := sim.Latest
+	if latestBaseFee.Sign() > 0 && feePerGas.Cmp(latestBaseFee) < 0 {
+		state = sim.Pending
+	}
+
 	if !isRetry {
-		state := sim.Latest
-		if txn.GasFeeCap().Cmp(t.blockTracker.LatestMinGasFeeCap()) < 0 {
-			// If the gas fee cap is lower than the latest min gas fee cap,
-			// we simulate in pending state to account for the likely decrease
-			// in gas fee cap in the next block.
-			state = sim.Pending
-		}
 		logs, isSwap, err := t.simulator.Simulate(ctx, txn.Raw, state)
 		if err != nil {
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
