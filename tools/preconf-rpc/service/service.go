@@ -26,6 +26,7 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/backrunner"
 	bidder "github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
+	explorersubmitter "github.com/primev/mev-commit/tools/preconf-rpc/explorer-submitter"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
 	"github.com/primev/mev-commit/tools/preconf-rpc/notifier"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
@@ -77,6 +78,9 @@ type Config struct {
 	BackrunnerRPC          string
 	BackrunnerAPIURL       string
 	BackrunnerAPIKey       string
+	ExplorerEndpoint       string
+	ExplorerApiKey         string
+	ExplorerAppCode        string
 }
 
 type Service struct {
@@ -284,6 +288,11 @@ func New(config *Config) (*Service, error) {
 		simulator,
 		brunner,
 		settlementChainID,
+		explorersubmitter.Config{
+			Endpoint: config.ExplorerEndpoint,
+			ApiKey:   config.ExplorerApiKey,
+			AppCode:  config.ExplorerAppCode,
+		},
 		config.Logger.With("module", "txsender"),
 	)
 	if err != nil {

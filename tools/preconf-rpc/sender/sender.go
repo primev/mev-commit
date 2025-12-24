@@ -16,6 +16,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
+	explorersubmitter "github.com/primev/mev-commit/tools/preconf-rpc/explorer-submitter"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -165,6 +166,7 @@ type TxSender struct {
 	receiptSignal     map[common.Hash][]chan struct{}
 	receiptMtx        sync.Mutex
 	metrics           *metrics
+	explorerConfig    explorersubmitter.Config
 }
 
 func noOpFastTrack(_ []*bidderapiv1.Commitment, _ bool) bool {
@@ -181,6 +183,7 @@ func NewTxSender(
 	simulator Simulator,
 	backrunner Backrunner,
 	settlementChainId *big.Int,
+	explorerConfig explorersubmitter.Config,
 	logger *slog.Logger,
 ) (*TxSender, error) {
 	txnAttemptHistory, err := lru.New[common.Hash, *txnAttempt](1000)
@@ -209,6 +212,7 @@ func NewTxSender(
 		bidTimeout:        bidTimeout,
 		receiptSignal:     make(map[common.Hash][]chan struct{}),
 		metrics:           newMetrics(),
+		explorerConfig:    explorerConfig,
 	}, nil
 }
 
@@ -294,6 +298,37 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	}
 
 	t.triggerSender()
+
+	go func() {
+		//extra caution in case of errors
+		defer func() {
+			if r := recover(); r != nil {
+				t.logger.Error("Panic in explorer submitter", "error", r)
+			}
+		}()
+		chainID := "1"
+
+		// get tx info
+		from := tx.Sender.Hex()
+		to := ""
+		if tx.To() != nil {
+			to = tx.To().Hex()
+		}
+
+		err := explorersubmitter.Submit(
+			context.Background(),
+			t.explorerConfig,
+			chainID,
+			tx.Hash().Hex(),
+			from,
+			to,
+		)
+		if err != nil {
+			t.logger.Error("Failed to submit tx to explorer", "error", err)
+		} else {
+			t.logger.Info("Successfully submitted tx to explorer", "hash", tx.Hash().Hex())
+		}
+	}()
 
 	return nil
 }
