@@ -31,6 +31,7 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
+	tracker "github.com/primev/mev-commit/tools/preconf-rpc/settlement-tracker"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 	"github.com/primev/mev-commit/x/accountsync"
@@ -290,6 +291,15 @@ func New(config *Config) (*Service, error) {
 	healthChecker.Register(health.CloseChannelHealthCheck("TxSender", senderDone))
 	s.closers = append(s.closers, channelCloser(senderDone))
 	metricsRegistry.MustRegister(sndr.Metrics()...)
+
+	settlementTracker := tracker.NewTracker(
+		bidderClient,
+		rpcstore,
+		config.Logger.With("module", "settlementtracker"),
+	)
+	settlementTrackerDone := settlementTracker.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("SettlementTracker", settlementTrackerDone))
+	s.closers = append(s.closers, channelCloser(settlementTrackerDone))
 
 	rpcHandlers := handlers.NewRPCMethodHandler(
 		config.Logger.With("module", "handlers"),
