@@ -16,6 +16,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
+	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -110,6 +111,9 @@ type BlockTracker interface {
 	NextBlockNumber() (uint64, time.Duration, error)
 	LatestBlockNumber() uint64
 	AccountNonce(ctx context.Context, account common.Address) (uint64, error)
+	MinNextFeeCapCmp(gasFeeCap *big.Int) bool
+	MinNextFeeCap() *big.Int
+	LatestMinGasFeeCap() *big.Int
 }
 
 type Transferer interface {
@@ -117,7 +121,7 @@ type Transferer interface {
 }
 
 type Simulator interface {
-	Simulate(ctx context.Context, txRaw string) ([]*types.Log, bool, error)
+	Simulate(ctx context.Context, txRaw string, state sim.SimState) ([]*types.Log, bool, error)
 }
 
 type blockAttempt struct {
@@ -283,6 +287,11 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	if err := validateTransaction(tx); err != nil {
 		t.logger.Error("Invalid transaction", "error", err, "transaction", tx.Raw)
 		return err
+	}
+
+	if t.txnAttemptHistory.Contains(tx.Hash()) {
+		t.logger.Warn("Duplicate transaction enqueued", "hash", tx.Hash().Hex())
+		return nil
 	}
 
 	if err := t.hasCorrectNonce(ctx, tx); err != nil {
@@ -724,6 +733,22 @@ func (t *TxSender) sendBid(
 		}
 	}
 
+	if !t.blockTracker.MinNextFeeCapCmp(txn.GasFeeCap()) {
+		logger.Warn(
+			"Gas fee cap too low for next block",
+			"gasFeeCap", txn.GasFeeCap().String(),
+			"minNextFeeCap", t.blockTracker.MinNextFeeCap().String(),
+		)
+		return bidResult{}, &errRetry{
+			err: fmt.Errorf(
+				"gas fee cap too low for next block: %s min %s",
+				txn.GasFeeCap().String(),
+				t.blockTracker.MinNextFeeCap().String(),
+			),
+			retryAfter: timeUntilNextBlock,
+		}
+	}
+
 	var ignoreProviders []string
 	if isRetry && len(txn.commitments) > 0 {
 		for _, cmt := range txn.commitments {
@@ -775,7 +800,14 @@ func (t *TxSender) sendBid(
 	}
 
 	if !isRetry {
-		logs, isSwap, err := t.simulator.Simulate(ctx, txn.Raw)
+		state := sim.Latest
+		if txn.GasFeeCap().Cmp(t.blockTracker.LatestMinGasFeeCap()) < 0 {
+			// If the gas fee cap is lower than the latest min gas fee cap,
+			// we simulate in pending state to account for the likely decrease
+			// in gas fee cap in the next block.
+			state = sim.Pending
+		}
+		logs, isSwap, err := t.simulator.Simulate(ctx, txn.Raw, state)
 		if err != nil {
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
 			if len(txn.commitments) > 0 && txn.commitments[0].BlockNumber+1 == int64(bidBlockNo) {

@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -16,19 +17,25 @@ import (
 )
 
 type EthClient interface {
-	BlockNumber(ctx context.Context) (uint64, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	BlockByNumber(ctx context.Context, blockNumber *big.Int) (*types.Block, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 }
 
+type LatestBlockInfo struct {
+	Number  uint64
+	Time    int64
+	BaseFee *big.Int
+}
+
 type blockTracker struct {
-	latestBlockNo atomic.Uint64
-	blocks        *lru.Cache[uint64, *types.Block]
-	client        EthClient
-	log           *slog.Logger
-	txnToCheckMu  sync.Mutex
-	txnsToCheck   map[common.Hash]chan uint64
-	newBlockChan  chan uint64
+	latestBlockInfo atomic.Pointer[LatestBlockInfo]
+	blocks          *lru.Cache[uint64, *types.Block]
+	client          EthClient
+	log             *slog.Logger
+	txnToCheckMu    sync.Mutex
+	txnsToCheck     map[common.Hash]chan uint64
+	newBlockChan    chan uint64
 }
 
 func NewBlockTracker(client EthClient, log *slog.Logger) (*blockTracker, error) {
@@ -38,12 +45,11 @@ func NewBlockTracker(client EthClient, log *slog.Logger) (*blockTracker, error) 
 		return nil, err
 	}
 	return &blockTracker{
-		latestBlockNo: atomic.Uint64{},
-		blocks:        cache,
-		client:        client,
-		log:           log,
-		txnsToCheck:   make(map[common.Hash]chan uint64),
-		newBlockChan:  make(chan uint64, 1),
+		blocks:       cache,
+		client:       client,
+		log:          log,
+		txnsToCheck:  make(map[common.Hash]chan uint64),
+		newBlockChan: make(chan uint64, 1),
 	}, nil
 }
 
@@ -51,32 +57,39 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		ticker := time.NewTicker(500 * time.Millisecond)
+		subCh := make(chan *types.Header, 1)
+		sub, err := b.client.SubscribeNewHead(egCtx, subCh)
+		if err != nil {
+			b.log.Error("Failed to subscribe to new head", "error", err)
+			return err
+		}
+		defer sub.Unsubscribe()
 		for {
 			select {
 			case <-egCtx.Done():
 				return egCtx.Err()
-			case <-ticker.C:
-				blockNo, err := b.client.BlockNumber(egCtx)
+			case err := <-sub.Err():
+				b.log.Error("Subscription error", "error", err)
+				return err
+			case header := <-subCh:
+				blockNo := header.Number.Uint64()
+				block, err := b.client.BlockByNumber(egCtx, big.NewInt(int64(blockNo)))
 				if err != nil {
-					b.log.Error("Failed to get block number", "error", err)
+					b.log.Error("Failed to get block by number", "error", err)
 					continue
 				}
-				if blockNo > b.latestBlockNo.Load() {
-					block, err := b.client.BlockByNumber(egCtx, big.NewInt(int64(blockNo)))
-					if err != nil {
-						b.log.Error("Failed to get block by number", "error", err)
-						continue
-					}
-					_ = b.blocks.Add(blockNo, block)
-					b.latestBlockNo.Store(block.NumberU64())
-					select {
-					case b.newBlockChan <- blockNo:
-					case <-egCtx.Done():
-						return egCtx.Err()
-					}
-					b.log.Debug("New block detected", "number", block.NumberU64(), "hash", block.Hash().Hex())
+				_ = b.blocks.Add(blockNo, block)
+				b.latestBlockInfo.Store(&LatestBlockInfo{
+					Number:  block.NumberU64(),
+					Time:    int64(block.Time()),
+					BaseFee: block.BaseFee(),
+				})
+				select {
+				case b.newBlockChan <- blockNo:
+				case <-egCtx.Done():
+					return egCtx.Err()
 				}
+				b.log.Debug("New block detected", "number", block.NumberU64(), "hash", block.Hash().Hex())
 			}
 		}
 	})
@@ -119,7 +132,17 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (b *blockTracker) LatestBlockNumber() uint64 {
-	return b.latestBlockNo.Load()
+	if b.latestBlockInfo.Load() == nil {
+		return 0
+	}
+	return b.latestBlockInfo.Load().Number
+}
+
+func (b *blockTracker) LatestMinGasFeeCap() *big.Int {
+	if b.latestBlockInfo.Load() == nil {
+		return big.NewInt(0)
+	}
+	return b.latestBlockInfo.Load().BaseFee
 }
 
 func (b *blockTracker) AccountNonce(
@@ -130,16 +153,35 @@ func (b *blockTracker) AccountNonce(
 }
 
 func (b *blockTracker) NextBlockNumber() (uint64, time.Duration, error) {
-	latestBlockNo := b.latestBlockNo.Load()
-	block, found := b.blocks.Get(latestBlockNo)
-	if !found {
-		return 0, 0, errors.New("latest block not found in cache")
+	latestBlockInfo := b.latestBlockInfo.Load()
+	if latestBlockInfo == nil {
+		return 0, 0, errors.New("no latest block info available")
 	}
-	blockTime := time.Unix(int64(block.Time()), 0)
+	blockTime := time.Unix(latestBlockInfo.Time, 0)
 	if time.Since(blockTime) >= 12*time.Second {
-		return latestBlockNo + 2, time.Until(blockTime.Add(24 * time.Second)), nil
+		return latestBlockInfo.Number + 2, time.Until(blockTime.Add(24 * time.Second)), nil
 	}
-	return latestBlockNo + 1, time.Until(blockTime.Add(12 * time.Second)), nil
+	return latestBlockInfo.Number + 1, time.Until(blockTime.Add(12 * time.Second)), nil
+}
+
+func (b *blockTracker) MinNextFeeCapCmp(gasFeeCap *big.Int) bool {
+	latestBlockInfo := b.latestBlockInfo.Load()
+	if latestBlockInfo == nil {
+		return true
+	}
+	baseFee := latestBlockInfo.BaseFee
+	minNextBaseFee := new(big.Int).Div(new(big.Int).Mul(baseFee, big.NewInt(875)), big.NewInt(1000))
+	return gasFeeCap.Cmp(minNextBaseFee) >= 0
+}
+
+func (b *blockTracker) MinNextFeeCap() *big.Int {
+	latestBlockInfo := b.latestBlockInfo.Load()
+	if latestBlockInfo == nil {
+		return big.NewInt(0)
+	}
+	baseFee := latestBlockInfo.BaseFee
+	minNextBaseFee := new(big.Int).Div(new(big.Int).Mul(baseFee, big.NewInt(875)), big.NewInt(1000))
+	return minNextBaseFee
 }
 
 func (b *blockTracker) WaitForTxnInclusion(

@@ -15,6 +15,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
+	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/primev/mev-commit/x/util"
 )
 
@@ -257,6 +258,18 @@ func (m *mockBlockTracker) AccountNonce(ctx context.Context, account common.Addr
 	return 0, nil
 }
 
+func (m *mockBlockTracker) MinNextFeeCapCmp(gasFeeCap *big.Int) bool {
+	return true
+}
+
+func (m *mockBlockTracker) MinNextFeeCap() *big.Int {
+	return big.NewInt(0)
+}
+
+func (m *mockBlockTracker) LatestMinGasFeeCap() *big.Int {
+	return big.NewInt(0)
+}
+
 type mockTransferer struct{}
 
 func (m *mockTransferer) Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error {
@@ -273,7 +286,7 @@ func (m *mockNotifier) NotifyTransactionStatus(txn *sender.Transaction, attempts
 
 type mockSimulator struct{}
 
-func (m *mockSimulator) Simulate(ctx context.Context, rawTx string) ([]*types.Log, bool, error) {
+func (m *mockSimulator) Simulate(ctx context.Context, rawTx string, _ sim.SimState) ([]*types.Log, bool, error) {
 	return []*types.Log{}, false, nil
 }
 

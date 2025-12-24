@@ -58,7 +58,7 @@ func TestSimulator(t *testing.T) {
 	simulator := sim.NewSimulator(srv.URL)
 
 	t.Run("SuccessfulSimulation1", func(t *testing.T) {
-		result, isSwap, err := simulator.Simulate(context.Background(), "1234")
+		result, isSwap, err := simulator.Simulate(context.Background(), "1234", sim.Latest)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -70,7 +70,7 @@ func TestSimulator(t *testing.T) {
 		}
 	})
 	t.Run("SuccessfulSimulation2", func(t *testing.T) {
-		result, _, err := simulator.Simulate(context.Background(), "5678")
+		result, _, err := simulator.Simulate(context.Background(), "5678", sim.Pending)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -79,7 +79,7 @@ func TestSimulator(t *testing.T) {
 		}
 	})
 	t.Run("SuccessfulSimulation_SwapWrappedResult", func(t *testing.T) {
-		result, _, err := simulator.Simulate(context.Background(), "swap")
+		result, _, err := simulator.Simulate(context.Background(), "swap", sim.Latest)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -88,7 +88,7 @@ func TestSimulator(t *testing.T) {
 		}
 	})
 	t.Run("SuccessfulSimulation_SwapArray", func(t *testing.T) {
-		result, isSwap, err := simulator.Simulate(context.Background(), "swapArray")
+		result, isSwap, err := simulator.Simulate(context.Background(), "swapArray", sim.Pending)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -100,7 +100,7 @@ func TestSimulator(t *testing.T) {
 		}
 	})
 	t.Run("ErrorSimulation", func(t *testing.T) {
-		_, _, err := simulator.Simulate(context.Background(), "abcd")
+		_, _, err := simulator.Simulate(context.Background(), "abcd", sim.Latest)
 		if err == nil {
 			t.Fatalf("expected error, got none")
 		}
