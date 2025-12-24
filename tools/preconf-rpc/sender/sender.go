@@ -635,19 +635,15 @@ BID_LOOP:
 	}
 
 	switch txn.Type {
-	case TxTypeRegular:
-		if err := t.store.DeductBalance(ctx, txn.Sender, amount); err != nil {
-			logger.Error("Failed to deduct balance for sender", "error", err)
-			return fmt.Errorf("failed to deduct balance for sender: %w", err)
-		}
 	case TxTypeDeposit:
-		balanceToAdd := new(big.Int).Sub(txn.Value(), amount)
-		if err := t.store.AddBalance(ctx, txn.Sender, balanceToAdd); err != nil {
+		if err := t.store.AddBalance(ctx, txn.Sender, txn.Value()); err != nil {
 			logger.Error("Failed to add balance for sender", "error", err)
 			return fmt.Errorf("failed to add balance for sender: %w", err)
 		}
 	case TxTypeInstantBridge:
-		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(amount, big.NewInt(2)))
+		// deduct 5% as fee
+		fee := new(big.Int).Div(new(big.Int).Mul(amount, big.NewInt(5)), big.NewInt(100))
+		amountToBridge := new(big.Int).Sub(amount, fee)
 		if err := t.transferer.Transfer(ctx, txn.Sender, t.settlementChainId, amountToBridge); err != nil {
 			logger.Error("Failed to transfer funds for instant bridge", "error", err)
 			return fmt.Errorf("failed to transfer funds for instant bridge: %w", err)
@@ -782,18 +778,17 @@ func (t *TxSender) sendBid(
 			)
 		}
 	case TxTypeInstantBridge:
-		costOfBridge := new(big.Int).Mul(cost, big.NewInt(2)) // 2x the price for instant bridge
-		if txn.Value().Cmp(costOfBridge) < 0 {
+		if txn.Value().Cmp(cost) < 0 {
 			logger.Error(
 				"Instant bridge amount is less than price of bridge",
 				"bridge", txn.Value().String(),
-				"price", costOfBridge.String(),
+				"price", cost.String(),
 			)
 			return bidResult{}, fmt.Errorf(
 				"instant bridge amount is less than price of bridge: %s, bridge: %s, price: %s",
 				txn.Sender.Hex(),
 				txn.Value().String(),
-				costOfBridge.String(),
+				cost.String(),
 			)
 		}
 		slashAmount = new(big.Int).Set(txn.Value())

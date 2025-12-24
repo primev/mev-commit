@@ -77,6 +77,16 @@ CREATE TABLE IF NOT EXISTS swapInfo (
 	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
 );`
 
+var settlementInfo = `
+CREATE TABLE IF NOT EXISTS settlementInfo (
+	transaction_hash TEXT PRIMARY KEY,
+	is_slashed BOOLEAN,
+	provider_address TEXT,
+	payment NUMERIC(24, 0),
+	refund NUMERIC(24, 0),
+	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
+);`
+
 type rpcstore struct {
 	db *sql.DB
 }
@@ -89,6 +99,7 @@ func New(db *sql.DB) (*rpcstore, error) {
 		subsidiesTable,
 		simulationLogs,
 		swapInfo,
+		settlementInfo,
 	} {
 		_, err := db.Exec(table)
 		if err != nil {
@@ -867,4 +878,106 @@ func (s *rpcstore) GetUserTransactions(ctx context.Context, account common.Addre
 	}
 
 	return resp, nil
+}
+
+func (r *rpcstore) UpdateSettlementStatus(
+	ctx context.Context,
+	txnHash common.Hash,
+	isSlashed bool,
+	provider common.Address,
+) error {
+	query := `
+	INSERT INTO settlementInfo (transaction_hash, is_slashed, provider_address)
+	VALUES ($1, $2, $3, $4, $5)
+	ON CONFLICT (transaction_hash)
+	DO UPDATE SET is_slashed = EXCLUDED.is_slashed,
+	              provider_address = EXCLUDED.provider_address;
+	`
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		txnHash.Hex(),
+		isSlashed,
+		provider.Hex(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update settlement status for txn %s: %w", txnHash.Hex(), err)
+	}
+
+	return nil
+}
+
+func (r *rpcstore) UpdateSettlementPayment(
+	ctx context.Context,
+	txnHash common.Hash,
+	payment *big.Int,
+	refund *big.Int,
+) error {
+	dbtx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	query := `
+	INSERT INTO settlementInfo (transaction_hash, payment, refund)
+	VALUES ($1, $2, $3)
+	ON CONFLICT (transaction_hash)
+	DO UPDATE SET payment = EXCLUDED.payment,
+	              refund = EXCLUDED.refund;
+	`
+
+	_, err = dbtx.ExecContext(
+		ctx,
+		query,
+		txnHash.Hex(),
+		payment.String(),
+		refund.String(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update settlement payment for txn %s: %w", txnHash.Hex(), err)
+	}
+
+	switch {
+	case payment != nil && payment.Cmp(big.NewInt(0)) > 0:
+		// deduct user balance, set to 0 on underflow
+		if _, err := dbtx.ExecContext(
+			ctx,
+			`UPDATE balances b
+			 SET balance = b.balance - $1::numeric
+			 FROM (
+			   SELECT DISTINCT sender
+			   FROM mcTransactions
+			   WHERE hash = $2
+			 ) t
+			 WHERE b.account = t.sender;`,
+			payment.String(),
+			txnHash.Hex(),
+		); err != nil {
+			return fmt.Errorf("failed to deduct user balance for txn %s: %w", txnHash.Hex(), err)
+		}
+	case refund != nil && refund.Cmp(big.NewInt(0)) > 0:
+		// add refund to user balance
+		if _, err := dbtx.ExecContext(
+			ctx,
+			`UPDATE balances b
+			 SET balance = b.balance + $1::numeric
+			 FROM (
+			   SELECT DISTINCT sender
+			   FROM mcTransactions
+			   WHERE hash = $2
+			 ) t
+			 WHERE b.account = t.sender;`,
+			refund.String(),
+			txnHash.Hex(),
+		); err != nil {
+			return fmt.Errorf("failed to add refund to user balance for txn %s: %w", txnHash.Hex(), err)
+		}
+	}
+
+	if err := dbtx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
