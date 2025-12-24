@@ -18,6 +18,8 @@ const (
 	TopicCommitmentStoreFailed  Topic = "commitment_store_failed"
 	TopicCommitmentOpenFailed   Topic = "commitment_open_failed"
 	TopicOtherProviderWonBlock  Topic = "other_provider_won_block"
+	TopicTransactionSettled     Topic = "transaction_settled"
+	TopicTransactionPayment     Topic = "transaction_payment"
 )
 
 var validTopic = map[Topic]struct{}{
@@ -32,6 +34,8 @@ var validTopic = map[Topic]struct{}{
 	TopicCommitmentStoreFailed:  {},
 	TopicCommitmentOpenFailed:   {},
 	TopicOtherProviderWonBlock:  {},
+	TopicTransactionSettled:     {},
+	TopicTransactionPayment:     {},
 }
 
 func IsTopicValid(topic Topic) bool {
