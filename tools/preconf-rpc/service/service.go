@@ -34,7 +34,6 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 	"github.com/primev/mev-commit/x/accountsync"
-	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/transfer"
@@ -57,7 +56,8 @@ type Config struct {
 	Signer                 keysigner.KeySigner
 	BidderRPC              string
 	TargetDepositAmount    *big.Int
-	L1RPCUrls              []string
+	L1RPCHTTPUrl           string
+	L1RPCWSUrl             string
 	SettlementRPCUrl       string
 	L1ContractAddr         common.Address
 	SettlementContractAddr common.Address
@@ -99,11 +99,7 @@ func New(config *Config) (*Service, error) {
 
 	s.closers = append(s.closers, conn)
 
-	l1RPCClient, err := ethwrapper.NewClient(
-		config.Logger.With("module", "ethwrapper"),
-		config.L1RPCUrls,
-		ethwrapper.EthClientWithMaxRetries(5),
-	)
+	l1RPCClient, err := ethclient.DialContext(context.Background(), config.L1RPCWSUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +132,7 @@ func New(config *Config) (*Service, error) {
 		Signer:                 config.Signer,
 		L1ContractAddr:         config.L1ContractAddr,
 		SettlementContractAddr: config.SettlementContractAddr,
-		L1RPCUrl:               config.L1RPCUrls[0],
+		L1RPCUrl:               config.L1RPCHTTPUrl,
 		SettlementRPCUrl:       config.SettlementRPCUrl,
 	}
 
@@ -173,7 +169,7 @@ func New(config *Config) (*Service, error) {
 	balanceNotifierDone := notifier.SetupLowBalanceNotification(
 		ctx,
 		"RPC Operator AccountBalance Low",
-		l1RPCClient.RawClient(),
+		l1RPCClient,
 		config.Signer.GetAddress(),
 		3.0,
 		5*time.Minute,
@@ -219,7 +215,7 @@ func New(config *Config) (*Service, error) {
 	s.closers = append(s.closers, channelCloser(bidderDone))
 
 	rpcServer, err := rpcserver.NewJSONRPCServer(
-		config.L1RPCUrls[0],
+		config.L1RPCHTTPUrl,
 		config.Logger.With("module", "rpcserver"),
 	)
 	if err != nil {
