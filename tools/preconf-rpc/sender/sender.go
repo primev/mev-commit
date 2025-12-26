@@ -182,6 +182,7 @@ type TxSender struct {
 	inflightMu        sync.RWMutex
 	processMu         sync.RWMutex
 	txnAttemptHistory *lru.Cache[common.Hash, *txnAttempt]
+	historicalTxns    *lru.Cache[common.Hash, struct{}]
 	notifier          Notifier
 	simulator         Simulator
 	fastTrack         func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool
@@ -214,6 +215,12 @@ func NewTxSender(
 		return nil, fmt.Errorf("failed to create transaction attempt history cache: %w", err)
 	}
 
+	historicalTxns, err := lru.New[common.Hash, struct{}](10000)
+	if err != nil {
+		logger.Error("Failed to create historical transactions cache", "error", err)
+		return nil, fmt.Errorf("failed to create historical transactions cache: %w", err)
+	}
+
 	return &TxSender{
 		store:             st,
 		bidder:            bidder,
@@ -228,6 +235,7 @@ func NewTxSender(
 		inflightTxns:      make(map[common.Hash]chan struct{}),
 		inflightAccount:   make(map[common.Address]struct{}),
 		txnAttemptHistory: txnAttemptHistory,
+		historicalTxns:    historicalTxns,
 		notifier:          notifier,
 		simulator:         simulator,
 		fastTrack:         noOpFastTrack,
@@ -528,6 +536,11 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 			t.eg.Go(func() error {
 				defer func() { <-t.workerPool }()
 				defer t.triggerSender() // Trigger to reprocess after this transaction
+
+				if t.historicalTxns.Contains(txn.Hash()) {
+					t.logger.Warn("Transaction already processed historically, skipping", "hash", txn.Hash().Hex())
+					return nil
+				}
 
 				canExecute, cancel := t.markInflight(txn)
 				if !canExecute {
@@ -1047,4 +1060,5 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time)
 	timeTaken := endTime.Sub(attempts.startTime).Round(time.Millisecond)
 	t.metrics.timeToConfirmation.Observe(float64(timeTaken.Milliseconds()))
 	t.notifier.NotifyTransactionStatus(txn, totalAttempts, blockAttempts, timeTaken)
+	t.historicalTxns.Add(txn.Hash(), struct{}{})
 }

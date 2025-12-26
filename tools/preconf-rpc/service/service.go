@@ -80,6 +80,7 @@ type Config struct {
 	BackrunnerAPIURL       string
 	BackrunnerAPIKey       string
 	PointsAPIURL           string
+	PointsAPIKey           string
 }
 
 type Service struct {
@@ -266,6 +267,7 @@ func New(config *Config) (*Service, error) {
 	} else {
 		pointsTracker = points.NewPointsTracker(
 			config.PointsAPIURL,
+			config.PointsAPIKey,
 			config.Logger.With("module", "pointstracker"),
 		)
 	}

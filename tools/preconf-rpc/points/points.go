@@ -18,13 +18,15 @@ const weiPerPoint = 33_333_333_333_333
 
 type pointsTracker struct {
 	apiURL string
+	apiKey string
 	client *http.Client
 	logger *slog.Logger
 }
 
-func NewPointsTracker(apiURL string, logger *slog.Logger) *pointsTracker {
+func NewPointsTracker(apiURL, apiKey string, logger *slog.Logger) *pointsTracker {
 	return &pointsTracker{
 		apiURL: apiURL,
+		apiKey: apiKey,
 		client: &http.Client{
 			Transport: &http.Transport{
 				Proxy:               http.ProxyFromEnvironment,
@@ -84,6 +86,7 @@ func (p *pointsTracker) AssignPoints(
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 
 	resp, err := p.client.Do(req)
 	if err != nil {

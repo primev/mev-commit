@@ -251,6 +251,12 @@ var (
 		EnvVars: []string{"PRECONF_RPC_POINTS_API_URL"},
 	}
 
+	optionPointsAPIKey = &cli.StringFlag{
+		Name:    "points-api-key",
+		Usage:   "API key for the points tracking service",
+		EnvVars: []string{"PRECONF_RPC_POINTS_API_KEY"},
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -332,6 +338,7 @@ func main() {
 			optionBackrunnerRPCURL,
 			optionBackrunnerAPIKey,
 			optionPointsAPIURL,
+			optionPointsAPIKey,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -423,6 +430,7 @@ func main() {
 				BackrunnerRPC:          c.String(optionBackrunnerRPCURL.Name),
 				BackrunnerAPIKey:       c.String(optionBackrunnerAPIKey.Name),
 				PointsAPIURL:           c.String(optionPointsAPIURL.Name),
+				PointsAPIKey:           c.String(optionPointsAPIKey.Name),
 			}
 
 			s, err := service.New(&config)
