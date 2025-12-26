@@ -939,7 +939,7 @@ func (r *rpcstore) UpdateSettlementStatus(
 ) error {
 	query := `
 	INSERT INTO settlementInfo (transaction_hash, is_slashed, provider_address)
-	VALUES ($1, $2, $3, $4, $5)
+	VALUES ($1, $2, $3)
 	ON CONFLICT (transaction_hash)
 	DO UPDATE SET is_slashed = EXCLUDED.is_slashed,
 	              provider_address = EXCLUDED.provider_address;
