@@ -16,6 +16,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
+	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -78,6 +79,28 @@ type Transaction struct {
 	isSwap        bool
 }
 
+func effectiveFeePerGas(tx *types.Transaction) *big.Int {
+	if tx == nil {
+		return big.NewInt(0)
+	}
+
+	if tx.Type() == types.DynamicFeeTxType {
+		if tx.GasFeeCap() != nil {
+			return new(big.Int).Set(tx.GasFeeCap())
+		}
+	}
+
+	if tx.GasPrice() != nil {
+		return new(big.Int).Set(tx.GasPrice())
+	}
+
+	if tx.GasFeeCap() != nil {
+		return new(big.Int).Set(tx.GasFeeCap())
+	}
+
+	return big.NewInt(0)
+}
+
 type Store interface {
 	AddQueuedTransaction(ctx context.Context, tx *Transaction) error
 	GetQueuedTransactions(ctx context.Context) ([]*Transaction, error)
@@ -110,6 +133,8 @@ type BlockTracker interface {
 	NextBlockNumber() (uint64, time.Duration, error)
 	LatestBlockNumber() uint64
 	AccountNonce(ctx context.Context, account common.Address) (uint64, error)
+	LatestBaseFee() *big.Int
+	NextBaseFee() *big.Int
 }
 
 type Transferer interface {
@@ -117,7 +142,7 @@ type Transferer interface {
 }
 
 type Simulator interface {
-	Simulate(ctx context.Context, txRaw string) ([]*types.Log, bool, error)
+	Simulate(ctx context.Context, txRaw string, state sim.SimState) ([]*types.Log, bool, error)
 }
 
 type blockAttempt struct {
@@ -157,6 +182,7 @@ type TxSender struct {
 	inflightMu        sync.RWMutex
 	processMu         sync.RWMutex
 	txnAttemptHistory *lru.Cache[common.Hash, *txnAttempt]
+	historicalTxns    *lru.Cache[common.Hash, struct{}]
 	notifier          Notifier
 	simulator         Simulator
 	fastTrack         func(cmts []*bidderapiv1.Commitment, optedInSlot bool) bool
@@ -189,6 +215,12 @@ func NewTxSender(
 		return nil, fmt.Errorf("failed to create transaction attempt history cache: %w", err)
 	}
 
+	historicalTxns, err := lru.New[common.Hash, struct{}](10000)
+	if err != nil {
+		logger.Error("Failed to create historical transactions cache", "error", err)
+		return nil, fmt.Errorf("failed to create historical transactions cache: %w", err)
+	}
+
 	return &TxSender{
 		store:             st,
 		bidder:            bidder,
@@ -203,6 +235,7 @@ func NewTxSender(
 		inflightTxns:      make(map[common.Hash]chan struct{}),
 		inflightAccount:   make(map[common.Address]struct{}),
 		txnAttemptHistory: txnAttemptHistory,
+		historicalTxns:    historicalTxns,
 		notifier:          notifier,
 		simulator:         simulator,
 		fastTrack:         noOpFastTrack,
@@ -283,6 +316,11 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	if err := validateTransaction(tx); err != nil {
 		t.logger.Error("Invalid transaction", "error", err, "transaction", tx.Raw)
 		return err
+	}
+
+	if t.txnAttemptHistory.Contains(tx.Hash()) {
+		t.logger.Warn("Duplicate transaction enqueued", "hash", tx.Hash().Hex())
+		return nil
 	}
 
 	if err := t.hasCorrectNonce(ctx, tx); err != nil {
@@ -499,6 +537,11 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 				defer func() { <-t.workerPool }()
 				defer t.triggerSender() // Trigger to reprocess after this transaction
 
+				if t.historicalTxns.Contains(txn.Hash()) {
+					t.logger.Warn("Transaction already processed historically, skipping", "hash", txn.Hash().Hex())
+					return nil
+				}
+
 				canExecute, cancel := t.markInflight(txn)
 				if !canExecute {
 					// Transaction is already being processed or sender has an inflight transaction
@@ -626,19 +669,15 @@ BID_LOOP:
 	}
 
 	switch txn.Type {
-	case TxTypeRegular:
-		if err := t.store.DeductBalance(ctx, txn.Sender, amount); err != nil {
-			logger.Error("Failed to deduct balance for sender", "error", err)
-			return fmt.Errorf("failed to deduct balance for sender: %w", err)
-		}
 	case TxTypeDeposit:
-		balanceToAdd := new(big.Int).Sub(txn.Value(), amount)
-		if err := t.store.AddBalance(ctx, txn.Sender, balanceToAdd); err != nil {
+		if err := t.store.AddBalance(ctx, txn.Sender, txn.Value()); err != nil {
 			logger.Error("Failed to add balance for sender", "error", err)
 			return fmt.Errorf("failed to add balance for sender: %w", err)
 		}
 	case TxTypeInstantBridge:
-		amountToBridge := new(big.Int).Sub(txn.Value(), new(big.Int).Mul(amount, big.NewInt(2)))
+		// deduct 5% as fee
+		fee := new(big.Int).Div(new(big.Int).Mul(amount, big.NewInt(5)), big.NewInt(100))
+		amountToBridge := new(big.Int).Sub(amount, fee)
 		if err := t.transferer.Transfer(ctx, txn.Sender, t.settlementChainId, amountToBridge); err != nil {
 			logger.Error("Failed to transfer funds for instant bridge", "error", err)
 			return fmt.Errorf("failed to transfer funds for instant bridge: %w", err)
@@ -724,6 +763,29 @@ func (t *TxSender) sendBid(
 		}
 	}
 
+	feePerGas := effectiveFeePerGas(txn.Transaction)
+	nextBaseFee := t.blockTracker.NextBaseFee()
+	latestBaseFee := t.blockTracker.LatestBaseFee()
+	if nextBaseFee.Sign() == 0 {
+		nextBaseFee = latestBaseFee
+	}
+
+	if nextBaseFee.Sign() > 0 && feePerGas.Cmp(nextBaseFee) < 0 {
+		logger.Warn(
+			"Fee per gas too low for next block",
+			"feePerGas", feePerGas.String(),
+			"nextBaseFee", nextBaseFee.String(),
+		)
+		return bidResult{}, &errRetry{
+			err: fmt.Errorf(
+				"fee per gas too low for next block: %s min %s",
+				feePerGas.String(),
+				nextBaseFee.String(),
+			),
+			retryAfter: timeUntilNextBlock,
+		}
+	}
+
 	var ignoreProviders []string
 	if isRetry && len(txn.commitments) > 0 {
 		for _, cmt := range txn.commitments {
@@ -757,25 +819,29 @@ func (t *TxSender) sendBid(
 			)
 		}
 	case TxTypeInstantBridge:
-		costOfBridge := new(big.Int).Mul(cost, big.NewInt(2)) // 2x the price for instant bridge
-		if txn.Value().Cmp(costOfBridge) < 0 {
+		if txn.Value().Cmp(cost) < 0 {
 			logger.Error(
 				"Instant bridge amount is less than price of bridge",
 				"bridge", txn.Value().String(),
-				"price", costOfBridge.String(),
+				"price", cost.String(),
 			)
 			return bidResult{}, fmt.Errorf(
 				"instant bridge amount is less than price of bridge: %s, bridge: %s, price: %s",
 				txn.Sender.Hex(),
 				txn.Value().String(),
-				costOfBridge.String(),
+				cost.String(),
 			)
 		}
 		slashAmount = new(big.Int).Set(txn.Value())
 	}
 
+	state := sim.Latest
+	if latestBaseFee.Sign() > 0 && feePerGas.Cmp(latestBaseFee) < 0 {
+		state = sim.Pending
+	}
+
 	if !isRetry {
-		logs, isSwap, err := t.simulator.Simulate(ctx, txn.Raw)
+		logs, isSwap, err := t.simulator.Simulate(ctx, txn.Raw, state)
 		if err != nil {
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
 			if len(txn.commitments) > 0 && txn.commitments[0].BlockNumber+1 == int64(bidBlockNo) {
@@ -994,4 +1060,5 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time)
 	timeTaken := endTime.Sub(attempts.startTime).Round(time.Millisecond)
 	t.metrics.timeToConfirmation.Observe(float64(timeTaken.Milliseconds()))
 	t.notifier.NotifyTransactionStatus(txn, totalAttempts, blockAttempts, timeTaken)
+	_ = t.historicalTxns.Add(txn.Hash(), struct{}{})
 }

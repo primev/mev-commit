@@ -18,8 +18,10 @@ import (
 )
 
 const (
-	epochNotificationTopic = "epoch_validators_opted_in"
-	slotDuration           = 12 * time.Second
+	epochNotificationTopic  = "epoch_validators_opted_in"
+	transactionSettledTopic = "transaction_settled"
+	transactionPaymentTopic = "transaction_payment"
+	slotDuration            = 12 * time.Second
 )
 
 var (
@@ -356,6 +358,112 @@ func (b *BidderClient) Estimate() (int64, error) {
 	}
 
 	return int64(nextSlot.startTime.Sub(nowFunc()).Seconds()), nil
+}
+
+type SettlementMsg struct {
+	TransactionHash string
+	Provider        string
+	IsSlash         bool
+}
+
+func (b *BidderClient) SubscribeSettlements(ctx context.Context) <-chan SettlementMsg {
+	outCh := make(chan SettlementMsg)
+
+	go func() {
+		defer close(outCh)
+
+		sub, err := b.notificationsClient.Subscribe(ctx, &notificationsapiv1.SubscribeRequest{
+			Topics: []string{transactionSettledTopic},
+		})
+		if err != nil {
+			b.logger.Error("failed to subscribe to settlement notifications", "error", err)
+			return
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				b.logger.Info("settlement subscription context done")
+				return
+			default:
+			}
+
+			msg, err := sub.Recv()
+			if err != nil {
+				b.logger.Error("failed to receive settlement notification", "error", err)
+				return
+			}
+
+			txHash := msg.Value.Fields["transaction_hashes"].GetStringValue()
+			provider := msg.Value.Fields["provider"].GetStringValue()
+			isSlash := msg.Value.Fields["is_slashed"].GetBoolValue()
+
+			outCh <- SettlementMsg{
+				TransactionHash: txHash,
+				Provider:        provider,
+				IsSlash:         isSlash,
+			}
+		}
+	}()
+
+	return outCh
+}
+
+type PaymentMsg struct {
+	TransactionHash string
+	Payment         *big.Int
+	Refund          *big.Int
+}
+
+func (b *BidderClient) SubscribePayments(ctx context.Context) <-chan PaymentMsg {
+	outCh := make(chan PaymentMsg)
+
+	go func() {
+		defer close(outCh)
+
+		sub, err := b.notificationsClient.Subscribe(ctx, &notificationsapiv1.SubscribeRequest{
+			Topics: []string{transactionPaymentTopic},
+		})
+		if err != nil {
+			b.logger.Error("failed to subscribe to payment notifications", "error", err)
+			return
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				b.logger.Info("payment subscription context done")
+				return
+			default:
+			}
+
+			msg, err := sub.Recv()
+			if err != nil {
+				b.logger.Error("failed to receive payment notification", "error", err)
+				return
+			}
+
+			txHash := msg.Value.Fields["transaction_hashes"].GetStringValue()
+			paymentStr := msg.Value.Fields["payment"].GetStringValue()
+			refundStr := msg.Value.Fields["refund"].GetStringValue()
+
+			payment, ok := new(big.Int).SetString(paymentStr, 10)
+			if !ok {
+				payment = big.NewInt(0)
+			}
+			refund, ok := new(big.Int).SetString(refundStr, 10)
+			if !ok {
+				refund = big.NewInt(0)
+			}
+
+			outCh <- PaymentMsg{
+				TransactionHash: txHash,
+				Payment:         payment,
+				Refund:          refund,
+			}
+		}
+	}()
+	return outCh
 }
 
 func (b *BidderClient) getNextSlot() (slotInfo, error) {

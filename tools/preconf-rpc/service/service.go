@@ -28,13 +28,14 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
 	"github.com/primev/mev-commit/tools/preconf-rpc/notifier"
+	"github.com/primev/mev-commit/tools/preconf-rpc/points"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
+	tracker "github.com/primev/mev-commit/tools/preconf-rpc/settlement-tracker"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 	"github.com/primev/mev-commit/x/accountsync"
-	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/transfer"
@@ -57,7 +58,8 @@ type Config struct {
 	Signer                 keysigner.KeySigner
 	BidderRPC              string
 	TargetDepositAmount    *big.Int
-	L1RPCUrls              []string
+	L1RPCHTTPUrl           string
+	L1RPCWSUrl             string
 	SettlementRPCUrl       string
 	L1ContractAddr         common.Address
 	SettlementContractAddr common.Address
@@ -77,6 +79,8 @@ type Config struct {
 	BackrunnerRPC          string
 	BackrunnerAPIURL       string
 	BackrunnerAPIKey       string
+	PointsAPIURL           string
+	PointsAPIKey           string
 }
 
 type Service struct {
@@ -99,11 +103,7 @@ func New(config *Config) (*Service, error) {
 
 	s.closers = append(s.closers, conn)
 
-	l1RPCClient, err := ethwrapper.NewClient(
-		config.Logger.With("module", "ethwrapper"),
-		config.L1RPCUrls,
-		ethwrapper.EthClientWithMaxRetries(5),
-	)
+	l1RPCClient, err := ethclient.DialContext(context.Background(), config.L1RPCWSUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func New(config *Config) (*Service, error) {
 		Signer:                 config.Signer,
 		L1ContractAddr:         config.L1ContractAddr,
 		SettlementContractAddr: config.SettlementContractAddr,
-		L1RPCUrl:               config.L1RPCUrls[0],
+		L1RPCUrl:               config.L1RPCHTTPUrl,
 		SettlementRPCUrl:       config.SettlementRPCUrl,
 	}
 
@@ -173,7 +173,7 @@ func New(config *Config) (*Service, error) {
 	balanceNotifierDone := notifier.SetupLowBalanceNotification(
 		ctx,
 		"RPC Operator AccountBalance Low",
-		l1RPCClient.RawClient(),
+		l1RPCClient,
 		config.Signer.GetAddress(),
 		3.0,
 		5*time.Minute,
@@ -219,7 +219,7 @@ func New(config *Config) (*Service, error) {
 	s.closers = append(s.closers, channelCloser(bidderDone))
 
 	rpcServer, err := rpcserver.NewJSONRPCServer(
-		config.L1RPCUrls[0],
+		config.L1RPCHTTPUrl,
 		config.Logger.With("module", "rpcserver"),
 	)
 	if err != nil {
@@ -259,11 +259,25 @@ func New(config *Config) (*Service, error) {
 	simulator := sim.NewSimulator(config.SimulatorURL)
 	metricsRegistry.MustRegister(simulator.Metrics()...)
 
+	var pointsTracker PointsTracker
+	if config.PointsAPIURL == "" {
+		pointsTracker = &loggingPointsTracker{
+			logger: config.Logger.With("module", "pointstracker"),
+		}
+	} else {
+		pointsTracker = points.NewPointsTracker(
+			config.PointsAPIURL,
+			config.PointsAPIKey,
+			config.Logger.With("module", "pointstracker"),
+		)
+	}
+
 	brunner, err := backrunner.New(
 		config.BackrunnerAPIKey,
 		config.BackrunnerAPIURL,
 		config.BackrunnerRPC,
 		rpcstore,
+		pointsTracker,
 		config.Logger.With("module", "backrunner"),
 	)
 	if err != nil {
@@ -294,6 +308,15 @@ func New(config *Config) (*Service, error) {
 	healthChecker.Register(health.CloseChannelHealthCheck("TxSender", senderDone))
 	s.closers = append(s.closers, channelCloser(senderDone))
 	metricsRegistry.MustRegister(sndr.Metrics()...)
+
+	settlementTracker := tracker.NewTracker(
+		bidderClient,
+		rpcstore,
+		config.Logger.With("module", "settlementtracker"),
+	)
+	settlementTrackerDone := settlementTracker.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("SettlementTracker", settlementTrackerDone))
+	s.closers = append(s.closers, channelCloser(settlementTrackerDone))
 
 	rpcHandlers := handlers.NewRPCMethodHandler(
 		config.Logger.With("module", "handlers"),
@@ -628,6 +651,28 @@ func (s *Service) Close() error {
 			return err
 		}
 	}
+	return nil
+}
+
+type PointsTracker interface {
+	AssignPoints(ctx context.Context, userID common.Address, transactionHash common.Hash, mevRevenue *big.Int) error
+}
+
+type loggingPointsTracker struct {
+	logger *slog.Logger
+}
+
+func (l *loggingPointsTracker) AssignPoints(
+	ctx context.Context,
+	userID common.Address,
+	transactionHash common.Hash,
+	mevRevenue *big.Int,
+) error {
+	l.logger.Info("AssignPoints called",
+		"user", userID.Hex(),
+		"tx", transactionHash.Hex(),
+		"mev_revenue", mevRevenue.String(),
+	)
 	return nil
 }
 

@@ -42,6 +42,13 @@ type simResp struct {
 	IsSwap      bool       `json:"swapDetected"`
 }
 
+type SimState string
+
+var (
+	Latest  SimState = "latest"
+	Pending SimState = "pending"
+)
+
 type Simulator struct {
 	apiURL  string
 	client  *http.Client
@@ -86,7 +93,7 @@ type reqBody struct {
 	TraceCalls bool   `json:"traceCalls,omitempty"`
 }
 
-func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, bool, error) {
+func (s *Simulator) Simulate(ctx context.Context, txRaw string, state SimState) ([]*types.Log, bool, error) {
 	start := time.Now()
 	defer func() {
 		s.metrics.latency.Observe(float64(time.Since(start).Milliseconds()))
@@ -94,7 +101,7 @@ func (s *Simulator) Simulate(ctx context.Context, txRaw string) ([]*types.Log, b
 
 	body := reqBody{
 		TxRaw:      txRaw,
-		Block:      "latest",
+		Block:      string(state),
 		Validation: true,
 		TraceCalls: true,
 	}

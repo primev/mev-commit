@@ -15,6 +15,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
+	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/primev/mev-commit/x/util"
 )
 
@@ -227,6 +228,8 @@ type mockBlockTracker struct {
 	bnIn  chan struct{}
 	bnOut chan blockNoOp
 	bnErr chan error
+	lbf   *big.Int
+	nbf   *big.Int
 }
 
 func (m *mockBlockTracker) WaitForTxnInclusion(txnHash common.Hash) chan uint64 {
@@ -257,6 +260,20 @@ func (m *mockBlockTracker) AccountNonce(ctx context.Context, account common.Addr
 	return 0, nil
 }
 
+func (m *mockBlockTracker) LatestBaseFee() *big.Int {
+	if m.lbf == nil {
+		return big.NewInt(0)
+	}
+	return new(big.Int).Set(m.lbf)
+}
+
+func (m *mockBlockTracker) NextBaseFee() *big.Int {
+	if m.nbf == nil {
+		return big.NewInt(0)
+	}
+	return new(big.Int).Set(m.nbf)
+}
+
 type mockTransferer struct{}
 
 func (m *mockTransferer) Transfer(ctx context.Context, to common.Address, chainID *big.Int, amount *big.Int) error {
@@ -273,7 +290,7 @@ func (m *mockNotifier) NotifyTransactionStatus(txn *sender.Transaction, attempts
 
 type mockSimulator struct{}
 
-func (m *mockSimulator) Simulate(ctx context.Context, rawTx string) ([]*types.Log, bool, error) {
+func (m *mockSimulator) Simulate(ctx context.Context, rawTx string, _ sim.SimState) ([]*types.Log, bool, error) {
 	return []*types.Log{}, false, nil
 }
 

@@ -65,8 +65,6 @@ config:
   logFormat: "json"
   simulationUrl: http://1.2.3.4
   logTags: ""
-  l1RpcUrls:
-    - ""
   settlementRpcUrl: ""
   bidderRpcUrl: ""
   l1ContractAddr: ""
@@ -78,6 +76,11 @@ config:
   autoDepositAmount: "100000000000000000"    # 1 ETH
   gasTipCap: "50000000"                       # 0.05 gWEI
   gasFeeCap: "60000000"                       # 0.06 gWEI
+  extraArgs: []
+  # Example:
+  # extraArgs:
+  #   - --some-flag=value
+  #   - --another-flag
 
 # Keystore configuration (using ESO for AWS Secrets Manager)
 keystore:
@@ -111,3 +114,6 @@ postgresql:
 
 blocknative:
   apiKey: "" 
+
+pointsApi:
+  apiKey: ""
