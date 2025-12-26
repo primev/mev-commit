@@ -258,10 +258,17 @@ func New(config *Config) (*Service, error) {
 	simulator := sim.NewSimulator(config.SimulatorURL)
 	metricsRegistry.MustRegister(simulator.Metrics()...)
 
-	pointsTracker := points.NewPointsTracker(
-		config.PointsAPIURL,
-		config.Logger.With("module", "pointstracker"),
-	)
+	var pointsTracker PointsTracker
+	if config.PointsAPIURL == "" {
+		pointsTracker = &loggingPointsTracker{
+			logger: config.Logger.With("module", "pointstracker"),
+		}
+	} else {
+		pointsTracker := points.NewPointsTracker(
+			config.PointsAPIURL,
+			config.Logger.With("module", "pointstracker"),
+		)
+	}
 
 	brunner, err := backrunner.New(
 		config.BackrunnerAPIKey,
@@ -642,6 +649,28 @@ func (s *Service) Close() error {
 			return err
 		}
 	}
+	return nil
+}
+
+type PointsTracker interface {
+	AssignPoints(ctx context.Context, userID common.Address, transactionHash common.Hash, mevRevenue *big.Int) error
+}
+
+type loggingPointsTracker struct {
+	logger *slog.Logger
+}
+
+func (l *loggingPointsTracker) AssignPoints(
+	ctx context.Context,
+	userID common.Address,
+	transactionHash common.Hash,
+	mevRevenue *big.Int,
+) error {
+	l.logger.Info("AssignPoints called",
+		"user", userID.Hex(),
+		"tx", transactionHash.Hex(),
+		"mev_revenue", mevRevenue.String(),
+	)
 	return nil
 }
 

@@ -246,10 +246,9 @@ var (
 	}
 
 	optionPointsAPIURL = &cli.StringFlag{
-		Name:     "points-api-url",
-		Usage:    "URL for the points tracking service",
-		EnvVars:  []string{"PRECONF_RPC_POINTS_API_URL"},
-		Required: true,
+		Name:    "points-api-url",
+		Usage:   "URL for the points tracking service",
+		EnvVars: []string{"PRECONF_RPC_POINTS_API_URL"},
 	}
 
 	optionLogFmt = &cli.StringFlag{
