@@ -3,6 +3,7 @@ package backrunner_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -76,6 +77,42 @@ func (m *mockStore) GetSwapInfo(bundleHash common.Hash) (swapInfo, bool) {
 
 	info, exists := m.swapInfo[bundleHash]
 	return info, exists
+}
+
+func (m *mockStore) GetSwapRewardee(ctx context.Context, bundle []string) (common.Address, common.Hash, error) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	for _, b := range bundle {
+		bundleHash := common.HexToHash(b)
+		if _, exists := m.rewards[bundleHash]; exists {
+			return common.HexToAddress("0xRewardeeAddress"), bundleHash, nil
+		}
+	}
+	return common.Address{}, common.Hash{}, errors.New("bundle not found")
+}
+
+type pointsEntry struct {
+	userID          common.Address
+	transactionHash common.Hash
+	mevRevenue      *big.Int
+}
+
+type mockPointsTracker struct {
+	mu      sync.Mutex
+	entries []pointsEntry
+}
+
+func (m *mockPointsTracker) AssignPoints(ctx context.Context, userID common.Address, transactionHash common.Hash, mevRevenue *big.Int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.entries = append(m.entries, pointsEntry{
+		userID:          userID,
+		transactionHash: transactionHash,
+		mevRevenue:      mevRevenue,
+	})
+	return nil
 }
 
 func TestBackrun(t *testing.T) {
@@ -153,11 +190,14 @@ func TestBackrun(t *testing.T) {
 		},
 	}
 
+	pts := &mockPointsTracker{}
+
 	runner, err := backrunner.New(
 		"apiKey",
 		srv.URL,
 		srv.URL+"/rpc",
 		st,
+		pts,
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -196,6 +236,10 @@ func TestBackrun(t *testing.T) {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+
+	if len(pts.entries) != 1 {
+		t.Fatalf("unexpected points entries length: got %v, want %v", len(pts.entries), 1)
 	}
 
 	cancel()

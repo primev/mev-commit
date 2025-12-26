@@ -31,10 +31,15 @@ type Store interface {
 	AddSwapInfo(ctx context.Context, txnHash common.Hash, blockNumber int64, builders []string) error
 	GetStartHintForRewards(ctx context.Context) (int64, error)
 	UpdateSwapReward(ctx context.Context, reward *big.Int, bundle []string) (bool, error)
+	GetSwapRewardee(ctx context.Context, bundle []string) (common.Address, common.Hash, error)
 }
 
 type BlockNumberGetter interface {
 	BlockNumber(ctx context.Context) (uint64, error)
+}
+
+type PointsTracker interface {
+	AssignPoints(ctx context.Context, userID common.Address, transactionHash common.Hash, mevRevenue *big.Int) error
 }
 
 type backrunner struct {
@@ -43,12 +48,13 @@ type backrunner struct {
 	apiURL  string
 	apiKey  string
 	store   Store
+	points  PointsTracker
 	reqChan chan backrunRequest
 	metrics *metrics
 	logger  *slog.Logger
 }
 
-func New(apiKey, apiURL, rpcURL string, store Store, logger *slog.Logger) (*backrunner, error) {
+func New(apiKey, apiURL, rpcURL string, store Store, points PointsTracker, logger *slog.Logger) (*backrunner, error) {
 	urlParsed, err := url.Parse(rpcURL)
 	if err != nil {
 		return nil, err
@@ -83,6 +89,7 @@ func New(apiKey, apiURL, rpcURL string, store Store, logger *slog.Logger) (*back
 		apiURL:  apiParsed.String(),
 		apiKey:  apiKey,
 		store:   store,
+		points:  points,
 		logger:  logger,
 		reqChan: make(chan backrunRequest, 100),
 		metrics: newMetrics(),
@@ -286,6 +293,15 @@ func (b *backrunner) checkRewards(ctx context.Context, start int64) error {
 			b.logger.Info("updated backrun reward", "bundle", record.BundleHashes, "amount", amount.String())
 			b.metrics.rewards.Inc()
 			b.metrics.rewardsTotal.Add(float64(amount.Int64()))
+			account, txnHash, err := b.store.GetSwapRewardee(ctx, record.BundleHashes)
+			if err != nil {
+				b.logger.Error("getting backrun rewardee", "bundle", record.BundleHashes, "error", err)
+				continue
+			}
+			if err := b.points.AssignPoints(ctx, account, txnHash, amount); err != nil {
+				b.logger.Error("assigning backrun points", "user", account.Hex(), "tx", txnHash.Hex(), "error", err)
+				continue
+			}
 		}
 	}
 

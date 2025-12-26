@@ -28,6 +28,7 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
 	"github.com/primev/mev-commit/tools/preconf-rpc/notifier"
+	"github.com/primev/mev-commit/tools/preconf-rpc/points"
 	"github.com/primev/mev-commit/tools/preconf-rpc/pricer"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
@@ -78,6 +79,7 @@ type Config struct {
 	BackrunnerRPC          string
 	BackrunnerAPIURL       string
 	BackrunnerAPIKey       string
+	PointsAPIURL           string
 }
 
 type Service struct {
@@ -256,11 +258,17 @@ func New(config *Config) (*Service, error) {
 	simulator := sim.NewSimulator(config.SimulatorURL)
 	metricsRegistry.MustRegister(simulator.Metrics()...)
 
+	pointsTracker := points.NewPointsTracker(
+		config.PointsAPIURL,
+		config.Logger.With("module", "pointstracker"),
+	)
+
 	brunner, err := backrunner.New(
 		config.BackrunnerAPIKey,
 		config.BackrunnerAPIURL,
 		config.BackrunnerRPC,
 		rpcstore,
+		pointsTracker,
 		config.Logger.With("module", "backrunner"),
 	)
 	if err != nil {

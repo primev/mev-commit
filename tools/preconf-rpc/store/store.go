@@ -744,6 +744,50 @@ func (s *rpcstore) UpdateSwapReward(
 	return rows > 0, nil
 }
 
+func (s *rpcstore) GetSwapRewardee(
+	ctx context.Context,
+	bundle []string,
+) (common.Address, common.Hash, error) {
+	var (
+		account common.Address
+		txnHash common.Hash
+	)
+
+	txns := make([]string, 0, len(bundle))
+	for _, b := range bundle {
+		txns = append(txns, common.HexToHash(b).Hex())
+	}
+
+	query := `
+	SELECT DISTINCT t.sender, t.hash
+	FROM mcTransactions t
+	WHERE t.hash = ANY($1::text[]);
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, pq.Array(txns))
+	if err != nil {
+		return account, txnHash, fmt.Errorf("failed to get swap rewardees for bundle %v: %w", txns, err)
+	}
+
+	for rows.Next() {
+		var (
+			senderStr string
+			hashStr   string
+		)
+		if err := rows.Scan(&senderStr, &hashStr); err != nil {
+			return account, txnHash, fmt.Errorf("failed to scan sender for bundle %v: %w", txns, err)
+		}
+		account = common.HexToAddress(senderStr)
+		txnHash = common.HexToHash(hashStr)
+		break // Usually we will have only 1 rewardee and txnHash per bundle
+	}
+	if err := rows.Err(); err != nil {
+		return account, txnHash, fmt.Errorf("error iterating rows for bundle %v: %w", txns, err)
+	}
+
+	return account, txnHash, nil
+}
+
 func (s *rpcstore) GetStartHintForRewards(ctx context.Context) (int64, error) {
 	query := `
 	SELECT MAX(attempt)::bigint
