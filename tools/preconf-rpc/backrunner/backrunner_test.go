@@ -115,6 +115,13 @@ func (m *mockPointsTracker) AssignPoints(ctx context.Context, userID common.Addr
 	return nil
 }
 
+func (m *mockPointsTracker) GetEntries() []pointsEntry {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.entries
+}
+
 func TestBackrun(t *testing.T) {
 	waitForResp := make(chan struct{})
 	srv := httptest.NewServer(
@@ -238,7 +245,7 @@ func TestBackrun(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	if len(pts.entries) != 1 {
+	if len(pts.GetEntries()) != 1 {
 		t.Fatalf("unexpected points entries length: got %v, want %v", len(pts.entries), 1)
 	}
 
