@@ -264,7 +264,7 @@ func New(config *Config) (*Service, error) {
 			logger: config.Logger.With("module", "pointstracker"),
 		}
 	} else {
-		pointsTracker := points.NewPointsTracker(
+		pointsTracker = points.NewPointsTracker(
 			config.PointsAPIURL,
 			config.Logger.With("module", "pointstracker"),
 		)
