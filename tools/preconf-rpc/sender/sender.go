@@ -1060,5 +1060,5 @@ func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time)
 	timeTaken := endTime.Sub(attempts.startTime).Round(time.Millisecond)
 	t.metrics.timeToConfirmation.Observe(float64(timeTaken.Milliseconds()))
 	t.notifier.NotifyTransactionStatus(txn, totalAttempts, blockAttempts, timeTaken)
-	t.historicalTxns.Add(txn.Hash(), struct{}{})
+	_ = t.historicalTxns.Add(txn.Hash(), struct{}{})
 }
