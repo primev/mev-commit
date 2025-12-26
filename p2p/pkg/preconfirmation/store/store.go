@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -68,6 +69,7 @@ var (
 type Store struct {
 	mu sync.RWMutex
 	st storage.Storage
+	n  notifications.Notifier
 }
 
 type CommitmentStatus string
@@ -106,6 +108,10 @@ func New(st storage.Storage) *Store {
 	return &Store{
 		st: st,
 	}
+}
+
+func (s *Store) SetNotifier(n notifications.Notifier) {
+	s.n = n
 }
 
 func (s *Store) AddCommitment(commitment *Commitment) (err error) {
@@ -256,7 +262,10 @@ func (s *Store) ListCommitments(opts *ListOpts) ([]*Commitment, error) {
 }
 
 func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) (retErr error) {
-	cmt, err := s.GetCommitmentByDigest(cDigest[:])
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cmt, err := s.getCommitmentByDigest(cDigest[:])
 	if err != nil {
 		if errors.Is(err, storage.ErrKeyNotFound) {
 			return nil
@@ -274,9 +283,6 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) (retErr err
 	}
 
 	commitmentKey := commitmentKey(cmt.Bid.BlockNumber, cmt.Bid.BidAmount, cmt.Commitment)
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	var writer storage.Writer
 	if w, ok := s.st.(storage.Batcher); ok {
@@ -325,6 +331,18 @@ func (s *Store) UpdateSettlement(index []byte, isSlash bool) error {
 		return err
 	}
 
+	defer func() {
+		if s.n != nil {
+			s.n.Notify(
+				notifications.NewNotification(notifications.TopicTransactionSettled, map[string]any{
+					"transaction_hashes": cmt.Bid.TxHash,
+					"is_slashed":         isSlash,
+					"provider":           common.Bytes2Hex(cmt.ProviderAddress),
+				}),
+			)
+		}
+	}()
+
 	if isSlash {
 		cmt.Status = CommitmentStatusSlashed
 	} else {
@@ -340,7 +358,10 @@ func (s *Store) UpdateSettlement(index []byte, isSlash bool) error {
 }
 
 func (s *Store) UpdatePayment(digest []byte, payment, refund string) error {
-	cmt, err := s.GetCommitmentByDigest(digest)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cmt, err := s.getCommitmentByDigest(digest)
 	if err != nil {
 		if errors.Is(err, storage.ErrKeyNotFound) {
 			return nil
@@ -348,8 +369,17 @@ func (s *Store) UpdatePayment(digest []byte, payment, refund string) error {
 		return err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer func() {
+		if s.n != nil {
+			s.n.Notify(
+				notifications.NewNotification(notifications.TopicTransactionPayment, map[string]any{
+					"transaction_hashes": cmt.Bid.TxHash,
+					"payment":            payment,
+					"refund":             refund,
+				}),
+			)
+		}
+	}()
 
 	cmt.Payment = payment
 	cmt.Refund = refund
@@ -368,6 +398,10 @@ func (s *Store) GetCommitmentByDigest(digest []byte) (*Commitment, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	return s.getCommitmentByDigest(digest)
+}
+
+func (s *Store) getCommitmentByDigest(digest []byte) (*Commitment, error) {
 	cIndexValueBuf, err := s.st.Get(cmtIndexKey(digest))
 	if err != nil {
 		return nil, err

@@ -496,6 +496,7 @@ func NewNode(opts *Options) (*Node, error) {
 			},
 		)
 		srv.RegisterMetricsCollectors(tracker.Metrics()...)
+		preconfStore.SetNotifier(notificationsSvc)
 
 		l1ContractRPC, err := ethclient.Dial(opts.L1RPCURL)
 		if err != nil {
