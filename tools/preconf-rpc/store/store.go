@@ -774,12 +774,11 @@ func (s *rpcstore) GetSwapRewardee(
 			senderStr string
 			hashStr   string
 		)
-		if err := rows.Scan(&senderStr, &hashStr); err != nil {
-			return account, txnHash, fmt.Errorf("failed to scan sender for bundle %v: %w", txns, err)
+		if err := rows.Scan(&senderStr, &hashStr); err == nil {
+			account = common.HexToAddress(senderStr)
+			txnHash = common.HexToHash(hashStr)
+			break // Usually we will have only 1 rewardee and txnHash per bundle
 		}
-		account = common.HexToAddress(senderStr)
-		txnHash = common.HexToHash(hashStr)
-		break // Usually we will have only 1 rewardee and txnHash per bundle
 	}
 	if err := rows.Err(); err != nil {
 		return account, txnHash, fmt.Errorf("error iterating rows for bundle %v: %w", txns, err)

@@ -332,6 +332,7 @@ func main() {
 			optionBackrunnerAPIURL,
 			optionBackrunnerRPCURL,
 			optionBackrunnerAPIKey,
+			optionPointsAPIURL,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -422,6 +423,7 @@ func main() {
 				BackrunnerAPIURL:       c.String(optionBackrunnerAPIURL.Name),
 				BackrunnerRPC:          c.String(optionBackrunnerRPCURL.Name),
 				BackrunnerAPIKey:       c.String(optionBackrunnerAPIKey.Name),
+				PointsAPIURL:           c.String(optionPointsAPIURL.Name),
 			}
 
 			s, err := service.New(&config)
