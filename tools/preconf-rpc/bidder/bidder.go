@@ -449,13 +449,11 @@ func (b *BidderClient) SubscribePayments(ctx context.Context) <-chan PaymentMsg 
 
 			payment, ok := new(big.Int).SetString(paymentStr, 10)
 			if !ok {
-				b.logger.Error("failed to parse payment amount", "amount", paymentStr)
-				continue
+				payment = big.NewInt(0)
 			}
 			refund, ok := new(big.Int).SetString(refundStr, 10)
 			if !ok {
-				b.logger.Error("failed to parse refund amount", "refund", refundStr)
-				continue
+				refund = big.NewInt(0)
 			}
 
 			outCh <- PaymentMsg{
