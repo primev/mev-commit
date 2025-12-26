@@ -341,10 +341,18 @@ func (s *rpcstore) StoreTransaction(
 	WHERE hash = $4;
 	`
 
-	_, err = dbTxn.ExecContext(ctx, updateTxns, txn.BlockNumber, string(txn.Status), txn.Details, txn.Hash().Hex())
+	rowsAffected, err := dbTxn.ExecContext(ctx, updateTxns, txn.BlockNumber, string(txn.Status), txn.Details, txn.Hash().Hex())
 	if err != nil {
 		_ = dbTxn.Rollback()
 		return fmt.Errorf("failed to update transaction %s: %w", txn.Hash().Hex(), err)
+	}
+
+	if ra, err := rowsAffected.RowsAffected(); err != nil {
+		_ = dbTxn.Rollback()
+		return fmt.Errorf("failed to get rows affected for transaction %s: %w", txn.Hash().Hex(), err)
+	} else if ra == 0 {
+		_ = dbTxn.Rollback()
+		return fmt.Errorf("transaction %s not found for update", txn.Hash().Hex())
 	}
 
 	if txn.Status != sender.TxStatusFailed {
