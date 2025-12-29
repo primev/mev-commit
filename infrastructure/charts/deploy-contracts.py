@@ -8,7 +8,7 @@
 #   4. forge clean / build (in contracts/)
 #   5. port-forward & deploy contracts, parse logs → JSONs
 
-import os, re, sys, json, subprocess, signal, time, socket, argparse
+import os, re, sys, json, subprocess, signal, time, socket, argparse, shutil
 from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -40,6 +40,9 @@ CORE_KEYS = [
 ap = argparse.ArgumentParser()
 ap.add_argument("--password", "-p", required=True, help="Password for keystores")
 ap.add_argument("--work-dir", default=f"/tmp/mev-commit-{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+ap.add_argument("--configmap", action="store_true", help="Create a Kubernetes ConfigMap with contract addresses")
+ap.add_argument("--configmap-name", default="contract-addresses", help="Name of the ConfigMap to create")
+ap.add_argument("--namespace", "-n", default="default", help="Kubernetes namespace for ConfigMap")
 args = ap.parse_args()
 
 WORK_DIR = Path(args.work_dir).resolve()
@@ -154,3 +157,47 @@ print(f"📄 Log: {log_path}")
 print(f"🧾 Full JSON: {full_json_path}")
 print(f"🎯 Core JSON: {core_json_path}")
 
+# ---------- Create ConfigMap ----------
+if args.configmap:
+    print(f"🔹 Creating ConfigMap '{args.configmap_name}' in namespace '{args.namespace}'...")
+    configmap_data = {
+        "BIDDER_REGISTRY": core_map.get("BidderRegistry", ""),
+        "BLOCK_TRACKER": core_map.get("BlockTracker", ""),
+        "ORACLE": core_map.get("Oracle", ""),
+        "PRECONF_MANAGER": core_map.get("PreconfManager", ""),
+        "PROVIDER_REGISTRY": core_map.get("ProviderRegistry", ""),
+    }
+    
+    configmap_yaml = f"""apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {args.configmap_name}
+  namespace: {args.namespace}
+data:
+  BIDDER_REGISTRY: "{configmap_data['BIDDER_REGISTRY']}"
+  BLOCK_TRACKER: "{configmap_data['BLOCK_TRACKER']}"
+  ORACLE: "{configmap_data['ORACLE']}"
+  PRECONF_MANAGER: "{configmap_data['PRECONF_MANAGER']}"
+  PROVIDER_REGISTRY: "{configmap_data['PROVIDER_REGISTRY']}"
+"""
+    
+    try:
+        proc = subprocess.run(
+            [KUBECTL_BIN, "apply", "-f", "-"],
+            input=configmap_yaml.encode(),
+            capture_output=True
+        )
+        if proc.returncode == 0:
+            print(f"✅ ConfigMap '{args.configmap_name}' created/updated successfully")
+        else:
+            print(f"❌ Failed to create ConfigMap: {proc.stderr.decode()}")
+    except Exception as e:
+        print(f"❌ Failed to create ConfigMap: {e}")
+
+# ---------- Cleanup ----------
+print(f"🧹 Cleaning up work directory: {WORK_DIR}")
+try:
+    shutil.rmtree(WORK_DIR)
+    print("✅ Cleanup complete")
+except Exception as e:
+    print(f"⚠️  Failed to cleanup {WORK_DIR}: {e}")
