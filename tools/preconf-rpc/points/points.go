@@ -81,7 +81,7 @@ func (p *pointsTracker) AssignPoints(
 		return err
 	}
 
-	req, err := http.NewRequest("POST", p.apiURL+"/assign_points", bytes.NewBuffer(reqBytes))
+	req, err := http.NewRequest("POST", p.apiURL, bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err
 	}
