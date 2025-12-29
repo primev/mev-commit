@@ -94,7 +94,7 @@ func (p *pointsTracker) AssignPoints(
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK || resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("failed to assign points, status code: %d", resp.StatusCode)
 	}
 	p.logger.Info("successfully assigned points", "user", userID.Hex(), "tx", transactionHash.Hex(), "points", points.String())
