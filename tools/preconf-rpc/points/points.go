@@ -14,7 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-const weiPerPoint = 33_333_333_333_333
+// 0.00001 ETH in wei
+const weiPerPoint = 10000000000000
 
 type pointsTracker struct {
 	apiURL string

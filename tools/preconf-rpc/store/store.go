@@ -982,8 +982,9 @@ func (r *rpcstore) UpdateSettlementPayment(
 	INSERT INTO settlementInfo (transaction_hash, payment, refund)
 	VALUES ($1, $2, $3)
 	ON CONFLICT (transaction_hash)
-	DO UPDATE SET payment = EXCLUDED.payment,
-	              refund = EXCLUDED.refund;
+	DO UPDATE SET
+	  payment = COALESCE(settlementInfo.payment, 0) + COALESCE(EXCLUDED.payment, 0),
+	  refund  = COALESCE(settlementInfo.refund, 0)  + COALESCE(EXCLUDED.refund, 0);
 	`
 
 	_, err = dbtx.ExecContext(
@@ -997,8 +998,7 @@ func (r *rpcstore) UpdateSettlementPayment(
 		return fmt.Errorf("failed to update settlement payment for txn %s: %w", txnHash.Hex(), err)
 	}
 
-	switch {
-	case payment != nil && payment.Cmp(big.NewInt(0)) > 0:
+	if payment != nil && payment.Cmp(big.NewInt(0)) > 0 {
 		// deduct user balance
 		if _, err := dbtx.ExecContext(
 			ctx,
@@ -1014,23 +1014,6 @@ func (r *rpcstore) UpdateSettlementPayment(
 			txnHash.Hex(),
 		); err != nil {
 			return fmt.Errorf("failed to deduct user balance for txn %s: %w", txnHash.Hex(), err)
-		}
-	case refund != nil && refund.Cmp(big.NewInt(0)) > 0:
-		// add refund to user balance
-		if _, err := dbtx.ExecContext(
-			ctx,
-			`UPDATE balances b
-			 SET balance = b.balance + $1::numeric
-			 FROM (
-			   SELECT DISTINCT sender
-			   FROM mcTransactions
-			   WHERE hash = $2
-			 ) t
-			 WHERE b.account = t.sender;`,
-			refund.String(),
-			txnHash.Hex(),
-		); err != nil {
-			return fmt.Errorf("failed to add refund to user balance for txn %s: %w", txnHash.Hex(), err)
 		}
 	}
 

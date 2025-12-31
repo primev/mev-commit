@@ -287,6 +287,8 @@ func (b *backrunner) checkRewards(ctx context.Context, start int64) error {
 		if !ok {
 			continue
 		}
+		// 90% to user, 10% to platform
+		amount = new(big.Int).Div(new(big.Int).Mul(amount, big.NewInt(90)), big.NewInt(100))
 		if updated, err := b.store.UpdateSwapReward(ctx, amount, record.BundleHashes); err != nil {
 			return fmt.Errorf("updating backrun reward: %w", err)
 		} else if updated {
