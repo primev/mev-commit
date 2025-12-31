@@ -249,7 +249,11 @@ func main() {
 	}
 
 	db := mustOpenDB()
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("db.Close: %v", err)
+		}
+	}()
 
 	// 1) Discover missing txs to insert (unless onlyUpdates)
 	missingToInsert := []Candidate{}
@@ -370,9 +374,6 @@ func main() {
 			} else {
 				updated++
 			}
-		} else if w.Existing == nil && !*onlyInserts {
-			// It might have been inserted above; optionally we can fill-only update by selecting current row,
-			// but insertV2Row already writes full computed fields, so not needed.
 		}
 	}
 
@@ -629,7 +630,11 @@ WHERE opened.hash_norm IS NULL
 	for rows2.Next() {
 		var hash0x, hashNorm sql.NullString
 		if err := rows2.Scan(&hash0x, &hashNorm); err != nil {
-			_ = rows2.Close()
+			defer func() {
+				if err := rows2.Close(); err != nil {
+					log.Printf("rows2.Close: %v", err)
+				}
+			}()
 			return nil, err
 		}
 		h0x := ensure0x(strip0x(strings.ToLower(strings.TrimSpace(hash0x.String))))
@@ -640,7 +645,11 @@ WHERE opened.hash_norm IS NULL
 			Source:   "rpc_only",
 		})
 	}
-	_ = rows2.Close()
+	defer func() {
+		if err := rows2.Close(); err != nil {
+			log.Printf("rows2.Close: %v", err)
+		}
+	}()
 
 	// Dedupe (prefer event-backed metadata)
 	by := map[string]Candidate{}
@@ -769,7 +778,11 @@ WHERE l1_tx_hash IS NOT NULL
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("rows.Close: %v", err)
+		}
+	}()
 
 	out := []ExistingRow{}
 	for rows.Next() {
@@ -1392,7 +1405,11 @@ func fetchTransaction(txHash0x, apiKey string) (*TxResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("tx request error after %s: %w", dur, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("resp.Body.Close: %v", err)
+		}
+	}()
 
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
@@ -1490,7 +1507,11 @@ func fetchTokenPricesETH(apiKey string, tokenSet map[string]struct{}, dateStr st
 	if err != nil {
 		return nil, fmt.Errorf("pricing request error: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("resp.Body.Close: %v", err)
+		}
+	}()
 
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
@@ -2002,9 +2023,7 @@ func topicToAddress(topic string) (string, bool) {
 
 func hexToBigInt(hexStr string) (*big.Int, bool) {
 	hexStr = strings.TrimSpace(hexStr)
-	if strings.HasPrefix(hexStr, "0x") {
-		hexStr = hexStr[2:]
-	}
+	hexStr = strings.TrimPrefix(hexStr, "0x")
 	if hexStr == "" {
 		return nil, false
 	}
@@ -2087,7 +2106,7 @@ func candidateAddresses(logs []LogEvent, fromAddr, toAddr string) []string {
 		if isRawERC20Transfer(ev) && len(ev.RawLogTopics) >= 3 {
 			f, ok1 := topicToAddress(ev.RawLogTopics[1])
 			t, ok2 := topicToAddress(ev.RawLogTopics[2])
-			if ok1 && ok2 && !(isZero(f) || isZero(t)) {
+			if ok1 && ok2 && !isZero(f) && !isZero(t) {
 				bump(f)
 				bump(t)
 			}
