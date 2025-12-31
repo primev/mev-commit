@@ -41,6 +41,8 @@ type Store interface {
 	HasBalance(ctx context.Context, account common.Address, amount *big.Int) bool
 	AlreadySubsidized(ctx context.Context, account common.Address) bool
 	AddSubsidy(ctx context.Context, account common.Address, amount *big.Int) error
+	GetReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	StoreReceipt(ctx context.Context, receipt *types.Receipt) error
 }
 
 type BlockTracker interface {
@@ -583,13 +585,30 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 
 	txHash := common.HexToHash(txHashStr)
 
+	receipt, err := h.store.GetReceipt(ctx, txHash)
+	if err == nil && receipt != nil {
+		receiptJSON, err := json.Marshal(receipt)
+		if err != nil {
+			h.logger.Error("Failed to marshal receipt to JSON", "error", err, "txHash", txHash)
+			return nil, false, rpcserver.NewJSONErr(
+				rpcserver.CodeCustomError,
+				"failed to marshal receipt",
+			)
+		}
+		return receiptJSON, false, nil
+	}
+
 	txn, err := h.store.GetTransactionByHash(ctx, txHash)
 	if err != nil {
 		return nil, true, nil
 	}
 
-	if txn.Status != sender.TxStatusFailed && txn.Status != sender.TxStatusPreConfirmed {
+	switch txn.Status {
+	case sender.TxStatusPending, sender.TxStatusConfirmed:
+		// go to RPC proxy
 		return nil, true, nil
+	case sender.TxStatusPreConfirmed, sender.TxStatusFailed:
+		// continue processing
 	}
 
 	logs, err := h.store.GetTransactionLogs(ctx, txHash)

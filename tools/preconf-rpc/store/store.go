@@ -87,6 +87,13 @@ CREATE TABLE IF NOT EXISTS settlementInfo (
 	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
 );`
 
+var receipts = `
+CREATE TABLE IF NOT EXISTS receipts (
+	transaction_hash TEXT PRIMARY KEY,
+	receipt_data BYTEA,
+	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
+);`
+
 type rpcstore struct {
 	db *sql.DB
 }
@@ -100,6 +107,7 @@ func New(db *sql.DB) (*rpcstore, error) {
 		simulationLogs,
 		swapInfo,
 		settlementInfo,
+		receipts,
 	} {
 		_, err := db.Exec(table)
 		if err != nil {
@@ -991,7 +999,7 @@ func (r *rpcstore) UpdateSettlementPayment(
 
 	switch {
 	case payment != nil && payment.Cmp(big.NewInt(0)) > 0:
-		// deduct user balance, set to 0 on underflow
+		// deduct user balance
 		if _, err := dbtx.ExecContext(
 			ctx,
 			`UPDATE balances b
@@ -1031,4 +1039,61 @@ func (r *rpcstore) UpdateSettlementPayment(
 	}
 
 	return nil
+}
+
+func (r *rpcstore) StoreReceipt(
+	ctx context.Context,
+	receipt *types.Receipt,
+) error {
+	receiptData, err := json.Marshal(receipt)
+	if err != nil {
+		return fmt.Errorf("failed to marshal receipt for txn %s: %w", receipt.TxHash.Hex(), err)
+	}
+
+	query := `
+	INSERT INTO receipts (transaction_hash, receipt_data)
+	VALUES ($1, $2)
+	ON CONFLICT (transaction_hash)
+	DO UPDATE SET receipt_data = EXCLUDED.receipt_data;
+	`
+
+	_, err = r.db.ExecContext(
+		ctx,
+		query,
+		receipt.TxHash.Hex(),
+		receiptData,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to store receipt for txn %s: %w", receipt.TxHash.Hex(), err)
+	}
+
+	return nil
+}
+
+func (r *rpcstore) GetReceipt(
+	ctx context.Context,
+	txnHash common.Hash,
+) (*types.Receipt, error) {
+	query := `
+	SELECT receipt_data
+	FROM receipts
+	WHERE transaction_hash = $1;
+	`
+
+	row := r.db.QueryRowContext(ctx, query, txnHash.Hex())
+	var receiptData []byte
+	err := row.Scan(&receiptData)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("receipt not found for transaction %s: %w", txnHash.Hex(), ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to get receipt for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	receipt := new(types.Receipt)
+	if err := json.Unmarshal(receiptData, receipt); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal receipt for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	return receipt, nil
 }

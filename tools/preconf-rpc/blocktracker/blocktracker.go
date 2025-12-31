@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -20,6 +21,15 @@ type EthClient interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	BlockByNumber(ctx context.Context, blockNumber *big.Int) (*types.Block, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+}
+
+type BatchReceiptGetter interface {
+	BatchReceipts(ctx context.Context, txHashes []common.Hash) ([]txmonitor.Result, error)
+}
+
+type ReceiptStore interface {
+	GetReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	StoreReceipt(ctx context.Context, receipt *types.Receipt) error
 }
 
 type LatestBlockInfo struct {
@@ -33,24 +43,28 @@ type blockTracker struct {
 	latestBlockInfo atomic.Pointer[LatestBlockInfo]
 	blocks          *lru.Cache[uint64, *types.Block]
 	client          EthClient
+	receiptGetter   BatchReceiptGetter
+	receiptStore    ReceiptStore
 	log             *slog.Logger
 	txnToCheckMu    sync.Mutex
 	txnsToCheck     map[common.Hash]chan uint64
 	newBlockChan    chan uint64
 }
 
-func NewBlockTracker(client EthClient, log *slog.Logger) (*blockTracker, error) {
+func NewBlockTracker(client EthClient, receiptGetter BatchReceiptGetter, receiptStore ReceiptStore, log *slog.Logger) (*blockTracker, error) {
 	cache, err := lru.New[uint64, *types.Block](1000)
 	if err != nil {
 		log.Error("Failed to create LRU cache", "error", err)
 		return nil, err
 	}
 	return &blockTracker{
-		blocks:       cache,
-		client:       client,
-		log:          log,
-		txnsToCheck:  make(map[common.Hash]chan uint64),
-		newBlockChan: make(chan uint64, 1),
+		blocks:        cache,
+		client:        client,
+		receiptGetter: receiptGetter,
+		receiptStore:  receiptStore,
+		log:           log,
+		txnsToCheck:   make(map[common.Hash]chan uint64),
+		newBlockChan:  make(chan uint64, 1),
 	}, nil
 }
 
@@ -141,6 +155,21 @@ func (b *blockTracker) Start(ctx context.Context) <-chan struct{} {
 					delete(b.txnsToCheck, txHash)
 				}
 				b.txnToCheckMu.Unlock()
+				receipts, err := b.receiptGetter.BatchReceipts(egCtx, txnsToClear)
+				if err != nil {
+					b.log.Error("Failed to get batch receipts", "error", err)
+					continue
+				}
+				for _, res := range receipts {
+					if res.Err != nil {
+						b.log.Error("Failed to get receipt for txn", "txHash", res.Receipt.TxHash.Hex(), "error", res.Err)
+						continue
+					}
+					err = b.receiptStore.StoreReceipt(egCtx, res.Receipt)
+					if err != nil {
+						b.log.Error("Failed to store receipt", "txHash", res.Receipt.TxHash.Hex(), "error", err)
+					}
+				}
 			}
 		}
 	})
