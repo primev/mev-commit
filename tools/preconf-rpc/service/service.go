@@ -278,6 +278,16 @@ func New(config *Config) (*Service, error) {
 	s.closers = append(s.closers, channelCloser(backrunnerDone))
 	metricsRegistry.MustRegister(brunner.Metrics()...)
 
+	expSubmitter := explorersubmitter.New(
+		config.ExplorerEndpoint,
+		config.ExplorerApiKey,
+		config.ExplorerAppCode,
+		config.Logger.With("module", "explorersubmitter"),
+	)
+	expSubmitterDone := expSubmitter.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("ExplorerSubmitter", expSubmitterDone))
+	s.closers = append(s.closers, channelCloser(expSubmitterDone))
+
 	sndr, err := sender.NewTxSender(
 		rpcstore,
 		bidderClient,
@@ -288,11 +298,7 @@ func New(config *Config) (*Service, error) {
 		simulator,
 		brunner,
 		settlementChainID,
-		explorersubmitter.Config{
-			Endpoint: config.ExplorerEndpoint,
-			ApiKey:   config.ExplorerApiKey,
-			AppCode:  config.ExplorerAppCode,
-		},
+		expSubmitter,
 		config.Logger.With("module", "txsender"),
 	)
 	if err != nil {

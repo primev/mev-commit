@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	bidder "github.com/primev/mev-commit/tools/preconf-rpc/bidder"
-	explorersubmitter "github.com/primev/mev-commit/tools/preconf-rpc/explorer-submitter"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 	"github.com/primev/mev-commit/x/util"
 )
@@ -284,6 +283,12 @@ func (m *mockBackrunner) Backrun(ctx context.Context, rawTx string, commitments 
 	return nil
 }
 
+type MockExplorerSubmitter struct{}
+
+func (m *MockExplorerSubmitter) Submit(ctx context.Context, tx *types.Transaction, from common.Address) error {
+	return nil
+}
+
 func TestSender(t *testing.T) {
 	t.Parallel()
 
@@ -314,7 +319,7 @@ func TestSender(t *testing.T) {
 		&mockSimulator{},
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
-		explorersubmitter.Config{},
+		&MockExplorerSubmitter{},
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -569,7 +574,7 @@ func TestCancelTransaction(t *testing.T) {
 		&mockSimulator{},
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
-		explorersubmitter.Config{},
+		&MockExplorerSubmitter{},
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -658,7 +663,7 @@ func TestIgnoreProvidersOnRetry(t *testing.T) {
 		&mockSimulator{},
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
-		explorersubmitter.Config{},
+		&MockExplorerSubmitter{},
 		util.NewTestLogger(io.Discard),
 	)
 	if err != nil {
