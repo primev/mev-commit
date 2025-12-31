@@ -602,7 +602,7 @@ func TestOtherProviderWonBlockNotification(t *testing.T) {
 
 	watcher := &mockWatcher{}
 	notifier := &mockNotifier{
-		evt: make(chan *notifications.Notification, 1),
+		evt: make(chan *notifications.Notification, 10),
 	}
 
 	sk, pk, err := crypto.GenerateKeyPairBN254()

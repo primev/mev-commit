@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
@@ -20,13 +21,29 @@ type mockEthClient struct {
 	blocks      map[uint64]*types.Block
 }
 
-func (m *mockEthClient) BlockNumber(ctx context.Context) (uint64, error) {
-	select {
-	case blockNo := <-m.blockNumber:
-		return blockNo, nil
-	case <-ctx.Done():
-		return 0, ctx.Err()
-	}
+type subscriptionNoOp struct{}
+
+func (s *subscriptionNoOp) Unsubscribe() {}
+func (s *subscriptionNoOp) Err() <-chan error {
+	return nil
+}
+
+func (m *mockEthClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+	go func() {
+		for {
+			select {
+			case blockNo := <-m.blockNumber:
+				block, exists := m.blocks[blockNo]
+				if !exists {
+					continue
+				}
+				ch <- block.Header()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return &subscriptionNoOp{}, nil
 }
 
 func (m *mockEthClient) BlockByNumber(ctx context.Context, blockNumber *big.Int) (*types.Block, error) {
@@ -79,8 +96,11 @@ func TestBlockTracker(t *testing.T) {
 
 	blk1 := types.NewBlock(
 		&types.Header{
-			Number: big.NewInt(100),
-			Time:   uint64(time.Now().Unix()),
+			Number:   big.NewInt(100),
+			Time:     uint64(time.Now().Unix()),
+			BaseFee:  big.NewInt(1000000000),
+			GasLimit: 30_000_000,
+			GasUsed:  20_000_000,
 		},
 		&types.Body{Transactions: []*types.Transaction{tx1, tx2}},
 		nil, // No receipts
@@ -89,8 +109,11 @@ func TestBlockTracker(t *testing.T) {
 
 	blk2 := types.NewBlock(
 		&types.Header{
-			Number: big.NewInt(101),
-			Time:   uint64(time.Now().Add(12 * time.Second).Unix()),
+			Number:   big.NewInt(101),
+			Time:     uint64(time.Now().Add(12 * time.Second).Unix()),
+			BaseFee:  big.NewInt(1100000000),
+			GasLimit: 30_000_000,
+			GasUsed:  10_000_000,
 		},
 		&types.Body{Transactions: []*types.Transaction{tx3}},
 		nil, // No receipts
@@ -155,6 +178,23 @@ func TestBlockTracker(t *testing.T) {
 	blkNo = tracker.LatestBlockNumber()
 	if blkNo != 100 {
 		t.Fatalf("Expected latest block number to be 100, got %d", blkNo)
+	}
+
+	latest := tracker.LatestBaseFee()
+	if latest.Cmp(big.NewInt(1000000000)) != 0 {
+		t.Fatalf("Expected latest base fee to be 1000000000, got %s", latest.String())
+	}
+
+	nextBase := tracker.NextBaseFee()
+	expectedNextBase := big.NewInt(0).Add(
+		big.NewInt(1000000000),
+		big.NewInt(0).Div(
+			big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(5_000_000)),
+			big.NewInt(0).Mul(big.NewInt(15_000_000), big.NewInt(8)),
+		),
+	)
+	if nextBase.Cmp(expectedNextBase) != 0 {
+		t.Fatalf("Expected next base fee to be %s, got %s", expectedNextBase.String(), nextBase.String())
 	}
 
 	client.blockNumber <- 101

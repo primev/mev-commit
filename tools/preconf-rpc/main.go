@@ -80,10 +80,17 @@ var (
 		Value:   false,
 	}
 
-	optionL1RPCUrls = &cli.StringSliceFlag{
-		Name:     "l1-rpc-urls",
-		Usage:    "URLs for L1 RPC",
-		EnvVars:  []string{"PRECONF_RPC_L1_RPC_URLS"},
+	optionL1RPCHTTPUrl = &cli.StringFlag{
+		Name:     "l1-rpc-http-url",
+		Usage:    "HTTP URL for L1 RPC",
+		EnvVars:  []string{"PRECONF_RPC_L1_RPC_HTTP_URL"},
+		Required: true,
+	}
+
+	optionL1RPCWSUrl = &cli.StringFlag{
+		Name:     "l1-rpc-ws-url",
+		Usage:    "Websocket URL for L1 RPC",
+		EnvVars:  []string{"PRECONF_RPC_L1_RPC_WS_URL"},
 		Required: true,
 	}
 
@@ -238,6 +245,18 @@ var (
 		Required: true,
 	}
 
+	optionPointsAPIURL = &cli.StringFlag{
+		Name:    "points-api-url",
+		Usage:   "URL for the points tracking service",
+		EnvVars: []string{"PRECONF_RPC_POINTS_API_URL"},
+	}
+
+	optionPointsAPIKey = &cli.StringFlag{
+		Name:    "points-api-key",
+		Usage:   "API key for the points tracking service",
+		EnvVars: []string{"PRECONF_RPC_POINTS_API_KEY"},
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -314,7 +333,8 @@ func main() {
 			optionLogTags,
 			optionKeystorePath,
 			optionKeystorePassword,
-			optionL1RPCUrls,
+			optionL1RPCHTTPUrl,
+			optionL1RPCWSUrl,
 			optionSettlementRPCUrl,
 			optionBidderRPCUrl,
 			optionL1ContractAddr,
@@ -338,6 +358,8 @@ func main() {
 			optionExplorerEndpoint,
 			optionExplorerApiKey,
 			optionExplorerAppCode,
+			optionPointsAPIURL,
+			optionPointsAPIKey,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -414,7 +436,8 @@ func main() {
 				BidderTopup:            bidderTopup,
 				SettlementRPCUrl:       c.String(optionSettlementRPCUrl.Name),
 				BidderRPC:              c.String(optionBidderRPCUrl.Name),
-				L1RPCUrls:              c.StringSlice(optionL1RPCUrls.Name),
+				L1RPCHTTPUrl:           c.String(optionL1RPCHTTPUrl.Name),
+				L1RPCWSUrl:             c.String(optionL1RPCWSUrl.Name),
 				L1ContractAddr:         common.HexToAddress(c.String(optionL1ContractAddr.Name)),
 				SettlementContractAddr: common.HexToAddress(c.String(optionSettlementContractAddr.Name)),
 				Signer:                 signer,
@@ -430,6 +453,8 @@ func main() {
 				ExplorerEndpoint:       c.String(optionExplorerEndpoint.Name),
 				ExplorerApiKey:         c.String(optionExplorerApiKey.Name),
 				ExplorerAppCode:        c.String(optionExplorerAppCode.Name),
+				PointsAPIURL:           c.String(optionPointsAPIURL.Name),
+				PointsAPIKey:           c.String(optionPointsAPIKey.Name),
 			}
 
 			s, err := service.New(&config)

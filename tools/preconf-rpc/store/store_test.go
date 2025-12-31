@@ -430,6 +430,18 @@ func TestStore(t *testing.T) {
 		if startHint != swapInfo.Attempt+1 {
 			t.Fatalf("expected start hint %d after update, got %d", swapInfo.Attempt+1, startHint)
 		}
+
+		rewardee, txnHashRewarded, err := st.GetSwapRewardee(context.Background(), bundle)
+		if err != nil {
+			t.Errorf("failed to get swap rewardee: %v", err)
+		}
+		expectedRewardee := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
+		if rewardee != expectedRewardee {
+			t.Errorf("expected rewardee %s, got %s", expectedRewardee.Hex(), rewardee.Hex())
+		}
+		if txnHashRewarded != txnHash {
+			t.Errorf("expected rewarded txn hash %s, got %s", txnHash.Hex(), txnHashRewarded.Hex())
+		}
 	})
 
 	t.Run("GetUserTransactions", func(t *testing.T) {
