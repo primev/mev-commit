@@ -1,69 +1,84 @@
-# MEV-Commit L1 Volume Pipeline
+# RPC_tx_insert
 
-This tool builds and maintains the `processed_l1_txns` table in StarRocks. It:
-
-- Finds MEV-Commit commitments that were actually processed on L1
-- Fetches their L1 Ethereum transactions via Covalent
-- Computes preconfirmation volume in ETH (native, WETH, and ERC-20s marked-to-ETH)
-- Writes the results into `processed_l1_txns` for downstream analytics
-
-It is safe to run repeatedly.
-
-## What the Script Does
-
-### 1. Query StarRocks (`tx_view`)
-- Selects all `OpenedCommitmentStored` events.
-- Finds those that also have a `CommitmentProcessed` event.
-- Extracts `commitment_index`, `bidder`, `committer`, and `l1_tx_hash`.
-
-### 2. Determine which commitments need processing
-- Selects commitments from `processed_l1_txns` with non-null `total_vol_eth`.
-- Skips those already processed.
-- Processes all others.
-
-### 3. Fetch & parse L1 transaction data (Covalent)
-- Retrieves full tx including logs.
+## Overview
+This tool:
+- Discovers L1 transaction hashes from Primev sources (event logs and mc transaction table).
+- Fetches transaction data from Covalent (`transaction_v2`) for each hash.
 - Computes:
-  - ETH transferred
-  - WETH movements
-  - ERC-20 token transfers + value in ETH using historical pricing
-- Extracts L1 timestamp.
+  - `l1_timestamp`, `from_address`, `to_address`
+  - `total_vol_eth`, `eth_vol`, `weth_vol`, `token_vol_eth`, `swap_vol_eth`
+  - `is_swap`, `is_lending`, `is_transfer`, `is_approval`
+  - `primary_class`, `protocol`
+- Writes results into `mevcommit_57173.processed_l1_txns_v2`.
 
-### 4. Insert enriched rows into `processed_l1_txns`
-- Inserts/upserts:
-  - commitment_index
-  - l1_timestamp
-  - bidder
-  - committer
-  - l1_tx_hash
-  - total_vol_eth
-  - eth_vol
-  - weth_vol
-  - token_vol_eth
-- Only modifies this table; never touches others.
+Write behavior:
+- Inserts missing rows (event-backed + rpc-only backfill).
+- Updates existing rows that are incomplete (fill-only by default).
+- Optional full overwrite with `-recompute-all`.
 
+## Data sources
+Candidate discovery:
+1) Event-backed candidates:
+   - `OpenedCommitmentStored` joined to `CommitmentProcessed` from `mevcommit_57173.tx_view`.
+2) RPC-only backfill candidates:
+   - `pg_mev_commit_fastrpc.public.mctransactions_sr` where `status in ('confirmed','pre-confirmed')`,
+     excluding hashes already present in `OpenedCommitmentStored` and excluding hashes already in v2.
 
-## Required Environment Variables
-- COVALENT_KEY
-- DB_USER
-- DB_PW
-- DB_HOST
-- DB_PORT
-- DB_NAME
+On-chain enrichment:
+- Covalent `transaction_v2` endpoint (ETH mainnet).
 
-## Usage
+## Tombstone behavior for missing transactions (Covalent 404)
+If Covalent returns HTTP 404 with a "Transaction hash ... not found" message:
+- The tool can insert a placeholder row into `processed_l1_txns_v2` with:
+  - `l1_tx_hash = <hash_norm>` (no 0x)
+  - `primary_class = 'not_found'`
+  - other computed fields left NULL
+- This prevents repeated retries of transactions that never land on-chain.
 
-### Fill database
-```
-go run . -fill-db
-```
+Age gate (anti-false-tombstone):
+- Tombstone insertion is gated on block age using `mctransactions_sr.block_number`.
+- The tool queries StarRocks to get:
+  - `head_block = MAX(block_number)` over `mctransactions_sr` for `confirmed/pre-confirmed`
+  - `tx_block = block_number` for the specific hash (same table)
+- Tombstone insertion happens only if:
+  - `head_block - tx_block > 75`
+- If the block age is <= 75 (recent), the tool skips tombstoning and will retry on later runs.
 
-### Single transaction mode
-```
-go run . 0xTX_HASH
-```
+## Required environment variables
+- `DB_USER`, `DB_PW`, `DB_HOST`, `DB_PORT`, `DB_NAME`  (StarRocks via MySQL protocol)
+- `COVALENT_KEY`                                       (Covalent API key)
 
-### File mode
-```
-go run . -file txs.txt
-```
+## Commands
+
+Recommended (preview without DB writes):
+- `go run . -dry-run -limit 200`
+
+Recommended (write to DB):
+- `go run . -limit 200`
+
+Single-tx debug (no DB writes):
+- `go run . -tx 0x<hash>`
+
+Force recompute/overwrite existing non-null values:
+- `go run . -recompute-all -limit 500`
+
+Only inserts (skip updating existing incomplete rows):
+- `go run . -only-inserts -limit 500`
+
+Only updates (skip discovering/inserting missing txs):
+- `go run . -only-updates -limit 500`
+
+## Flags (summary)
+- `-limit N`: cap number of txs processed (0 = no limit)
+- `-dry-run`: compute and print discrepancy summary; no inserts/updates
+- `-tx 0x...`: single transaction compute; prints JSON; no DB writes
+- `-recompute-all`: overwrite computed columns on updates
+- `-only-inserts`: only insert missing hashes; do not update existing rows
+- `-only-updates`: only update existing incomplete rows; do not discover/insert missing hashes
+- `-print-sample N`: log N sample hashes for insert/update sets
+- `-only-old-lending`: restrict updates to rows where existing `is_lending=1`
+- `-compare-only-old-swapvol-gt0`: dry-run comparison filter for swap volume discrepancies
+
+## Notes
+- `processed_l1_txns_v2.l1_tx_hash` is stored as `hash_norm` (no `0x` prefix).
+- `loadExistingNeedingUpdate` excludes rows where `primary_class='not_found'` to avoid reprocessing tombstones.
