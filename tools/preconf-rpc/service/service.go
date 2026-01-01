@@ -716,7 +716,8 @@ func initDB(opts *Config) (db *sql.DB, err error) {
 
 	db.SetMaxOpenConns(50)
 	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(1 * time.Hour)
+	db.SetConnMaxLifetime(2 * time.Hour)
+	db.SetConnMaxIdleTime(15 * time.Minute)
 
 	return db, err
 }
