@@ -220,6 +220,8 @@ func New(config *Config) (*Service, error) {
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
 	s.closers = append(s.closers, channelCloser(bidderDone))
 
+	metricsRegistry := prometheus.NewRegistry()
+
 	rpcServer, err := rpcserver.NewJSONRPCServer(
 		config.L1RPCHTTPUrl,
 		config.Logger.With("module", "rpcserver"),
@@ -227,8 +229,7 @@ func New(config *Config) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create RPC server: %w", err)
 	}
-
-	metricsRegistry := prometheus.NewRegistry()
+	metricsRegistry.MustRegister(rpcServer.Metrics()...)
 
 	bidpricer, err := pricer.NewPricer(config.PricerAPIKey, config.Logger.With("module", "bidpricer"))
 	if err != nil {
