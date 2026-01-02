@@ -462,4 +462,35 @@ func TestStore(t *testing.T) {
 			t.Errorf("expected user deposit and bridge count 0, got %d and %d", userTxns.DepositCount, userTxns.BridgeCount)
 		}
 	})
+
+	t.Run("Receipt", func(t *testing.T) {
+		receipt := &types.Receipt{
+			Type:              types.LegacyTxType,
+			PostState:         []uint8{},
+			Status:            types.ReceiptStatusSuccessful,
+			CumulativeGasUsed: 21000,
+			Bloom:             types.Bloom{},
+			Logs:              txn1Logs,
+			TxHash:            txn1.Hash(),
+			ContractAddress:   common.Address{}, // usually zero unless contract creation
+			GasUsed:           21000,
+			BlockHash:         common.HexToHash("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+			BlockNumber:       big.NewInt(1),
+			TransactionIndex:  0,
+		}
+
+		err := st.StoreReceipt(context.Background(), receipt)
+		if err != nil {
+			t.Fatalf("failed to store receipt: %v", err)
+		}
+
+		retrievedReceipt, err := st.GetReceipt(context.Background(), txn1.Hash())
+		if err != nil {
+			t.Fatalf("failed to get receipt: %v", err)
+		}
+
+		if diff := cmp.Diff(receipt, retrievedReceipt, cmpopts.IgnoreUnexported(types.Receipt{}, big.Int{})); diff != "" {
+			t.Fatalf("receipt mismatch (-want +got):\n%s", diff)
+		}
+	})
 }

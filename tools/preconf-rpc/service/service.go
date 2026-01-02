@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	_ "github.com/lib/pq"
@@ -36,6 +37,7 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 	"github.com/primev/mev-commit/x/accountsync"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/transfer"
@@ -246,6 +248,8 @@ func New(config *Config) (*Service, error) {
 
 	blockTracker, err := blocktracker.NewBlockTracker(
 		l1RPCClient,
+		txmonitor.NewEVMHelperWithLogger(l1RPCClient, config.Logger.With("module", "evmhelper"), map[common.Address]*abi.ABI{}),
+		rpcstore,
 		config.Logger.With("module", "blocktracker"),
 	)
 	if err != nil {
@@ -712,7 +716,8 @@ func initDB(opts *Config) (db *sql.DB, err error) {
 
 	db.SetMaxOpenConns(50)
 	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(1 * time.Hour)
+	db.SetConnMaxLifetime(2 * time.Hour)
+	db.SetConnMaxIdleTime(15 * time.Minute)
 
 	return db, err
 }

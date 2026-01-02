@@ -237,6 +237,7 @@ func TestBackrun(t *testing.T) {
 	for {
 		if reward, exists := st.GetReward(common.HexToHash("0xa3d8155e77cc46237e007e7a1274ca277209c47f27bae4405c74f01bb14673ec")); exists {
 			expectedReward := big.NewInt(111444335163840)
+			expectedReward = new(big.Int).Div(new(big.Int).Mul(expectedReward, big.NewInt(90)), big.NewInt(100)) // 90% to user
 			if reward.Cmp(expectedReward) != 0 {
 				t.Fatalf("unexpected reward: got %v, want %v", reward, expectedReward)
 			}

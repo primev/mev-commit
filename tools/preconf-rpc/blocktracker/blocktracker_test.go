@@ -2,6 +2,7 @@ package blocktracker_test
 
 import (
 	"context"
+	"errors"
 	"hash"
 	"math/big"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/primev/mev-commit/x/util"
 	"golang.org/x/crypto/sha3"
 )
@@ -56,6 +58,40 @@ func (m *mockEthClient) BlockByNumber(ctx context.Context, blockNumber *big.Int)
 
 func (m *mockEthClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
 	return 0, nil
+}
+
+type mockBatchReceiptGetter struct {
+	receipts map[common.Hash]*types.Receipt
+}
+
+func (m *mockBatchReceiptGetter) BatchReceipts(ctx context.Context, txHashes []common.Hash) ([]txmonitor.Result, error) {
+	receipts := make([]txmonitor.Result, len(txHashes))
+	for i := range txHashes {
+		receipt, exists := m.receipts[txHashes[i]]
+		if exists {
+			receipts[i] = txmonitor.Result{Receipt: receipt, Err: nil}
+		} else {
+			receipts[i] = txmonitor.Result{Receipt: nil, Err: errors.New("receipt not found")}
+		}
+	}
+	return receipts, nil
+}
+
+type mockReceiptStore struct {
+	receipts map[common.Hash]*types.Receipt
+}
+
+func (m *mockReceiptStore) GetReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	receipt, exists := m.receipts[txHash]
+	if !exists {
+		return nil, errors.New("receipt not found")
+	}
+	return receipt, nil
+}
+
+func (m *mockReceiptStore) StoreReceipt(ctx context.Context, receipt *types.Receipt) error {
+	m.receipts[receipt.TxHash] = receipt
+	return nil
 }
 
 type testHasher struct {
@@ -128,7 +164,29 @@ func TestBlockTracker(t *testing.T) {
 		},
 	}
 
-	tracker, err := blocktracker.NewBlockTracker(client, util.NewTestLogger(os.Stdout))
+	receiptGetter := &mockBatchReceiptGetter{
+		receipts: map[common.Hash]*types.Receipt{
+			tx1.Hash(): {
+				TxHash:      tx1.Hash(),
+				BlockNumber: big.NewInt(100),
+			},
+			tx2.Hash(): {
+				TxHash:      tx2.Hash(),
+				BlockNumber: big.NewInt(100),
+			},
+			tx3.Hash(): {
+				TxHash:      tx3.Hash(),
+				BlockNumber: big.NewInt(101),
+			},
+			tx4.Hash(): nil, // Simulate missing receipt
+		},
+	}
+
+	receiptStore := &mockReceiptStore{
+		receipts: make(map[common.Hash]*types.Receipt),
+	}
+
+	tracker, err := blocktracker.NewBlockTracker(client, receiptGetter, receiptStore, util.NewTestLogger(os.Stdout))
 	if err != nil {
 		t.Fatalf("Failed to create block tracker: %v", err)
 	}
