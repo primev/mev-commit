@@ -16,6 +16,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -91,6 +92,7 @@ type JSONRPCServer struct {
 	proxyURL   string
 	httpClient *http.Client
 	cache      *lru.Cache[string, cacheEntry]
+	metrics    *metrics
 	logger     *slog.Logger
 }
 
@@ -117,9 +119,23 @@ func NewJSONRPCServer(proxyURL string, logger *slog.Logger) (*JSONRPCServer, err
 			},
 			Timeout: 15 * time.Second,
 		},
-		cache:  cache,
-		logger: logger,
+		cache:   cache,
+		metrics: newMetrics(),
+		logger:  logger,
 	}, nil
+}
+
+func (s *JSONRPCServer) Metrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		s.metrics.methodSuccessCounts,
+		s.metrics.methodFailureCounts,
+		s.metrics.methodSuccessDurations,
+		s.metrics.methodFailureDurations,
+		s.metrics.proxyMethodSuccessCounts,
+		s.metrics.proxyMethodFailureCounts,
+		s.metrics.proxyMethodSuccessDurations,
+		s.metrics.proxyMethodFailureDurations,
+	}
 }
 
 func (s *JSONRPCServer) RegisterHandler(method string, handler methodHandler) {
@@ -133,8 +149,6 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	s.logger.Debug("Received JSON-RPC request", "method", r.Method)
 
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "Invalid content type", http.StatusUnsupportedMediaType)
@@ -155,6 +169,7 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var req jsonRPCRequest
 	err = json.Unmarshal(body, &req)
 	if err != nil {
+		s.logger.Error("Failed to parse JSON-RPC request", "error", err, "body", string(body))
 		s.writeError(w, nil, CodeParseError, "Failed to parse request")
 		return
 	}
@@ -165,19 +180,20 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	defer func() {
-		s.logger.Debug("Request processing time", "method", req.Method, "id", req.ID, "duration", time.Since(start).String())
-	}()
 
 	if cacheMethods[req.Method] {
 		if stubbed, resp := maybeStubERC20Meta(req.Method, req.Params); stubbed {
 			s.writeResponse(w, req.ID, &resp)
+			s.metrics.methodSuccessCounts.WithLabelValues(req.Method).Inc()
+			s.metrics.methodSuccessDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
 			return
 		}
 		key := cacheKey(req.Method, req.Params)
 		if entry, ok := s.cache.Get(key); ok && time.Now().Before(entry.until) {
 			s.logger.Debug("Cache hit", "method", req.Method, "id", req.ID)
 			s.writeResponse(w, req.ID, &entry.data)
+			s.metrics.methodSuccessCounts.WithLabelValues(req.Method).Inc()
+			s.metrics.methodSuccessDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
 			return
 		}
 	}
@@ -186,15 +202,21 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		out, statusCode, err := s.proxyRequest(r.Context(), body)
 		if err != nil {
 			http.Error(w, err.Error(), statusCode)
+			s.metrics.proxyMethodFailureCounts.WithLabelValues(req.Method).Inc()
+			s.metrics.proxyMethodFailureDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
 			return
 		}
 		var resp jsonRPCResponse
 		if err := json.Unmarshal(out, &resp); err != nil {
 			http.Error(w, "Failed to parse proxy response", http.StatusInternalServerError)
+			s.metrics.proxyMethodFailureCounts.WithLabelValues(req.Method).Inc()
+			s.metrics.proxyMethodFailureDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
 			return
 		}
 		if resp.Error != nil {
 			s.writeError(w, req.ID, resp.Error.Code, resp.Error.Message)
+			s.metrics.proxyMethodFailureCounts.WithLabelValues(req.Method).Inc()
+			s.metrics.proxyMethodFailureDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
 			return
 		}
 		if cacheMethods[req.Method] && resp.Result != nil {
@@ -206,6 +228,8 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			s.logger.Debug("Cache store", "method", req.Method, "id", req.ID)
 		}
 		s.writeResponse(w, req.ID, resp.Result)
+		s.metrics.proxyMethodSuccessCounts.WithLabelValues(req.Method).Inc()
+		s.metrics.proxyMethodSuccessDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
 	}
 
 	s.rwLock.RLock()
@@ -219,6 +243,10 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resp, proxy, err := handler(r.Context(), req.Params...)
 	switch {
 	case err != nil:
+		defer func() {
+			s.metrics.methodFailureCounts.WithLabelValues(req.Method).Inc()
+			s.metrics.methodFailureDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
+		}()
 		var jsonErr *JSONErr
 		if ok := errors.As(err, &jsonErr); ok {
 			// If the error is a JSONErr, we can use it directly.
@@ -232,10 +260,14 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case resp == nil:
 		s.writeError(w, req.ID, CodeCustomError, "No response")
+		s.metrics.methodFailureCounts.WithLabelValues(req.Method).Inc()
+		s.metrics.methodFailureDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
 		return
 	}
 
 	s.writeResponse(w, req.ID, &resp)
+	s.metrics.methodSuccessCounts.WithLabelValues(req.Method).Inc()
+	s.metrics.methodSuccessDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
 }
 
 func (s *JSONRPCServer) writeResponse(w http.ResponseWriter, id any, result *json.RawMessage) {
