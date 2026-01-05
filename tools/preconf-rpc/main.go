@@ -300,19 +300,19 @@ var (
 	optionExplorerEndpoint = &cli.StringFlag{
 		Name:    "explorer-endpoint",
 		Usage:   "Explorer API endpoint for submitting transactions",
-		EnvVars: []string{"EXPLORER_API_ENDPOINT"},
+		EnvVars: []string{"PRECONF_RPC_EXPLORER_API_ENDPOINT"},
 	}
 
 	optionExplorerApiKey = &cli.StringFlag{
 		Name:    "explorer-apikey",
 		Usage:   "Explorer API Key",
-		EnvVars: []string{"EXPLORER_API_KEY"},
+		EnvVars: []string{"PRECONF_RPC_EXPLORER_API_KEY"},
 	}
 
 	optionExplorerAppCode = &cli.StringFlag{
 		Name:    "explorer-appcode",
 		Usage:   "Explorer App Code",
-		EnvVars: []string{"EXPLORER_APPCODE"},
+		EnvVars: []string{"PRECONF_RPC_EXPLORER_APPCODE"},
 	}
 )
 
