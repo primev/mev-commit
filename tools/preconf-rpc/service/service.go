@@ -457,10 +457,10 @@ func registerAdminAPIs(mux *http.ServeMux, token string, sndr *sender.TxSender, 
 			if !slices.ContainsFunc(cmts, func(cmt *bidderapiv1.Commitment) bool {
 				return common.HexToAddress(cmt.ProviderAddress).Cmp(p) == 0
 			}) {
-				return false
+				return true
 			}
 		}
-		return true
+		return false
 	}
 
 	sndr.SetFastTrackFunc(fastTrackFn)
