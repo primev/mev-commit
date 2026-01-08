@@ -164,6 +164,10 @@ type Backrunner interface {
 	Backrun(ctx context.Context, rawTx string, commitments []*bidderapiv1.Commitment) error
 }
 
+type ExplorerSubmitter interface {
+	Submit(ctx context.Context, tx *types.Transaction, from common.Address) error
+}
+
 type TxSender struct {
 	logger            *slog.Logger
 	store             Store
@@ -191,6 +195,7 @@ type TxSender struct {
 	receiptSignal     map[common.Hash][]chan struct{}
 	receiptMtx        sync.Mutex
 	metrics           *metrics
+	explorerSubmitter ExplorerSubmitter
 }
 
 func noOpFastTrack(_ []*bidderapiv1.Commitment, _ bool) bool {
@@ -207,6 +212,7 @@ func NewTxSender(
 	simulator Simulator,
 	backrunner Backrunner,
 	settlementChainId *big.Int,
+	explorerSubmitter ExplorerSubmitter,
 	logger *slog.Logger,
 ) (*TxSender, error) {
 	txnAttemptHistory, err := lru.New[common.Hash, *txnAttempt](1000)
@@ -242,6 +248,7 @@ func NewTxSender(
 		bidTimeout:        bidTimeout,
 		receiptSignal:     make(map[common.Hash][]chan struct{}),
 		metrics:           newMetrics(),
+		explorerSubmitter: explorerSubmitter,
 	}, nil
 }
 
@@ -332,6 +339,14 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 	}
 
 	t.triggerSender()
+
+	if err := t.explorerSubmitter.Submit(
+		context.Background(),
+		tx.Transaction,
+		tx.Sender,
+	); err != nil {
+		t.logger.Error("Failed to submit tx to explorer", "error", err)
+	}
 
 	return nil
 }

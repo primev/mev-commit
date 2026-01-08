@@ -27,6 +27,7 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/backrunner"
 	bidder "github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
+	explorersubmitter "github.com/primev/mev-commit/tools/preconf-rpc/explorer-submitter"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
 	"github.com/primev/mev-commit/tools/preconf-rpc/notifier"
 	"github.com/primev/mev-commit/tools/preconf-rpc/points"
@@ -81,6 +82,9 @@ type Config struct {
 	BackrunnerRPC          string
 	BackrunnerAPIURL       string
 	BackrunnerAPIKey       string
+	ExplorerEndpoint       string
+	ExplorerApiKey         string
+	ExplorerAppCode        string
 	PointsAPIURL           string
 	PointsAPIKey           string
 }
@@ -293,6 +297,16 @@ func New(config *Config) (*Service, error) {
 	s.closers = append(s.closers, channelCloser(backrunnerDone))
 	metricsRegistry.MustRegister(brunner.Metrics()...)
 
+	expSubmitter := explorersubmitter.New(
+		config.ExplorerEndpoint,
+		config.ExplorerApiKey,
+		config.ExplorerAppCode,
+		config.Logger.With("module", "explorersubmitter"),
+	)
+	expSubmitterDone := expSubmitter.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("ExplorerSubmitter", expSubmitterDone))
+	s.closers = append(s.closers, channelCloser(expSubmitterDone))
+
 	sndr, err := sender.NewTxSender(
 		rpcstore,
 		bidderClient,
@@ -303,6 +317,7 @@ func New(config *Config) (*Service, error) {
 		simulator,
 		brunner,
 		settlementChainID,
+		expSubmitter,
 		config.Logger.With("module", "txsender"),
 	)
 	if err != nil {

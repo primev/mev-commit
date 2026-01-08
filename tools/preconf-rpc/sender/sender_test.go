@@ -300,6 +300,12 @@ func (m *mockBackrunner) Backrun(ctx context.Context, rawTx string, commitments 
 	return nil
 }
 
+type MockExplorerSubmitter struct{}
+
+func (m *MockExplorerSubmitter) Submit(ctx context.Context, tx *types.Transaction, from common.Address) error {
+	return nil
+}
+
 func TestSender(t *testing.T) {
 	t.Parallel()
 
@@ -330,6 +336,7 @@ func TestSender(t *testing.T) {
 		&mockSimulator{},
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
+		&MockExplorerSubmitter{},
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -584,6 +591,7 @@ func TestCancelTransaction(t *testing.T) {
 		&mockSimulator{},
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
+		&MockExplorerSubmitter{},
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -672,6 +680,7 @@ func TestIgnoreProvidersOnRetry(t *testing.T) {
 		&mockSimulator{},
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
+		&MockExplorerSubmitter{},
 		util.NewTestLogger(io.Discard),
 	)
 	if err != nil {
