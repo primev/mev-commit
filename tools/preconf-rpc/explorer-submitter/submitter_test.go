@@ -2,8 +2,10 @@ package explorersubmitter
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -15,13 +17,46 @@ import (
 )
 
 func TestSubmit(t *testing.T) {
-	endpoint := os.Getenv("EXPLORER_API_ENDPOINT")
-	apiKey := os.Getenv("EXPLORER_API_KEY")
-	appCode := os.Getenv("EXPLORER_APPCODE")
+	reqChan := make(chan *http.Request, 1)
 
-	if endpoint == "" || apiKey == "" || appCode == "" {
-		t.Skip("skipping integration test, flags not provided")
-	}
+	srv := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			q := r.URL.Query()
+			if q.Get("apikey") == "" {
+				http.Error(w, "missing apikey", http.StatusBadRequest)
+				return
+			}
+			if q.Get("action") != "submitTxPending" {
+				http.Error(w, "wrong action", http.StatusBadRequest)
+				return
+			}
+
+			jsonData := q.Get("JsonData")
+			if jsonData == "" {
+				http.Error(w, "missing JsonData", http.StatusBadRequest)
+				return
+			}
+
+			var txData TxData
+			if err := json.Unmarshal([]byte(jsonData), &txData); err != nil {
+				http.Error(w, "invalid json data", http.StatusBadRequest)
+				return
+			}
+
+			if txData.ChainID != "1" {
+				http.Error(w, "wrong chain id", http.StatusBadRequest)
+				return
+			}
+
+			reqChan <- r
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+	defer srv.Close()
+
+	endpoint := srv.URL
+	apiKey := "test-api-key"
+	appCode := "test-app-code"
 
 	logger := util.NewTestLogger(os.Stdout)
 	submitter := New(endpoint, apiKey, appCode, logger)
@@ -32,12 +67,18 @@ func TestSubmit(t *testing.T) {
 	done := submitter.Start(ctx)
 
 	tx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), nil)
-	fmt.Printf("Submitting mock transaction with hash: %s\n", tx.Hash().Hex())
 	err := submitter.Submit(ctx, tx, common.Address{})
 	require.NoError(t, err)
 
-	// allow processing
-	time.Sleep(2 * time.Second)
+	select {
+	case <-reqChan:
+		// Request received by server.
+		// Give a moment for the server to reply and the client to process the 200 OK
+		// preventing "context canceled" error in logs.
+		time.Sleep(50 * time.Millisecond)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for request")
+	}
 
 	cancel()
 	<-done
