@@ -98,6 +98,7 @@ func (b *Bidder) handle(ctx context.Context, targetBlock TargetBlock) {
 		"targetBlockTime", targetBlock.Time,
 	)
 
+	time.Sleep(6 * time.Second) // send bid mid-slot instead of immediately on new head
 	bidStream, tx, err := b.bid(bidCtx, b.bidAmount, targetBlock)
 	if err != nil {
 		b.logger.Error("bid failed", "error", err)
