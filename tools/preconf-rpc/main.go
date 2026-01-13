@@ -87,6 +87,12 @@ var (
 		Required: true,
 	}
 
+	optionL1ReceiptsRPCUrl = &cli.StringFlag{
+		Name:    "l1-receipts-rpc-url",
+		Usage:   "URL for L1 receipts RPC, if different from L1 RPC HTTP URL",
+		EnvVars: []string{"PRECONF_RPC_L1_RECEIPTS_RPC_URL"},
+	}
+
 	optionL1RPCWSUrl = &cli.StringFlag{
 		Name:     "l1-rpc-ws-url",
 		Usage:    "Websocket URL for L1 RPC",
@@ -360,6 +366,7 @@ func main() {
 			optionExplorerAppCode,
 			optionPointsAPIURL,
 			optionPointsAPIKey,
+			optionL1ReceiptsRPCUrl,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -415,6 +422,11 @@ func main() {
 				return fmt.Errorf("failed to create signer: %w", err)
 			}
 
+			l1ReceiptsURL := c.String(optionL1ReceiptsRPCUrl.Name)
+			if l1ReceiptsURL == "" {
+				l1ReceiptsURL = c.String(optionL1RPCHTTPUrl.Name)
+			}
+
 			sigc := make(chan os.Signal, 1)
 			signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 
@@ -455,6 +467,7 @@ func main() {
 				ExplorerAppCode:        c.String(optionExplorerAppCode.Name),
 				PointsAPIURL:           c.String(optionPointsAPIURL.Name),
 				PointsAPIKey:           c.String(optionPointsAPIKey.Name),
+				L1ReceiptsRPCUrl:       l1ReceiptsURL,
 			}
 
 			s, err := service.New(&config)

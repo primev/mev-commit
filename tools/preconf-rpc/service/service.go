@@ -87,6 +87,7 @@ type Config struct {
 	ExplorerAppCode        string
 	PointsAPIURL           string
 	PointsAPIKey           string
+	L1ReceiptsRPCUrl       string
 }
 
 type Service struct {
@@ -114,6 +115,10 @@ func New(config *Config) (*Service, error) {
 		return nil, err
 	}
 	settlementClient, err := ethclient.Dial(config.SettlementRPCUrl)
+	if err != nil {
+		return nil, err
+	}
+	l1ReceiptsClient, err := ethclient.DialContext(context.Background(), config.L1ReceiptsRPCUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +258,7 @@ func New(config *Config) (*Service, error) {
 
 	blockTracker, err := blocktracker.NewBlockTracker(
 		l1RPCClient,
-		txmonitor.NewEVMHelperWithLogger(l1RPCClient, config.Logger.With("module", "evmhelper"), map[common.Address]*abi.ABI{}),
+		txmonitor.NewEVMHelperWithLogger(l1ReceiptsClient, config.Logger.With("module", "evmhelper"), map[common.Address]*abi.ABI{}),
 		rpcstore,
 		config.Logger.With("module", "blocktracker"),
 	)
