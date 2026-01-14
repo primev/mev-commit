@@ -1,0 +1,124 @@
+name: CD - Argo Deploy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: 'Skip image build (use existing tag)'
+        type: boolean
+        default: false
+      image_tag:
+        description: 'Image tag to deploy (if skip_build=true)'
+        type: string
+        default: 'latest'
+
+env:
+  REGISTRY: mccr.mev-commit.xyz
+
+jobs:
+  build:
+    name: Build & Push Images
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'pull_request' || github.event.inputs.skip_build != 'true' }}
+    outputs:
+      tag: ${{ steps.tag.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Generate Tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BRANCH="${{ github.head_ref }}"
+          else
+            BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+          fi
+          SAFE_BRANCH=$(echo "${BRANCH}" | sed 's/[^a-zA-Z0-9._-]/-/g' | cut -c1-50)
+          TAG="${SAFE_BRANCH}-$(git rev-parse --short HEAD)"
+          echo "value=${TAG}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${TAG}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: primev
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and Push Images
+        working-directory: infrastructure/docker
+        env:
+          TAG: ${{ steps.tag.outputs.value }}
+          REGISTRY: ${{ env.REGISTRY }}
+          GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+        run: |
+          docker buildx bake \
+            mev-commit-oracle \
+            mev-commit \
+            mev-commit-bridge \
+            mev-commit-dashboard \
+            preconf-rpc \
+            bidder-emulator \
+            provider-emulator \
+            realbidder-emulator \
+            relay-emulator \
+            l1-volume-indexer \
+            snode \
+            --set "*.output=type=registry" \
+            --push
+
+          echo "✅ Images pushed with tag: ${TAG}"
+
+  trigger-deploy:
+    name: Trigger Argo Events Webhook
+    runs-on: ubuntu-24.04
+    needs: build
+    if: ${{ always() && (needs.build.result == 'success' || github.event.inputs.skip_build == 'true') }}
+    steps:
+      - name: Determine Image Tag
+        id: image-tag
+        run: |
+          if [ "${{ github.event.inputs.skip_build }}" = "true" ]; then
+            echo "value=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ needs.build.outputs.tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger Argo Events Webhook
+        env:
+          WEBHOOK_SECRET: ${{ secrets.ARGO_EVENTS_WEBHOOK_SECRET }}
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${WEBHOOK_SECRET}" \
+            -d '{
+              "action": "build_complete",
+              "image_tag": "${{ steps.image-tag.outputs.value }}",
+              "registry": "${{ env.REGISTRY }}",
+              "pr_number": "${{ github.event.pull_request.number || 0 }}",
+              "pr_sha": "${{ github.sha }}",
+              "branch": "${{ github.head_ref || github.ref_name }}",
+              "repository": "${{ github.repository }}"
+            }' \
+            https://argo-events.mev-commit.xyz/build-complete
+
+          echo "✅ Argo Events webhook triggered with image-tag: ${{ steps.image-tag.outputs.value }}"
+
+      - name: Summary
+        run: |
+          echo "## 🚀 Deployment Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Tag:** \`${{ steps.image-tag.outputs.value }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**PR:** #${{ github.event.pull_request.number || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Argo Events will trigger the deployment workflow." >> $GITHUB_STEP_SUMMARY
