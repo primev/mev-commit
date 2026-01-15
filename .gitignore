@@ -13,6 +13,8 @@
 
 # Ignore environment files.
 *.env
+.secrets
+.act-event.json
 
 # Ignore configuration files.
 *.ini
