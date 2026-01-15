@@ -10,15 +10,12 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
-	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
-	"github.com/primev/mev-commit/x/util"
 )
 
 // Message represents a notification message structure
@@ -196,69 +193,6 @@ func (n *Notifier) SendBidderFundedNotification(
 		},
 	}
 	return n.SendMessage(ctx, message)
-}
-
-func buildStatus(t txnInfo) string {
-	switch t.txn.Status {
-	case sender.TxStatusPreConfirmed:
-		return "⚡ Pre-Confirmed"
-	case sender.TxStatusConfirmed:
-		return "✅ Confirmed"
-	case sender.TxStatusFailed:
-		return fmt.Sprintf("❌ Failed (Error: %s)", t.txn.Details)
-	default:
-		return "❓ Unknown"
-	}
-}
-
-func buildType(t txnInfo) string {
-	switch t.txn.Type {
-	case sender.TxTypeRegular:
-		classification := util.ClassifyTxOnly(t.txn.Transaction, t.txn.Sender)
-		return fmt.Sprintf("💸 %s (%s)", classification.Kind, classification.Details)
-	case sender.TxTypeDeposit:
-		return "🏦 Deposit"
-	case sender.TxTypeInstantBridge:
-		return "🌉 Instant Bridge"
-	default:
-		return "❓ Unknown"
-	}
-}
-
-func buildConstraint(t txnInfo) string {
-	if t.txn.Constraint == nil {
-		return "None"
-	}
-	str := strings.Builder{}
-	switch t.txn.Constraint.Basis {
-	case bidderapiv1.PositionConstraint_BASIS_ABSOLUTE:
-		str.WriteString(fmt.Sprintf("Position %d", t.txn.Constraint.Value))
-		switch t.txn.Constraint.Anchor {
-		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
-			str.WriteString(" from Top")
-		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-			str.WriteString(" from Bottom")
-		}
-	case bidderapiv1.PositionConstraint_BASIS_PERCENTILE:
-		switch t.txn.Constraint.Anchor {
-		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
-			str.WriteString("Top ")
-		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-			str.WriteString("Bottom ")
-		}
-		str.WriteString(fmt.Sprintf("%d%%", t.txn.Constraint.Value))
-	case bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE:
-		switch t.txn.Constraint.Anchor {
-		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
-			str.WriteString("Top ")
-		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-			str.WriteString("Bottom ")
-		}
-		str.WriteString(fmt.Sprintf("Gas Percentile %d%%", t.txn.Constraint.Value))
-	default:
-		str.WriteString(" Unknown Basis")
-	}
-	return str.String()
 }
 
 func (n *Notifier) StartTransactionNotifier(
