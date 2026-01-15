@@ -10,15 +10,12 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
-	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
-	"github.com/primev/mev-commit/x/util"
 )
 
 // Message represents a notification message structure
@@ -198,69 +195,6 @@ func (n *Notifier) SendBidderFundedNotification(
 	return n.SendMessage(ctx, message)
 }
 
-func buildStatus(t txnInfo) string {
-	switch t.txn.Status {
-	case sender.TxStatusPreConfirmed:
-		return "⚡ Pre-Confirmed"
-	case sender.TxStatusConfirmed:
-		return "✅ Confirmed"
-	case sender.TxStatusFailed:
-		return fmt.Sprintf("❌ Failed (Error: %s)", t.txn.Details)
-	default:
-		return "❓ Unknown"
-	}
-}
-
-func buildType(t txnInfo) string {
-	switch t.txn.Type {
-	case sender.TxTypeRegular:
-		classification := util.ClassifyTxOnly(t.txn.Transaction, t.txn.Sender)
-		return fmt.Sprintf("💸 %s (%s)", classification.Kind, classification.Details)
-	case sender.TxTypeDeposit:
-		return "🏦 Deposit"
-	case sender.TxTypeInstantBridge:
-		return "🌉 Instant Bridge"
-	default:
-		return "❓ Unknown"
-	}
-}
-
-func buildConstraint(t txnInfo) string {
-	if t.txn.Constraint == nil {
-		return "None"
-	}
-	str := strings.Builder{}
-	switch t.txn.Constraint.Basis {
-	case bidderapiv1.PositionConstraint_BASIS_ABSOLUTE:
-		str.WriteString(fmt.Sprintf("Position %d", t.txn.Constraint.Value))
-		switch t.txn.Constraint.Anchor {
-		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
-			str.WriteString(" from Top")
-		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-			str.WriteString(" from Bottom")
-		}
-	case bidderapiv1.PositionConstraint_BASIS_PERCENTILE:
-		switch t.txn.Constraint.Anchor {
-		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
-			str.WriteString("Top ")
-		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-			str.WriteString("Bottom ")
-		}
-		str.WriteString(fmt.Sprintf("%d%%", t.txn.Constraint.Value))
-	case bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE:
-		switch t.txn.Constraint.Anchor {
-		case bidderapiv1.PositionConstraint_ANCHOR_TOP:
-			str.WriteString("Top ")
-		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-			str.WriteString("Bottom ")
-		}
-		str.WriteString(fmt.Sprintf("Gas Percentile %d%%", t.txn.Constraint.Value))
-	default:
-		str.WriteString(" Unknown Basis")
-	}
-	return str.String()
-}
-
 func (n *Notifier) StartTransactionNotifier(
 	ctx context.Context,
 ) <-chan struct{} {
@@ -287,24 +221,50 @@ func (n *Notifier) StartTransactionNotifier(
 				n.queuedTxns = nil
 				n.queuedMu.Unlock()
 				// create markdown table with the txn info
-				fields := make([]Field, 0, len(txnsToNotify)*2)
+				fields := make([]Field, 0, 8)
+				var (
+					totalDuration        time.Duration
+					totalAttempts        int
+					totalBlocksToConfirm int
+					totalFailed          int
+					totalPreConfirmed    int
+					totalConfirmed       int
+				)
 				for _, t := range txnsToNotify {
-					fields = append(fields,
-						Field{Title: "Txn", Value: fmt.Sprintf("`%s`", t.txn.Hash().Hex()), Short: false},
-						Field{Title: "Status", Value: buildStatus(t), Short: true},
-						Field{Title: "Sender", Value: fmt.Sprintf("`%s`", t.txn.Sender.Hex()[:10]), Short: true},
-						Field{Title: "Type", Value: buildType(t), Short: true},
-						Field{Title: "Attempts", Value: fmt.Sprintf("%d", t.noOfAttempts), Short: true},
-						Field{Title: "Duration", Value: t.timeTaken.String(), Short: true},
-						Field{Title: "Included Block", Value: fmt.Sprintf("%d", t.txn.BlockNumber), Short: true},
-						Field{Title: "No. of Blocks to confirm", Value: fmt.Sprintf("%d", t.noOfBlocks), Short: true},
-					)
-					if t.txn.Constraint != nil {
-						fields = append(fields,
-							Field{Title: "Constraint", Value: buildConstraint(t), Short: true},
-						)
+					switch t.txn.Status {
+					case sender.TxStatusFailed:
+						totalFailed++
+					case sender.TxStatusPreConfirmed:
+						totalPreConfirmed++
+					case sender.TxStatusConfirmed:
+						totalConfirmed++
+					}
+					if t.txn.Status != sender.TxStatusFailed {
+						totalDuration += t.timeTaken
+						totalAttempts += t.noOfAttempts
+						totalBlocksToConfirm += t.noOfBlocks
 					}
 				}
+				// summary fields
+				avgDuration := time.Duration(0)
+				avgAttempts := 0
+				avgBlocks := 0
+				successfulTxns := len(txnsToNotify) - totalFailed
+				if successfulTxns > 0 {
+					avgDuration = totalDuration / time.Duration(successfulTxns)
+					avgAttempts = totalAttempts / successfulTxns
+					avgBlocks = totalBlocksToConfirm / successfulTxns
+				}
+				fields = append(fields,
+					Field{Title: "Total Transactions", Value: fmt.Sprintf("%d", len(txnsToNotify)), Short: true},
+					Field{Title: "Successful Transactions", Value: fmt.Sprintf("%d", successfulTxns), Short: true},
+					Field{Title: "Failed Transactions", Value: fmt.Sprintf("%d", totalFailed), Short: true},
+					Field{Title: "Pre-Confirmed", Value: fmt.Sprintf("%d", totalPreConfirmed), Short: true},
+					Field{Title: "Confirmed", Value: fmt.Sprintf("%d", totalConfirmed), Short: true},
+					Field{Title: "Avg. Duration", Value: avgDuration.String(), Short: true},
+					Field{Title: "Avg. Attempts", Value: fmt.Sprintf("%d", avgAttempts), Short: true},
+					Field{Title: "Avg. Blocks to Confirm", Value: fmt.Sprintf("%d", avgBlocks), Short: true},
+				)
 				message := Message{
 					Text: "🚀 Transaction Report",
 					Attachments: []Attachment{{
