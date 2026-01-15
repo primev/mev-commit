@@ -287,24 +287,50 @@ func (n *Notifier) StartTransactionNotifier(
 				n.queuedTxns = nil
 				n.queuedMu.Unlock()
 				// create markdown table with the txn info
-				fields := make([]Field, 0, len(txnsToNotify)*2)
+				fields := make([]Field, 0, 8)
+				var (
+					totalDuration        time.Duration
+					totalAttempts        int
+					totalBlocksToConfirm int
+					totalFailed          int
+					totalPreConfirmed    int
+					totalConfirmed       int
+				)
 				for _, t := range txnsToNotify {
-					fields = append(fields,
-						Field{Title: "Txn", Value: fmt.Sprintf("`%s`", t.txn.Hash().Hex()), Short: false},
-						Field{Title: "Status", Value: buildStatus(t), Short: true},
-						Field{Title: "Sender", Value: fmt.Sprintf("`%s`", t.txn.Sender.Hex()[:10]), Short: true},
-						Field{Title: "Type", Value: buildType(t), Short: true},
-						Field{Title: "Attempts", Value: fmt.Sprintf("%d", t.noOfAttempts), Short: true},
-						Field{Title: "Duration", Value: t.timeTaken.String(), Short: true},
-						Field{Title: "Included Block", Value: fmt.Sprintf("%d", t.txn.BlockNumber), Short: true},
-						Field{Title: "No. of Blocks to confirm", Value: fmt.Sprintf("%d", t.noOfBlocks), Short: true},
-					)
-					if t.txn.Constraint != nil {
-						fields = append(fields,
-							Field{Title: "Constraint", Value: buildConstraint(t), Short: true},
-						)
+					switch t.txn.Status {
+					case sender.TxStatusFailed:
+						totalFailed++
+					case sender.TxStatusPreConfirmed:
+						totalPreConfirmed++
+					case sender.TxStatusConfirmed:
+						totalConfirmed++
+					}
+					if t.txn.Status != sender.TxStatusFailed {
+						totalDuration += t.timeTaken
+						totalAttempts += t.noOfAttempts
+						totalBlocksToConfirm += t.noOfBlocks
 					}
 				}
+				// summary fields
+				avgDuration := time.Duration(0)
+				avgAttempts := 0
+				avgBlocks := 0
+				successfulTxns := len(txnsToNotify) - totalFailed
+				if successfulTxns > 0 {
+					avgDuration = totalDuration / time.Duration(successfulTxns)
+					avgAttempts = totalAttempts / successfulTxns
+					avgBlocks = totalBlocksToConfirm / successfulTxns
+				}
+				fields = append(fields,
+					Field{Title: "Total Transactions", Value: fmt.Sprintf("%d", len(txnsToNotify)), Short: true},
+					Field{Title: "Successful Transactions", Value: fmt.Sprintf("%d", successfulTxns), Short: true},
+					Field{Title: "Failed Transactions", Value: fmt.Sprintf("%d", totalFailed), Short: true},
+					Field{Title: "Pre-Confirmed", Value: fmt.Sprintf("%d", totalPreConfirmed), Short: true},
+					Field{Title: "Confirmed", Value: fmt.Sprintf("%d", totalConfirmed), Short: true},
+					Field{Title: "Avg. Duration", Value: avgDuration.String(), Short: true},
+					Field{Title: "Avg. Attempts", Value: fmt.Sprintf("%d", avgAttempts), Short: true},
+					Field{Title: "Avg. Blocks to Confirm", Value: fmt.Sprintf("%d", avgBlocks), Short: true},
+				)
 				message := Message{
 					Text: "🚀 Transaction Report",
 					Attachments: []Attachment{{
