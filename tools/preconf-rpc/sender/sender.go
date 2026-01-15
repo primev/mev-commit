@@ -623,7 +623,7 @@ BID_LOOP:
 				}
 				t.signalReceiptAvailable(txn.Hash())
 				if err := t.explorerSubmitter.Submit(
-					context.Background(),
+					ctx,
 					txn.Transaction,
 					txn.Sender,
 				); err != nil {
@@ -944,7 +944,7 @@ BID_LOOP:
 					t.signalReceiptAvailable(txn.Hash())
 					t.metrics.timeToFirstPreconfirmation.Observe(float64(time.Since(start).Milliseconds()))
 					if err := t.explorerSubmitter.Submit(
-						context.Background(),
+						ctx,
 						txn.Transaction,
 						txn.Sender,
 					); err != nil {
