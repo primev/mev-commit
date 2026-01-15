@@ -948,7 +948,7 @@ BID_LOOP:
 						txn.Transaction,
 						txn.Sender,
 					); err != nil {
-						t.logger.Error("Failed to submit tx to explorer", "error", err)
+						t.logger.Error("Failed to submit fast-tracked tx to explorer", "error", err)
 					}
 				}
 				t.metrics.preconfDurationsProvider.WithLabelValues(cmt.ProviderAddress).Set(float64(time.Since(bidStart).Milliseconds()))
