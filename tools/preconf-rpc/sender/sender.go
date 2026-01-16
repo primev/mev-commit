@@ -340,14 +340,6 @@ func (t *TxSender) Enqueue(ctx context.Context, tx *Transaction) error {
 
 	t.triggerSender()
 
-	if err := t.explorerSubmitter.Submit(
-		context.Background(),
-		tx.Transaction,
-		tx.Sender,
-	); err != nil {
-		t.logger.Error("Failed to submit tx to explorer", "error", err)
-	}
-
 	return nil
 }
 
@@ -630,6 +622,13 @@ BID_LOOP:
 					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
 				}
 				t.signalReceiptAvailable(txn.Hash())
+				if err := t.explorerSubmitter.Submit(
+					ctx,
+					txn.Transaction,
+					txn.Sender,
+				); err != nil {
+					t.logger.Error("Failed to submit tx to explorer", "error", err)
+				}
 			}
 			retryTicker.Reset(result.timeUntillNextBlock + 1*time.Second)
 		default:
@@ -944,6 +943,13 @@ BID_LOOP:
 					}
 					t.signalReceiptAvailable(txn.Hash())
 					t.metrics.timeToFirstPreconfirmation.Observe(float64(time.Since(start).Milliseconds()))
+					if err := t.explorerSubmitter.Submit(
+						ctx,
+						txn.Transaction,
+						txn.Sender,
+					); err != nil {
+						t.logger.Error("Failed to submit fast-tracked tx to explorer", "error", err)
+					}
 				}
 				t.metrics.preconfDurationsProvider.WithLabelValues(cmt.ProviderAddress).Set(float64(time.Since(bidStart).Milliseconds()))
 				t.metrics.preconfCountsProvider.WithLabelValues(cmt.ProviderAddress).Inc()
