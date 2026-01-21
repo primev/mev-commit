@@ -6,9 +6,9 @@
 pragma solidity 0.8.26;
 
 import {Script} from "forge-std/Script.sol";
-import {VanillaRegistry} from "../../contracts/validator-registry/VanillaRegistry.sol";
+import {VanillaRegistryV2} from "../../contracts/validator-registry/VanillaRegistryV2.sol";
 import {console} from "forge-std/console.sol";
-import {VanillaRegistryStorage} from "../../contracts/validator-registry/VanillaRegistryStorage.sol";
+import {VanillaRegistryStorageV2} from "../../contracts/validator-registry/VanillaRegistryStorageV2.sol";
 import {MevCommitAVS} from "../../contracts/validator-registry/avs/MevCommitAVS.sol";
 import {MevCommitAVSStorage} from "../../contracts/validator-registry/avs/MevCommitAVSStorage.sol";
 
@@ -17,17 +17,17 @@ contract GetVanillaRegistryParams is Script {
         console.log("Getting params for VanillaRegistry on chain:", block.chainid);
         address vanillaRegAddr = 0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9;
 
-        address owner = VanillaRegistry(payable(vanillaRegAddr)).owner();
+        address owner = VanillaRegistryV2(payable(vanillaRegAddr)).owner();
         console.log("VanillaRegistry owner:", owner);
-        bool isPaused = VanillaRegistry(payable(vanillaRegAddr)).paused();
+        bool isPaused = VanillaRegistryV2(payable(vanillaRegAddr)).paused();
         console.log("VanillaRegistry isPaused:", isPaused);
-        uint256 minStake = VanillaRegistryStorage(payable(vanillaRegAddr)).minStake();
+        uint256 minStake = VanillaRegistryStorageV2(payable(vanillaRegAddr)).minStake();
         console.log("VanillaRegistry minStake:", minStake);
-        address slashOracle = VanillaRegistryStorage(payable(vanillaRegAddr)).slashOracle();
+        address slashOracle = VanillaRegistryStorageV2(payable(vanillaRegAddr)).slashOracle();
         console.log("VanillaRegistry slashOracle:", slashOracle);
-        uint256 unstakePeriodBlocks = VanillaRegistryStorage(payable(vanillaRegAddr)).unstakePeriodBlocks();
+        uint256 unstakePeriodBlocks = VanillaRegistryStorageV2(payable(vanillaRegAddr)).unstakePeriodBlocks();
         console.log("VanillaRegistry unstakePeriodBlocks:", unstakePeriodBlocks);
-        uint256 accumulatedFunds = VanillaRegistry(payable(vanillaRegAddr)).getAccumulatedSlashingFunds();
+        uint256 accumulatedFunds = VanillaRegistryV2(payable(vanillaRegAddr)).getAccumulatedSlashingFunds();
         console.log("VanillaRegistry accumulatedFunds:", accumulatedFunds);
     }
 }

@@ -3,9 +3,9 @@ pragma solidity 0.8.26;
 
 import { BlockHeightOccurrence } from "../utils/Occurrence.sol";
 
-/// @title IVanillaRegistry
+/// @title IVanillaRegistryV2
 /// @notice Interface for the VanillaRegistry contract for validators.
-interface IVanillaRegistry {
+interface IVanillaRegistryV2 {
 
     /// @dev Struct representing a validator staked with the registry.
     struct StakedValidator {

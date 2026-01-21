@@ -474,7 +474,7 @@ deploy_contract_generic() {
 }
 
 deploy_vanilla() {
-    deploy_contract_generic "scripts/validator-registry/DeployVanillaRegistry.s.sol"
+    deploy_contract_generic "scripts/validator-registry/DeployVanillaRegistryV2.s.sol"
 }
 
 deploy_vanilla_rep() {
