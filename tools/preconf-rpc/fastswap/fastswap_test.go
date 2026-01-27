@@ -277,17 +277,15 @@ func TestHandleSwap(t *testing.T) {
 	svc.SetExecutorDeps(mockSigner, mockEnqueuer, mockTracker)
 
 	req := fastswap.SwapRequest{
-		Intent: fastswap.Intent{
-			User:        common.HexToAddress("0xUserAddress"),
-			InputToken:  common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
-			OutputToken: common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"),
-			InputAmt:    big.NewInt(1000000000),
-			UserAmtOut:  big.NewInt(500000000000000000),
-			Recipient:   common.HexToAddress("0xRecipientAddress"),
-			Deadline:    big.NewInt(1700000000),
-			Nonce:       big.NewInt(1),
-		},
-		Signature: []byte{0x01, 0x02, 0x03, 0x04},
+		User:        common.HexToAddress("0xUserAddress"),
+		InputToken:  common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
+		OutputToken: common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"),
+		InputAmt:    big.NewInt(1000000000),
+		UserAmtOut:  big.NewInt(500000000000000000),
+		Recipient:   common.HexToAddress("0xRecipientAddress"),
+		Deadline:    big.NewInt(1700000000),
+		Nonce:       big.NewInt(1),
+		Signature:   []byte{0x01, 0x02, 0x03, 0x04},
 	}
 
 	ctx := context.Background()
@@ -317,12 +315,10 @@ func TestHandleSwap_NoExecutorDeps(t *testing.T) {
 	// No executor deps set
 
 	req := fastswap.SwapRequest{
-		Intent: fastswap.Intent{
-			User:       common.HexToAddress("0xUserAddress"),
-			InputToken: common.HexToAddress("0xInputToken"),
-			InputAmt:   big.NewInt(1000),
-		},
-		Signature: []byte{0x01, 0x02},
+		User:       common.HexToAddress("0xUserAddress"),
+		InputToken: common.HexToAddress("0xInputToken"),
+		InputAmt:   big.NewInt(1000),
+		Signature:  []byte{0x01, 0x02},
 	}
 
 	ctx := context.Background()
@@ -395,18 +391,16 @@ func TestHandler(t *testing.T) {
 
 	handler := svc.Handler()
 
-	// Use raw JSON with proper big.Int encoding (numbers, not quoted strings)
+	// Use raw JSON with flattened request structure
 	reqJSON := `{
-		"intent": {
-			"user": "0x0000000000000000000000000000000000000001",
-			"inputToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-			"outputToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-			"inputAmt": 1000000000,
-			"userAmtOut": 500000000000000000,
-			"recipient": "0x0000000000000000000000000000000000000002",
-			"deadline": 1700000000,
-			"nonce": 1
-		},
+		"user": "0x0000000000000000000000000000000000000001",
+		"inputToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+		"outputToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+		"inputAmt": 1000000000,
+		"userAmtOut": 500000000000000000,
+		"recipient": "0x0000000000000000000000000000000000000002",
+		"deadline": 1700000000,
+		"nonce": 1,
 		"signature": "AQIDBA=="
 	}`
 
@@ -449,37 +443,31 @@ func TestHandler_MissingFields(t *testing.T) {
 	}{
 		{
 			name:     "missing user",
-			reqBody:  map[string]interface{}{"intent": map[string]interface{}{}},
-			expected: "missing intent.user",
+			reqBody:  map[string]interface{}{},
+			expected: "missing user address",
 		},
 		{
 			name: "missing inputToken",
 			reqBody: map[string]interface{}{
-				"intent": map[string]interface{}{
-					"user": "0x1234567890123456789012345678901234567890",
-				},
+				"user": "0x1234567890123456789012345678901234567890",
 			},
-			expected: "missing intent.inputToken",
+			expected: "missing inputToken",
 		},
 		{
 			name: "missing outputToken",
 			reqBody: map[string]interface{}{
-				"intent": map[string]interface{}{
-					"user":       "0x1234567890123456789012345678901234567890",
-					"inputToken": "0x1234567890123456789012345678901234567890",
-				},
+				"user":       "0x1234567890123456789012345678901234567890",
+				"inputToken": "0x1234567890123456789012345678901234567890",
 			},
-			expected: "missing intent.outputToken",
+			expected: "missing outputToken",
 		},
 		{
 			name: "missing signature",
 			reqBody: map[string]interface{}{
-				"intent": map[string]interface{}{
-					"user":        "0x1234567890123456789012345678901234567890",
-					"inputToken":  "0x1234567890123456789012345678901234567890",
-					"outputToken": "0x1234567890123456789012345678901234567890",
-					"inputAmt":    1000, // Use numeric value, not string
-				},
+				"user":        "0x1234567890123456789012345678901234567890",
+				"inputToken":  "0x1234567890123456789012345678901234567890",
+				"outputToken": "0x1234567890123456789012345678901234567890",
+				"inputAmt":    1000,
 			},
 			expected: "missing signature",
 		},
@@ -517,13 +505,13 @@ func TestETHHandler(t *testing.T) {
 
 	handler := svc.ETHHandler()
 
-	// Use raw JSON with proper big.Int encoding (numbers, not quoted strings)
+	// ETH handler expects string values for numeric fields
 	reqJSON := `{
 		"outputToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-		"inputAmt": 1000000000000000000,
-		"userAmtOut": 2000000000,
+		"inputAmt": "1000000000000000000",
+		"userAmtOut": "2000000000",
 		"sender": "0x0000000000000000000000000000000000000001",
-		"deadline": 1700000000
+		"deadline": "1700000000"
 	}`
 
 	req := httptest.NewRequest(http.MethodPost, "/fastswap/eth", strings.NewReader(reqJSON))
@@ -567,20 +555,21 @@ func TestETHHandler_MissingFields(t *testing.T) {
 		{
 			name:     "missing sender",
 			reqBody:  map[string]interface{}{},
-			expected: "missing sender",
+			expected: "missing or invalid sender",
 		},
 		{
 			name: "missing outputToken",
 			reqBody: map[string]interface{}{
 				"sender": "0x1234567890123456789012345678901234567890",
 			},
-			expected: "missing outputToken",
+			expected: "missing or invalid outputToken",
 		},
 		{
 			name: "invalid inputAmt",
 			reqBody: map[string]interface{}{
 				"sender":      "0x1234567890123456789012345678901234567890",
 				"outputToken": "0x1234567890123456789012345678901234567890",
+				"inputAmt":    "invalid",
 			},
 			expected: "invalid inputAmt",
 		},
@@ -589,7 +578,8 @@ func TestETHHandler_MissingFields(t *testing.T) {
 			reqBody: map[string]interface{}{
 				"sender":      "0x1234567890123456789012345678901234567890",
 				"outputToken": "0x1234567890123456789012345678901234567890",
-				"inputAmt":    1000, // Use numeric value
+				"inputAmt":    "1000",
+				"userAmtOut":  "invalid",
 			},
 			expected: "invalid userAmtOut",
 		},
@@ -598,8 +588,9 @@ func TestETHHandler_MissingFields(t *testing.T) {
 			reqBody: map[string]interface{}{
 				"sender":      "0x1234567890123456789012345678901234567890",
 				"outputToken": "0x1234567890123456789012345678901234567890",
-				"inputAmt":    1000, // Use numeric value
-				"userAmtOut":  900,  // Use numeric value
+				"inputAmt":    "1000",
+				"userAmtOut":  "900",
+				"deadline":    "invalid",
 			},
 			expected: "invalid deadline",
 		},

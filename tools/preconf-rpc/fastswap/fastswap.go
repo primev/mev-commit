@@ -17,13 +17,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	fastsettlementv3 "github.com/primev/mev-commit/contracts-abi/clients/FastSettlementV3"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 )
 
 // ============ Types ============
 
-// Intent mirrors the Solidity Intent struct from FastSettlementV3.
-type Intent struct {
+// Intent is an alias to the generated contract binding type for HTTP JSON parsing.
+// Uses the exact same struct layout as the Solidity definition.
+type Intent = fastsettlementv3.IFastSettlementV3Intent
+
+// SwapCall is an alias to the generated contract binding type.
+type SwapCall = fastsettlementv3.IFastSettlementV3SwapCall
+
+// SwapRequest is the HTTP request body for the /fastswap endpoint.
+type SwapRequest struct {
 	User        common.Address `json:"user"`
 	InputToken  common.Address `json:"inputToken"`
 	OutputToken common.Address `json:"outputToken"`
@@ -32,19 +40,21 @@ type Intent struct {
 	Recipient   common.Address `json:"recipient"`
 	Deadline    *big.Int       `json:"deadline"`
 	Nonce       *big.Int       `json:"nonce"`
+	Signature   []byte         `json:"signature"` // EIP-712 Permit2 signature
 }
 
-// SwapCall mirrors the Solidity SwapCall struct.
-type SwapCall struct {
-	To    common.Address `json:"to"`
-	Value *big.Int       `json:"value"`
-	Data  []byte         `json:"data"`
-}
-
-// SwapRequest is the HTTP request body for the /fastswap endpoint.
-type SwapRequest struct {
-	Intent    Intent `json:"intent"`
-	Signature []byte `json:"signature"` // EIP-712 Permit2 signature
+// ToIntent converts SwapRequest to the generated Intent type for ABI encoding.
+func (r *SwapRequest) ToIntent() Intent {
+	return Intent{
+		User:        r.User,
+		InputToken:  r.InputToken,
+		OutputToken: r.OutputToken,
+		InputAmt:    r.InputAmt,
+		UserAmtOut:  r.UserAmtOut,
+		Recipient:   r.Recipient,
+		Deadline:    r.Deadline,
+		Nonce:       r.Nonce,
+	}
 }
 
 // SwapResult is the HTTP response for /fastswap.
@@ -107,29 +117,23 @@ type sourceFee struct {
 	Recipient string `json:"recipient"`
 }
 
-// IntentTuple is a struct that matches the ABI tuple for Intent.
-type IntentTuple struct {
-	User        common.Address
-	InputToken  common.Address
-	OutputToken common.Address
-	InputAmt    *big.Int
-	UserAmtOut  *big.Int
-	Recipient   common.Address
-	Deadline    *big.Int
-	Nonce       *big.Int
-}
-
-// SwapCallTuple is a struct that matches the ABI tuple for SwapCall.
-type SwapCallTuple struct {
-	To    common.Address
-	Value *big.Int
-	Data  []byte
-}
-
 // ============ Service ============
 
 // Mainnet WETH address
 var mainnetWETH = common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
+
+// parsedABI holds the pre-parsed contract ABI from generated bindings
+var parsedABI *abi.ABI
+
+func init() {
+	// Use pre-parsed ABI from generated bindings - no panic possible
+	parsed, err := fastsettlementv3.Fastsettlementv3MetaData.GetAbi()
+	if err != nil {
+		// This should never happen with generated bindings
+		parsed = nil
+	}
+	parsedABI = parsed
+}
 
 // Signer interface for signing transactions
 type Signer interface {
@@ -191,102 +195,6 @@ func (s *Service) SetExecutorDeps(signer Signer, txEnqueuer TxEnqueuer, blockTra
 	s.blockTracker = blockTracker
 }
 
-// ============ ABI ============
-
-// FastSettlementV3 ABI for executeWithPermit (executor path)
-const executeWithPermitABI = `[{
-	"inputs": [
-		{
-			"components": [
-				{"internalType": "address", "name": "user", "type": "address"},
-				{"internalType": "address", "name": "inputToken", "type": "address"},
-				{"internalType": "address", "name": "outputToken", "type": "address"},
-				{"internalType": "uint256", "name": "inputAmt", "type": "uint256"},
-				{"internalType": "uint256", "name": "userAmtOut", "type": "uint256"},
-				{"internalType": "address", "name": "recipient", "type": "address"},
-				{"internalType": "uint256", "name": "deadline", "type": "uint256"},
-				{"internalType": "uint256", "name": "nonce", "type": "uint256"}
-			],
-			"internalType": "struct IFastSettlementV3.Intent",
-			"name": "intent",
-			"type": "tuple"
-		},
-		{"internalType": "bytes", "name": "signature", "type": "bytes"},
-		{
-			"components": [
-				{"internalType": "address", "name": "to", "type": "address"},
-				{"internalType": "uint256", "name": "value", "type": "uint256"},
-				{"internalType": "bytes", "name": "data", "type": "bytes"}
-			],
-			"internalType": "struct IFastSettlementV3.SwapCall",
-			"name": "swapData",
-			"type": "tuple"
-		}
-	],
-	"name": "executeWithPermit",
-	"outputs": [
-		{"internalType": "uint256", "name": "received", "type": "uint256"},
-		{"internalType": "uint256", "name": "surplus", "type": "uint256"}
-	],
-	"stateMutability": "nonpayable",
-	"type": "function"
-}]`
-
-// FastSettlementV3 ABI for executeWithETH (user ETH swap path)
-const executeWithETHABI = `[{
-	"inputs": [
-		{
-			"components": [
-				{"internalType": "address", "name": "user", "type": "address"},
-				{"internalType": "address", "name": "inputToken", "type": "address"},
-				{"internalType": "address", "name": "outputToken", "type": "address"},
-				{"internalType": "uint256", "name": "inputAmt", "type": "uint256"},
-				{"internalType": "uint256", "name": "userAmtOut", "type": "uint256"},
-				{"internalType": "address", "name": "recipient", "type": "address"},
-				{"internalType": "uint256", "name": "deadline", "type": "uint256"},
-				{"internalType": "uint256", "name": "nonce", "type": "uint256"}
-			],
-			"internalType": "struct IFastSettlementV3.Intent",
-			"name": "intent",
-			"type": "tuple"
-		},
-		{
-			"components": [
-				{"internalType": "address", "name": "to", "type": "address"},
-				{"internalType": "uint256", "name": "value", "type": "uint256"},
-				{"internalType": "bytes", "name": "data", "type": "bytes"}
-			],
-			"internalType": "struct IFastSettlementV3.SwapCall",
-			"name": "swapData",
-			"type": "tuple"
-		}
-	],
-	"name": "executeWithETH",
-	"outputs": [
-		{"internalType": "uint256", "name": "received", "type": "uint256"},
-		{"internalType": "uint256", "name": "surplus", "type": "uint256"}
-	],
-	"stateMutability": "payable",
-	"type": "function"
-}]`
-
-var (
-	executeWithPermitABIParsed abi.ABI
-	executeWithETHABIParsed    abi.ABI
-)
-
-func init() {
-	var err error
-	executeWithPermitABIParsed, err = abi.JSON(strings.NewReader(executeWithPermitABI))
-	if err != nil {
-		panic(fmt.Sprintf("failed to parse executeWithPermit ABI: %v", err))
-	}
-	executeWithETHABIParsed, err = abi.JSON(strings.NewReader(executeWithETHABI))
-	if err != nil {
-		panic(fmt.Sprintf("failed to parse executeWithETH ABI: %v", err))
-	}
-}
-
 // ============ Barter API ============
 
 // callBarter is the shared HTTP call logic for calling the Barter swap API.
@@ -299,7 +207,7 @@ func (s *Service) callBarter(ctx context.Context, reqBody barterRequest, logDesc
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		fmt.Sprintf("%s/swap", s.barterBaseURL),
+		s.barterBaseURL+"/swap",
 		bytes.NewReader(bodyBytes),
 	)
 	if err != nil {
@@ -311,7 +219,7 @@ func (s *Service) callBarter(ctx context.Context, reqBody barterRequest, logDesc
 
 	s.logger.Debug("calling Barter API",
 		"type", logDescription,
-		"url", req.URL.String(),
+		"url", s.barterBaseURL+"/swap",
 		"source", reqBody.Source,
 		"target", reqBody.Target,
 		"sellAmount", reqBody.SellAmount,
@@ -334,7 +242,7 @@ func (s *Service) callBarter(ctx context.Context, reqBody barterRequest, logDesc
 
 	var barterResp BarterResponse
 	if err := json.Unmarshal(respBody, &barterResp); err != nil {
-		return nil, fmt.Errorf("unmarshal barter response: %w", err)
+		return nil, fmt.Errorf("decode barter response: %w", err)
 	}
 
 	s.logger.Info("Barter API response",
@@ -347,12 +255,8 @@ func (s *Service) callBarter(ctx context.Context, reqBody barterRequest, logDesc
 	return &barterResp, nil
 }
 
-// CallBarterAPI calls the Barter swap API with the given intent (Path 1).
+// CallBarterAPI calls the Barter API for swap routing (Path 1 - executor submitted).
 func (s *Service) CallBarterAPI(ctx context.Context, intent Intent) (*BarterResponse, error) {
-	// IMPORTANT: Recipient must be the settlement contract, not the user's recipient.
-	// The contract receives the swap output, then distributes:
-	//   - userAmtOut → intent.Recipient
-	//   - surplus → treasury
 	reqBody := barterRequest{
 		Source:     intent.InputToken.Hex(),
 		Target:     intent.OutputToken.Hex(),
@@ -365,31 +269,33 @@ func (s *Service) CallBarterAPI(ctx context.Context, intent Intent) (*BarterResp
 	return s.callBarter(ctx, reqBody, "executor-swap")
 }
 
-// ============ Transaction Builder ============
+// ============ Transaction Building ============
 
-// BuildExecuteTx constructs the calldata for FastSettlementV3.execute.
+// BuildExecuteTx constructs the calldata for FastSettlementV3.executeWithPermit.
 func (s *Service) BuildExecuteTx(intent Intent, signature []byte, barter *BarterResponse) ([]byte, error) {
+	if parsedABI == nil {
+		return nil, fmt.Errorf("contract ABI not initialized")
+	}
+
 	// Decode swap data from Barter response
 	swapData, err := hex.DecodeString(strings.TrimPrefix(barter.Data, "0x"))
 	if err != nil {
 		return nil, fmt.Errorf("decode barter data: %w", err)
 	}
 
-	// Parse value from Barter response
-	value := new(big.Int)
-	if barter.Value != "" && barter.Value != "0" {
-		value.SetString(barter.Value, 10)
+	// Parse value from Barter response with proper error handling
+	value, ok := new(big.Int).SetString(barter.Value, 10)
+	if !ok {
+		value = big.NewInt(0)
 	}
 
-	intentTuple := IntentTuple(intent)
-
-	swapCallTuple := SwapCallTuple{
+	swapCall := SwapCall{
 		To:    barter.To,
 		Value: value,
 		Data:  swapData,
 	}
 
-	calldata, err := executeWithPermitABIParsed.Pack("executeWithPermit", intentTuple, signature, swapCallTuple)
+	calldata, err := parsedABI.Pack("executeWithPermit", intent, signature, swapCall)
 	if err != nil {
 		return nil, fmt.Errorf("pack executeWithPermit calldata: %w", err)
 	}
@@ -415,8 +321,11 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 		}, nil
 	}
 
+	// Convert request to Intent
+	intent := req.ToIntent()
+
 	// 1. Call Barter API
-	barterResp, err := s.CallBarterAPI(ctx, req.Intent)
+	barterResp, err := s.CallBarterAPI(ctx, intent)
 	if err != nil {
 		return &SwapResult{
 			Status: "error",
@@ -425,7 +334,7 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 	}
 
 	// 2. Build execute transaction calldata
-	calldata, err := s.BuildExecuteTx(req.Intent, req.Signature, barterResp)
+	calldata, err := s.BuildExecuteTx(intent, req.Signature, barterResp)
 	if err != nil {
 		return &SwapResult{
 			Status: "error",
@@ -504,10 +413,10 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 
 	s.logger.Info("swap transaction submitted",
 		"txHash", signedTx.Hash().Hex(),
-		"user", req.Intent.User.Hex(),
-		"inputToken", req.Intent.InputToken.Hex(),
-		"outputToken", req.Intent.OutputToken.Hex(),
-		"inputAmt", req.Intent.InputAmt.String(),
+		"user", intent.User.Hex(),
+		"inputToken", intent.InputToken.Hex(),
+		"outputToken", intent.OutputToken.Hex(),
+		"inputAmt", intent.InputAmt.String(),
 		"outputAmount", barterResp.Route.OutputAmount,
 		"gasLimit", gasLimit,
 		"gasFeeCap", gasFeeCap.String(),
@@ -523,6 +432,8 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 	}, nil
 }
 
+// ============ HTTP Handlers ============
+
 // Handler returns an HTTP handler for the /fastswap endpoint.
 func (s *Service) Handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -531,31 +442,23 @@ func (s *Service) Handler() http.HandlerFunc {
 			return
 		}
 
-		// Limit body size
-		r.Body = http.MaxBytesReader(w, r.Body, 1*1024*1024) // 1MB
-		defer func() { _ = r.Body.Close() }()
-
 		var req SwapRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, fmt.Sprintf("invalid request body: %v", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("invalid request: %v", err), http.StatusBadRequest)
 			return
 		}
 
 		// Validate required fields
-		if req.Intent.User == (common.Address{}) {
-			http.Error(w, "missing intent.user", http.StatusBadRequest)
+		if req.User == (common.Address{}) {
+			http.Error(w, "missing user address", http.StatusBadRequest)
 			return
 		}
-		if req.Intent.InputToken == (common.Address{}) {
-			http.Error(w, "missing intent.inputToken", http.StatusBadRequest)
+		if req.InputToken == (common.Address{}) {
+			http.Error(w, "missing inputToken", http.StatusBadRequest)
 			return
 		}
-		if req.Intent.OutputToken == (common.Address{}) {
-			http.Error(w, "missing intent.outputToken", http.StatusBadRequest)
-			return
-		}
-		if req.Intent.InputAmt == nil || req.Intent.InputAmt.Sign() <= 0 {
-			http.Error(w, "invalid intent.inputAmt", http.StatusBadRequest)
+		if req.OutputToken == (common.Address{}) {
+			http.Error(w, "missing outputToken", http.StatusBadRequest)
 			return
 		}
 		if len(req.Signature) == 0 {
@@ -565,28 +468,22 @@ func (s *Service) Handler() http.HandlerFunc {
 
 		result, err := s.HandleSwap(r.Context(), req)
 		if err != nil {
-			s.logger.Error("HandleSwap error", "error", err)
-			http.Error(w, fmt.Sprintf("internal error: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("swap failed: %v", err), http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		if result.Status == "error" {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-		if err := json.NewEncoder(w).Encode(result); err != nil {
-			s.logger.Error("failed to encode response", "error", err)
-		}
+		_ = json.NewEncoder(w).Encode(result)
 	}
 }
 
-// ============ Path 2: User ETH Swap ============
+// ============ Path 2: User-Submitted ETH Swaps ============
 
-// CallBarterAPIForETH calls the Barter swap API for an ETH swap (Path 2).
+// CallBarterAPIForETH calls the Barter API for ETH->Token swap routing (Path 2).
 // Uses WETH as the source token since Barter works with ERC20s.
 func (s *Service) CallBarterAPIForETH(ctx context.Context, req ETHSwapRequest) (*BarterResponse, error) {
 	reqBody := barterRequest{
-		Source:     mainnetWETH.Hex(), // WETH (Barter uses ERC20s)
+		Source:     mainnetWETH.Hex(),
 		Target:     req.OutputToken.Hex(),
 		SellAmount: req.InputAmt.String(),
 		Recipient:  s.settlementAddr.Hex(),
@@ -599,20 +496,24 @@ func (s *Service) CallBarterAPIForETH(ctx context.Context, req ETHSwapRequest) (
 
 // BuildExecuteWithETHTx constructs the calldata for FastSettlementV3.executeWithETH.
 func (s *Service) BuildExecuteWithETHTx(req ETHSwapRequest, barter *BarterResponse) ([]byte, error) {
+	if parsedABI == nil {
+		return nil, fmt.Errorf("contract ABI not initialized")
+	}
+
 	// Decode swap data from Barter response
 	swapData, err := hex.DecodeString(strings.TrimPrefix(barter.Data, "0x"))
 	if err != nil {
 		return nil, fmt.Errorf("decode barter data: %w", err)
 	}
 
-	// Parse value from Barter response
-	value := new(big.Int)
-	if barter.Value != "" && barter.Value != "0" {
-		value.SetString(barter.Value, 10)
+	// Parse value from Barter response with proper error handling
+	value, ok := new(big.Int).SetString(barter.Value, 10)
+	if !ok {
+		value = big.NewInt(0)
 	}
 
-	// Build Intent tuple - inputToken is address(0) for ETH
-	intentTuple := IntentTuple{
+	// Build Intent - inputToken is address(0) for ETH
+	intent := Intent{
 		User:        req.Sender,
 		InputToken:  common.Address{}, // address(0) indicates native ETH
 		OutputToken: req.OutputToken,
@@ -623,13 +524,13 @@ func (s *Service) BuildExecuteWithETHTx(req ETHSwapRequest, barter *BarterRespon
 		Nonce:       big.NewInt(0), // Unused for Path 2
 	}
 
-	swapCallTuple := SwapCallTuple{
+	swapCall := SwapCall{
 		To:    barter.To,
 		Value: value,
 		Data:  swapData,
 	}
 
-	calldata, err := executeWithETHABIParsed.Pack("executeWithETH", intentTuple, swapCallTuple)
+	calldata, err := parsedABI.Pack("executeWithETH", intent, swapCall)
 	if err != nil {
 		return nil, fmt.Errorf("pack executeWithETH calldata: %w", err)
 	}
@@ -653,8 +554,8 @@ func (s *Service) HandleETHSwap(ctx context.Context, req ETHSwapRequest) (*ETHSw
 		}, nil
 	}
 
-	// 2. Build executeWithETH transaction calldata
-	txData, err := s.BuildExecuteWithETHTx(req, barterResp)
+	// 2. Build executeWithETH calldata
+	calldata, err := s.BuildExecuteWithETHTx(req, barterResp)
 	if err != nil {
 		return &ETHSwapResponse{
 			Status: "error",
@@ -662,12 +563,9 @@ func (s *Service) HandleETHSwap(ctx context.Context, req ETHSwapRequest) (*ETHSw
 		}, nil
 	}
 
-	// 3. Parse gas limit
+	// 3. Calculate gas limit with buffer
 	gasLimit, _ := strconv.ParseUint(barterResp.GasLimit, 10, 64)
-
-	// Add buffer for settlement contract overhead (WETH wrap, approve, transfer, etc.)
-	// Rough estimate: 150k gas for settlement logic with WETH wrapping
-	gasLimit += 150000
+	gasLimit += 150000 // Buffer for ETH wrap + settlement contract overhead
 
 	s.logger.Info("ETH swap request processed",
 		"sender", req.Sender.Hex(),
@@ -680,7 +578,7 @@ func (s *Service) HandleETHSwap(ctx context.Context, req ETHSwapRequest) (*ETHSw
 
 	return &ETHSwapResponse{
 		To:       s.settlementAddr.Hex(),
-		Data:     "0x" + hex.EncodeToString(txData),
+		Data:     "0x" + hex.EncodeToString(calldata),
 		Value:    req.InputAmt.String(),
 		ChainID:  s.chainID,
 		GasLimit: gasLimit,
@@ -696,51 +594,61 @@ func (s *Service) ETHHandler() http.HandlerFunc {
 			return
 		}
 
-		// Limit body size
-		r.Body = http.MaxBytesReader(w, r.Body, 1*1024*1024) // 1MB
-		defer func() { _ = r.Body.Close() }()
+		var rawReq struct {
+			OutputToken string `json:"outputToken"`
+			InputAmt    string `json:"inputAmt"`
+			UserAmtOut  string `json:"userAmtOut"`
+			Sender      string `json:"sender"`
+			Deadline    string `json:"deadline"`
+		}
 
-		var req ETHSwapRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, fmt.Sprintf("invalid request body: %v", err), http.StatusBadRequest)
+		if err := json.NewDecoder(r.Body).Decode(&rawReq); err != nil {
+			http.Error(w, fmt.Sprintf("invalid request: %v", err), http.StatusBadRequest)
 			return
 		}
 
 		// Validate required fields
-		if req.Sender == (common.Address{}) {
-			http.Error(w, "missing sender", http.StatusBadRequest)
+		if rawReq.Sender == "" || !common.IsHexAddress(rawReq.Sender) {
+			http.Error(w, "missing or invalid sender address", http.StatusBadRequest)
 			return
 		}
-		if req.OutputToken == (common.Address{}) {
-			http.Error(w, "missing outputToken", http.StatusBadRequest)
+		if rawReq.OutputToken == "" || !common.IsHexAddress(rawReq.OutputToken) {
+			http.Error(w, "missing or invalid outputToken", http.StatusBadRequest)
 			return
 		}
-		if req.InputAmt == nil || req.InputAmt.Sign() <= 0 {
+
+		// Parse big.Int fields
+		inputAmt, ok := new(big.Int).SetString(rawReq.InputAmt, 10)
+		if !ok || inputAmt.Sign() <= 0 {
 			http.Error(w, "invalid inputAmt", http.StatusBadRequest)
 			return
 		}
-		if req.UserAmtOut == nil || req.UserAmtOut.Sign() <= 0 {
+		userAmtOut, ok := new(big.Int).SetString(rawReq.UserAmtOut, 10)
+		if !ok {
 			http.Error(w, "invalid userAmtOut", http.StatusBadRequest)
 			return
 		}
-		if req.Deadline == nil || req.Deadline.Sign() <= 0 {
+		deadline, ok := new(big.Int).SetString(rawReq.Deadline, 10)
+		if !ok || deadline.Sign() <= 0 {
 			http.Error(w, "invalid deadline", http.StatusBadRequest)
 			return
 		}
 
+		req := ETHSwapRequest{
+			OutputToken: common.HexToAddress(rawReq.OutputToken),
+			InputAmt:    inputAmt,
+			UserAmtOut:  userAmtOut,
+			Sender:      common.HexToAddress(rawReq.Sender),
+			Deadline:    deadline,
+		}
+
 		result, err := s.HandleETHSwap(r.Context(), req)
 		if err != nil {
-			s.logger.Error("HandleETHSwap error", "error", err)
-			http.Error(w, fmt.Sprintf("internal error: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("ETH swap failed: %v", err), http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		if result.Status == "error" {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-		if err := json.NewEncoder(w).Encode(result); err != nil {
-			s.logger.Error("failed to encode response", "error", err)
-		}
+		_ = json.NewEncoder(w).Encode(result)
 	}
 }
