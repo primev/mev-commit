@@ -214,7 +214,8 @@ func (s *InlineSimulator) simulateWithFallback(ctx context.Context, callObj map[
 
 		lastErr = err
 
-		// Only fallback to next endpoint if it's not an application error
+		// Don't fallback on application errors (reverts, bad requests)
+		// Only fallback on network errors, 5xx, rate limits
 		if !shouldFallback(err) {
 			return nil, false, err
 		}
@@ -248,18 +249,18 @@ func (s *InlineSimulator) executeSimulateV1(ctx context.Context, client *rpc.Cli
 		return nil, false, err
 	}
 
-	// Validate response
+	// Validate response - unexpected format, don't retry
 	if len(result) == 0 {
-		return nil, false, errors.New("empty response from eth_simulateV1")
+		return nil, false, &NonRetryableError{Err: errors.New("empty response from eth_simulateV1")}
 	}
 	block := result[0]
 	if len(block.Calls) == 0 {
-		return nil, false, errors.New("no calls in eth_simulateV1 response")
+		return nil, false, &NonRetryableError{Err: errors.New("no calls in eth_simulateV1 response")}
 	}
 
 	call := block.Calls[0]
 
-	// Check for revert (status 0x0)
+	// Check for revert (status 0x0) - don't retry on reverts
 	if call.Status == 0 {
 		reason := "execution reverted"
 		if call.Error != nil && call.Error.Message != "" {
@@ -267,12 +268,12 @@ func (s *InlineSimulator) executeSimulateV1(ctx context.Context, client *rpc.Cli
 		} else if len(call.ReturnData) > 0 {
 			reason = decodeRevert(hexutil.Encode(call.ReturnData), reason)
 		}
-		return nil, false, fmt.Errorf("reverted: %s", reason)
+		return nil, false, &NonRetryableError{Err: fmt.Errorf("reverted: %s", reason)}
 	}
 
-	// Validate gas used
+	// Validate gas used - unexpected response format, don't retry
 	if call.GasUsed == 0 {
-		return nil, false, errors.New("empty response: missing or zero gas used")
+		return nil, false, &NonRetryableError{Err: errors.New("empty response: missing or zero gas used")}
 	}
 
 	// Detect swaps from logs
@@ -312,21 +313,21 @@ func (s *InlineSimulator) executeDebugTraceCall(ctx context.Context, client *rpc
 		return nil, false, fmt.Errorf("debug_traceCall failed (state=%s): %w", state, err)
 	}
 
-	// Check for revert at top level
+	// Check for revert at top level - don't retry on reverts
 	if result.Error != "" {
 		reason := decodeRevertFromTrace(result.Output, result.Error)
-		return nil, false, fmt.Errorf("reverted: %s", reason)
+		return nil, false, &NonRetryableError{Err: fmt.Errorf("reverted: %s", reason)}
 	}
 
-	// Check for inner call errors (recursive)
+	// Check for inner call errors (recursive) - don't retry on reverts
 	if innerErr := findInnerCallError(&result); innerErr != "" {
-		return nil, false, fmt.Errorf("inner call reverted: %s", innerErr)
+		return nil, false, &NonRetryableError{Err: fmt.Errorf("inner call reverted: %s", innerErr)}
 	}
 
 	// Validate trace response - a valid trace always has non-zero GasUsed
 	gasUsed, err := hexutil.DecodeUint64(result.GasUsed)
 	if err != nil || gasUsed == 0 {
-		return nil, false, errors.New("empty trace response: missing or zero gas used")
+		return nil, false, &NonRetryableError{Err: errors.New("empty trace response: missing or zero gas used")}
 	}
 
 	// Collect all logs from trace (depth-first, execution order)
@@ -365,11 +366,19 @@ func isMethodNotSupported(err error) bool {
 }
 
 // shouldFallback returns true if the error should trigger a fallback to the next endpoint.
+// NonRetryableError (reverts, bad responses) should NOT trigger fallback.
 // JSON-RPC errors (invalid method, invalid params) should NOT trigger fallback.
 // HTTP 4xx errors (except 429 rate limit) should NOT trigger fallback.
 // Everything else (network errors, 5xx, 429) should fallback.
 func shouldFallback(err error) bool {
 	if err == nil {
+		return false
+	}
+
+	// NonRetryableError wraps errors that should not trigger fallback
+	// (e.g., transaction reverts, invalid responses)
+	var nonRetryable *NonRetryableError
+	if errors.As(err, &nonRetryable) {
 		return false
 	}
 
