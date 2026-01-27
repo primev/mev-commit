@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
@@ -16,6 +17,20 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+// NonRetryableError wraps errors that should NOT trigger fallback to another endpoint.
+// Examples: transaction reverts, invalid requests (4xx except rate limiting).
+type NonRetryableError struct {
+	Err error
+}
+
+func (e *NonRetryableError) Error() string {
+	return e.Err.Error()
+}
+
+func (e *NonRetryableError) Unwrap() error {
+	return e.Err
+}
 
 type SimCall struct {
 	Status     string       `json:"status"`
@@ -49,15 +64,22 @@ var (
 	Pending SimState = "pending"
 )
 
+// Simulator is the external rethsim simulator with fallback support
 type Simulator struct {
-	apiURL  string
+	apiURLs []string
 	client  *http.Client
 	metrics *metrics
+	logger  *slog.Logger
 }
 
-func NewSimulator(apiURL string) *Simulator {
+// NewSimulator creates a new external simulator with fallback support
+// The first URL is the primary endpoint, subsequent URLs are fallbacks
+func NewSimulator(apiURLs []string, logger *slog.Logger) *Simulator {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &Simulator{
-		apiURL: apiURL,
+		apiURLs: apiURLs,
 		client: &http.Client{
 			Transport: &http.Transport{
 				Proxy:               http.ProxyFromEnvironment,
@@ -74,6 +96,7 @@ func NewSimulator(apiURL string) *Simulator {
 			Timeout: 15 * time.Second,
 		},
 		metrics: newMetrics(),
+		logger:  logger,
 	}
 }
 
@@ -109,23 +132,55 @@ func (s *Simulator) Simulate(ctx context.Context, txRaw string, state SimState) 
 	if err != nil {
 		return nil, false, fmt.Errorf("marshal request: %w", err)
 	}
+
+	s.metrics.attempts.Inc()
+
+	// Try each endpoint with fallback on connection errors
+	var lastErr error
+	for i, apiURL := range s.apiURLs {
+		logs, isSwap, err := s.doSimulate(ctx, apiURL, bodyJSON)
+		if err == nil {
+			if i > 0 {
+				s.logger.Info("simulation succeeded on fallback endpoint", "endpointIndex", i)
+			}
+			s.metrics.success.Inc()
+			return logs, isSwap, nil
+		}
+
+		lastErr = err
+
+		// Only fallback if it's not an application error (e.g., bad request)
+		if !shouldHTTPFallback(err) {
+			s.metrics.fail.Inc()
+			return nil, false, err
+		}
+
+		s.logger.Warn("endpoint failed, trying fallback",
+			"endpointIndex", i,
+			"error", err,
+			"remainingEndpoints", len(s.apiURLs)-i-1,
+		)
+	}
+
+	s.metrics.fail.Inc()
+	return nil, false, fmt.Errorf("all endpoints failed: %w", lastErr)
+}
+
+func (s *Simulator) doSimulate(ctx context.Context, apiURL string, bodyJSON []byte) ([]*types.Log, bool, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		fmt.Sprintf("%s/rethsim/simulate/raw", s.apiURL),
+		fmt.Sprintf("%s/rethsim/simulate/raw", apiURL),
 		strings.NewReader(string(bodyJSON)),
 	)
 	if err != nil {
 		return nil, false, fmt.Errorf("create request: %w", err)
 	}
 
-	s.metrics.attempts.Inc()
-
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.client.Do(req)
 	if err != nil {
-		s.metrics.fail.Inc()
-		return nil, false, fmt.Errorf("do request: %w", err)
+		return nil, false, err // Network error - will trigger fallback
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -133,21 +188,31 @@ func (s *Simulator) Simulate(ctx context.Context, txRaw string, state SimState) 
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		s.metrics.fail.Inc()
-		return nil, false, fmt.Errorf("read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		s.metrics.fail.Inc()
-		return nil, false, fmt.Errorf("bad status %d: %s", resp.StatusCode, string(respBody))
+		return nil, false, err // Read error - will trigger fallback
 	}
 
-	logs, isSwap, err := parseResponse(respBody)
-	if err != nil {
-		s.metrics.fail.Inc()
-		return nil, false, err
+	// 4xx errors (except 429 rate limit) are client/application errors - don't fallback
+	if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+		return nil, false, &NonRetryableError{Err: fmt.Errorf("status %d: %s", resp.StatusCode, string(respBody))}
 	}
-	s.metrics.success.Inc()
-	return logs, isSwap, nil
+
+	// 5xx errors and 429 will trigger fallback (not wrapped in NonRetryableError)
+	if resp.StatusCode != http.StatusOK {
+		return nil, false, fmt.Errorf("status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return parseResponse(respBody)
+}
+
+// shouldHTTPFallback returns true if the error should trigger a fallback to the next endpoint.
+// Only NonRetryableError (client errors like bad request, reverts) should NOT trigger fallback.
+// Everything else (network errors, 5xx, 429 rate limit) should fallback.
+func shouldHTTPFallback(err error) bool {
+	if err == nil {
+		return false
+	}
+	var appErr *NonRetryableError
+	return !errors.As(err, &appErr)
 }
 
 func parseResponse(body []byte) ([]*types.Log, bool, error) {
@@ -189,19 +254,19 @@ func parseResponse(body []byte) ([]*types.Log, bool, error) {
 	}
 	root := blk.Calls[0]
 
-	// Failure → build extended error
+	// Failure → build extended error (application error - don't fallback)
 	if strings.EqualFold(root.Status, "0x0") {
 		reason := decodeRevert(root.ReturnData, "execution reverted")
-		return nil, false, fmt.Errorf("reverted: %s", reason)
+		return nil, false, &NonRetryableError{Err: fmt.Errorf("reverted: %s", reason)}
 	}
 
-	// Check trace errors for internal reverts
+	// Check trace errors for internal reverts (application error - don't fallback)
 	if len(traceErrors) == 0 {
 		traceErrors = blk.TraceErrors
 	}
 	for _, te := range traceErrors {
 		if strings.Contains(strings.ToLower(te), "execution reverted") {
-			return nil, false, errors.New(te)
+			return nil, false, &NonRetryableError{Err: errors.New(te)}
 		}
 	}
 

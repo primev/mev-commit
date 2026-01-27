@@ -55,7 +55,7 @@ func TestSimulator(t *testing.T) {
 	defer srv.Close()
 
 	t.Logf("Test server running at %s", srv.URL)
-	simulator := sim.NewSimulator(srv.URL)
+	simulator := sim.NewSimulator([]string{srv.URL}, nil)
 
 	t.Run("SuccessfulSimulation1", func(t *testing.T) {
 		result, isSwap, err := simulator.Simulate(context.Background(), "1234", sim.Latest)

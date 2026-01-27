@@ -223,11 +223,18 @@ var (
 		Value:   "",
 	}
 
-	optionSimulationURL = &cli.StringFlag{
+	optionSimulationURLs = &cli.StringSliceFlag{
 		Name:     "simulation-url",
-		Usage:    "URL for the transaction simulation service",
+		Usage:    "URL(s) for the transaction simulation service. Multiple URLs can be specified for fallback support (first URL is primary, others are fallbacks)",
 		EnvVars:  []string{"PRECONF_RPC_SIMULATION_URL"},
 		Required: true,
+	}
+
+	optionUseInlineSimulation = &cli.BoolFlag{
+		Name:    "use-inline-simulation",
+		Usage:   "Use inline simulation via debug_traceCall instead of external rethsim service. When false (default), uses external rethsim. When true, uses debug_traceCall (requires RPC with debug API support like Alchemy, Infura, or Erigon)",
+		EnvVars: []string{"PRECONF_RPC_USE_INLINE_SIMULATION"},
+		Value:   false,
 	}
 
 	optionBackrunnerAPIURL = &cli.StringFlag{
@@ -357,7 +364,8 @@ func main() {
 			optionBidderThreshold,
 			optionBidderTopup,
 			optionAuthToken,
-			optionSimulationURL,
+			optionSimulationURLs,
+			optionUseInlineSimulation,
 			optionBackrunnerAPIURL,
 			optionBackrunnerRPCURL,
 			optionBackrunnerAPIKey,
@@ -458,7 +466,8 @@ func main() {
 				PricerAPIKey:           c.String(optionBlocknativeAPIKey.Name),
 				Webhooks:               c.StringSlice(optionWebhookURLs.Name),
 				Token:                  c.String(optionAuthToken.Name),
-				SimulatorURL:           c.String(optionSimulationURL.Name),
+				SimulatorURLs:          c.StringSlice(optionSimulationURLs.Name),
+				UseInlineSimulation:    c.Bool(optionUseInlineSimulation.Name),
 				BackrunnerAPIURL:       c.String(optionBackrunnerAPIURL.Name),
 				BackrunnerRPC:          c.String(optionBackrunnerRPCURL.Name),
 				BackrunnerAPIKey:       c.String(optionBackrunnerAPIKey.Name),
