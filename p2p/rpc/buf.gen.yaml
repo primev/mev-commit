@@ -20,7 +20,7 @@ plugins:
     opt:
       - paths=source_relative
       - allow_repeated_fields_in_body=true
-  - plugin: buf.build/grpc-ecosystem/openapiv2
+  - plugin: buf.build/grpc-ecosystem/openapiv2:v2.26.0
     out: gen/openapi
     opt:
       - disable_service_tags=true
