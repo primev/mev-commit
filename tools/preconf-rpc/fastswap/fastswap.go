@@ -381,16 +381,7 @@ func (s *Service) BuildExecuteTx(intent Intent, signature []byte, barter *Barter
 		value.SetString(barter.Value, 10)
 	}
 
-	intentTuple := IntentTuple{
-		User:        intent.User,
-		InputToken:  intent.InputToken,
-		OutputToken: intent.OutputToken,
-		InputAmt:    intent.InputAmt,
-		UserAmtOut:  intent.UserAmtOut,
-		Recipient:   intent.Recipient,
-		Deadline:    intent.Deadline,
-		Nonce:       intent.Nonce,
-	}
+	intentTuple := IntentTuple(intent)
 
 	swapCallTuple := SwapCallTuple{
 		To:    barter.To,
