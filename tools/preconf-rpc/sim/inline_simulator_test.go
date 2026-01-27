@@ -12,6 +12,54 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 )
 
+// Mock eth_simulateV1 response for a successful simple transfer
+var simulateV1ResponseSimple = `[{
+	"number": "0x1",
+	"gasUsed": "0x5208",
+	"calls": [{
+		"status": "0x1",
+		"gasUsed": "0x5208",
+		"returnData": "0x",
+		"logs": []
+	}]
+}]`
+
+// Mock eth_simulateV1 response for a swap transaction with SushiSwap/Uniswap V2 Swap event
+var simulateV1ResponseSwap = `[{
+	"number": "0x1",
+	"gasUsed": "0x20000",
+	"calls": [{
+		"status": "0x1",
+		"gasUsed": "0x20000",
+		"returnData": "0x",
+		"logs": [{
+			"address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+			"topics": [
+				"0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822",
+				"0x0000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488d",
+				"0x000000000000000000000000ae2885e0e7a6c5f99b93b4dbc43d206c7cf67c7e"
+			],
+			"data": "0x0000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000000000000"
+		}]
+	}]
+}]`
+
+// Mock eth_simulateV1 response for a reverted transaction
+var simulateV1ResponseRevert = `[{
+	"number": "0x1",
+	"gasUsed": "0x10000",
+	"calls": [{
+		"status": "0x0",
+		"gasUsed": "0x10000",
+		"returnData": "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001a496e73756666696369656e742062616c616e636500000000000000000000000000",
+		"logs": [],
+		"error": {
+			"code": 3,
+			"message": "execution reverted"
+		}
+	}]
+}]`
+
 // Mock debug_traceCall response for a successful simple transfer
 var traceCallResponseSimple = `{
 	"type": "CALL",
@@ -208,7 +256,15 @@ var traceCallResponseBalancer = `{
 }`
 
 func TestInlineSimulator(t *testing.T) {
-	responses := map[string]string{
+	// eth_simulateV1 responses
+	simV1Responses := map[string]string{
+		"simple": simulateV1ResponseSimple,
+		"swap":   simulateV1ResponseSwap,
+		"revert": simulateV1ResponseRevert,
+	}
+
+	// debug_traceCall responses (used as fallback)
+	traceResponses := map[string]string{
 		"simple":     traceCallResponseSimple,
 		"swap":       traceCallResponseSwap,
 		"revert":     traceCallResponseRevert,
@@ -218,90 +274,188 @@ func TestInlineSimulator(t *testing.T) {
 		"balancer":   traceCallResponseBalancer,
 	}
 
-	srv := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var req struct {
-				Method string            `json:"method"`
-				Params []json.RawMessage `json:"params"`
-				ID     int               `json:"id"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "bad request", http.StatusBadRequest)
-				return
-			}
-			defer func() { _ = r.Body.Close() }()
-
-			if req.Method != "debug_traceCall" {
-				http.Error(w, "method not supported", http.StatusBadRequest)
-				return
-			}
-
-			// Parse the call object to get the "to" address for routing
-			var callObj map[string]interface{}
-			if err := json.Unmarshal(req.Params[0], &callObj); err != nil {
-				http.Error(w, "bad params", http.StatusBadRequest)
-				return
-			}
-
-			// Route based on the "to" address
-			to, _ := callObj["to"].(string)
-			var responseKey string
-			switch strings.ToLower(to) {
-			case "0x1234567890123456789012345678901234567890":
-				// Check if there's a value - simple transfer, or check data for revert test
-				if data, ok := callObj["data"].(string); ok && data == "0xrevert" {
-					responseKey = "revert"
-				} else {
-					responseKey = "simple"
+	// Helper to create test server with configurable eth_simulateV1 support
+	createTestServer := func(supportSimulateV1 bool) *httptest.Server {
+		return httptest.NewServer(
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var req struct {
+					Method string            `json:"method"`
+					Params []json.RawMessage `json:"params"`
+					ID     int               `json:"id"`
 				}
-			case "0x7a250d5630b4cf539739df2c5dacb4c659f2488d": // Uniswap V2 Router
-				responseKey = "swap"
-			case "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45": // Uniswap Universal Router
-				responseKey = "nestedSwap"
-			case "0x1111111254eeb25477b68fb85ed929f73a960582": // 1inch V5
-				responseKey = "multiHop"
-			case "0x99a58482bd75cbab83b27ec03ca68ff489b5788f": // Curve Router
-				responseKey = "curve"
-			case "0x9008d19f58aabd9ed0d60971565aa8510560ab41": // CoW Protocol
-				responseKey = "balancer"
-			default:
-				responseKey = "simple"
-			}
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					http.Error(w, "bad request", http.StatusBadRequest)
+					return
+				}
+				defer func() { _ = r.Body.Close() }()
 
-			response := map[string]interface{}{
-				"jsonrpc": "2.0",
-				"id":      req.ID,
-				"result":  json.RawMessage(responses[responseKey]),
-			}
+				w.Header().Set("Content-Type", "application/json")
 
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(response)
-		}),
-	)
-	defer srv.Close()
+				if req.Method == "eth_simulateV1" {
+					if !supportSimulateV1 {
+						// Return JSON-RPC error for method not found
+						response := map[string]interface{}{
+							"jsonrpc": "2.0",
+							"id":      req.ID,
+							"error": map[string]interface{}{
+								"code":    -32601,
+								"message": "Method not found",
+							},
+						}
+						_ = json.NewEncoder(w).Encode(response)
+						return
+					}
 
-	simulator, err := sim.NewInlineSimulator([]string{srv.URL}, nil)
-	if err != nil {
-		t.Fatalf("failed to create inline simulator: %v", err)
+					// Parse the simulateV1 request to get the call
+					var simReq map[string]interface{}
+					if err := json.Unmarshal(req.Params[0], &simReq); err != nil {
+						http.Error(w, "bad params", http.StatusBadRequest)
+						return
+					}
+
+					// Get the call object
+					blockStateCalls, _ := simReq["blockStateCalls"].([]interface{})
+					if len(blockStateCalls) == 0 {
+						http.Error(w, "no block state calls", http.StatusBadRequest)
+						return
+					}
+					blockState, _ := blockStateCalls[0].(map[string]interface{})
+					calls, _ := blockState["calls"].([]interface{})
+					if len(calls) == 0 {
+						http.Error(w, "no calls", http.StatusBadRequest)
+						return
+					}
+					callObj, _ := calls[0].(map[string]interface{})
+					to, _ := callObj["to"].(string)
+
+					var responseKey string
+					switch strings.ToLower(to) {
+					case "0x1234567890123456789012345678901234567890":
+						if input, ok := callObj["input"].(string); ok && input == "0xrevert" {
+							responseKey = "revert"
+						} else {
+							responseKey = "simple"
+						}
+					case "0x7a250d5630b4cf539739df2c5dacb4c659f2488d":
+						responseKey = "swap"
+					default:
+						responseKey = "simple"
+					}
+
+					response := map[string]interface{}{
+						"jsonrpc": "2.0",
+						"id":      req.ID,
+						"result":  json.RawMessage(simV1Responses[responseKey]),
+					}
+					_ = json.NewEncoder(w).Encode(response)
+					return
+				}
+
+				if req.Method == "debug_traceCall" {
+					// Parse the call object to get the "to" address for routing
+					var callObj map[string]interface{}
+					if err := json.Unmarshal(req.Params[0], &callObj); err != nil {
+						http.Error(w, "bad params", http.StatusBadRequest)
+						return
+					}
+
+					// Route based on the "to" address
+					to, _ := callObj["to"].(string)
+					var responseKey string
+					switch strings.ToLower(to) {
+					case "0x1234567890123456789012345678901234567890":
+						if data, ok := callObj["data"].(string); ok && data == "0xrevert" {
+							responseKey = "revert"
+						} else {
+							responseKey = "simple"
+						}
+					case "0x7a250d5630b4cf539739df2c5dacb4c659f2488d":
+						responseKey = "swap"
+					case "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45":
+						responseKey = "nestedSwap"
+					case "0x1111111254eeb25477b68fb85ed929f73a960582":
+						responseKey = "multiHop"
+					case "0x99a58482bd75cbab83b27ec03ca68ff489b5788f":
+						responseKey = "curve"
+					case "0x9008d19f58aabd9ed0d60971565aa8510560ab41":
+						responseKey = "balancer"
+					default:
+						responseKey = "simple"
+					}
+
+					response := map[string]interface{}{
+						"jsonrpc": "2.0",
+						"id":      req.ID,
+						"result":  json.RawMessage(traceResponses[responseKey]),
+					}
+					_ = json.NewEncoder(w).Encode(response)
+					return
+				}
+
+				// Unknown method
+				response := map[string]interface{}{
+					"jsonrpc": "2.0",
+					"id":      req.ID,
+					"error": map[string]interface{}{
+						"code":    -32601,
+						"message": "Method not found",
+					},
+				}
+				_ = json.NewEncoder(w).Encode(response)
+			}),
+		)
 	}
-	defer func() { _ = simulator.Close() }()
 
-	// Note: Testing with real signed transactions requires a valid RLP-encoded tx
-	// The inline simulator tests focus on error handling and the swap detector tests
-	// cover the swap detection logic
+	// Test with eth_simulateV1 support
+	t.Run("WithSimulateV1Support", func(t *testing.T) {
+		srv := createTestServer(true)
+		defer srv.Close()
 
-	t.Run("InvalidTransaction", func(t *testing.T) {
-		_, _, err := simulator.Simulate(context.Background(), "invalid", sim.Latest)
-		if err == nil {
-			t.Error("expected error for invalid transaction")
+		simulator, err := sim.NewInlineSimulator([]string{srv.URL}, nil)
+		if err != nil {
+			t.Fatalf("failed to create inline simulator: %v", err)
 		}
+		defer func() { _ = simulator.Close() }()
+
+		t.Run("InvalidTransaction", func(t *testing.T) {
+			_, _, err := simulator.Simulate(context.Background(), "invalid", sim.Latest)
+			if err == nil {
+				t.Error("expected error for invalid transaction")
+			}
+		})
+
+		t.Run("InvalidHex", func(t *testing.T) {
+			_, _, err := simulator.Simulate(context.Background(), "0xZZZZ", sim.Latest)
+			if err == nil {
+				t.Error("expected error for invalid hex")
+			}
+		})
 	})
 
-	t.Run("InvalidHex", func(t *testing.T) {
-		_, _, err := simulator.Simulate(context.Background(), "0xZZZZ", sim.Latest)
-		if err == nil {
-			t.Error("expected error for invalid hex")
+	// Test fallback to debug_traceCall when eth_simulateV1 is not supported
+	t.Run("FallbackToDebugTraceCall", func(t *testing.T) {
+		srv := createTestServer(false)
+		defer srv.Close()
+
+		simulator, err := sim.NewInlineSimulator([]string{srv.URL}, nil)
+		if err != nil {
+			t.Fatalf("failed to create inline simulator: %v", err)
 		}
+		defer func() { _ = simulator.Close() }()
+
+		t.Run("InvalidTransaction", func(t *testing.T) {
+			_, _, err := simulator.Simulate(context.Background(), "invalid", sim.Latest)
+			if err == nil {
+				t.Error("expected error for invalid transaction")
+			}
+		})
+
+		t.Run("InvalidHex", func(t *testing.T) {
+			_, _, err := simulator.Simulate(context.Background(), "0xZZZZ", sim.Latest)
+			if err == nil {
+				t.Error("expected error for invalid hex")
+			}
+		})
 	})
 }
 

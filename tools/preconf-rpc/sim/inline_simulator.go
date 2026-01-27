@@ -16,11 +16,34 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// TraceLog represents a log entry from the trace
+// TraceLog represents a log entry from simulation (used by both eth_simulateV1 and debug_traceCall)
 type TraceLog struct {
 	Address common.Address `json:"address"`
 	Topics  []common.Hash  `json:"topics"`
 	Data    hexutil.Bytes  `json:"data"`
+}
+
+// SimulateV1CallResult represents a single call result from eth_simulateV1
+type SimulateV1CallResult struct {
+	Status     hexutil.Uint64 `json:"status"`
+	GasUsed    hexutil.Uint64 `json:"gasUsed"`
+	ReturnData hexutil.Bytes  `json:"returnData"`
+	Logs       []TraceLog     `json:"logs"`
+	Error      *SimulateError `json:"error,omitempty"`
+}
+
+// SimulateError represents an error from eth_simulateV1
+type SimulateError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    string `json:"data,omitempty"`
+}
+
+// SimulateV1Block represents a block result from eth_simulateV1
+type SimulateV1Block struct {
+	Number  hexutil.Uint64         `json:"number"`
+	GasUsed hexutil.Uint64         `json:"gasUsed"`
+	Calls   []SimulateV1CallResult `json:"calls"`
 }
 
 // TraceCallResult represents the result of debug_traceCall with callTracer
@@ -43,8 +66,10 @@ type rpcEndpoint struct {
 	client *rpc.Client
 }
 
-// InlineSimulator simulates transactions using debug_traceCall
-// Supports multiple RPC endpoints with fallback
+// InlineSimulator simulates transactions using eth_simulateV1 (primary) with debug_traceCall fallback.
+// eth_simulateV1 is lighter and preferred for performance, debug_traceCall is used when
+// eth_simulateV1 is not supported or for edge cases requiring deeper tracing.
+// Supports multiple RPC endpoints with fallback on connection errors.
 type InlineSimulator struct {
 	endpoints []rpcEndpoint
 	metrics   *metrics
@@ -96,10 +121,10 @@ func (s *InlineSimulator) Metrics() []prometheus.Collector {
 	}
 }
 
-// Simulate executes a transaction simulation using debug_traceCall
+// Simulate executes a transaction simulation using eth_simulateV1 (primary) or debug_traceCall (fallback).
+// eth_simulateV1 is lighter and preferred for performance.
+// debug_traceCall is used when eth_simulateV1 is not supported by the RPC.
 // Supported states: "latest" and "pending"
-// Requires an RPC provider that supports debug_traceCall with pending state
-// (e.g., Alchemy, QuickNode, Erigon). This matches rethsim behavior.
 // If the primary endpoint fails with a connection error, fallback endpoints are tried.
 func (s *InlineSimulator) Simulate(ctx context.Context, txRaw string, state SimState) ([]*types.Log, bool, error) {
 	start := time.Now()
@@ -130,13 +155,12 @@ func (s *InlineSimulator) Simulate(ctx context.Context, txRaw string, state SimS
 		return nil, false, fmt.Errorf("failed to get sender: %w", err)
 	}
 
-	// Build call object for debug_traceCall
-	// Format: https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall
+	// Build call object (used by both eth_simulateV1 and debug_traceCall)
 	callObj := map[string]interface{}{
 		"from":  sender.Hex(),
 		"gas":   hexutil.Uint64(tx.Gas()),
 		"value": hexutil.EncodeBig(tx.Value()),
-		"data":  hexutil.Encode(tx.Data()),
+		"input": hexutil.Encode(tx.Data()), // eth_simulateV1 uses "input", debug_traceCall uses "data"
 	}
 	if tx.To() != nil {
 		callObj["to"] = tx.To().Hex()
@@ -151,66 +175,48 @@ func (s *InlineSimulator) Simulate(ctx context.Context, txRaw string, state SimS
 		callObj["gasPrice"] = hexutil.EncodeBig(tx.GasPrice())
 	}
 
-	// Execute trace with fallback support
-	result, err := s.executeTraceWithFallback(ctx, callObj, state)
+	// Try eth_simulateV1 first (lighter, better performance)
+	logs, isSwap, err := s.simulateWithFallback(ctx, callObj, state)
 	if err != nil {
 		s.metrics.fail.Inc()
-		return nil, false, fmt.Errorf("debug_traceCall failed (state=%s): %w", state, err)
+		return nil, false, err
 	}
-
-	// Check for revert at top level
-	if result.Error != "" {
-		s.metrics.fail.Inc()
-		reason := decodeRevertFromTrace(result.Output, result.Error)
-		return nil, false, fmt.Errorf("reverted: %s", reason)
-	}
-
-	// Check for inner call errors (recursive)
-	if innerErr := findInnerCallError(result); innerErr != "" {
-		s.metrics.fail.Inc()
-		return nil, false, fmt.Errorf("inner call reverted: %s", innerErr)
-	}
-
-	// Collect all logs from trace (depth-first, execution order)
-	var traceLogs []TraceLog
-	collectTraceLogs(result, &traceLogs)
-
-	// Validate trace response - a valid trace always has non-zero GasUsed
-	// (at minimum, intrinsic gas of 21000 is consumed)
-	gasUsed, err := hexutil.DecodeUint64(result.GasUsed)
-	if err != nil || gasUsed == 0 {
-		s.metrics.fail.Inc()
-		return nil, false, errors.New("empty trace response: missing or zero gas used")
-	}
-
-	// Detect swaps from logs (same approach as rethsim - topic scanning only)
-	isSwap, _ := DetectSwapsFromLogs(traceLogs)
-
-	// Convert trace logs to types.Log
-	logs := convertTraceLogs(traceLogs)
 
 	s.metrics.success.Inc()
 	return logs, isSwap, nil
 }
 
-// executeTraceWithFallback tries the primary endpoint first, then fallbacks on connection errors
-func (s *InlineSimulator) executeTraceWithFallback(ctx context.Context, callObj map[string]interface{}, state SimState) (*TraceCallResult, error) {
+// simulateWithFallback tries eth_simulateV1 first, falls back to debug_traceCall if not supported
+func (s *InlineSimulator) simulateWithFallback(ctx context.Context, callObj map[string]interface{}, state SimState) ([]*types.Log, bool, error) {
 	var lastErr error
 
 	for i, endpoint := range s.endpoints {
-		result, err := s.executeTrace(ctx, endpoint.client, callObj, state)
+		// Try eth_simulateV1 first
+		logs, isSwap, err := s.executeSimulateV1(ctx, endpoint.client, callObj, state)
 		if err == nil {
 			if i > 0 {
-				s.logger.Info("simulation succeeded on fallback endpoint", "endpointIndex", i)
+				s.logger.Info("simulation succeeded on fallback endpoint", "endpointIndex", i, "method", "eth_simulateV1")
 			}
-			return result, nil
+			return logs, isSwap, nil
+		}
+
+		// Check if eth_simulateV1 is not supported - fall back to debug_traceCall
+		if isMethodNotSupported(err) {
+			s.logger.Debug("eth_simulateV1 not supported, falling back to debug_traceCall", "endpointIndex", i)
+			logs, isSwap, err = s.executeDebugTraceCall(ctx, endpoint.client, callObj, state)
+			if err == nil {
+				if i > 0 {
+					s.logger.Info("simulation succeeded on fallback endpoint", "endpointIndex", i, "method", "debug_traceCall")
+				}
+				return logs, isSwap, nil
+			}
 		}
 
 		lastErr = err
 
-		// Only fallback if it's not an application error
+		// Only fallback to next endpoint if it's not an application error
 		if !shouldFallback(err) {
-			return nil, err
+			return nil, false, err
 		}
 
 		s.logger.Warn("endpoint failed, trying fallback",
@@ -220,15 +226,80 @@ func (s *InlineSimulator) executeTraceWithFallback(ctx context.Context, callObj 
 		)
 	}
 
-	return nil, fmt.Errorf("all endpoints failed: %w", lastErr)
+	return nil, false, fmt.Errorf("all endpoints failed: %w", lastErr)
 }
 
-// executeTrace calls debug_traceCall with the given parameters
-func (s *InlineSimulator) executeTrace(ctx context.Context, client *rpc.Client, callObj map[string]interface{}, state SimState) (*TraceCallResult, error) {
+// executeSimulateV1 calls eth_simulateV1 (lighter, preferred method)
+func (s *InlineSimulator) executeSimulateV1(ctx context.Context, client *rpc.Client, callObj map[string]interface{}, state SimState) ([]*types.Log, bool, error) {
+	// Build eth_simulateV1 request
+	// Format: https://ethereum.github.io/execution-apis/ethsimulatev1-notes/
+	simRequest := map[string]interface{}{
+		"blockStateCalls": []map[string]interface{}{
+			{
+				"calls": []map[string]interface{}{callObj},
+			},
+		},
+		"validation": true,
+	}
+
+	var result []SimulateV1Block
+	err := client.CallContext(ctx, &result, "eth_simulateV1", simRequest, string(state))
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Validate response
+	if len(result) == 0 {
+		return nil, false, errors.New("empty response from eth_simulateV1")
+	}
+	block := result[0]
+	if len(block.Calls) == 0 {
+		return nil, false, errors.New("no calls in eth_simulateV1 response")
+	}
+
+	call := block.Calls[0]
+
+	// Check for revert (status 0x0)
+	if call.Status == 0 {
+		reason := "execution reverted"
+		if call.Error != nil && call.Error.Message != "" {
+			reason = call.Error.Message
+		} else if len(call.ReturnData) > 0 {
+			reason = decodeRevert(hexutil.Encode(call.ReturnData), reason)
+		}
+		return nil, false, fmt.Errorf("reverted: %s", reason)
+	}
+
+	// Validate gas used
+	if call.GasUsed == 0 {
+		return nil, false, errors.New("empty response: missing or zero gas used")
+	}
+
+	// Detect swaps from logs
+	isSwap, _ := DetectSwapsFromLogs(call.Logs)
+
+	// Convert logs to types.Log
+	logs := convertTraceLogs(call.Logs)
+
+	return logs, isSwap, nil
+}
+
+// executeDebugTraceCall calls debug_traceCall (fallback for deeper tracing or unsupported eth_simulateV1)
+func (s *InlineSimulator) executeDebugTraceCall(ctx context.Context, client *rpc.Client, callObj map[string]interface{}, state SimState) ([]*types.Log, bool, error) {
+	// debug_traceCall uses "data" instead of "input"
+	traceCallObj := make(map[string]interface{})
+	for k, v := range callObj {
+		if k == "input" {
+			traceCallObj["data"] = v
+		} else {
+			traceCallObj[k] = v
+		}
+	}
+
 	var result TraceCallResult
 	err := client.CallContext(ctx, &result, "debug_traceCall",
-		callObj,
-		string(state), // "latest" or "pending"
+		traceCallObj,
+		string(state),
 		map[string]interface{}{
 			"tracer": "callTracer",
 			"tracerConfig": map[string]interface{}{
@@ -238,9 +309,59 @@ func (s *InlineSimulator) executeTrace(ctx context.Context, client *rpc.Client, 
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, false, fmt.Errorf("debug_traceCall failed (state=%s): %w", state, err)
 	}
-	return &result, nil
+
+	// Check for revert at top level
+	if result.Error != "" {
+		reason := decodeRevertFromTrace(result.Output, result.Error)
+		return nil, false, fmt.Errorf("reverted: %s", reason)
+	}
+
+	// Check for inner call errors (recursive)
+	if innerErr := findInnerCallError(&result); innerErr != "" {
+		return nil, false, fmt.Errorf("inner call reverted: %s", innerErr)
+	}
+
+	// Validate trace response - a valid trace always has non-zero GasUsed
+	gasUsed, err := hexutil.DecodeUint64(result.GasUsed)
+	if err != nil || gasUsed == 0 {
+		return nil, false, errors.New("empty trace response: missing or zero gas used")
+	}
+
+	// Collect all logs from trace (depth-first, execution order)
+	var traceLogs []TraceLog
+	collectTraceLogs(&result, &traceLogs)
+
+	// Detect swaps from logs
+	isSwap, _ := DetectSwapsFromLogs(traceLogs)
+
+	// Convert logs to types.Log
+	logs := convertTraceLogs(traceLogs)
+
+	return logs, isSwap, nil
+}
+
+// isMethodNotSupported checks if the error indicates the RPC method is not supported
+func isMethodNotSupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	var rpcErr rpc.Error
+	if errors.As(err, &rpcErr) {
+		// -32601 is the standard JSON-RPC error code for "Method not found"
+		// -32600 is "Invalid Request"
+		code := rpcErr.ErrorCode()
+		if code == -32601 || code == -32600 {
+			return true
+		}
+		// Also check error message for method not found
+		msg := strings.ToLower(err.Error())
+		return strings.Contains(msg, "method not found") ||
+			strings.Contains(msg, "not supported") ||
+			strings.Contains(msg, "unknown method")
+	}
+	return false
 }
 
 // shouldFallback returns true if the error should trigger a fallback to the next endpoint.
