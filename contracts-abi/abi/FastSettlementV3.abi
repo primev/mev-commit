@@ -309,6 +309,11 @@
     "name": "initialize",
     "inputs": [
       {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_executor",
         "type": "address",
         "internalType": "address"
@@ -688,6 +693,11 @@
   {
     "type": "error",
     "name": "BadNonce",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BadOwner",
     "inputs": []
   },
   {
