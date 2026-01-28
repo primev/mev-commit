@@ -2,6 +2,7 @@ package sim_test
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 )
 
@@ -255,6 +257,188 @@ var traceCallResponseBalancer = `{
 	]
 }`
 
+// Real mainnet transaction test vectors for e2e validation of parsing and sender recovery.
+var realTxVectors = []struct {
+	name           string
+	rawHex         string
+	expectedType   uint8
+	expectedSender string
+	hasChainID     bool
+}{
+	{
+		// Pre-EIP-155 legacy transaction (no chain ID replay protection)
+		// Block 46147 - early mainnet transaction
+		name:           "PreEIP155_Legacy",
+		rawHex:         "f86780862d79883d2000825208945df9b87991262f6ba471f09758cde1c0fc1de734827a69801ca088ff6cf0fefd94db46111149ae4bfc179e9b94721fffd821d38d16464b3f71d0a045e0aff800961cfce805daef7016f9ae479c0a24afba38dd33c2ecdbb01dcacf",
+		expectedType:   types.LegacyTxType,
+		expectedSender: "0xD3678D173368032b34E00AE057C31b083FBAb830",
+		hasChainID:     false,
+	},
+	{
+		// EIP-1559 dynamic fee transaction (type 2)
+		name:           "EIP1559_DynamicFee",
+		rawHex:         "02f8730101843b9aca00850c92a69c0082520894d8da6bf26964af9d7eed9e03e53415d37aa9604588016345785d8a000080c001a0a9f0aabbfa2b831dd37d0f8d48d941f35f4fd40a1f2e2fa74a7df3e60aa534c8a0488e799fae157d086b8e0b624ab63627f14509482fe037e88f516a3725070896",
+		expectedType:   types.DynamicFeeTxType,
+		expectedSender: "0xcEC000D467698070C6D8D73D8ff1F60FD7DCb531",
+		hasChainID:     true,
+	},
+}
+
+func TestTransactionParsingAndSenderRecovery(t *testing.T) {
+	for _, tc := range realTxVectors {
+		t.Run(tc.name, func(t *testing.T) {
+			rawBytes, err := hex.DecodeString(tc.rawHex)
+			if err != nil {
+				t.Fatalf("failed to decode hex: %v", err)
+			}
+
+			tx := new(types.Transaction)
+			if err := tx.UnmarshalBinary(rawBytes); err != nil {
+				t.Fatalf("failed to parse tx: %v", err)
+			}
+
+			if tx.Type() != tc.expectedType {
+				t.Errorf("expected tx type %d, got %d", tc.expectedType, tx.Type())
+			}
+
+			if tc.hasChainID {
+				if tx.ChainId().Sign() == 0 {
+					t.Error("expected non-zero chainId")
+				}
+			} else {
+				if tx.ChainId().Sign() != 0 {
+					t.Errorf("expected chainId 0, got %s", tx.ChainId().String())
+				}
+			}
+
+			sender, err := recoverSenderForTest(tx)
+			if err != nil {
+				t.Fatalf("failed to recover sender: %v", err)
+			}
+
+			if sender == (common.Address{}) {
+				t.Error("recovered zero address")
+			}
+
+			if tc.expectedSender != "" {
+				expected := common.HexToAddress(tc.expectedSender)
+				if sender != expected {
+					t.Errorf("sender mismatch: got %s, want %s", sender.Hex(), expected.Hex())
+				}
+			}
+
+			t.Logf("tx=%s sender=%s chainId=%s", tc.name, sender.Hex(), tx.ChainId().String())
+		})
+	}
+}
+
+func recoverSenderForTest(tx *types.Transaction) (common.Address, error) {
+	var signer types.Signer
+	switch tx.Type() {
+	case types.LegacyTxType:
+		if tx.ChainId().Sign() == 0 {
+			signer = types.HomesteadSigner{}
+		} else {
+			signer = types.NewEIP155Signer(tx.ChainId())
+		}
+	case types.AccessListTxType:
+		signer = types.NewEIP2930Signer(tx.ChainId())
+	case types.DynamicFeeTxType:
+		signer = types.NewLondonSigner(tx.ChainId())
+	case types.BlobTxType:
+		signer = types.NewCancunSigner(tx.ChainId())
+	default:
+		signer = types.LatestSignerForChainID(tx.ChainId())
+	}
+	return types.Sender(signer, tx)
+}
+
+// TestSimulateWithRealTransactions tests the full simulation pipeline with real transaction hex.
+// This verifies parsing, sender recovery, call object construction, and RPC interaction.
+func TestSimulateWithRealTransactions(t *testing.T) {
+	// Create mock server that accepts any valid simulation request
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
+			ID     int               `json:"id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		defer func() { _ = r.Body.Close() }()
+
+		w.Header().Set("Content-Type", "application/json")
+
+		// Return successful simulation response for eth_simulateV1
+		if req.Method == "eth_simulateV1" {
+			response := map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      req.ID,
+				"result":  json.RawMessage(simulateV1ResponseSimple),
+			}
+			_ = json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		// Fallback to debug_traceCall
+		if req.Method == "debug_traceCall" {
+			response := map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      req.ID,
+				"result":  json.RawMessage(traceCallResponseSimple),
+			}
+			_ = json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		// Unknown method
+		response := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      req.ID,
+			"error": map[string]interface{}{
+				"code":    -32601,
+				"message": "Method not found",
+			},
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer srv.Close()
+
+	simulator, err := sim.NewInlineSimulator([]string{srv.URL}, nil)
+	if err != nil {
+		t.Fatalf("failed to create simulator: %v", err)
+	}
+	defer func() { _ = simulator.Close() }()
+
+	for _, tc := range realTxVectors {
+		t.Run(tc.name, func(t *testing.T) {
+			// Test full simulation pipeline with real tx hex
+			logs, isSwap, err := simulator.Simulate(context.Background(), tc.rawHex, sim.Latest)
+			if err != nil {
+				t.Fatalf("simulation failed: %v", err)
+			}
+
+			// Verify we got a response (mock returns simple transfer with no logs)
+			if logs == nil {
+				t.Error("expected non-nil logs slice")
+			}
+
+			t.Logf("tx=%s simulated successfully, logs=%d, isSwap=%v", tc.name, len(logs), isSwap)
+		})
+	}
+
+	// Test with pending state
+	t.Run("PendingState", func(t *testing.T) {
+		logs, isSwap, err := simulator.Simulate(context.Background(), realTxVectors[0].rawHex, sim.Pending)
+		if err != nil {
+			t.Fatalf("simulation with pending state failed: %v", err)
+		}
+		t.Logf("pending state simulation: logs=%d, isSwap=%v", len(logs), isSwap)
+	})
+}
+
 func TestInlineSimulator(t *testing.T) {
 	// eth_simulateV1 responses
 	simV1Responses := map[string]string{
@@ -461,10 +645,7 @@ func TestInlineSimulator(t *testing.T) {
 
 // TestSwapDetection tests the swap detector with realistic trace responses
 func TestSwapDetection(t *testing.T) {
-	// Test nested trace logs collection from aggregator multi-hop
 	t.Run("NestedTraceLogCollection", func(t *testing.T) {
-		// Simulate what happens in a multi-hop swap
-		// The logs are nested inside calls
 		logs := []sim.TraceLog{
 			// First hop - SushiSwap (uses same signature as Uniswap V2 Swap)
 			{
@@ -523,7 +704,6 @@ func TestSwapDetection(t *testing.T) {
 }
 
 func TestSwapSignatures(t *testing.T) {
-	// Test all swap event signatures from rethsim
 	swapTests := []struct {
 		name         string
 		topicHash    string
@@ -580,7 +760,6 @@ func TestSwapSignatures(t *testing.T) {
 		})
 	}
 
-	// Test multiple swap events in one transaction (aggregator scenario)
 	t.Run("DetectMultipleSwaps", func(t *testing.T) {
 		logs := []sim.TraceLog{
 			{
@@ -608,7 +787,6 @@ func TestSwapSignatures(t *testing.T) {
 		}
 	})
 
-	// Test deduplication of same swap type
 	t.Run("DeduplicateSameSwapType", func(t *testing.T) {
 		logs := []sim.TraceLog{
 			{
