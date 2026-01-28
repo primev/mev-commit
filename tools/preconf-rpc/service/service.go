@@ -78,7 +78,8 @@ type Config struct {
 	PricerAPIKey           string
 	Webhooks               []string
 	Token                  string
-	SimulatorURL           string
+	SimulatorURLs          []string
+	UseInlineSimulation    bool
 	BackrunnerRPC          string
 	BackrunnerAPIURL       string
 	BackrunnerAPIKey       string
@@ -270,8 +271,31 @@ func New(config *Config) (*Service, error) {
 	healthChecker.Register(health.CloseChannelHealthCheck("BlockTracker", blockTrackerDone))
 	s.closers = append(s.closers, channelCloser(blockTrackerDone))
 
-	simulator := sim.NewSimulator(config.SimulatorURL)
-	metricsRegistry.MustRegister(simulator.Metrics()...)
+	// Create simulator based on feature flag
+	// When UseInlineSimulation is true, uses debug_traceCall via standard RPC (Alchemy, Infura, Erigon)
+	// When false (default), uses external rethsim API for backward compatibility
+	// Multiple URLs can be provided for fallback support
+	if len(config.SimulatorURLs) == 0 {
+		return nil, fmt.Errorf("at least one simulation URL is required")
+	}
+	var simulator sender.Simulator
+	var simulatorMetrics []prometheus.Collector
+	if config.UseInlineSimulation {
+		inlineSim, err := sim.NewInlineSimulator(config.SimulatorURLs, config.Logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create inline simulator: %w", err)
+		}
+		simulator = inlineSim
+		simulatorMetrics = inlineSim.Metrics()
+		s.closers = append(s.closers, inlineSim) // close RPC clients on shutdown
+		config.Logger.Info("using inline simulator (debug_traceCall)", "endpointCount", len(config.SimulatorURLs))
+	} else {
+		externalSim := sim.NewSimulator(config.SimulatorURLs, config.Logger)
+		simulator = externalSim
+		simulatorMetrics = externalSim.Metrics()
+		config.Logger.Info("using external simulator (rethsim)", "endpointCount", len(config.SimulatorURLs))
+	}
+	metricsRegistry.MustRegister(simulatorMetrics...)
 
 	var pointsTracker PointsTracker
 	if config.PointsAPIURL == "" {
