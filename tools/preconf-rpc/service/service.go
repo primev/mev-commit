@@ -28,6 +28,7 @@ import (
 	bidder "github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/blocktracker"
 	explorersubmitter "github.com/primev/mev-commit/tools/preconf-rpc/explorer-submitter"
+	"github.com/primev/mev-commit/tools/preconf-rpc/fastswap"
 	"github.com/primev/mev-commit/tools/preconf-rpc/handlers"
 	"github.com/primev/mev-commit/tools/preconf-rpc/notifier"
 	"github.com/primev/mev-commit/tools/preconf-rpc/points"
@@ -89,6 +90,11 @@ type Config struct {
 	PointsAPIURL           string
 	PointsAPIKey           string
 	L1ReceiptsRPCUrl       string
+	// FastSwap config
+	BarterAPIURL          string
+	BarterAPIKey          string
+	FastSettlementAddress common.Address
+	FastSwapSigner        keysigner.KeySigner // Separate wallet for FastSwap executor
 }
 
 type Service struct {
@@ -436,6 +442,34 @@ func New(config *Config) (*Service, error) {
 	})
 
 	registerAdminAPIs(mux, config.Token, sndr, rpcstore)
+
+	// Register FastSwap endpoints if configured
+	if config.BarterAPIURL != "" {
+		fastswapSvc := fastswap.NewService(
+			config.BarterAPIURL,
+			config.BarterAPIKey,
+			config.FastSettlementAddress,
+			l1ChainID.Uint64(),
+			config.Logger.With("module", "fastswap"),
+		)
+
+		// Wire executor dependencies for Path 1 (executor-submitted transactions)
+		// Uses separate FastSwapSigner to isolate from main operational wallet
+		if config.FastSwapSigner != nil {
+			fastswapSvc.SetExecutorDeps(config.FastSwapSigner, sndr, blockTracker)
+			config.Logger.Info("FastSwap Path 1 enabled",
+				"executorAddress", config.FastSwapSigner.GetAddress().Hex(),
+			)
+		} else {
+			config.Logger.Warn("FastSwap Path 1 disabled - no fastswap-keystore-path provided")
+		}
+
+		mux.HandleFunc("POST /fastswap", fastswapSvc.Handler())
+		mux.HandleFunc("POST /fastswap/eth", fastswapSvc.ETHHandler())
+		config.Logger.Info("FastSwap endpoints registered",
+			"settlementAddress", config.FastSettlementAddress.Hex(),
+		)
+	}
 
 	srv := http.Server{
 		Addr:    fmt.Sprintf(":%d", config.HTTPPort),
