@@ -327,6 +327,43 @@ var (
 		Usage:   "Explorer App Code",
 		EnvVars: []string{"PRECONF_RPC_EXPLORER_APPCODE"},
 	}
+
+	// FastSwap configuration
+	optionBarterAPIURL = &cli.StringFlag{
+		Name:    "barter-api-url",
+		Usage:   "Barter API URL for swap routing",
+		EnvVars: []string{"PRECONF_RPC_BARTER_API_URL"},
+	}
+
+	optionBarterAPIKey = &cli.StringFlag{
+		Name:    "barter-api-key",
+		Usage:   "Barter API key",
+		EnvVars: []string{"PRECONF_RPC_BARTER_API_KEY"},
+	}
+
+	optionFastSettlementAddress = &cli.StringFlag{
+		Name:    "fast-settlement-address",
+		Usage:   "FastSettlementV3 contract address",
+		EnvVars: []string{"PRECONF_RPC_FAST_SETTLEMENT_ADDRESS"},
+		Action: func(ctx *cli.Context, s string) error {
+			if s != "" && !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid fast-settlement-address: %s", s)
+			}
+			return nil
+		},
+	}
+
+	optionFastSwapKeystorePath = &cli.StringFlag{
+		Name:    "fastswap-keystore-path",
+		Usage:   "Path to the FastSwap executor keystore file (separate wallet for FastSwap transactions)",
+		EnvVars: []string{"PRECONF_RPC_FASTSWAP_KEYSTORE_PATH"},
+	}
+
+	optionFastSwapKeystorePassword = &cli.StringFlag{
+		Name:    "fastswap-keystore-password",
+		Usage:   "Password for the FastSwap executor keystore",
+		EnvVars: []string{"PRECONF_RPC_FASTSWAP_KEYSTORE_PASSWORD"},
+	}
 )
 
 func main() {
@@ -375,6 +412,11 @@ func main() {
 			optionPointsAPIURL,
 			optionPointsAPIKey,
 			optionL1ReceiptsRPCUrl,
+			optionBarterAPIURL,
+			optionBarterAPIKey,
+			optionFastSettlementAddress,
+			optionFastSwapKeystorePath,
+			optionFastSwapKeystorePassword,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -430,6 +472,19 @@ func main() {
 				return fmt.Errorf("failed to create signer: %w", err)
 			}
 
+			// Load separate FastSwap signer if configured
+			var fastSwapSigner keysigner.KeySigner
+			if c.String(optionFastSwapKeystorePath.Name) != "" {
+				fastSwapSigner, err = keysigner.NewKeystoreSigner(
+					c.String(optionFastSwapKeystorePath.Name),
+					c.String(optionFastSwapKeystorePassword.Name),
+				)
+				if err != nil {
+					return fmt.Errorf("failed to create FastSwap signer: %w", err)
+				}
+				logger.Info("FastSwap executor wallet loaded", "address", fastSwapSigner.GetAddress().Hex())
+			}
+
 			l1ReceiptsURL := c.String(optionL1ReceiptsRPCUrl.Name)
 			if l1ReceiptsURL == "" {
 				l1ReceiptsURL = c.String(optionL1RPCHTTPUrl.Name)
@@ -477,6 +532,10 @@ func main() {
 				PointsAPIURL:           c.String(optionPointsAPIURL.Name),
 				PointsAPIKey:           c.String(optionPointsAPIKey.Name),
 				L1ReceiptsRPCUrl:       l1ReceiptsURL,
+				BarterAPIURL:           c.String(optionBarterAPIURL.Name),
+				BarterAPIKey:           c.String(optionBarterAPIKey.Name),
+				FastSettlementAddress:  common.HexToAddress(c.String(optionFastSettlementAddress.Name)),
+				FastSwapSigner:         fastSwapSigner,
 			}
 
 			s, err := service.New(&config)
