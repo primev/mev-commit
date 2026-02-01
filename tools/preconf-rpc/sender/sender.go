@@ -27,6 +27,7 @@ const (
 	TxTypeRegular TxType = iota
 	TxTypeDeposit
 	TxTypeInstantBridge
+	TxTypeFastSwap // Executor-submitted fastswap transactions (skip balance check)
 )
 
 type TxStatus string
@@ -104,7 +105,7 @@ func effectiveFeePerGas(tx *types.Transaction) *big.Int {
 type Store interface {
 	AddQueuedTransaction(ctx context.Context, tx *Transaction) error
 	GetQueuedTransactions(ctx context.Context) ([]*Transaction, error)
-	GetCurrentNonce(ctx context.Context, sender common.Address) uint64
+	GetCurrentNonce(ctx context.Context, sender common.Address) (uint64, bool)
 	HasBalance(ctx context.Context, sender common.Address, amount *big.Int) bool
 	AddBalance(ctx context.Context, account common.Address, amount *big.Int) error
 	DeductBalance(ctx context.Context, account common.Address, amount *big.Int) error
@@ -271,7 +272,7 @@ func validateTransaction(tx *Transaction) error {
 	if tx == nil || tx.Transaction == nil {
 		return ErrInvalidTransaction
 	}
-	if tx.Type < TxTypeRegular || tx.Type > TxTypeInstantBridge {
+	if tx.Type < TxTypeRegular || tx.Type > TxTypeFastSwap {
 		return ErrUnsupportedTxType
 	}
 	if tx.Raw == "" {
@@ -290,17 +291,33 @@ func validateTransaction(tx *Transaction) error {
 }
 
 func (t *TxSender) hasCorrectNonce(ctx context.Context, tx *Transaction) error {
-	currentNonce := t.store.GetCurrentNonce(ctx, tx.Sender) + 1
+	// Get backend (chain) nonce first
 	backendNonce, err := t.blockTracker.AccountNonce(ctx, tx.Sender)
-	if err == nil {
-		if backendNonce > currentNonce {
-			currentNonce = backendNonce
-		}
+	if err != nil {
+		return fmt.Errorf("failed to get backend nonce: %w", err)
 	}
+
+	// Get store nonce - returns (maxNonce, hasTxs)
+	maxNonce, hasTxs := t.store.GetCurrentNonce(ctx, tx.Sender)
+
+	var expectedNonce uint64
+	if hasTxs {
+		// Has transactions in store, next nonce is max + 1
+		expectedNonce = maxNonce + 1
+	} else {
+		// No transactions in store, use chain nonce
+		expectedNonce = backendNonce
+	}
+
+	// If chain has advanced beyond our tracking, use chain nonce
+	if backendNonce > expectedNonce {
+		expectedNonce = backendNonce
+	}
+
 	switch {
-	case tx.Nonce() < currentNonce:
+	case tx.Nonce() < expectedNonce:
 		return ErrNonceTooLow
-	case tx.Nonce() > currentNonce:
+	case tx.Nonce() > expectedNonce:
 		return ErrNonceTooHigh
 	}
 
@@ -847,6 +864,9 @@ func (t *TxSender) sendBid(
 			)
 		}
 		slashAmount = new(big.Int).Set(txn.Value())
+	case TxTypeFastSwap:
+		// FastSwap executor transactions skip balance check - RPC bidder pays for bids
+		logger.Debug("FastSwap transaction - skipping balance check", "sender", txn.Sender.Hex())
 	}
 
 	state := sim.Latest

@@ -57,6 +57,16 @@ func (m *mockBlockTracker) NextBaseFee() *big.Int {
 	return m.nextBaseFee
 }
 
+// mockNonceStore implements fastswap.NonceStore interface
+type mockNonceStore struct {
+	nonce  uint64
+	hasTxs bool
+}
+
+func (m *mockNonceStore) GetCurrentNonce(_ context.Context, _ common.Address) (uint64, bool) {
+	return m.nonce, m.hasTxs
+}
+
 // ============ Test Helpers ============
 
 func newTestBarterResponse() fastswap.BarterResponse {
@@ -274,7 +284,8 @@ func TestHandleSwap(t *testing.T) {
 		nonce:       5,
 		nextBaseFee: big.NewInt(30000000000), // 30 gwei
 	}
-	svc.SetExecutorDeps(mockSigner, mockEnqueuer, mockTracker)
+	mockStore := &mockNonceStore{nonce: 4, hasTxs: true} // store nonce + 1 should match tracker nonce
+	svc.SetExecutorDeps(mockSigner, mockEnqueuer, mockTracker, mockStore)
 
 	req := fastswap.SwapRequest{
 		User:        common.HexToAddress("0xUserAddress"),
@@ -387,7 +398,8 @@ func TestHandler(t *testing.T) {
 		nonce:       0,
 		nextBaseFee: big.NewInt(30000000000),
 	}
-	svc.SetExecutorDeps(mockSignerInst, mockEnqueuer, mockTracker)
+	mockStore := &mockNonceStore{nonce: 0, hasTxs: false}
+	svc.SetExecutorDeps(mockSignerInst, mockEnqueuer, mockTracker, mockStore)
 
 	handler := svc.Handler()
 

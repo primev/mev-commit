@@ -70,16 +70,16 @@ func (m *mockStore) GetQueuedTransactions(_ context.Context) ([]*sender.Transact
 	return txns, nil
 }
 
-func (m *mockStore) GetCurrentNonce(_ context.Context, sender common.Address) uint64 {
+func (m *mockStore) GetCurrentNonce(_ context.Context, sender common.Address) (uint64, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	nonce, exists := m.nonce[sender]
 	if !exists {
-		return 0
+		return 0, false
 	}
 
-	return nonce
+	return nonce, true
 }
 
 func (m *mockStore) HasBalance(ctx context.Context, sender common.Address, amount *big.Int) bool {
@@ -349,7 +349,7 @@ func TestSender(t *testing.T) {
 
 	tx1 := &sender.Transaction{
 		Transaction: types.NewTransaction(
-			1,
+			0,
 			common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			big.NewInt(100),
 			21000,
@@ -451,7 +451,7 @@ func TestSender(t *testing.T) {
 
 	tx2 := &sender.Transaction{
 		Transaction: types.NewTransaction(
-			2,
+			1,
 			common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			big.NewInt(1e18),
 			21000,
@@ -604,7 +604,7 @@ func TestCancelTransaction(t *testing.T) {
 
 	tx1 := &sender.Transaction{
 		Transaction: types.NewTransaction(
-			1,
+			0,
 			common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			big.NewInt(100),
 			21000,
@@ -693,7 +693,7 @@ func TestIgnoreProvidersOnRetry(t *testing.T) {
 
 	tx1 := &sender.Transaction{
 		Transaction: types.NewTransaction(
-			1,
+			0,
 			common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			big.NewInt(100),
 			21000,

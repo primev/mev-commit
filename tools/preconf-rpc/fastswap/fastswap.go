@@ -152,6 +152,11 @@ type BlockTracker interface {
 	NextBaseFee() *big.Int
 }
 
+// NonceStore interface for getting the current nonce from internal store
+type NonceStore interface {
+	GetCurrentNonce(ctx context.Context, sender common.Address) (uint64, bool)
+}
+
 // Service handles FastSwap operations.
 type Service struct {
 	barterBaseURL  string
@@ -164,6 +169,7 @@ type Service struct {
 	signer       Signer
 	txEnqueuer   TxEnqueuer
 	blockTracker BlockTracker
+	nonceStore   NonceStore
 }
 
 // NewService creates a new FastSwap service.
@@ -189,10 +195,11 @@ func NewService(
 
 // SetExecutorDeps sets the dependencies needed for Path 1 executor transaction submission.
 // This is called after TxSender is created since there's a circular dependency.
-func (s *Service) SetExecutorDeps(signer Signer, txEnqueuer TxEnqueuer, blockTracker BlockTracker) {
+func (s *Service) SetExecutorDeps(signer Signer, txEnqueuer TxEnqueuer, blockTracker BlockTracker, nonceStore NonceStore) {
 	s.signer = signer
 	s.txEnqueuer = txEnqueuer
 	s.blockTracker = blockTracker
+	s.nonceStore = nonceStore
 }
 
 // ============ Barter API ============
@@ -347,13 +354,28 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 	gasLimit += 100000 // Buffer for settlement contract overhead
 
 	// 4. Get nonce for executor wallet
+	// Use same logic as sender's hasCorrectNonce
 	executorAddr := s.signer.GetAddress()
-	nonce, err := s.blockTracker.AccountNonce(ctx, executorAddr)
+	maxNonce, hasTxs := s.nonceStore.GetCurrentNonce(ctx, executorAddr)
+	chainNonce, err := s.blockTracker.AccountNonce(ctx, executorAddr)
 	if err != nil {
 		return &SwapResult{
 			Status: "error",
-			Error:  fmt.Sprintf("failed to get nonce: %v", err),
+			Error:  fmt.Sprintf("failed to get chain nonce: %v", err),
 		}, nil
+	}
+
+	var nonce uint64
+	if hasTxs {
+		// Has transactions in store, next nonce is max + 1
+		nonce = maxNonce + 1
+	} else {
+		// No transactions in store, use chain nonce
+		nonce = chainNonce
+	}
+	// If chain has advanced beyond our tracking, use chain nonce
+	if chainNonce > nonce {
+		nonce = chainNonce
 	}
 
 	// 5. Calculate gas pricing: GasFeeCap = NextBaseFee only (no tip needed, mev-commit bid handles inclusion)
@@ -396,12 +418,12 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 	}
 	rawTxHex := "0x" + hex.EncodeToString(rawTxBytes)
 
-	// 9. Enqueue the transaction
+	// 9. Enqueue the transaction (uses TxTypeFastSwap to skip balance check)
 	senderTx := &sender.Transaction{
 		Transaction: signedTx,
 		Sender:      executorAddr,
 		Raw:         rawTxHex,
-		Type:        sender.TxTypeRegular,
+		Type:        sender.TxTypeFastSwap,
 	}
 
 	if err := s.txEnqueuer.Enqueue(ctx, senderTx); err != nil {

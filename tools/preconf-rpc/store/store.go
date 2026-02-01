@@ -476,23 +476,24 @@ func (s *rpcstore) GetTransactionCommitments(ctx context.Context, txnHash common
 	return commitments, nil
 }
 
-// GetCurrentNonce retrieves the next nonce for a given sender address by looking at the
-// pending transactions in the database. If there are no pending transactions, it returns 0.
-// The RPC would proxy this call to the underlying Ethereum node to get the current nonce in
-// case if 0 is returned.
-func (s *rpcstore) GetCurrentNonce(ctx context.Context, sender common.Address) uint64 {
+// GetCurrentNonce retrieves the max nonce for a given sender address by looking at the
+// non-failed transactions in the database. Returns (maxNonce, true) if transactions exist,
+// or (0, false) if no transactions found. The caller should use the chain nonce when
+// hasTxs is false.
+func (s *rpcstore) GetCurrentNonce(ctx context.Context, sender common.Address) (uint64, bool) {
 	query := `
-	SELECT COALESCE(MAX(nonce), 0)
+	SELECT COALESCE(MAX(nonce), 0), COUNT(*) > 0
 	FROM mcTransactions
 	WHERE sender = $1 AND status != 'failed';
 	`
 	row := s.db.QueryRowContext(ctx, query, sender.Hex())
-	var nextNonce uint64
-	err := row.Scan(&nextNonce)
+	var maxNonce uint64
+	var hasTxs bool
+	err := row.Scan(&maxNonce, &hasTxs)
 	if err != nil {
-		return 0 // If no pending transactions found, return 0 as the next nonce
+		return 0, false // If query fails, assume no transactions
 	}
-	return nextNonce
+	return maxNonce, hasTxs
 }
 
 func (s *rpcstore) DeductBalance(
