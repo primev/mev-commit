@@ -456,7 +456,7 @@ func New(config *Config) (*Service, error) {
 		// Wire executor dependencies for Path 1 (executor-submitted transactions)
 		// Uses separate FastSwapSigner to isolate from main operational wallet
 		if config.FastSwapSigner != nil {
-			fastswapSvc.SetExecutorDeps(config.FastSwapSigner, sndr, blockTracker)
+			fastswapSvc.SetExecutorDeps(config.FastSwapSigner, sndr, blockTracker, rpcstore)
 			config.Logger.Info("FastSwap Path 1 enabled",
 				"executorAddress", config.FastSwapSigner.GetAddress().Hex(),
 			)

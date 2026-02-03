@@ -37,7 +37,7 @@ type Store interface {
 	GetTransactionCommitments(ctx context.Context, txnHash common.Hash) ([]*bidderapiv1.Commitment, error)
 	GetTransactionLogs(ctx context.Context, txnHash common.Hash) ([]*types.Log, error)
 	GetBalance(ctx context.Context, account common.Address) (*big.Int, error)
-	GetCurrentNonce(ctx context.Context, account common.Address) uint64
+	GetCurrentNonce(ctx context.Context, account common.Address) (uint64, bool)
 	HasBalance(ctx context.Context, account common.Address, amount *big.Int) bool
 	AlreadySubsidized(ctx context.Context, account common.Address) bool
 	AddSubsidy(ctx context.Context, account common.Address, amount *big.Int) error
@@ -687,18 +687,31 @@ func (h *rpcMethodHandler) handleGetTxCount(ctx context.Context, params ...any) 
 		)
 	}
 
-	accNonce := h.store.GetCurrentNonce(ctx, common.HexToAddress(account))
-	if accNonce == 0 {
-		return nil, true, nil
+	maxNonce, hasTxs := h.store.GetCurrentNonce(ctx, common.HexToAddress(account))
+
+	// Get backend nonce
+	backendNonce, err := h.blockTracker.AccountNonce(ctx, common.HexToAddress(account))
+	if err != nil {
+		// If backend fails and no store txs, return nil (proxy will handle)
+		if !hasTxs {
+			return nil, true, nil
+		}
+		// Otherwise use store nonce + 1
+		backendNonce = 0
 	}
 
-	accNonce += 1
+	var accNonce uint64
+	if hasTxs {
+		// Has transactions in store, next nonce is max + 1
+		accNonce = maxNonce + 1
+	} else {
+		// No transactions in store, use chain nonce
+		accNonce = backendNonce
+	}
 
-	backendNonce, err := h.blockTracker.AccountNonce(ctx, common.HexToAddress(account))
-	if err == nil {
-		if backendNonce > accNonce {
-			accNonce = backendNonce
-		}
+	// If chain has advanced beyond our tracking, use chain nonce
+	if backendNonce > accNonce {
+		accNonce = backendNonce
 	}
 
 	nonceJSON, err := json.Marshal(accNonce)

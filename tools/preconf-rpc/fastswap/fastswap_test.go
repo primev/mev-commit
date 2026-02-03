@@ -57,6 +57,16 @@ func (m *mockBlockTracker) NextBaseFee() *big.Int {
 	return m.nextBaseFee
 }
 
+// mockNonceStore implements fastswap.NonceStore interface
+type mockNonceStore struct {
+	nonce  uint64
+	hasTxs bool
+}
+
+func (m *mockNonceStore) GetCurrentNonce(_ context.Context, _ common.Address) (uint64, bool) {
+	return m.nonce, m.hasTxs
+}
+
 // ============ Test Helpers ============
 
 func newTestBarterResponse() fastswap.BarterResponse {
@@ -274,7 +284,8 @@ func TestHandleSwap(t *testing.T) {
 		nonce:       5,
 		nextBaseFee: big.NewInt(30000000000), // 30 gwei
 	}
-	svc.SetExecutorDeps(mockSigner, mockEnqueuer, mockTracker)
+	mockStore := &mockNonceStore{nonce: 4, hasTxs: true} // store nonce + 1 should match tracker nonce
+	svc.SetExecutorDeps(mockSigner, mockEnqueuer, mockTracker, mockStore)
 
 	req := fastswap.SwapRequest{
 		User:        common.HexToAddress("0xUserAddress"),
@@ -387,21 +398,22 @@ func TestHandler(t *testing.T) {
 		nonce:       0,
 		nextBaseFee: big.NewInt(30000000000),
 	}
-	svc.SetExecutorDeps(mockSignerInst, mockEnqueuer, mockTracker)
+	mockStore := &mockNonceStore{nonce: 0, hasTxs: false}
+	svc.SetExecutorDeps(mockSignerInst, mockEnqueuer, mockTracker, mockStore)
 
 	handler := svc.Handler()
 
-	// Use raw JSON with flattened request structure
+	// Use raw JSON with string values for numeric fields (new handler format)
 	reqJSON := `{
 		"user": "0x0000000000000000000000000000000000000001",
 		"inputToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		"outputToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-		"inputAmt": 1000000000,
-		"userAmtOut": 500000000000000000,
+		"inputAmt": "1000000000",
+		"userAmtOut": "500000000000000000",
 		"recipient": "0x0000000000000000000000000000000000000002",
-		"deadline": 1700000000,
-		"nonce": 1,
-		"signature": "AQIDBA=="
+		"deadline": "1700000000",
+		"nonce": "1",
+		"signature": "0x01020304"
 	}`
 
 	req := httptest.NewRequest(http.MethodPost, "/fastswap", strings.NewReader(reqJSON))
@@ -444,14 +456,14 @@ func TestHandler_MissingFields(t *testing.T) {
 		{
 			name:     "missing user",
 			reqBody:  map[string]interface{}{},
-			expected: "missing user address",
+			expected: "missing or invalid user address",
 		},
 		{
 			name: "missing inputToken",
 			reqBody: map[string]interface{}{
 				"user": "0x1234567890123456789012345678901234567890",
 			},
-			expected: "missing inputToken",
+			expected: "missing or invalid inputToken",
 		},
 		{
 			name: "missing outputToken",
@@ -459,7 +471,16 @@ func TestHandler_MissingFields(t *testing.T) {
 				"user":       "0x1234567890123456789012345678901234567890",
 				"inputToken": "0x1234567890123456789012345678901234567890",
 			},
-			expected: "missing outputToken",
+			expected: "missing or invalid outputToken",
+		},
+		{
+			name: "missing recipient",
+			reqBody: map[string]interface{}{
+				"user":        "0x1234567890123456789012345678901234567890",
+				"inputToken":  "0x1234567890123456789012345678901234567890",
+				"outputToken": "0x1234567890123456789012345678901234567890",
+			},
+			expected: "missing or invalid recipient",
 		},
 		{
 			name: "missing signature",
@@ -467,7 +488,11 @@ func TestHandler_MissingFields(t *testing.T) {
 				"user":        "0x1234567890123456789012345678901234567890",
 				"inputToken":  "0x1234567890123456789012345678901234567890",
 				"outputToken": "0x1234567890123456789012345678901234567890",
-				"inputAmt":    1000,
+				"recipient":   "0x1234567890123456789012345678901234567890",
+				"inputAmt":    "1000",
+				"userAmtOut":  "900",
+				"deadline":    "1700000000",
+				"nonce":       "0",
 			},
 			expected: "missing signature",
 		},

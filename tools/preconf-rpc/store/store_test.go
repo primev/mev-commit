@@ -181,7 +181,10 @@ func TestStore(t *testing.T) {
 
 	t.Run("GetCurrentNonce", func(t *testing.T) {
 		senderAddress := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
-		nonce := st.GetCurrentNonce(context.Background(), senderAddress)
+		nonce, hasTxs := st.GetCurrentNonce(context.Background(), senderAddress)
+		if !hasTxs {
+			t.Fatalf("expected hasTxs to be true, got false")
+		}
 		if nonce != 1 {
 			t.Fatalf("expected nonce 1, got %d", nonce)
 		}
