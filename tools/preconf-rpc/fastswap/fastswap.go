@@ -224,12 +224,12 @@ func (s *Service) callBarter(ctx context.Context, reqBody barterRequest, logDesc
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", s.barterAPIKey))
 
-	s.logger.Debug("calling Barter API",
+	s.logger.Info("calling Barter API",
 		"type", logDescription,
-		"url", s.barterBaseURL+"/swap",
-		"source", reqBody.Source,
-		"target", reqBody.Target,
-		"sellAmount", reqBody.SellAmount,
+		"inputToken", reqBody.Source,
+		"outputToken", reqBody.Target,
+		"inputAmount", reqBody.SellAmount,
+		"outputAmount", reqBody.MinReturn,
 	)
 
 	resp, err := s.httpClient.Do(req)
@@ -384,7 +384,8 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 		nextBaseFee = big.NewInt(30_000_000_000) // 30 gwei fallback
 	}
 	gasTipCap := big.NewInt(0) // No priority fee - mev-commit bid handles inclusion
-	gasFeeCap := nextBaseFee   // GasFeeCap = BaseFee (tip is 0)
+	// add buffer to fee cap to account for changes
+	gasFeeCap := new(big.Int).Mul(nextBaseFee, big.NewInt(2))
 
 	// 6. Build the transaction
 	chainID := big.NewInt(int64(s.chainID))
