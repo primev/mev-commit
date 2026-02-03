@@ -162,6 +162,13 @@ func (m *mockStore) GetTransactionByHash(
 	return txn, nil
 }
 
+func (m *mockStore) StoreReceipt(
+	ctx context.Context,
+	receipt *types.Receipt,
+) error {
+	return nil
+}
+
 type bidOp struct {
 	bidAmount   *big.Int
 	slashAmount *big.Int
