@@ -111,6 +111,7 @@ type Store interface {
 	DeductBalance(ctx context.Context, account common.Address, amount *big.Int) error
 	StoreTransaction(ctx context.Context, txn *Transaction, commitments []*bidderapiv1.Commitment, logs []*types.Log) error
 	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*Transaction, error)
+	StoreReceipt(ctx context.Context, receipt *types.Receipt) error
 }
 
 type Bidder interface {
@@ -579,6 +580,23 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 					txn.Status = TxStatusFailed
 					txn.Details = err.Error()
 					t.clearBlockAttemptHistory(txn, time.Now())
+
+					// Store a failed receipt to unblock the user's wallet
+					receipt := &types.Receipt{
+						Type:              txn.Transaction.Type(),
+						Status:            types.ReceiptStatusFailed,
+						TxHash:            txn.Hash(),
+						ContractAddress:   common.Address{},
+						GasUsed:           0, // 0 since no execution happened
+						CumulativeGasUsed: 0,
+						BlockHash:         common.Hash{}, // Pending/Unknown
+						BlockNumber:       big.NewInt(0), // Pending/Unknown
+						TransactionIndex:  0,
+					}
+					if storeErr := t.store.StoreReceipt(ctx, receipt); storeErr != nil {
+						t.logger.Error("Failed to store failed receipt", "error", storeErr)
+					}
+
 					defer t.signalReceiptAvailable(txn.Hash())
 					return t.store.StoreTransaction(ctx, txn, nil, nil)
 				}
