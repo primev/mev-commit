@@ -182,12 +182,6 @@ func (s *JSONRPCServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	if cacheMethods[req.Method] {
-		if stubbed, resp := maybeStubERC20Meta(req.Method, req.Params); stubbed {
-			s.writeResponse(w, req.ID, &resp)
-			s.metrics.methodSuccessCounts.WithLabelValues(req.Method).Inc()
-			s.metrics.methodSuccessDurations.WithLabelValues(req.Method).Observe(float64(time.Since(start).Milliseconds()))
-			return
-		}
 		key := cacheKey(req.Method, req.Params)
 		if entry, ok := s.cache.Get(key); ok && time.Now().Before(entry.until) {
 			s.logger.Debug("Cache hit", "method", req.Method, "id", req.ID)
@@ -338,40 +332,6 @@ func setCorsHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-}
-
-// short-circuit a few very common ERC-20 metadata calls
-// selectors: symbol 0x95d89b41, decimals 0x313ce567, name 0x06fdde03
-func maybeStubERC20Meta(method string, params []any) (stubbed bool, resp json.RawMessage) {
-	if method != "eth_call" || len(params) == 0 {
-		return false, nil
-	}
-	// parse minimal: [{"to":"0x..","data":"0x...."}, <blockTag?>]
-	callObj, ok := params[0].(map[string]any)
-	if !ok {
-		return false, nil
-	}
-	data, _ := callObj["data"].(string)
-	switch strings.ToLower(data) {
-	case "0x95d89b41": // symbol()
-		// return ABI-encoded string "TOKEN"
-		enc := "0x" +
-			"0000000000000000000000000000000000000000000000000000000000000020" + // offset
-			"0000000000000000000000000000000000000000000000000000000000000005" + // len
-			"544f4b454e000000000000000000000000000000000000000000000000000000" // "TOKEN"
-		return true, json.RawMessage(`"` + enc + `"`)
-	case "0x313ce567": // decimals()
-		enc := "0x" + "0000000000000000000000000000000000000000000000000000000000000012" // 18
-		return true, json.RawMessage(`"` + enc + `"`)
-	case "0x06fdde03": // name()
-		enc := "0x" +
-			"0000000000000000000000000000000000000000000000000000000000000020" +
-			"0000000000000000000000000000000000000000000000000000000000000005" +
-			"546f6b656e000000000000000000000000000000000000000000000000000000"
-		return true, json.RawMessage(`"` + enc + `"`)
-	default:
-		return false, nil
-	}
 }
 
 func pickTTL(method string, params json.RawMessage) time.Duration {
