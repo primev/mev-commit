@@ -587,10 +587,10 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 						Status:            types.ReceiptStatusFailed,
 						TxHash:            txn.Hash(),
 						ContractAddress:   common.Address{},
-						GasUsed:           0, // 0 since no execution happened
-						CumulativeGasUsed: 0,
-						BlockHash:         common.Hash{}, // Pending/Unknown
-						BlockNumber:       big.NewInt(0), // Pending/Unknown
+						GasUsed:           21000,
+						CumulativeGasUsed: 21000,
+						BlockHash:         common.BytesToHash(big.NewInt(int64(t.blockTracker.LatestBlockNumber())).Bytes()),
+						BlockNumber:       big.NewInt(int64(t.blockTracker.LatestBlockNumber())),
 						TransactionIndex:  0,
 					}
 					if storeErr := t.store.StoreReceipt(ctx, receipt); storeErr != nil {
