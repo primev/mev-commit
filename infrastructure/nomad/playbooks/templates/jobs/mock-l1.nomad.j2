@@ -85,11 +85,11 @@ job "{{ job.name }}" {
         data = <<-EOH
           #!/usr/bin/env bash
 
-          # Mutate genesis file to only have a single alloc to contract deployer
+          # Mutate genesis file to only have a single alloc to contract deployer, and chainID of holesky (17000)
           ${GETH_BIN} --dev dumpgenesis > local/default_genesis.json
           jq -s '
             .[0].alloc = .[1].alloc
-            | .[0].config.chainId = .[1].config.chainId
+            | .[0].config.chainId = 17000
             | .[0]
           ' local/default_genesis.json local/genesis_{{ env }}-{{ version }}.json > local/genesis.json
           ${GETH_BIN} --datadir local/data init local/genesis.json
