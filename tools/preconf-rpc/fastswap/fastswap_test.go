@@ -80,10 +80,11 @@ func newTestBarterResponse() fastswap.BarterResponse {
 	//   route.gasEstimation: gas estimate as uint64
 	//   route.blockNumber: current block number
 	return fastswap.BarterResponse{
-		To:       common.HexToAddress("0x179dc3fb0f2230094894317f307241a52cdb38aa"), // Barter swap executor
-		GasLimit: "1227112",
-		Value:    "0",
-		Data:     "0xf0d7bb940000000000000000000000002c0552e5dcb79b064fd23e358a86810bc5994244", // truncated for test
+		To:        common.HexToAddress("0x179dc3fb0f2230094894317f307241a52cdb38aa"), // Barter swap executor
+		GasLimit:  "1227112",
+		Value:     "0",
+		Data:      "0xf0d7bb940000000000000000000000002c0552e5dcb79b064fd23e358a86810bc5994244", // truncated for test
+		MinReturn: "250000000",                                                                  // slightly less than output amount
 		Route: struct {
 			OutputAmount  string `json:"outputAmount"`
 			GasEstimation uint64 `json:"gasEstimation"`
@@ -158,14 +159,14 @@ func TestCallBarterAPI(t *testing.T) {
 		InputToken:  common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"), // USDC
 		OutputToken: common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"), // WETH
 		InputAmt:    big.NewInt(1000000000),                                            // 1000 USDC
-		UserAmtOut:  big.NewInt(500000000000000000),                                    // 0.5 ETH
+		UserAmtOut:  big.NewInt(100),                                                   // Low amount to pass validation
 		Recipient:   common.HexToAddress("0xRecipientAddress"),
 		Deadline:    big.NewInt(1700000000),
 		Nonce:       big.NewInt(1),
 	}
 
 	ctx := context.Background()
-	resp, err := svc.CallBarterAPI(ctx, intent)
+	resp, err := svc.CallBarterAPI(ctx, intent, "")
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -190,7 +191,7 @@ func TestCallBarterAPIForETH(t *testing.T) {
 	req := fastswap.ETHSwapRequest{
 		OutputToken: common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"), // USDC
 		InputAmt:    big.NewInt(1000000000000000000),                                   // 1 ETH
-		UserAmtOut:  big.NewInt(2000000000),                                            // 2000 USDC
+		UserAmtOut:  big.NewInt(100),                                                   // Low amount to pass validation
 		Sender:      common.HexToAddress("0xSenderAddress"),
 		Deadline:    big.NewInt(1700000000),
 	}
@@ -218,7 +219,7 @@ func TestBuildExecuteTx(t *testing.T) {
 		InputToken:  common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
 		OutputToken: common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"),
 		InputAmt:    big.NewInt(1000000000),
-		UserAmtOut:  big.NewInt(500000000000000000),
+		UserAmtOut:  big.NewInt(100),
 		Recipient:   common.HexToAddress("0xRecipientAddress"),
 		Deadline:    big.NewInt(1700000000),
 		Nonce:       big.NewInt(1),
@@ -248,7 +249,7 @@ func TestBuildExecuteWithETHTx(t *testing.T) {
 	req := fastswap.ETHSwapRequest{
 		OutputToken: common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
 		InputAmt:    big.NewInt(1000000000000000000),
-		UserAmtOut:  big.NewInt(2000000000),
+		UserAmtOut:  big.NewInt(100),
 		Sender:      common.HexToAddress("0xSenderAddress"),
 		Deadline:    big.NewInt(1700000000),
 	}
@@ -292,7 +293,7 @@ func TestHandleSwap(t *testing.T) {
 		InputToken:  common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
 		OutputToken: common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"),
 		InputAmt:    big.NewInt(1000000000),
-		UserAmtOut:  big.NewInt(500000000000000000),
+		UserAmtOut:  big.NewInt(100),
 		Recipient:   common.HexToAddress("0xRecipientAddress"),
 		Deadline:    big.NewInt(1700000000),
 		Nonce:       big.NewInt(1),
@@ -359,7 +360,7 @@ func TestHandleETHSwap(t *testing.T) {
 	req := fastswap.ETHSwapRequest{
 		OutputToken: common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
 		InputAmt:    big.NewInt(1000000000000000000),
-		UserAmtOut:  big.NewInt(2000000000),
+		UserAmtOut:  big.NewInt(100),
 		Sender:      common.HexToAddress("0xSenderAddress"),
 		Deadline:    big.NewInt(1700000000),
 	}
@@ -409,7 +410,7 @@ func TestHandler(t *testing.T) {
 		"inputToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		"outputToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
 		"inputAmt": "1000000000",
-		"userAmtOut": "500000000000000000",
+		"userAmtOut": "100",
 		"recipient": "0x0000000000000000000000000000000000000002",
 		"deadline": "1700000000",
 		"nonce": "1",
@@ -534,7 +535,7 @@ func TestETHHandler(t *testing.T) {
 	reqJSON := `{
 		"outputToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		"inputAmt": "1000000000000000000",
-		"userAmtOut": "2000000000",
+		"userAmtOut": "100",
 		"sender": "0x0000000000000000000000000000000000000001",
 		"deadline": "1700000000"
 	}`
@@ -658,13 +659,13 @@ func TestBarterAPIError(t *testing.T) {
 		InputToken:  common.HexToAddress("0xInputToken"),
 		OutputToken: common.HexToAddress("0xOutputToken"),
 		InputAmt:    big.NewInt(1000),
-		UserAmtOut:  big.NewInt(900),
+		UserAmtOut:  big.NewInt(100),
 		Deadline:    big.NewInt(1700000000),
 		Nonce:       big.NewInt(1),
 	}
 
 	ctx := context.Background()
-	resp, err := svc.CallBarterAPI(ctx, intent)
+	resp, err := svc.CallBarterAPI(ctx, intent, "")
 
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -687,7 +688,7 @@ func TestIntentTupleEncoding(t *testing.T) {
 		InputToken:  common.HexToAddress("0x2222222222222222222222222222222222222222"),
 		OutputToken: common.HexToAddress("0x3333333333333333333333333333333333333333"),
 		InputAmt:    big.NewInt(1000000000000000000),
-		UserAmtOut:  big.NewInt(500000000000000000),
+		UserAmtOut:  big.NewInt(100),
 		Recipient:   common.HexToAddress("0x4444444444444444444444444444444444444444"),
 		Deadline:    big.NewInt(1700000000),
 		Nonce:       big.NewInt(42),

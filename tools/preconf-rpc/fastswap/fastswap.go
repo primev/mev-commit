@@ -40,7 +40,8 @@ type SwapRequest struct {
 	Recipient   common.Address `json:"recipient"`
 	Deadline    *big.Int       `json:"deadline"`
 	Nonce       *big.Int       `json:"nonce"`
-	Signature   []byte         `json:"signature"` // EIP-712 Permit2 signature
+	Signature   []byte         `json:"signature"`          // EIP-712 Permit2 signature
+	Slippage    string         `json:"slippage,omitempty"` // User slippage percentage (e.g. "1.0" for 1%)
 }
 
 // ToIntent converts SwapRequest to the generated Intent type for ABI encoding.
@@ -70,10 +71,11 @@ type SwapResult struct {
 // User swaps native ETH for an ERC20 token and submits the transaction themselves.
 type ETHSwapRequest struct {
 	OutputToken common.Address `json:"outputToken"`
-	InputAmt    *big.Int       `json:"inputAmt"`   // ETH amount in wei
-	UserAmtOut  *big.Int       `json:"userAmtOut"` // minAmountOut from dapp quote
-	Sender      common.Address `json:"sender"`     // User address (also recipient)
-	Deadline    *big.Int       `json:"deadline"`   // Unix timestamp
+	InputAmt    *big.Int       `json:"inputAmt"`           // ETH amount in wei
+	UserAmtOut  *big.Int       `json:"userAmtOut"`         // minAmountOut from dapp quote
+	Sender      common.Address `json:"sender"`             // User address (also recipient)
+	Deadline    *big.Int       `json:"deadline"`           // Unix timestamp
+	Slippage    string         `json:"slippage,omitempty"` // User slippage percentage (e.g. "1.0" for 1%)
 }
 
 // ETHSwapResponse is the response for /fastswap/eth containing unsigned tx data.
@@ -89,11 +91,12 @@ type ETHSwapResponse struct {
 
 // BarterResponse represents the parsed response from Barter API.
 type BarterResponse struct {
-	To       common.Address `json:"to"`
-	GasLimit string         `json:"gasLimit"`
-	Value    string         `json:"value"`
-	Data     string         `json:"data"`
-	Route    struct {
+	To        common.Address `json:"to"`
+	GasLimit  string         `json:"gasLimit"`
+	Value     string         `json:"value"`
+	Data      string         `json:"data"`
+	MinReturn string         `json:"minReturn"` // Guaranteed minimum amount from Barter
+	Route     struct {
 		OutputAmount  string `json:"outputAmount"`
 		GasEstimation uint64 `json:"gasEstimation"`
 		BlockNumber   uint64 `json:"blockNumber"`
@@ -102,14 +105,14 @@ type BarterResponse struct {
 
 // barterRequest is the request body for the Barter API.
 type barterRequest struct {
-	Source     string     `json:"source"`
-	Target     string     `json:"target"`
-	SellAmount string     `json:"sellAmount"`
-	Recipient  string     `json:"recipient"`
-	Origin     string     `json:"origin"`
-	MinReturn  string     `json:"minReturn"`
-	Deadline   string     `json:"deadline"`
-	SourceFee  *sourceFee `json:"sourceFee,omitempty"`
+	Source            string     `json:"source"`
+	Target            string     `json:"target"`
+	SellAmount        string     `json:"sellAmount"`
+	Recipient         string     `json:"recipient"`
+	Origin            string     `json:"origin"`
+	MinReturnFraction float64    `json:"minReturnFraction"` // e.g. 0.99 for 1% slippage
+	Deadline          string     `json:"deadline"`
+	SourceFee         *sourceFee `json:"sourceFee,omitempty"`
 }
 
 type sourceFee struct {
@@ -229,7 +232,7 @@ func (s *Service) callBarter(ctx context.Context, reqBody barterRequest, logDesc
 		"inputToken", reqBody.Source,
 		"outputToken", reqBody.Target,
 		"inputAmount", reqBody.SellAmount,
-		"outputAmount", reqBody.MinReturn,
+		"minReturnFraction", reqBody.MinReturnFraction,
 	)
 
 	resp, err := s.httpClient.Do(req)
@@ -263,17 +266,41 @@ func (s *Service) callBarter(ctx context.Context, reqBody barterRequest, logDesc
 }
 
 // CallBarterAPI calls the Barter API for swap routing (Path 1 - executor submitted).
-func (s *Service) CallBarterAPI(ctx context.Context, intent Intent) (*BarterResponse, error) {
-	reqBody := barterRequest{
-		Source:     intent.InputToken.Hex(),
-		Target:     intent.OutputToken.Hex(),
-		SellAmount: intent.InputAmt.String(),
-		Recipient:  s.settlementAddr.Hex(),
-		Origin:     intent.User.Hex(),
-		MinReturn:  intent.UserAmtOut.String(),
-		Deadline:   intent.Deadline.String(),
+func (s *Service) CallBarterAPI(ctx context.Context, intent Intent, slippageStr string) (*BarterResponse, error) {
+	// Default slippage 0.5% if not provided
+	fraction := 0.995
+	if slippageStr != "" {
+		if val, err := strconv.ParseFloat(slippageStr, 64); err == nil && val >= 0 && val <= 100 {
+			fraction = 1.0 - (val / 100.0)
+		}
 	}
-	return s.callBarter(ctx, reqBody, "executor-swap")
+
+	reqBody := barterRequest{
+		Source:            intent.InputToken.Hex(),
+		Target:            intent.OutputToken.Hex(),
+		SellAmount:        intent.InputAmt.String(),
+		Recipient:         s.settlementAddr.Hex(),
+		Origin:            intent.User.Hex(),
+		MinReturnFraction: fraction,
+		Deadline:          intent.Deadline.String(),
+	}
+	resp, err := s.callBarter(ctx, reqBody, "executor-swap")
+	if err != nil {
+		return nil, err
+	}
+
+	// VALIDATION: Ensure Barter's output meets User's requirement
+	// We check minReturn (worst case) against user's requirement for safety
+	outAmt, ok := new(big.Int).SetString(resp.MinReturn, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid minReturn from barter: %s", resp.MinReturn)
+	}
+	if outAmt.Cmp(intent.UserAmtOut) < 0 {
+		// Barter's worst case < User's worst case.
+		// Abort to prevent failed transaction.
+		return nil, fmt.Errorf("barter minReturn (%s) < user required (%s)", outAmt.String(), intent.UserAmtOut.String())
+	}
+	return resp, nil
 }
 
 // ============ Transaction Building ============
@@ -331,8 +358,8 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 	// Convert request to Intent
 	intent := req.ToIntent()
 
-	// 1. Call Barter API
-	barterResp, err := s.CallBarterAPI(ctx, intent)
+	// 1. Call Barter API using user's slippage if provided, or default
+	barterResp, err := s.CallBarterAPI(ctx, intent, req.Slippage)
 	if err != nil {
 		return &SwapResult{
 			Status: "error",
@@ -475,6 +502,7 @@ func (s *Service) Handler() http.HandlerFunc {
 			Deadline    string `json:"deadline"`
 			Nonce       string `json:"nonce"`
 			Signature   string `json:"signature"`
+			Slippage    string `json:"slippage"` // Optional
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&rawReq); err != nil {
@@ -543,6 +571,7 @@ func (s *Service) Handler() http.HandlerFunc {
 			Deadline:    deadline,
 			Nonce:       nonce,
 			Signature:   signature,
+			Slippage:    rawReq.Slippage,
 		}
 
 		result, err := s.HandleSwap(r.Context(), req)
@@ -561,16 +590,37 @@ func (s *Service) Handler() http.HandlerFunc {
 // CallBarterAPIForETH calls the Barter API for ETH->Token swap routing (Path 2).
 // Uses WETH as the source token since Barter works with ERC20s.
 func (s *Service) CallBarterAPIForETH(ctx context.Context, req ETHSwapRequest) (*BarterResponse, error) {
-	reqBody := barterRequest{
-		Source:     mainnetWETH.Hex(),
-		Target:     req.OutputToken.Hex(),
-		SellAmount: req.InputAmt.String(),
-		Recipient:  s.settlementAddr.Hex(),
-		Origin:     req.Sender.Hex(),
-		MinReturn:  req.UserAmtOut.String(),
-		Deadline:   req.Deadline.String(),
+	// Default slippage 0.5% if not provided
+	fraction := 0.995
+	if req.Slippage != "" {
+		if val, err := strconv.ParseFloat(req.Slippage, 64); err == nil && val >= 0 && val <= 100 {
+			fraction = 1.0 - (val / 100.0)
+		}
 	}
-	return s.callBarter(ctx, reqBody, "eth-swap")
+
+	reqBody := barterRequest{
+		Source:            mainnetWETH.Hex(),
+		Target:            req.OutputToken.Hex(),
+		SellAmount:        req.InputAmt.String(),
+		Recipient:         s.settlementAddr.Hex(),
+		Origin:            req.Sender.Hex(),
+		MinReturnFraction: fraction,
+		Deadline:          req.Deadline.String(),
+	}
+	resp, err := s.callBarter(ctx, reqBody, "eth-swap")
+	if err != nil {
+		return nil, err
+	}
+
+	// VALIDATION
+	outAmt, ok := new(big.Int).SetString(resp.MinReturn, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid minReturn from barter: %s", resp.MinReturn)
+	}
+	if outAmt.Cmp(req.UserAmtOut) < 0 {
+		return nil, fmt.Errorf("barter minReturn (%s) < user required (%s)", outAmt.String(), req.UserAmtOut.String())
+	}
+	return resp, nil
 }
 
 // BuildExecuteWithETHTx constructs the calldata for FastSettlementV3.executeWithETH.
@@ -679,6 +729,7 @@ func (s *Service) ETHHandler() http.HandlerFunc {
 			UserAmtOut  string `json:"userAmtOut"`
 			Sender      string `json:"sender"`
 			Deadline    string `json:"deadline"`
+			Slippage    string `json:"slippage"` // Optional
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&rawReq); err != nil {
@@ -719,6 +770,7 @@ func (s *Service) ETHHandler() http.HandlerFunc {
 			UserAmtOut:  userAmtOut,
 			Sender:      common.HexToAddress(rawReq.Sender),
 			Deadline:    deadline,
+			Slippage:    rawReq.Slippage,
 		}
 
 		result, err := s.HandleETHSwap(r.Context(), req)
