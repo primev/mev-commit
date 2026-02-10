@@ -137,7 +137,16 @@ func (s *rpcstore) AddQueuedTransaction(ctx context.Context, tx *sender.Transact
 	}
 	insertQuery := `
 	INSERT INTO mcTransactions (hash, nonce, raw_transaction, sender, tx_type, status, options)
-	VALUES ($1, $2, $3, $4, $5, $6, $7);
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	ON CONFLICT (hash) DO UPDATE
+	SET status = EXCLUDED.status,
+	    nonce = EXCLUDED.nonce,
+	    sender = EXCLUDED.sender,
+	    tx_type = EXCLUDED.tx_type,
+	    options = EXCLUDED.options,
+	    details = EXCLUDED.details,
+		raw_transaction = EXCLUDED.raw_transaction
+	WHERE mcTransactions.status != 'confirmed' AND mcTransactions.status != 'pre-confirmed';
 	`
 	_, err = s.db.ExecContext(
 		ctx,

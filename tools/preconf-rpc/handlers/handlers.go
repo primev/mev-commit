@@ -604,10 +604,10 @@ func (h *rpcMethodHandler) handleGetTxReceipt(ctx context.Context, params ...any
 	}
 
 	switch txn.Status {
-	case sender.TxStatusPending, sender.TxStatusConfirmed:
+	case sender.TxStatusPending, sender.TxStatusConfirmed, sender.TxStatusFailed:
 		// go to RPC proxy
 		return nil, true, nil
-	case sender.TxStatusPreConfirmed, sender.TxStatusFailed:
+	case sender.TxStatusPreConfirmed:
 		// continue processing
 	}
 

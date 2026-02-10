@@ -169,9 +169,42 @@ func TestStore(t *testing.T) {
 		}
 
 		err = st.AddQueuedTransaction(context.Background(), wrappedTxn1) // Adding the same transaction again
-		if err == nil {
-			t.Fatalf("expected error when adding duplicate transaction, got nil")
+		if err != nil {
+			t.Fatalf("expected nil error when adding duplicate transaction, got %v", err)
 		}
+
+		// Test retry of failed transaction:
+		// 1. Manually set txn1 to failed in DB
+		wrappedTxn1.Status = sender.TxStatusFailed
+		wrappedTxn1.Details = "failed simulation"
+		// We use StoreTransaction to update the status in DB
+		if err := st.StoreTransaction(context.Background(), wrappedTxn1, nil, nil); err != nil {
+			t.Fatalf("failed to update transaction to failed: %v", err)
+		}
+
+		// 2. Retry: AddQueuedTransaction should reset status to Pending
+		wrappedTxn1Retry := &sender.Transaction{
+			Transaction: wrappedTxn1.Transaction,
+			Raw:         wrappedTxn1.Raw,
+			Sender:      wrappedTxn1.Sender,
+			Type:        wrappedTxn1.Type,
+			Status:      sender.TxStatusPending,
+		}
+		if err := st.AddQueuedTransaction(context.Background(), wrappedTxn1Retry); err != nil {
+			t.Fatalf("failed to re-queue failed transaction: %v", err)
+		}
+
+		// 3. Verify status is Pending
+		retrievedTxn1, err := st.GetTransactionByHash(context.Background(), wrappedTxn1.Hash())
+		if err != nil {
+			t.Fatalf("failed to retrieve retried transaction: %v", err)
+		}
+		if retrievedTxn1.Status != sender.TxStatusPending {
+			t.Fatalf("expected status to be pending after retry, got %s", retrievedTxn1.Status)
+		}
+		// Restore wrappedTxn1 status for subsequent tests
+		wrappedTxn1.Status = sender.TxStatusPending
+		wrappedTxn1.Details = ""
 
 		err = st.AddQueuedTransaction(context.Background(), wrappedTxn2)
 		if err != nil {
