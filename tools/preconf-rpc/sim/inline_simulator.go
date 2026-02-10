@@ -94,7 +94,7 @@ func NewInlineSimulator(rpcURLs []string, logger *slog.Logger) (*InlineSimulator
 	}
 
 	if len(endpoints) == 0 {
-		return nil, fmt.Errorf("failed to connect to any RPC endpoint")
+		return nil, errors.New("failed to connect to any RPC endpoint")
 	}
 
 	if logger == nil {
@@ -140,11 +140,10 @@ func (s *InlineSimulator) Simulate(ctx context.Context, txRaw string, state SimS
 		return nil, false, fmt.Errorf("invalid transaction: %w", err)
 	}
 
-	signer := types.LatestSignerForChainID(tx.ChainId())
-	sender, err := types.Sender(signer, tx)
+	sender, err := recoverSender(tx)
 	if err != nil {
 		s.metrics.fail.Inc()
-		return nil, false, fmt.Errorf("failed to get sender: %w", err)
+		return nil, false, fmt.Errorf("failed to recover sender: %w", err)
 	}
 
 	// Build call object. We use "input" here; debug_traceCall expects "data" so we convert later.
@@ -158,7 +157,6 @@ func (s *InlineSimulator) Simulate(ctx context.Context, txRaw string, state SimS
 		callObj["to"] = tx.To().Hex()
 	}
 
-	// Set gas price fields based on tx type (EIP-1559 vs legacy)
 	switch tx.Type() {
 	case types.DynamicFeeTxType, types.BlobTxType:
 		callObj["maxFeePerGas"] = hexutil.EncodeBig(tx.GasFeeCap())
@@ -245,6 +243,12 @@ func (s *InlineSimulator) executeSimulateV1(ctx context.Context, client *rpc.Cli
 
 	call := block.Calls[0]
 
+	// Extract call target for error messages
+	toAddr := "contract creation"
+	if to, ok := callObj["to"].(string); ok && to != "" {
+		toAddr = to
+	}
+
 	// status 0 means reverted
 	if call.Status == 0 {
 		reason := "execution reverted"
@@ -253,7 +257,7 @@ func (s *InlineSimulator) executeSimulateV1(ctx context.Context, client *rpc.Cli
 		} else if len(call.ReturnData) > 0 {
 			reason = decodeRevert(hexutil.Encode(call.ReturnData), reason)
 		}
-		return nil, false, &NonRetryableError{Err: fmt.Errorf("reverted: %s", reason)}
+		return nil, false, &NonRetryableError{Err: fmt.Errorf("reverted: %s (to=%s)", reason, toAddr)}
 	}
 
 	if call.GasUsed == 0 {
@@ -296,7 +300,11 @@ func (s *InlineSimulator) executeDebugTraceCall(ctx context.Context, client *rpc
 
 	if result.Error != "" {
 		reason := decodeRevertFromTrace(result.Output, result.Error)
-		return nil, false, &NonRetryableError{Err: fmt.Errorf("reverted: %s", reason)}
+		toAddr := result.To
+		if toAddr == "" {
+			toAddr = "contract creation"
+		}
+		return nil, false, &NonRetryableError{Err: fmt.Errorf("reverted: %s (to=%s)", reason, toAddr)}
 	}
 
 	// Check nested calls for reverts (e.g., inner contract call failed)
@@ -421,4 +429,31 @@ func (s *InlineSimulator) Close() error {
 		}
 	}
 	return nil
+}
+
+// recoverSender extracts the sender address from a signed transaction.
+// Uses the appropriate signer based on transaction type to handle edge cases
+// like pre-EIP-155 transactions that lack chain ID replay protection.
+func recoverSender(tx *types.Transaction) (common.Address, error) {
+	var signer types.Signer
+
+	switch tx.Type() {
+	case types.LegacyTxType:
+		chainID := tx.ChainId()
+		if chainID.Sign() == 0 {
+			signer = types.HomesteadSigner{}
+		} else {
+			signer = types.NewEIP155Signer(chainID)
+		}
+	case types.AccessListTxType:
+		signer = types.NewEIP2930Signer(tx.ChainId())
+	case types.DynamicFeeTxType:
+		signer = types.NewLondonSigner(tx.ChainId())
+	case types.BlobTxType:
+		signer = types.NewCancunSigner(tx.ChainId())
+	default:
+		signer = types.LatestSignerForChainID(tx.ChainId())
+	}
+
+	return types.Sender(signer, tx)
 }
