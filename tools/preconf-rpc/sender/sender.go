@@ -580,24 +580,6 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 					txn.Status = TxStatusFailed
 					txn.Details = err.Error()
 					t.clearBlockAttemptHistory(txn, time.Now())
-
-					// Store a failed receipt to unblock the user's wallet
-					receipt := &types.Receipt{
-						Type:              txn.Transaction.Type(),
-						Status:            types.ReceiptStatusFailed,
-						TxHash:            txn.Hash(),
-						ContractAddress:   common.Address{},
-						GasUsed:           21000,
-						CumulativeGasUsed: 21000,
-						BlockHash:         common.BytesToHash(big.NewInt(int64(t.blockTracker.LatestBlockNumber())).Bytes()),
-						BlockNumber:       big.NewInt(int64(t.blockTracker.LatestBlockNumber())),
-						TransactionIndex:  0,
-					}
-					if storeErr := t.store.StoreReceipt(ctx, receipt); storeErr != nil {
-						t.logger.Error("Failed to store failed receipt", "error", storeErr)
-					}
-
-					defer t.signalReceiptAvailable(txn.Hash())
 					return t.store.StoreTransaction(ctx, txn, nil, nil)
 				}
 				return nil
