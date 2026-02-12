@@ -7,6 +7,7 @@ This tool:
 - Computes:
   - `l1_timestamp`, `from_address`, `to_address`
   - `total_vol_eth`, `eth_vol`, `weth_vol`, `token_vol_eth`, `swap_vol_eth`
+  - `eth_price_usd`, `swap_vol_usd`, `total_vol_usd`
   - `is_swap`, `is_lending`, `is_transfer`, `is_approval`
   - `primary_class`, `protocol`
 - Writes results into `mevcommit_57173.processed_l1_txns_v2`.
