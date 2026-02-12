@@ -19,6 +19,10 @@ This changelog tracks deployments of **Ethereum mainnet** contracts. This change
 | MevCommitAVS          | `0xBc77233855e3274E1903771675Eb71E602D9DC2e` | `release/v1.1.x`    | `v1.1.0-contracts`      |
 | L1Gateway             | `0x5d64B933739558101F9359E2750ACC228f0CB64F` | `release/v1.2.x`    | `v1.2.0`                |
 | MevCommitMiddleware   | `0x21fD239311B050bbeE7F32850d99ADc224761382` | `release/v1.1.x`    | `v1.1.0-contracts`         |
+| ValidatorOptInHub     | `0x1059155bD5854224bF58e43CD3EEC6B07b4F30Ad` | `release/v1.2.x`    | `v1.2.3`         |
+| BlockRewardsManager   | `0x531D19cFEB3e685745DA1e1897485E9F351e7Aa0` | `release/v1.2.x`    | `v1.2.3`         |
+| RewardDistributor     | `0xccf10d9911c2e1b2d589cbc8a3878d1b138aa2c2` | `release/v1.2.x`    | `v1.2.3`         |
+
 
 ### Upgrade History
 
@@ -40,7 +44,6 @@ This changelog tracks contract deployments on the mev-commit chain. This changel
 | Oracle                | `0x37a037d2423221f403cfa146f5fb962e19582d90` | `release/v1.2.x`    | `v1.2.0`      |
 | BlockTracker          | `0x5d64b933739558101f9359e2750acc228f0cb64f` | `release/v1.2.x`    | `v1.2.0`      |
 | SettlementGateway     | `0x21f5f1142200a515248a2eef5b0654581c7f2b46` | `release/v1.2.x`    | `v1.2.0`      |
-
 
 
 
