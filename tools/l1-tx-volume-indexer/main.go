@@ -55,11 +55,35 @@ const (
 	erc20TransferTopic0 = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 	zeroAddr            = "0x0000000000000000000000000000000000000000"
 
-	// User-provided swap topics:
-	uniswapV2SwapTopic0  = "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1"
-	uniswapV3SwapTopic0  = "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
-	uniswapV4SwapTopic0  = "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
-	solverCallExecTopic0 = "0x93485dcd31a905e3ffd7b012abe3438fa8fa77f98ddc9f50e879d3fa7ccdc324"
+	// Swap event topics (should stay in sync with tools/preconf-rpc/sim/swap_detector.go):
+	swapTopicUniswapV2          = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+	swapTopicUniswapV3          = "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+	swapTopicUniswapV4          = "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
+	swapTopicSolverCallExecuted = "0x93485dcd31a905e3ffd7b012abe3438fa8fa77f98ddc9f50e879d3fa7ccdc324"
+	swapTopicMetaMask           = "0xbeee1e6e7fe307ddcf84b0a16137a4430ad5e2480fc4f4a8e250ab56ccd7630d"
+	swapTopicFluid              = "0xfbce846c23a724e6e61161894819ec46c90a8d3dd96e90e7342c6ef49ffb539c"
+	swapTopicCurveExchange      = "0x56d0661e240dfb199ef196e16e6f42473990366314f0226ac978f7be3cd9ee83"
+	swapTopicCurveTricrypto     = "0x143f1f8e861fbdeddd5b46e844b7d3ac7b86a122f36e8c463859ee6811b1f29c"
+	swapTopicCurveUnderlying    = "0xd013ca23e77a65003c2c659c5442c00c805371b7fc1ebd4c206c41d1536bd90b"
+	swapTopicCurveStableSwapNG  = "0x8b3e96f2b889fa771c53c981b40daf005f63f637f1869f707052d15a3dd97140"
+	swapTopicBalancerV2         = "0x2170c741c41531aec20e7c107c24eecfdd15e69c9bb0a8dd37b1840b9e0b207b"
+	swapTopicBalancerLog        = "0x908fb5ee8f16c6bc9bc3690973819f32a4d4b10188134543c88706e0e1d43378"
+	swapTopic1inch              = "0xfec331350fce78ba658e082a71da20ac9f8d798a99b3c79681c8440cbfe77e07"
+
+	swapTopicKyberSwap          = "0xd6d4f5681c246c9f42c203e287975af1601f8df8035a9251f79aab5c8f09e2f8"
+	swapTopicPancakeSwap        = "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83"
+	swapTopicDODOSwap           = "0xc2c0245e056d5fb095f04cd6373bc770802ebd1e6c918eb78fdef843cdb37b0f"
+	swapTopicDODOV2Sell         = "0xd8648b6ac54162763c86fd54bf2005af8ecd2f9cb273a5775921fd7f91e17b2d"
+	swapTopicDODOV2Buy          = "0xe93ad76094f247c0dafc1c61adc2187de1ac2738f7a3b49cb20b2263420251a3"
+	swapTopic0xFill             = "0x66a2bd850864ab5023bc4b90695fd068817db0a38bd599f6288473d20c46609f"
+	swapTopic0xLimitOrder       = "0x50ae27db8b3385e989ce5067ad2962b57e8748968e2725be92d3624c8b345468"
+	swapTopic0xRfqOrder         = "0xd0c86be71d80e5d6536dc4729336b1ab10801cb568e3d9ab3da19852cfa9a0c8"
+	swapTopic0xV4OrderFilled    = "0xc5feaae7fb097ff5dbe52a871af34429b2a5e29fe7256bbe9311e83df9f24d95"
+	swapTopic0xTransformedERC20 = "0x0f6672f78a59ba8e5e5b5d38df3ebc67f3c792e2c9259b8d97d7f00dd78ba1b3"
+	swapTopic0xERC20Bridge      = "0x349fc08071558d8e3aa92dec9396e4e9f2dfecd6bb9065759d1932e7da43b8a9"
+	swapTopicParaswap           = "0x6782190c91d4a7e8ad2a867deed6ec0a970cab8ff137ae2bd4abd92b3810f4d3"
+	swapTopicCoWSettlement      = "0x40338ce1a7c49204f0099533b1e9a7ee0a3d261f84974ab7af36105b8c4e9db4"
+	swapTopicCoWTrade           = "0xa07a543ab8a018198e99ca0184c93fe9050a79400a0a723441f84de1d972cc17"
 )
 
 var httpClient = &http.Client{Timeout: 180 * time.Second}
@@ -1316,7 +1340,18 @@ func computeAll(txHash0x string, apiKey string) (*Computed, error) {
 	totalVol := txValueEth + wethVol + tokenVol
 
 	// Swap evidence:
-	swapIsUni := hasAnyTopic0(item.LogEvents, uniswapV2SwapTopic0, uniswapV3SwapTopic0, uniswapV4SwapTopic0, solverCallExecTopic0)
+	swapIsUni := hasAnyTopic0(item.LogEvents,
+		swapTopicUniswapV2, swapTopicUniswapV3, swapTopicUniswapV4,
+		swapTopicSolverCallExecuted,
+		swapTopicMetaMask, swapTopicFluid,
+		swapTopicCurveExchange, swapTopicCurveTricrypto, swapTopicCurveUnderlying, swapTopicCurveStableSwapNG,
+		swapTopicBalancerV2, swapTopicBalancerLog,
+		swapTopic1inch, swapTopicKyberSwap, swapTopicPancakeSwap,
+		swapTopicDODOSwap, swapTopicDODOV2Sell, swapTopicDODOV2Buy,
+		swapTopic0xFill, swapTopic0xLimitOrder, swapTopic0xRfqOrder, swapTopic0xV4OrderFilled,
+		swapTopic0xTransformedERC20, swapTopic0xERC20Bridge,
+		swapTopicParaswap, swapTopicCoWSettlement, swapTopicCoWTrade,
+	)
 	hasRouter := touchedDexInfra(item.LogEvents, toAddr)
 	hasSwapEvent := hasDecodedSwapLikeEvent(item.LogEvents)
 
