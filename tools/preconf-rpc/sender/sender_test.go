@@ -344,6 +344,7 @@ func TestSender(t *testing.T) {
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
 		&MockExplorerSubmitter{},
+		nil, // no log encryption key in tests
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -599,6 +600,7 @@ func TestCancelTransaction(t *testing.T) {
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
 		&MockExplorerSubmitter{},
+		nil, // no log encryption key in tests
 		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
@@ -688,6 +690,7 @@ func TestIgnoreProvidersOnRetry(t *testing.T) {
 		&mockBackrunner{},
 		big.NewInt(1), // Settlement chain ID
 		&MockExplorerSubmitter{},
+		nil, // no log encryption key in tests
 		util.NewTestLogger(io.Discard),
 	)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 	"github.com/primev/mev-commit/tools/preconf-rpc/service"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/util"
@@ -270,6 +271,12 @@ var (
 		EnvVars: []string{"PRECONF_RPC_POINTS_API_KEY"},
 	}
 
+	optionLogEncryptionKey = &cli.StringFlag{
+		Name:    "log-encryption-key",
+		Usage:   "hex-encoded 32-byte AES-256 key for encrypting sensitive data in logs (e.g. raw transactions)",
+		EnvVars: []string{"PRECONF_RPC_LOG_ENCRYPTION_KEY"},
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -381,6 +388,7 @@ func main() {
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
+			optionLogEncryptionKey,
 			optionKeystorePath,
 			optionKeystorePassword,
 			optionL1RPCHTTPUrl,
@@ -490,6 +498,11 @@ func main() {
 				l1ReceiptsURL = c.String(optionL1RPCHTTPUrl.Name)
 			}
 
+			logEncryptionKey, err := sender.ParseLogEncryptionKey(c.String(optionLogEncryptionKey.Name))
+			if err != nil {
+				return fmt.Errorf("failed to parse log encryption key: %w", err)
+			}
+
 			sigc := make(chan os.Signal, 1)
 			signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 
@@ -536,6 +549,7 @@ func main() {
 				BarterAPIKey:           c.String(optionBarterAPIKey.Name),
 				FastSettlementAddress:  common.HexToAddress(c.String(optionFastSettlementAddress.Name)),
 				FastSwapSigner:         fastSwapSigner,
+				LogEncryptionKey:       logEncryptionKey,
 			}
 
 			s, err := service.New(&config)

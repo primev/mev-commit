@@ -95,6 +95,7 @@ type Config struct {
 	BarterAPIKey          string
 	FastSettlementAddress common.Address
 	FastSwapSigner        keysigner.KeySigner // Separate wallet for FastSwap executor
+	LogEncryptionKey      []byte
 }
 
 type Service struct {
@@ -353,6 +354,7 @@ func New(config *Config) (*Service, error) {
 		brunner,
 		settlementChainID,
 		expSubmitter,
+		config.LogEncryptionKey,
 		config.Logger.With("module", "txsender"),
 	)
 	if err != nil {
