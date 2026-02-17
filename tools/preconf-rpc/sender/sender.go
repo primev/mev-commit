@@ -2,8 +2,14 @@ package sender
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"math/big"
@@ -78,6 +84,48 @@ type Transaction struct {
 	commitments   []*bidderapiv1.Commitment
 	logs          []*types.Log
 	isSwap        bool
+}
+
+// encryptForLog encrypts plaintext using AES-256-GCM and returns a base64-encoded
+// ciphertext string suitable for logging. Returns empty string if key is nil.
+func encryptForLog(key []byte, plaintext string) string {
+	if len(key) == 0 {
+		return ""
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return ""
+	}
+
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return ""
+	}
+
+	nonce := make([]byte, aesGCM.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return ""
+	}
+
+	ciphertext := aesGCM.Seal(nonce, nonce, []byte(plaintext), nil)
+	return base64.StdEncoding.EncodeToString(ciphertext)
+}
+
+// ParseLogEncryptionKey parses a hex-encoded 32-byte AES-256 key.
+// Returns nil if the input is empty.
+func ParseLogEncryptionKey(hexKey string) ([]byte, error) {
+	if hexKey == "" {
+		return nil, nil
+	}
+	key, err := hex.DecodeString(strings.TrimPrefix(hexKey, "0x"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid log encryption key hex: %w", err)
+	}
+	if len(key) != 32 {
+		return nil, fmt.Errorf("log encryption key must be 32 bytes, got %d", len(key))
+	}
+	return key, nil
 }
 
 func effectiveFeePerGas(tx *types.Transaction) *big.Int {
@@ -198,6 +246,7 @@ type TxSender struct {
 	receiptMtx        sync.Mutex
 	metrics           *metrics
 	explorerSubmitter ExplorerSubmitter
+	logEncryptionKey  []byte
 }
 
 func noOpFastTrack(_ []*bidderapiv1.Commitment, _ bool) bool {
@@ -215,6 +264,7 @@ func NewTxSender(
 	backrunner Backrunner,
 	settlementChainId *big.Int,
 	explorerSubmitter ExplorerSubmitter,
+	logEncryptionKey []byte,
 	logger *slog.Logger,
 ) (*TxSender, error) {
 	txnAttemptHistory, err := lru.New[common.Hash, *txnAttempt](1000)
@@ -251,6 +301,7 @@ func NewTxSender(
 		receiptSignal:     make(map[common.Hash][]chan struct{}),
 		metrics:           newMetrics(),
 		explorerSubmitter: explorerSubmitter,
+		logEncryptionKey:  logEncryptionKey,
 	}, nil
 }
 
@@ -649,13 +700,16 @@ BID_LOOP:
 			}
 			retryTicker.Reset(result.timeUntillNextBlock + 1*time.Second)
 		default:
-			logger.Warn(
-				"Not all builders committed to the bid",
+			warnFields := []any{
 				"noOfProviders", txn.noOfProviders,
 				"noOfCommitments", len(txn.commitments),
 				"blockNumber", result.blockNumber,
 				"bidAmount", result.bidAmount.String(),
-			)
+			}
+			if encrypted := encryptForLog(t.logEncryptionKey, txn.Raw); encrypted != "" {
+				warnFields = append(warnFields, "encryptedRawTx", encrypted)
+			}
+			logger.Warn("Not all builders committed to the bid", warnFields...)
 			retryTicker.Reset(defaultRetryDelay)
 		}
 		select {
