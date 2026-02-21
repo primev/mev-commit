@@ -84,6 +84,7 @@ type Transaction struct {
 	commitments   []*bidderapiv1.Commitment
 	logs          []*types.Log
 	isSwap        bool
+	simFailed     bool // tracks if the last simulation failed, to force re-sim on retry
 }
 
 // encryptForLog encrypts plaintext using AES-256-GCM and returns a base64-encoded
@@ -928,9 +929,13 @@ func (t *TxSender) sendBid(
 		state = sim.Pending
 	}
 
-	if !isRetry {
+	// Re-simulate on new blocks or when the previous simulation failed.
+	// This prevents bidding with stale data after a sim failure while
+	// avoiding redundant sim calls when sim already passed within the same block.
+	if !isRetry || txn.simFailed {
 		logs, isSwap, err := t.simulator.Simulate(ctx, txn.Raw, state)
 		if err != nil {
+			txn.simFailed = true
 			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
 			if len(txn.commitments) > 0 && txn.commitments[0].BlockNumber+1 == int64(bidBlockNo) {
 				// Could happen that it takes time to get confirmation of txn inclusion
@@ -943,19 +948,22 @@ func (t *TxSender) sendBid(
 			}
 			return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
 		}
-		providers, err := t.bidder.ConnectedProviders(ctx)
-		if err != nil {
-			logger.Error("Failed to get connected providers", "error", err)
-			return bidResult{}, fmt.Errorf("failed to get connected providers: %w", err)
+		txn.simFailed = false
+		if !isRetry {
+			providers, err := t.bidder.ConnectedProviders(ctx)
+			if err != nil {
+				logger.Error("Failed to get connected providers", "error", err)
+				return bidResult{}, fmt.Errorf("failed to get connected providers: %w", err)
+			}
+			txn.logs = logs
+			txn.isSwap = isSwap
+			txn.noOfProviders = len(providers)
+			t.metrics.connectedProviders.Set(float64(len(providers)))
+			// We could have already made a attempt on the previous block but the block
+			// update hasn't happened yet. This means that the bid might fail, but
+			// we should retain the previous commitments. Only clear if we get new
+			// commitments for the new block.
 		}
-		txn.logs = logs
-		txn.isSwap = isSwap
-		txn.noOfProviders = len(providers)
-		t.metrics.connectedProviders.Set(float64(len(providers)))
-		// We could have already made a attempt on the previous block but the block
-		// update hasn't happened yet. This means that the bid might fail, but
-		// we should retain the previous commitments. Only clear if we get new
-		// commitments for the new block.
 	}
 
 	bidStart := time.Now()
