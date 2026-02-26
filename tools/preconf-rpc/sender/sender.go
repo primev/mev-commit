@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	lru "github.com/hashicorp/golang-lru/v2"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	"github.com/primev/mev-commit/tools/preconf-rpc/backrunner"
 	"github.com/primev/mev-commit/tools/preconf-rpc/bidder"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/prometheus/client_golang/prometheus"
@@ -304,6 +305,13 @@ func NewTxSender(
 		explorerSubmitter: explorerSubmitter,
 		logEncryptionKey:  logEncryptionKey,
 	}, nil
+}
+
+func GetBuilderName(address string) string {
+	if name, ok := backrunner.Builders[common.HexToAddress(address)]; ok {
+		return name
+	}
+	return ""
 }
 
 func (t *TxSender) Metrics() []prometheus.Collector {
@@ -1033,8 +1041,8 @@ BID_LOOP:
 						t.logger.Error("Failed to submit fast-tracked tx to explorer", "error", err)
 					}
 				}
-				t.metrics.preconfDurationsProvider.WithLabelValues(cmt.ProviderAddress).Set(float64(time.Since(bidStart).Milliseconds()))
-				t.metrics.preconfCountsProvider.WithLabelValues(cmt.ProviderAddress).Inc()
+				t.metrics.preconfDurationsProvider.WithLabelValues(cmt.ProviderAddress, GetBuilderName(cmt.ProviderAddress)).Set(float64(time.Since(bidStart).Milliseconds()))
+				t.metrics.preconfCountsProvider.WithLabelValues(cmt.ProviderAddress, GetBuilderName(cmt.ProviderAddress)).Inc()
 			case bidder.BidStatusCancelled:
 				logger.Warn("Bid context cancelled by the bidder")
 				break BID_LOOP
