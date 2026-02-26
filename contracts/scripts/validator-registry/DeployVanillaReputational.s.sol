@@ -7,7 +7,7 @@ pragma solidity 0.8.26;
 
 import {Script} from "forge-std/Script.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {VanillaRegistry} from "../../contracts/validator-registry/VanillaRegistry.sol";
+import {VanillaRegistryV2} from "../../contracts/validator-registry/VanillaRegistryV2.sol";
 import {console} from "forge-std/console.sol";
 import {MainnetConstants} from "../MainnetConstants.sol";
 
@@ -20,17 +20,17 @@ contract BaseDeploy is Script {
         uint256 payoutPeriodBlocks,
         address owner
     ) public returns (address) {
-        console.log("Deploying VanillaReputationalRegistry on chain:", block.chainid);
+        console.log("Deploying VanillaReputationalRegistryV2 on chain:", block.chainid);
         address proxy = Upgrades.deployUUPSProxy(
-            "VanillaRegistry.sol",
+            "VanillaRegistryV2.sol",
             abi.encodeCall(
-                VanillaRegistry.initialize,
+                VanillaRegistryV2.initialize,
                 (minStake, slashOracle, slashReceiver, unstakePeriodBlocks, payoutPeriodBlocks, owner)
             )
         );
-        console.log("VanillaReputationalRegistry UUPS proxy deployed to:", address(proxy));
-        VanillaRegistry vanillaRegistry = VanillaRegistry(payable(proxy));
-        console.log("VanillaReputationalRegistry owner:", vanillaRegistry.owner());
+        console.log("VanillaReputationalRegistryV2 UUPS proxy deployed to:", address(proxy));
+        VanillaRegistryV2 vanillaRegistry = VanillaRegistryV2(payable(proxy));
+        console.log("VanillaReputationalRegistryV2 owner:", vanillaRegistry.owner());
         return proxy;
     }
 }
