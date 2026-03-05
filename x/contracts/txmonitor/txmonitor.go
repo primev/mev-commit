@@ -122,6 +122,12 @@ func New(
 	return m
 }
 
+// SetStuckDuration overrides the default stuck detection duration.
+// This is intended for testing.
+func (m *Monitor) SetStuckDuration(d time.Duration) {
+	m.stuckDuration = d
+}
+
 func (m *Monitor) Metrics() []prometheus.Collector {
 	return m.metrics.Metrics()
 }
@@ -134,10 +140,10 @@ func (m *Monitor) NonceOverride() <-chan uint64 {
 	return m.nonceOverrideChan
 }
 
-func (m *Monitor) hasPendingTxs() bool {
+func (m *Monitor) pendingTxCount() int {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	return len(m.waitMap) > 0
+	return len(m.waitMap)
 }
 
 func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
@@ -210,12 +216,12 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 			if lastNonce > lastSeenNonce {
 				lastSeenNonce = lastNonce
 				lastNonceAdvance = time.Now()
-			} else if m.hasPendingTxs() && !lastNonceAdvance.IsZero() &&
+			} else if pendingCount := m.pendingTxCount(); pendingCount > 0 && !lastNonceAdvance.IsZero() &&
 				time.Since(lastNonceAdvance) >= m.stuckDuration {
 				m.logger.Warn("stuck detected: confirmed nonce not advancing, signaling nonce reset",
 					"confirmedNonce", lastNonce,
 					"stuckFor", time.Since(lastNonceAdvance).String(),
-					"pendingTxs", len(m.waitMap),
+					"pendingTxs", pendingCount,
 				)
 				select {
 				case m.nonceOverrideChan <- lastNonce:
