@@ -152,3 +152,83 @@ func TestTopology(t *testing.T) {
 		t.Fatal("wrong peer in disconnect notification")
 	}
 }
+
+func TestBidderDedupChecksCorrectMap(t *testing.T) {
+	t.Parallel()
+
+	notifier := &testNotifier{}
+	topo := topology.New(&testAddressbook{}, notifier, util.NewTestLogger(io.Discard))
+
+	// Provider and bidder with the same eth address
+	addr := common.HexToAddress("0xABC")
+
+	provider := p2p.Peer{EthAddress: addr, Type: p2p.PeerTypeProvider}
+	bidder := p2p.Peer{EthAddress: addr, Type: p2p.PeerTypeBidder}
+
+	topo.Connected(provider)
+
+	// Before the fix, this bidder would be silently dropped because `add`
+	// checked t.providers (wrong map) for the bidder dedup.
+	topo.Connected(bidder)
+
+	providers := topo.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
+	bidders := topo.GetPeers(topology.Query{Type: p2p.PeerTypeBidder})
+
+	if len(providers) != 1 {
+		t.Fatalf("expected 1 provider, got %d", len(providers))
+	}
+	if len(bidders) != 1 {
+		t.Fatalf("expected 1 bidder, got %d", len(bidders))
+	}
+
+	// Duplicate bidder should be deduped
+	topo.Connected(bidder)
+	bidders = topo.GetPeers(topology.Query{Type: p2p.PeerTypeBidder})
+	if len(bidders) != 1 {
+		t.Fatalf("expected 1 bidder after duplicate connect, got %d", len(bidders))
+	}
+}
+
+func TestNewProviderBroadcastsToAllBidders(t *testing.T) {
+	t.Parallel()
+
+	ann := &announcer{}
+	notifier := &testNotifier{}
+	topo := topology.New(&testAddressbook{}, notifier, util.NewTestLogger(io.Discard))
+	topo.SetAnnouncer(ann)
+
+	// Connect 3 bidders first
+	bidders := []p2p.Peer{
+		{EthAddress: common.HexToAddress("0xB1"), Type: p2p.PeerTypeBidder},
+		{EthAddress: common.HexToAddress("0xB2"), Type: p2p.PeerTypeBidder},
+		{EthAddress: common.HexToAddress("0xB3"), Type: p2p.PeerTypeBidder},
+	}
+	for _, b := range bidders {
+		topo.Connected(b)
+	}
+
+	ann.mu.Lock()
+	ann.broadcasts = nil // clear broadcasts from bidder connections
+	ann.mu.Unlock()
+
+	// Now connect a new provider — it should be broadcast to all 3 bidders
+	provider := p2p.Peer{EthAddress: common.HexToAddress("0xP1"), Type: p2p.PeerTypeProvider}
+	topo.Connected(provider)
+
+	ann.mu.Lock()
+	defer ann.mu.Unlock()
+
+	if len(ann.broadcasts) != 3 {
+		t.Fatalf("expected new provider to be broadcast to 3 bidders, got %d", len(ann.broadcasts))
+	}
+
+	broadcastAddrs := make(map[common.Address]bool)
+	for _, b := range ann.broadcasts {
+		broadcastAddrs[b.EthAddress] = true
+	}
+	for _, b := range bidders {
+		if !broadcastAddrs[b.EthAddress] {
+			t.Fatalf("bidder %s did not receive provider broadcast", b.EthAddress.Hex())
+		}
+	}
+}
