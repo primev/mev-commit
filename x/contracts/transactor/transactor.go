@@ -12,23 +12,19 @@ import (
 
 const (
 	txnRetriesLimit = 3
-
-	// defaultMaxNonceDrift is the maximum allowed difference between the
-	// local nonce counter and the chain's pending nonce before the transactor
-	// resets to the chain nonce. Since sends are serialized via a size-1
-	// channel, under normal operation the drift should be 0. A drift larger
-	// than this threshold indicates that previously sent transactions were
-	// lost (e.g. mempool cleared after a node restart).
-	defaultMaxNonceDrift uint64 = 5
 )
 
 // Watcher is an interface that is used to manage the lifecycle of a transaction.
 // The Allow method is used to determine if a transaction should be sent. The context
 // is passed to the method so that the watcher can determine this based on the context.
-// The Sent method is is used to notify the watcher that the transaction has been sent.
+// The Sent method is used to notify the watcher that the transaction has been sent.
+// The NonceOverride method returns a channel that signals the transactor to reset its
+// local nonce to the provided value. This is used by the monitor to recover from stuck
+// states where transactions were lost (e.g. mempool cleared after a node restart).
 type Watcher interface {
 	Allow(ctx context.Context, nonce uint64) bool
 	Sent(ctx context.Context, tx *types.Transaction)
+	NonceOverride() <-chan uint64
 }
 
 // Transactor is a wrapper around a bind.ContractBackend that ensures that
@@ -46,23 +42,13 @@ type Watcher interface {
 // of an error, the nonce is put back into the channel so that it can be reused.
 type Transactor struct {
 	bind.ContractBackend
-	nonceChan     chan uint64
-	watcher       Watcher
-	maxNonceDrift uint64
-	logger        *slog.Logger
+	nonceChan chan uint64
+	watcher   Watcher
+	logger    *slog.Logger
 }
 
 // Option is a functional option for configuring the Transactor.
 type Option func(*Transactor)
-
-// WithMaxNonceDrift sets the maximum allowed drift between the local nonce
-// counter and the chain's pending nonce before the transactor self-heals by
-// resetting to the chain nonce.
-func WithMaxNonceDrift(n uint64) Option {
-	return func(t *Transactor) {
-		t.maxNonceDrift = n
-	}
-}
 
 // WithLogger sets the logger for the transactor.
 func WithLogger(l *slog.Logger) Option {
@@ -85,7 +71,6 @@ func NewTransactor(
 		ContractBackend: backend,
 		watcher:         watcher,
 		nonceChan:       nonceChan,
-		maxNonceDrift:   defaultMaxNonceDrift,
 		logger:          slog.Default(),
 	}
 	for _, opt := range opts {
@@ -99,6 +84,17 @@ func (t *Transactor) PendingNonceAt(ctx context.Context, account common.Address)
 	case <-ctx.Done():
 		return 0, ctx.Err()
 	case nonce := <-t.nonceChan:
+		// Check if the monitor has signaled a nonce override (stuck detection).
+		select {
+		case override := <-t.watcher.NonceOverride():
+			t.logger.Warn("nonce override from monitor, resetting",
+				"localNonce", nonce,
+				"overrideNonce", override,
+			)
+			nonce = override
+		default:
+		}
+
 		pendingNonce, err := t.ContractBackend.PendingNonceAt(ctx, account)
 		if err != nil {
 			// this naked write is safe as only the SendTransaction writes to
@@ -108,19 +104,6 @@ func (t *Transactor) PendingNonceAt(ctx context.Context, account common.Address)
 			return 0, err
 		}
 		if pendingNonce > nonce {
-			return pendingNonce, nil
-		}
-		// Self-healing: if local nonce drifts too far ahead of the chain's
-		// pending nonce, transactions were likely lost (e.g. mempool cleared
-		// after a node restart). Reset to chain nonce to close the gap.
-		// This does not add any extra RPC calls — we already query the
-		// chain's pending nonce above.
-		if nonce > pendingNonce+t.maxNonceDrift {
-			t.logger.Warn("nonce drift detected, resetting to chain pending nonce",
-				"localNonce", nonce,
-				"chainPendingNonce", pendingNonce,
-				"drift", nonce-pendingNonce,
-			)
 			return pendingNonce, nil
 		}
 		return nonce, nil
