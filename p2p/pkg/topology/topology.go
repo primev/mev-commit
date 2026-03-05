@@ -109,7 +109,7 @@ func (t *Topology) add(p p2p.Peer) {
 		t.providers[p.EthAddress] = p
 		t.metrics.ConnectedProvidersCount.Inc()
 	case p2p.PeerTypeBidder:
-		if _, alreadyConnected := t.providers[p.EthAddress]; alreadyConnected {
+		if _, alreadyConnected := t.bidders[p.EthAddress]; alreadyConnected {
 			return
 		}
 		t.bidders[p.EthAddress] = p
