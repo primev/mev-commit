@@ -134,6 +134,159 @@ func TestTrasactor(t *testing.T) {
 	}
 }
 
+// autoAllowWatcher is a watcher that always allows and records sent txs.
+type autoAllowWatcher struct {
+	txnChan chan *types.Transaction
+}
+
+func (w *autoAllowWatcher) Allow(_ context.Context, _ uint64) bool {
+	return true
+}
+
+func (w *autoAllowWatcher) Sent(_ context.Context, tx *types.Transaction) {
+	if w.txnChan != nil {
+		w.txnChan <- tx
+	}
+}
+
+func TestNonceDriftSelfHealing(t *testing.T) {
+	t.Parallel()
+
+	backend := &testBackend{
+		nonce: 100, // chain pending nonce
+	}
+	watcher := &autoAllowWatcher{txnChan: make(chan *types.Transaction, 16)}
+	// maxNonceDrift = 5: drift of 6+ triggers reset
+	txnSender := transactor.NewTransactor(backend, watcher, transactor.WithMaxNonceDrift(5))
+
+	// First call: local nonce is 0 (initial), chain says 100 → returns 100
+	nonce, err := txnSender.PendingNonceAt(context.Background(), common.Address{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nonce != 100 {
+		t.Fatalf("expected nonce 100, got %d", nonce)
+	}
+
+	// Send nonces 100-109 to advance local nonce to 110
+	for i := uint64(100); i <= 109; i++ {
+		backend.nonce = i + 1 // chain keeps up
+		if i > 100 {
+			nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		err = txnSender.SendTransaction(context.Background(), types.NewTransaction(nonce, common.Address{}, nil, 0, nil, nil))
+		if err != nil {
+			t.Fatal(err)
+		}
+		<-watcher.txnChan
+		nonce = i + 1
+	}
+
+	// Local nonce is now 110. Simulate mempool wipe: chain nonce drops to 100.
+	// This simulates the node restart scenario where all pending txs are lost.
+	backend.nonce = 100
+
+	// Drift = 110 - 100 = 10 > maxNonceDrift(5) → should reset to 100
+	nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nonce != 100 {
+		t.Fatalf("expected nonce to reset to 100 (chain nonce), got %d", nonce)
+	}
+}
+
+func TestNonceDriftWithinThreshold(t *testing.T) {
+	t.Parallel()
+
+	backend := &testBackend{
+		nonce: 100,
+	}
+	watcher := &autoAllowWatcher{txnChan: make(chan *types.Transaction, 16)}
+	txnSender := transactor.NewTransactor(backend, watcher, transactor.WithMaxNonceDrift(5))
+
+	// Get initial nonce from chain (100)
+	nonce, err := txnSender.PendingNonceAt(context.Background(), common.Address{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Send txs 100-104 to advance local nonce to 105
+	for i := uint64(100); i <= 104; i++ {
+		backend.nonce = i // chain nonce stays behind (simulating pending txs)
+		if i > 100 {
+			nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		err = txnSender.SendTransaction(context.Background(), types.NewTransaction(nonce, common.Address{}, nil, 0, nil, nil))
+		if err != nil {
+			t.Fatal(err)
+		}
+		<-watcher.txnChan
+		nonce = i + 1
+	}
+
+	// Local nonce = 105. Chain nonce = 104 (drift = 1, within threshold).
+	// Should use local nonce, NOT reset.
+	backend.nonce = 100
+	nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nonce != 105 {
+		t.Fatalf("expected local nonce 105 (within drift threshold), got %d", nonce)
+	}
+}
+
+func TestSendTransactionRetriesExhausted(t *testing.T) {
+	t.Parallel()
+
+	backend := &testBackend{
+		nonce:     10,
+		sendTxErr: context.DeadlineExceeded, // all sends timeout
+	}
+	watcher := &autoAllowWatcher{txnChan: make(chan *types.Transaction, 1)}
+	txnSender := transactor.NewTransactor(backend, watcher)
+
+	// Get initial nonce
+	nonce, err := txnSender.PendingNonceAt(context.Background(), common.Address{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nonce != 10 {
+		t.Fatalf("expected nonce 10, got %d", nonce)
+	}
+
+	// SendTransaction should fail after exhausting all retries
+	err = txnSender.SendTransaction(context.Background(), types.NewTransaction(nonce, common.Address{}, nil, 0, nil, nil))
+	if err == nil {
+		t.Fatal("expected error when all retries exhausted, got nil")
+	}
+
+	// The nonce should NOT have been incremented — it should be reusable.
+	// Since the defer puts the nonce back, the next PendingNonceAt should return 10.
+	backend.sendTxErr = nil // clear the error so future sends work
+	nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nonce != 10 {
+		t.Fatalf("expected nonce to remain 10 after failed retries, got %d", nonce)
+	}
+
+	// Verify no transaction was reported as sent
+	select {
+	case <-watcher.txnChan:
+		t.Fatal("watcher.Sent should not have been called for failed transaction")
+	default:
+	}
+}
+
 type testWatcher struct {
 	allowChan chan uint64
 	txnChan   chan *types.Transaction
@@ -157,6 +310,7 @@ type testBackend struct {
 	nonce           uint64
 	errNonce        uint64
 	pendingNonceErr error
+	sendTxErr       error // if set, SendTransaction always returns this error
 }
 
 func (b *testBackend) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
@@ -167,6 +321,9 @@ func (b *testBackend) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (b *testBackend) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	if b.sendTxErr != nil {
+		return b.sendTxErr
+	}
 	if b.errNonce == tx.Nonce() {
 		return errors.New("nonce error")
 	}
