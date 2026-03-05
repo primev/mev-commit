@@ -26,6 +26,13 @@ var (
 	ErrMonitorClosed = errors.New("monitor was closed")
 )
 
+const (
+	// defaultStuckDuration is how long the confirmed nonce must remain
+	// unchanged (while there are pending txs) before the monitor signals
+	// the transactor to reset its nonce.
+	defaultStuckDuration = 30 * time.Second
+)
+
 type TxnDetails struct {
 	Hash    common.Hash
 	Nonce   uint64
@@ -68,9 +75,11 @@ type Monitor struct {
 	newTxAdded         chan struct{}
 	nonceUpdate        chan struct{}
 	blockUpdate        chan waitCheck
+	nonceOverrideChan  chan uint64
 	logger             *slog.Logger
 	lastConfirmedNonce atomic.Uint64
 	maxPendingTxs      uint64
+	stuckDuration      time.Duration
 	metrics            *metrics
 }
 
@@ -86,17 +95,19 @@ func New(
 		saver = noopSaver{}
 	}
 	m := &Monitor{
-		owner:         owner,
-		client:        client,
-		logger:        logger,
-		helper:        helper,
-		saver:         saver,
-		maxPendingTxs: maxPendingTxs,
-		metrics:       newMetrics(),
-		waitMap:       make(map[uint64]map[common.Hash][]chan Result),
-		newTxAdded:    make(chan struct{}),
-		nonceUpdate:   make(chan struct{}),
-		blockUpdate:   make(chan waitCheck),
+		owner:             owner,
+		client:            client,
+		logger:            logger,
+		helper:            helper,
+		saver:             saver,
+		maxPendingTxs:     maxPendingTxs,
+		stuckDuration:     defaultStuckDuration,
+		metrics:           newMetrics(),
+		waitMap:           make(map[uint64]map[common.Hash][]chan Result),
+		newTxAdded:        make(chan struct{}),
+		nonceUpdate:       make(chan struct{}),
+		blockUpdate:       make(chan waitCheck),
+		nonceOverrideChan: make(chan uint64, 1),
 	}
 
 	pending, err := saver.PendingTxns()
@@ -111,8 +122,28 @@ func New(
 	return m
 }
 
+// SetStuckDuration overrides the default stuck detection duration.
+// This is intended for testing.
+func (m *Monitor) SetStuckDuration(d time.Duration) {
+	m.stuckDuration = d
+}
+
 func (m *Monitor) Metrics() []prometheus.Collector {
 	return m.metrics.Metrics()
+}
+
+// NonceOverride returns a channel that the transactor reads from to detect
+// nonce resets. When the monitor detects that the confirmed nonce has not
+// advanced for stuckDuration despite having pending transactions, it sends
+// the confirmed nonce on this channel to tell the transactor to reset.
+func (m *Monitor) NonceOverride() <-chan uint64 {
+	return m.nonceOverrideChan
+}
+
+func (m *Monitor) pendingTxCount() int {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	return len(m.waitMap)
 }
 
 func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
@@ -142,6 +173,8 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 
 		m.logger.Info("monitor started")
 		lastBlock := uint64(0)
+		var lastNonceAdvance time.Time
+		var lastSeenNonce uint64
 		for {
 			newTx := false
 			select {
@@ -176,6 +209,28 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 			m.metrics.lastConfirmedNonce.Set(float64(lastNonce))
 			m.metrics.lastBlockNumber.Set(float64(currentBlock))
 			m.triggerNonceUpdate()
+
+			// Stuck detection: if the confirmed nonce hasn't advanced
+			// for stuckDuration while we have pending txs, signal
+			// the transactor to reset its local nonce.
+			if lastNonce > lastSeenNonce {
+				lastSeenNonce = lastNonce
+				lastNonceAdvance = time.Now()
+			} else if pendingCount := m.pendingTxCount(); pendingCount > 0 && !lastNonceAdvance.IsZero() &&
+				time.Since(lastNonceAdvance) >= m.stuckDuration {
+				m.logger.Warn("stuck detected: confirmed nonce not advancing, signaling nonce reset",
+					"confirmedNonce", lastNonce,
+					"stuckFor", time.Since(lastNonceAdvance).String(),
+					"pendingTxs", pendingCount,
+				)
+				select {
+				case m.nonceOverrideChan <- lastNonce:
+				default:
+					// channel already has a pending override
+				}
+				// Reset the timer so we don't spam overrides
+				lastNonceAdvance = time.Now()
+			}
 
 			select {
 			case m.blockUpdate <- waitCheck{lastNonce, currentBlock}:
