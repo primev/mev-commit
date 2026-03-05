@@ -155,8 +155,8 @@ func (w *autoAllowWatcher) NonceOverride() <-chan uint64 {
 
 // nonceOverrideWatcher is a watcher that allows all txs and supports nonce override.
 type nonceOverrideWatcher struct {
-	txnChan       chan *types.Transaction
-	overrideChan  chan uint64
+	txnChan      chan *types.Transaction
+	overrideChan chan uint64
 }
 
 func (w *nonceOverrideWatcher) Allow(_ context.Context, _ uint64) bool {
