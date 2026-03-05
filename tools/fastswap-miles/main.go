@@ -154,8 +154,6 @@ func main() {
 	db := openDB(*dbUser, *dbPass, *dbHost, *dbPort, *dbName)
 	defer func() { _ = db.Close() }()
 
-	// ensureSchema(db)
-
 	client, err := ethclient.Dial(*l1RPC)
 	if err != nil {
 		log.Fatalf("ethclient.Dial: %v", err)
@@ -276,51 +274,6 @@ func openDB(dbUser, dbPass, dbHost, dbPort, dbName string) *sql.DB {
 		log.Fatalf("db.Ping: %v", err)
 	}
 	return db
-}
-
-// ensureSchema creates the main table and the block-tracking metadata table if
-// they don't already exist. Uses StarRocks DDL.
-func ensureSchema(db *sql.DB) {
-	// Main events table (matches the schema you already created).
-	_, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS mevcommit_57173.fastswap_miles (
-  tx_hash         VARCHAR(100) NOT NULL,
-  block_number    BIGINT       NOT NULL,
-  block_timestamp DATETIME     NULL,
-  user_address    VARCHAR(64)  NOT NULL,
-  input_token     VARCHAR(64)  NULL,
-  output_token    VARCHAR(64)  NOT NULL,
-  input_amount    VARCHAR(100) NULL,
-  user_amt_out    VARCHAR(100) NULL,
-  surplus         VARCHAR(100) NOT NULL,
-  gas_cost        VARCHAR(100) NULL,
-  bid_cost        VARCHAR(100) NULL,
-  swap_type       VARCHAR(16)  NULL,
-  surplus_eth     DOUBLE       NULL,
-  net_profit_eth  DOUBLE       NULL,
-  miles           BIGINT       NULL,
-  processed       BOOLEAN      NOT NULL
-  
-) PRIMARY KEY(tx_hash)
-  DISTRIBUTED BY HASH(tx_hash) BUCKETS 8
-  PROPERTIES ("replication_num" = "1");
-`)
-	if err != nil {
-		// StarRocks may reject IF NOT EXISTS for some DDL; ignore if table exists.
-		log.Printf("ensureSchema(fastswap_miles): %v (may be OK if table exists)", err)
-	}
-
-	_, err = db.Exec(`
-CREATE TABLE IF NOT EXISTS mevcommit_57173.fastswap_miles_meta (
-  k VARCHAR(64) NOT NULL,
-  v VARCHAR(256) NOT NULL
-) PRIMARY KEY(k)
-  DISTRIBUTED BY HASH(k) BUCKETS 1
-  PROPERTIES ("replication_num" = "1");
-`)
-	if err != nil {
-		log.Printf("ensureSchema(fastswap_miles_meta): %v (may be OK if table exists)", err)
-	}
 }
 
 func loadLastBlock(db *sql.DB) uint64 {
