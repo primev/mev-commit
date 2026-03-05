@@ -140,14 +140,15 @@ func (t *Transactor) SendTransaction(ctx context.Context, tx *types.Transaction)
 		return ctx.Err()
 	}
 
+	var sendErr error
 	delay := 1 * time.Second
 	for tries := 0; tries <= txnRetriesLimit; tries++ {
 		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		err := t.ContractBackend.SendTransaction(cctx, tx)
+		sendErr = t.ContractBackend.SendTransaction(cctx, tx)
 		cancel()
 
-		if err != nil {
-			if err == context.DeadlineExceeded {
+		if sendErr != nil {
+			if sendErr == context.DeadlineExceeded {
 				delay *= 2
 				retryTimer := time.NewTimer(delay)
 				select {
@@ -158,9 +159,13 @@ func (t *Transactor) SendTransaction(ctx context.Context, tx *types.Transaction)
 				}
 				continue
 			}
-			return err
+			return sendErr
 		}
 		break
+	}
+
+	if sendErr != nil {
+		return sendErr
 	}
 
 	// If the transaction is successful, we need to update the nonce and notify the

@@ -243,6 +243,50 @@ func TestNonceDriftWithinThreshold(t *testing.T) {
 	}
 }
 
+func TestSendTransactionRetriesExhausted(t *testing.T) {
+	t.Parallel()
+
+	backend := &testBackend{
+		nonce:     10,
+		sendTxErr: context.DeadlineExceeded, // all sends timeout
+	}
+	watcher := &autoAllowWatcher{txnChan: make(chan *types.Transaction, 1)}
+	txnSender := transactor.NewTransactor(backend, watcher)
+
+	// Get initial nonce
+	nonce, err := txnSender.PendingNonceAt(context.Background(), common.Address{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nonce != 10 {
+		t.Fatalf("expected nonce 10, got %d", nonce)
+	}
+
+	// SendTransaction should fail after exhausting all retries
+	err = txnSender.SendTransaction(context.Background(), types.NewTransaction(nonce, common.Address{}, nil, 0, nil, nil))
+	if err == nil {
+		t.Fatal("expected error when all retries exhausted, got nil")
+	}
+
+	// The nonce should NOT have been incremented — it should be reusable.
+	// Since the defer puts the nonce back, the next PendingNonceAt should return 10.
+	backend.sendTxErr = nil // clear the error so future sends work
+	nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nonce != 10 {
+		t.Fatalf("expected nonce to remain 10 after failed retries, got %d", nonce)
+	}
+
+	// Verify no transaction was reported as sent
+	select {
+	case <-watcher.txnChan:
+		t.Fatal("watcher.Sent should not have been called for failed transaction")
+	default:
+	}
+}
+
 type testWatcher struct {
 	allowChan chan uint64
 	txnChan   chan *types.Transaction
@@ -266,6 +310,7 @@ type testBackend struct {
 	nonce           uint64
 	errNonce        uint64
 	pendingNonceErr error
+	sendTxErr       error // if set, SendTransaction always returns this error
 }
 
 func (b *testBackend) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
@@ -276,6 +321,9 @@ func (b *testBackend) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (b *testBackend) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	if b.sendTxErr != nil {
+		return b.sendTxErr
+	}
 	if b.errNonce == tx.Nonce() {
 		return errors.New("nonce error")
 	}
