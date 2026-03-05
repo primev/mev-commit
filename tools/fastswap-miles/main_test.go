@@ -55,7 +55,9 @@ func TestCallBarter(t *testing.T) {
 			MinReturn: "1000",
 		}
 		resp.Route.OutputAmount = "1050"
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
 	}))
 	defer ts.Close()
 
@@ -91,7 +93,9 @@ func TestSubmitToFuel(t *testing.T) {
 		}
 
 		var req map[string]any
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("failed to decode request: %v", err)
+		}
 
 		// Assert parts of the JSON body
 		if req["name"] != "fast-swap-surplus" {
