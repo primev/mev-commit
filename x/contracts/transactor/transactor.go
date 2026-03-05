@@ -2,6 +2,7 @@ package transactor
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -11,6 +12,14 @@ import (
 
 const (
 	txnRetriesLimit = 3
+
+	// defaultMaxNonceDrift is the maximum allowed difference between the
+	// local nonce counter and the chain's pending nonce before the transactor
+	// resets to the chain nonce. Since sends are serialized via a size-1
+	// channel, under normal operation the drift should be 0. A drift larger
+	// than this threshold indicates that previously sent transactions were
+	// lost (e.g. mempool cleared after a node restart).
+	defaultMaxNonceDrift uint64 = 5
 )
 
 // Watcher is an interface that is used to manage the lifecycle of a transaction.
@@ -37,24 +46,52 @@ type Watcher interface {
 // of an error, the nonce is put back into the channel so that it can be reused.
 type Transactor struct {
 	bind.ContractBackend
-	nonceChan chan uint64
-	watcher   Watcher
+	nonceChan     chan uint64
+	watcher       Watcher
+	maxNonceDrift uint64
+	logger        *slog.Logger
+}
+
+// Option is a functional option for configuring the Transactor.
+type Option func(*Transactor)
+
+// WithMaxNonceDrift sets the maximum allowed drift between the local nonce
+// counter and the chain's pending nonce before the transactor self-heals by
+// resetting to the chain nonce.
+func WithMaxNonceDrift(n uint64) Option {
+	return func(t *Transactor) {
+		t.maxNonceDrift = n
+	}
+}
+
+// WithLogger sets the logger for the transactor.
+func WithLogger(l *slog.Logger) Option {
+	return func(t *Transactor) {
+		t.logger = l
+	}
 }
 
 func NewTransactor(
 	backend bind.ContractBackend,
 	watcher Watcher,
+	opts ...Option,
 ) *Transactor {
 	nonceChan := make(chan uint64, 1)
 	// We need to send a value to the channel so that the first transaction
 	// can be sent. The value is not important as the first transaction will
 	// get the nonce from the blockchain.
 	nonceChan <- 0
-	return &Transactor{
+	t := &Transactor{
 		ContractBackend: backend,
 		watcher:         watcher,
 		nonceChan:       nonceChan,
+		maxNonceDrift:   defaultMaxNonceDrift,
+		logger:          slog.Default(),
 	}
+	for _, opt := range opts {
+		opt(t)
+	}
+	return t
 }
 
 func (t *Transactor) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
@@ -71,6 +108,19 @@ func (t *Transactor) PendingNonceAt(ctx context.Context, account common.Address)
 			return 0, err
 		}
 		if pendingNonce > nonce {
+			return pendingNonce, nil
+		}
+		// Self-healing: if local nonce drifts too far ahead of the chain's
+		// pending nonce, transactions were likely lost (e.g. mempool cleared
+		// after a node restart). Reset to chain nonce to close the gap.
+		// This does not add any extra RPC calls — we already query the
+		// chain's pending nonce above.
+		if nonce > pendingNonce+t.maxNonceDrift {
+			t.logger.Warn("nonce drift detected, resetting to chain pending nonce",
+				"localNonce", nonce,
+				"chainPendingNonce", pendingNonce,
+				"drift", nonce-pendingNonce,
+			)
 			return pendingNonce, nil
 		}
 		return nonce, nil
@@ -90,26 +140,32 @@ func (t *Transactor) SendTransaction(ctx context.Context, tx *types.Transaction)
 		return ctx.Err()
 	}
 
+	var sendErr error
 	delay := 1 * time.Second
 	for tries := 0; tries <= txnRetriesLimit; tries++ {
 		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
+		sendErr = t.ContractBackend.SendTransaction(cctx, tx)
+		cancel()
 
-		if err := t.ContractBackend.SendTransaction(cctx, tx); err != nil {
-			if err == context.DeadlineExceeded {
+		if sendErr != nil {
+			if sendErr == context.DeadlineExceeded {
 				delay *= 2
 				retryTimer := time.NewTimer(delay)
 				select {
 				case <-ctx.Done():
+					retryTimer.Stop()
 					return ctx.Err()
 				case <-retryTimer.C:
-					_ = retryTimer.Stop()
 				}
 				continue
 			}
-			return err
+			return sendErr
 		}
 		break
+	}
+
+	if sendErr != nil {
+		return sendErr
 	}
 
 	// If the transaction is successful, we need to update the nonce and notify the
