@@ -149,17 +149,44 @@ func (w *autoAllowWatcher) Sent(_ context.Context, tx *types.Transaction) {
 	}
 }
 
-func TestNonceDriftSelfHealing(t *testing.T) {
+func (w *autoAllowWatcher) NonceOverride() <-chan uint64 {
+	return make(chan uint64)
+}
+
+// nonceOverrideWatcher is a watcher that allows all txs and supports nonce override.
+type nonceOverrideWatcher struct {
+	txnChan       chan *types.Transaction
+	overrideChan  chan uint64
+}
+
+func (w *nonceOverrideWatcher) Allow(_ context.Context, _ uint64) bool {
+	return true
+}
+
+func (w *nonceOverrideWatcher) Sent(_ context.Context, tx *types.Transaction) {
+	if w.txnChan != nil {
+		w.txnChan <- tx
+	}
+}
+
+func (w *nonceOverrideWatcher) NonceOverride() <-chan uint64 {
+	return w.overrideChan
+}
+
+func TestNonceOverrideFromMonitor(t *testing.T) {
 	t.Parallel()
 
 	backend := &testBackend{
-		nonce: 100, // chain pending nonce
+		nonce: 100,
 	}
-	watcher := &autoAllowWatcher{txnChan: make(chan *types.Transaction, 16)}
-	// maxNonceDrift = 5: drift of 6+ triggers reset
-	txnSender := transactor.NewTransactor(backend, watcher, transactor.WithMaxNonceDrift(5))
+	overrideChan := make(chan uint64, 1)
+	watcher := &nonceOverrideWatcher{
+		txnChan:      make(chan *types.Transaction, 16),
+		overrideChan: overrideChan,
+	}
+	txnSender := transactor.NewTransactor(backend, watcher)
 
-	// First call: local nonce is 0 (initial), chain says 100 → returns 100
+	// First call: local nonce is 0, chain says 100 → returns 100
 	nonce, err := txnSender.PendingNonceAt(context.Background(), common.Address{})
 	if err != nil {
 		t.Fatal(err)
@@ -170,7 +197,7 @@ func TestNonceDriftSelfHealing(t *testing.T) {
 
 	// Send nonces 100-109 to advance local nonce to 110
 	for i := uint64(100); i <= 109; i++ {
-		backend.nonce = i + 1 // chain keeps up
+		backend.nonce = i + 1
 		if i > 100 {
 			nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
 			if err != nil {
@@ -185,28 +212,32 @@ func TestNonceDriftSelfHealing(t *testing.T) {
 		nonce = i + 1
 	}
 
-	// Local nonce is now 110. Simulate mempool wipe: chain nonce drops to 100.
-	// This simulates the node restart scenario where all pending txs are lost.
+	// Local nonce is now 110. Simulate monitor detecting stuck state and
+	// sending a nonce override to reset to the confirmed nonce (100).
 	backend.nonce = 100
+	overrideChan <- 100
 
-	// Drift = 110 - 100 = 10 > maxNonceDrift(5) → should reset to 100
 	nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if nonce != 100 {
-		t.Fatalf("expected nonce to reset to 100 (chain nonce), got %d", nonce)
+		t.Fatalf("expected nonce to reset to 100 via monitor override, got %d", nonce)
 	}
 }
 
-func TestNonceDriftWithinThreshold(t *testing.T) {
+func TestNonceOverrideNotTriggeredWithoutSignal(t *testing.T) {
 	t.Parallel()
 
 	backend := &testBackend{
 		nonce: 100,
 	}
-	watcher := &autoAllowWatcher{txnChan: make(chan *types.Transaction, 16)}
-	txnSender := transactor.NewTransactor(backend, watcher, transactor.WithMaxNonceDrift(5))
+	overrideChan := make(chan uint64, 1)
+	watcher := &nonceOverrideWatcher{
+		txnChan:      make(chan *types.Transaction, 16),
+		overrideChan: overrideChan,
+	}
+	txnSender := transactor.NewTransactor(backend, watcher)
 
 	// Get initial nonce from chain (100)
 	nonce, err := txnSender.PendingNonceAt(context.Background(), common.Address{})
@@ -216,7 +247,7 @@ func TestNonceDriftWithinThreshold(t *testing.T) {
 
 	// Send txs 100-104 to advance local nonce to 105
 	for i := uint64(100); i <= 104; i++ {
-		backend.nonce = i // chain nonce stays behind (simulating pending txs)
+		backend.nonce = i + 1
 		if i > 100 {
 			nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
 			if err != nil {
@@ -231,15 +262,18 @@ func TestNonceDriftWithinThreshold(t *testing.T) {
 		nonce = i + 1
 	}
 
-	// Local nonce = 105. Chain nonce = 104 (drift = 1, within threshold).
-	// Should use local nonce, NOT reset.
+	// No override signal sent — local nonce should be used even if
+	// chain nonce is lower, because the monitor hasn't detected a stuck state.
+	// After sending 100-104, local nonce is 105. The last PendingNonceAt in the
+	// loop saw chain=105, so transactor internal nonce is 105+1=106 after the
+	// last SendTransaction.
 	backend.nonce = 100
 	nonce, err = txnSender.PendingNonceAt(context.Background(), common.Address{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if nonce != 105 {
-		t.Fatalf("expected local nonce 105 (within drift threshold), got %d", nonce)
+	if nonce != 106 {
+		t.Fatalf("expected local nonce 106 (no override), got %d", nonce)
 	}
 }
 
@@ -303,6 +337,10 @@ func (w *testWatcher) Allow(ctx context.Context, nonce uint64) bool {
 
 func (w *testWatcher) Sent(ctx context.Context, tx *types.Transaction) {
 	w.txnChan <- tx
+}
+
+func (w *testWatcher) NonceOverride() <-chan uint64 {
+	return make(chan uint64)
 }
 
 type testBackend struct {

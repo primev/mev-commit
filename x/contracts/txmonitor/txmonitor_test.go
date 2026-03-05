@@ -5,6 +5,7 @@ import (
 	"io"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -122,6 +123,138 @@ func TestTxMonitor(t *testing.T) {
 			t.Fatal("tx should be successful")
 		}
 	}
+}
+
+func TestStuckDetectionSendsNonceOverride(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Tx nonce=10 is higher than confirmed nonce=5, so it stays in waitMap
+	// (getOlderTxns only returns txs with nonce < confirmed nonce).
+	tx := types.MustSignNewTx(
+		key,
+		types.NewLondonSigner(big.NewInt(1)),
+		&types.DynamicFeeTx{
+			ChainID:   big.NewInt(1),
+			Nonce:     10,
+			GasFeeCap: big.NewInt(1),
+			GasTipCap: big.NewInt(1),
+			To:        &common.Address{},
+		},
+	)
+
+	evm := newPollingEVM(0, 5)
+
+	monitor := txmonitor.New(
+		common.Address{},
+		evm,
+		&testEVMHelper{receipts: make(map[common.Hash]txmonitor.Result)},
+		nil,
+		util.NewTestLogger(io.Discard),
+		2048,
+	)
+	monitor.SetStuckDuration(100 * time.Millisecond)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	monitor.Start(ctx)
+
+	// Add a pending tx with nonce > confirmed nonce so it stays unresolved
+	monitor.Sent(ctx, tx)
+
+	// The confirmed nonce stays at 5 (not advancing) while there are pending txs.
+	// After ~100ms the monitor should send the confirmed nonce on NonceOverride.
+	select {
+	case override := <-monitor.NonceOverride():
+		if override != 5 {
+			t.Fatalf("expected override nonce 5, got %d", override)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for nonce override signal")
+	}
+}
+
+func TestNoOverrideWhenNonceAdvances(t *testing.T) {
+	t.Parallel()
+
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Tx nonce=10 stays in waitMap (> confirmed nonce 5)
+	tx := types.MustSignNewTx(
+		key,
+		types.NewLondonSigner(big.NewInt(1)),
+		&types.DynamicFeeTx{
+			ChainID:   big.NewInt(1),
+			Nonce:     10,
+			GasFeeCap: big.NewInt(1),
+			GasTipCap: big.NewInt(1),
+			To:        &common.Address{},
+		},
+	)
+
+	evm := newPollingEVM(0, 5)
+
+	monitor := txmonitor.New(
+		common.Address{},
+		evm,
+		&testEVMHelper{receipts: make(map[common.Hash]txmonitor.Result)},
+		nil,
+		util.NewTestLogger(io.Discard),
+		2048,
+	)
+	monitor.SetStuckDuration(200 * time.Millisecond)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	monitor.Start(ctx)
+
+	// Add a pending tx
+	monitor.Sent(ctx, tx)
+
+	// Advance the confirmed nonce before stuckDuration elapses.
+	// This resets the stuck timer.
+	time.Sleep(100 * time.Millisecond)
+	evm.setNonce(6)
+
+	// Wait past the original stuck duration — no override should fire
+	// because the nonce advanced and reset the timer.
+	select {
+	case override := <-monitor.NonceOverride():
+		t.Fatalf("unexpected nonce override: %d", override)
+	case <-time.After(500 * time.Millisecond):
+		// expected — no override
+	}
+}
+
+// pollingEVM returns values from atomic fields, suitable for stuck detection tests.
+type pollingEVM struct {
+	blockNum atomic.Uint64
+	nonce    atomic.Uint64
+}
+
+func newPollingEVM(blockNum, nonce uint64) *pollingEVM {
+	p := &pollingEVM{}
+	p.blockNum.Store(blockNum)
+	p.nonce.Store(nonce)
+	return p
+}
+
+func (p *pollingEVM) setNonce(n uint64) { p.nonce.Store(n) }
+
+func (p *pollingEVM) BlockNumber(ctx context.Context) (uint64, error) {
+	// Auto-increment so the monitor doesn't skip iterations
+	return p.blockNum.Add(1), nil
+}
+
+func (p *pollingEVM) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	return p.nonce.Load(), nil
 }
 
 type testEVM struct {
