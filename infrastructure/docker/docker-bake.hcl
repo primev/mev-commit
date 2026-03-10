@@ -26,11 +26,17 @@ variable "GIT_COMMIT" {
 function "get_labels" {
   params = [component]
   result = {
-    "branch"         = GIT_BRANCH != null ? GIT_BRANCH : "unknown"
-    "commit"         = GIT_COMMIT != null ? GIT_COMMIT : "unknown"
-    "component"      = component
-    "build.timestamp"= timestamp()
-    "build.tag"      = TAG
+    "org.opencontainers.image.title"       = component
+    "org.opencontainers.image.description" = "Primev ${component} - mev-commit infrastructure"
+    "org.opencontainers.image.vendor"      = "Primev"
+    "org.opencontainers.image.source"      = "https://github.com/primev/mev-commit"
+    "org.opencontainers.image.url"         = "https://github.com/primev/mev-commit"
+    "org.opencontainers.image.revision"    = GIT_COMMIT != null ? GIT_COMMIT : "unknown"
+    "org.opencontainers.image.version"     = TAG
+    "org.opencontainers.image.created"     = timestamp()
+    "org.opencontainers.image.licenses"    = "BSL-1.1"
+    "com.primev.branch"                    = GIT_BRANCH != null ? GIT_BRANCH : "unknown"
+    "com.primev.component"                 = component
   }
 }
 
