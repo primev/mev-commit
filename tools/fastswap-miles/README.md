@@ -43,7 +43,7 @@ flowchart TD
 net_profit = surplus - gas_cost - bid_cost
 ```
 - `gas_cost` = `receipt.GasUsed × receipt.EffectiveGasPrice` (we pay gas for token-input swaps)
-- `bid_cost` from `OpenedCommitmentStored` event in `tx_view`
+- `bid_cost` from most recent `OpenedCommitmentStored` event in `tx_view` (ordered by block number DESC)
 - Gas cost is **zeroed** for ETH-input swaps (user pays gas)
 
 **ETH→Token** (batched, swept when profitable):
@@ -64,7 +64,7 @@ When ERC20 surplus accumulates from ETH→Token swaps, the service periodically 
    - Slices the proportional Barter sweep execution gas cost per user.
    - If `user_sweep_return > bid_cost + gas_overhead`, the user is profitable. The sweep executes if the batch overall has a positive net profit.
 4. **Execution**: If profitable, signs a Permit2 EIP-712 `PermitWitnessTransferFrom` with the Intent as witness, and POSTs to the `/fastswap` endpoint. `userAmtOut` is set to 95% of Barter's `minReturn` to allow for price movement between quote and execution.
-5. **Distribution**: The swept ETH is divided proportionally among the users in the batch, and 90% of the net profit becomes their miles.
+5. **Distribution**: The point value of the swept ETH is divided proportionally among the users in the batch for accounting purposes. 90% of each user's calculated net profit is awarded to them as miles.
 
 **Executor exclusion**: The executor/treasury address is filtered out (`WHERE user_address != executor`) so sweep transactions don't earn miles.
 
@@ -117,7 +117,6 @@ Indexes events and computes miles but **skips** Fuel submission and processed ma
 ```bash
 go run ./tools/fastswap-miles/ \
   -dry-run \
-  -executor $EXECUTOR_ADDRESS \
   -l1-rpc-url $L1_RPC_URL \
   -barter-url $BARTER_URL \
   -barter-api-key $BARTER_KEY \
@@ -127,24 +126,6 @@ go run ./tools/fastswap-miles/ \
   -start-block 21781670
 ```
 
-### Test-Swap Mode
-
-Runs a single FastSwap sweep to validate Permit2 signing, Barter quotes, and the FastSwap API end-to-end. Exits after one swap.
-
-```bash
-go run ./tools/fastswap-miles/ \
-  -test-swap \
-  -keystore /path/to/keystore.json \
-  -passphrase $KEYSTORE_PASSWORD \
-  -fastswap-url "https://fastrpc.mev-commit.xyz" \
-  -l1-rpc-url $L1_RPC_URL \
-  -barter-url $BARTER_URL \
-  -barter-api-key $BARTER_KEY \
-  -funds-recipient "0x..." \
-  -test-input-token "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" \
-  -test-input-amount "5000000"
-```
-
 ### All Flags
 
 | Flag | Default | Description |
@@ -152,7 +133,6 @@ go run ./tools/fastswap-miles/ \
 | `-l1-rpc-url` | (required) | L1 Ethereum HTTP RPC URL |
 | `-keystore` | | Path to executor keystore JSON file |
 | `-passphrase` | | Keystore password |
-| `-executor` | | Executor address (dry-run only) |
 | `-barter-url` | (required) | Barter API base URL |
 | `-barter-api-key` | | Barter API key |
 | `-fuel-api-url` | | Fuel points API URL (required in production) |
@@ -166,9 +146,9 @@ go run ./tools/fastswap-miles/ \
 | `-poll` | `12s` | Poll interval for new blocks |
 | `-batch` | `2000` | Blocks per `eth_getLogs` batch |
 | `-dry-run` | `false` | Compute miles without submitting or marking |
-| `-test-swap` | `false` | Single swap test mode |
-| `-test-input-token` | USDC | Token address for test swap |
-| `-test-input-amount` | `1000000` | Raw amount for test swap |
+| `-log-fmt` | `json` | Log format (`text` or `json`) |
+| `-log-level` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
+| `-log-tags` | | Comma-separated `name:value` pairs for log lines |
 | `-db-user` | | StarRocks user |
 | `-db-pw` | | StarRocks password |
 | `-db-host` | `127.0.0.1` | StarRocks host |
@@ -179,13 +159,18 @@ go run ./tools/fastswap-miles/ \
 
 | File | Purpose |
 |---|---|
-| `main.go` | CLI, indexing loop, miles processing, sweep logic, Fuel submission |
-| `testswap.go` | Test-swap mode entry point (`runTestSwap`) |
+| `main.go` | CLI, main loop, DB helpers, Barter/Fuel API clients, utility functions |
+| `miles.go` | `serviceConfig`, `processMiles`, `processERC20Miles`, bid cost lookups |
+| `sweep.go` | Event indexer, token sweep, Permit2 approval, EIP-712 signing |
+| `main_test.go` | Unit tests for miles calculation, API clients, helpers |
 
 ## Key Behaviors
 
 - **Auto-resume**: If `-start-block` is 0, resumes from last saved block in `fastswap_miles_meta`.
 - **Permit2 auto-approval**: If the executor hasn't approved a token to Permit2, automatically sends a max-uint256 approval before sweeping. 15-minute receipt timeout.
 - **FastRPC check**: Only transactions found in `mctransactions_sr` get miles (filters out non-FastRPC swaps).
+- **Bid cost dedup**: When multiple providers commit to the same tx, uses the most recent `OpenedCommitmentStored` event (by block number).
+- **Dry-run safety**: In dry-run mode, rows are never marked as processed and no Fuel submissions are made.
+- **Caught-up guard**: Miles are only processed after the indexer has caught up to the chain tip, avoiding excessive Barter API calls during historical backfill.
 - **Graceful shutdown**: Catches SIGINT/SIGTERM, finishes current batch, then exits.
 - **Idempotent**: Re-running from the same start block is safe — inserts use `INSERT INTO` with primary key dedup.
