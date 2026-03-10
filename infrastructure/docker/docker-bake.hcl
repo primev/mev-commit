@@ -175,4 +175,3 @@ target "_common" {
   platforms = [PLATFORM]
   output    = ["type=docker"]
 }
-
