@@ -1,0 +1,96 @@
+name: Docker Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and push (e.g., v1.2.0)'
+        required: true
+        type: string
+
+env:
+  REGISTRY: docker.io/primev
+
+jobs:
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Generate Tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          # Strip 'v' prefix if present
+          TAG="${TAG#v}"
+          echo "value=${TAG}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${TAG}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Images
+        working-directory: infrastructure/docker
+        env:
+          TAG: ${{ steps.tag.outputs.value }}
+          REGISTRY: ${{ env.REGISTRY }}
+          REPO_NAME: primev
+          GIT_BRANCH: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+        run: |
+          docker buildx bake \
+            mev-commit-oracle \
+            mev-commit \
+            mev-commit-bridge \
+            mev-commit-dashboard \
+            preconf-rpc \
+            bidder-emulator \
+            provider-emulator \
+            realbidder-emulator \
+            relay-emulator \
+            l1-volume-indexer \
+            snode \
+            --set "*.platform=linux/amd64,linux/arm64" \
+            --push
+
+          echo "✅ Images pushed with tag: ${TAG}"
+
+      - name: Summary
+        run: |
+          TAG="${{ steps.tag.outputs.value }}"
+          echo "## Docker Images Published 🐳" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tag: \`${TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Images:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-mev-commit\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-mev-commit-oracle\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-mev-commit-bridge\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-mev-commit-dashboard\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-preconf-rpc\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-bidder-emulator\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-provider-emulator\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-realbidder-emulator\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-relay-emulator\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-l1-volume-indexer\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`primev/primev:${TAG}-snode\`" >> $GITHUB_STEP_SUMMARY
