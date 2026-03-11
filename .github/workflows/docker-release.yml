@@ -73,7 +73,6 @@ jobs:
             provider-emulator \
             realbidder-emulator \
             relay-emulator \
-            l1-volume-indexer \
             snode \
             --set "*.output=type=registry" \
             --push
@@ -97,5 +96,4 @@ jobs:
           echo "- \`primev/primev:${{ steps.tag.outputs.value }}-provider-emulator\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`primev/primev:${{ steps.tag.outputs.value }}-realbidder-emulator\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`primev/primev:${{ steps.tag.outputs.value }}-relay-emulator\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`primev/primev:${{ steps.tag.outputs.value }}-l1-volume-indexer\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`primev/primev:${{ steps.tag.outputs.value }}-snode\`" >> $GITHUB_STEP_SUMMARY
