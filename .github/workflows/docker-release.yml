@@ -97,3 +97,17 @@ jobs:
           echo "- \`primev/primev:${{ steps.tag.outputs.value }}-realbidder-emulator\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`primev/primev:${{ steps.tag.outputs.value }}-relay-emulator\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`primev/primev:${{ steps.tag.outputs.value }}-snode\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Trigger Image Bump Workflow
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.ARGO_EVENTS_WEBHOOK_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.ARGO_EVENTS_WEBHOOK_URL }}/docker-release" \
+            -d '{
+              "action": "docker_release_complete",
+              "tag": "${{ steps.tag.outputs.value }}",
+              "commit": "${{ github.sha }}",
+              "ref": "${{ github.ref }}"
+            }'
+          echo "✅ Triggered image bump workflow"
