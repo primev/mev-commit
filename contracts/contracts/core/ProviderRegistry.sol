@@ -373,6 +373,80 @@ contract ProviderRegistry is
         _unpause();
     }
 
+    /// @dev Sets the minimum stake for reputation providers. Can only be called by the owner.
+    function setReputationMinStake(uint256 _reputationMinStake) external onlyOwner {
+        reputationMinStake = _reputationMinStake;
+        emit ReputationMinStakeUpdated(_reputationMinStake);
+    }
+
+    /// @dev Request registration as a reputation provider. Must send >= reputationMinStake.
+    function requestReputationRegistration() external payable whenNotPaused {
+        require(!providerRegistered[msg.sender], ProviderAlreadyRegistered(msg.sender));
+        require(pendingReputationStake[msg.sender] == 0, PendingReputationRequestExists(msg.sender));
+        require(reputationMinStake != 0, InsufficientReputationStake(0, 0));
+        require(msg.value >= reputationMinStake, InsufficientReputationStake(msg.value, reputationMinStake));
+
+        pendingReputationStake[msg.sender] = msg.value;
+        emit ReputationRegistrationRequested(msg.sender, msg.value);
+    }
+
+    /// @dev Cancel a pending reputation registration request and get ETH back.
+    function cancelReputationRegistration() external nonReentrant whenNotPaused {
+        uint256 amount = pendingReputationStake[msg.sender];
+        require(amount != 0, NoPendingReputationRequest(msg.sender));
+
+        delete pendingReputationStake[msg.sender];
+
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, StakeTransferFailed(msg.sender, amount));
+
+        emit ReputationRegistrationCancelled(msg.sender, amount);
+    }
+
+    /// @dev Approve a pending reputation provider. Callable by owner or a registered provider with >= minStake.
+    function approveReputationRegistration(address provider) external whenNotPaused {
+        uint256 amount = pendingReputationStake[provider];
+        require(amount != 0, NoPendingReputationRequest(provider));
+
+        if (msg.sender != owner()) {
+            require(providerRegistered[msg.sender], ProviderNotRegistered(msg.sender));
+            require(providerStakes[msg.sender] >= minStake, InsufficientStake(providerStakes[msg.sender], minStake));
+            ++approverLockCount[msg.sender];
+        }
+
+        delete pendingReputationStake[provider];
+
+        providerStakes[provider] = amount;
+        providerRegistered[provider] = true;
+        reputationProviderApprover[provider] = msg.sender;
+
+        emit ProviderRegistered(provider, amount);
+        emit ReputationProviderApproved(provider, msg.sender);
+    }
+
+    /// @dev Remove a reputation provider. Callable only by the approver.
+    function removeReputationProvider(address provider) external whenNotPaused {
+        address approver = reputationProviderApprover[provider];
+        require(approver != address(0), ProviderIsNotReputationProvider(provider));
+
+        require(msg.sender == approver, NotApprover(msg.sender));
+
+        delete reputationProviderApprover[provider];
+
+        if (approver != owner()) {
+            --approverLockCount[approver];
+        }
+
+        if (providerStakes[provider] == 0) {
+            providerRegistered[provider] = false;
+        } else if (withdrawalRequests[provider] == 0) {
+            withdrawalRequests[provider] = block.timestamp;
+            emit Unstake(provider, block.timestamp);
+        }
+
+        emit ReputationProviderRemoved(provider, approver);
+    }
+
     /**
      * @dev Get provider staked amount.
      * @param provider The address of the provider.
@@ -481,82 +555,6 @@ contract ProviderRegistry is
 
         // If we got a result back and it's not empty, verification succeeded
         return result.length > 0;
-    }
-
-    /// @dev Sets the minimum stake for reputation providers. Can only be called by the owner.
-    function setReputationMinStake(uint256 _reputationMinStake) external onlyOwner {
-        reputationMinStake = _reputationMinStake;
-        emit ReputationMinStakeUpdated(_reputationMinStake);
-    }
-
-    /// @dev Request registration as a reputation provider. Must send >= reputationMinStake.
-    function requestReputationRegistration() external payable whenNotPaused {
-        require(!providerRegistered[msg.sender], ProviderAlreadyRegistered(msg.sender));
-        require(pendingReputationStake[msg.sender] == 0, PendingReputationRequestExists(msg.sender));
-        require(reputationMinStake != 0, InsufficientReputationStake(0, 0));
-        require(msg.value >= reputationMinStake, InsufficientReputationStake(msg.value, reputationMinStake));
-
-        pendingReputationStake[msg.sender] = msg.value;
-        emit ReputationRegistrationRequested(msg.sender, msg.value);
-    }
-
-    /// @dev Cancel a pending reputation registration request and get ETH back.
-    function cancelReputationRegistration() external nonReentrant whenNotPaused {
-        uint256 amount = pendingReputationStake[msg.sender];
-        require(amount != 0, NoPendingReputationRequest(msg.sender));
-
-        delete pendingReputationStake[msg.sender];
-
-        (bool success, ) = msg.sender.call{value: amount}("");
-        require(success, StakeTransferFailed(msg.sender, amount));
-
-        emit ReputationRegistrationCancelled(msg.sender, amount);
-    }
-
-    /// @dev Approve a pending reputation provider. Callable by owner or a registered provider with >= minStake.
-    function approveReputationRegistration(address provider) external whenNotPaused {
-        uint256 amount = pendingReputationStake[provider];
-        require(amount != 0, NoPendingReputationRequest(provider));
-
-        if (msg.sender != owner()) {
-            require(providerRegistered[msg.sender], ProviderNotRegistered(msg.sender));
-            require(providerStakes[msg.sender] >= minStake, InsufficientStake(providerStakes[msg.sender], minStake));
-            ++approverLockCount[msg.sender];
-        }
-
-        delete pendingReputationStake[provider];
-
-        providerStakes[provider] = amount;
-        providerRegistered[provider] = true;
-        reputationProviderApprover[provider] = msg.sender;
-
-        emit ProviderRegistered(provider, amount);
-        emit ReputationProviderApproved(provider, msg.sender);
-    }
-
-    /// @dev Remove a reputation provider. Callable only by the approver.
-    function removeReputationProvider(address provider) external whenNotPaused {
-        address approver = reputationProviderApprover[provider];
-        require(approver != address(0), ProviderIsNotReputationProvider(provider));
-
-        require(msg.sender == approver, NotApprover(msg.sender));
-
-        delete reputationProviderApprover[provider];
-
-        if (approver != owner()) {
-            --approverLockCount[approver];
-        }
-
-        if (providerStakes[provider] == 0) {
-            // Fully slashed — just deregister
-            providerRegistered[provider] = false;
-        } else if (withdrawalRequests[provider] == 0) {
-            // Start the unstake process so they can withdraw after cooldown
-            withdrawalRequests[provider] = block.timestamp;
-            emit Unstake(provider, block.timestamp);
-        }
-
-        emit ReputationProviderRemoved(provider, approver);
     }
 
     function _stake(address provider) internal {

@@ -57,6 +57,12 @@ interface IProviderRegistry {
     /// in case of transfer failure
     event BidderWithdrawSlashedAmount(address bidder, uint256 amount);
 
+    event ReputationRegistrationRequested(address indexed provider, uint256 stakedAmount);
+    event ReputationRegistrationCancelled(address indexed provider, uint256 returnedAmount);
+    event ReputationProviderApproved(address indexed provider, address indexed approver);
+    event ReputationProviderRemoved(address indexed provider, address indexed approver);
+    event ReputationMinStakeUpdated(uint256 indexed newMinStake);
+
     error NotPreconfContract(address sender, address preconfManager);
     error NoStakeToWithdraw(address sender);
     error UnstakeRequestExists(address sender);
@@ -85,12 +91,6 @@ interface IProviderRegistry {
     error ApproverHasActiveReputationProviders(address approver, uint256 count);
     error ProviderIsNotReputationProvider(address provider);
     error NotApprover(address sender);
-
-    event ReputationRegistrationRequested(address indexed provider, uint256 stakedAmount);
-    event ReputationRegistrationCancelled(address indexed provider, uint256 returnedAmount);
-    event ReputationProviderApproved(address indexed provider, address indexed approver);
-    event ReputationProviderRemoved(address indexed provider, address indexed approver);
-    event ReputationMinStakeUpdated(uint256 indexed newMinStake);
 
     function registerAndStake() external payable;
 
