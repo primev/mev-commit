@@ -214,6 +214,7 @@ func TestUpdater(t *testing.T) {
 		evtMgr,
 		oracle,
 		&testBatcher{},
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -423,6 +424,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		evtMgr,
 		oracle,
 		testBatcher,
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -632,6 +634,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		evtMgr,
 		oracle,
 		testBatcher,
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -809,6 +812,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		evtMgr,
 		oracle,
 		&testBatcher{},
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -994,6 +998,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		evtMgr,
 		oracle,
 		&testBatcher{},
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -1086,6 +1091,7 @@ func TestComputeResidualAfterDecay(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		false,
 	)
 	if err != nil {
 		// The current NewUpdater only returns error on cache creation failure, unlikely here.
@@ -1629,6 +1635,7 @@ func TestBidOptions(t *testing.T) {
 		evtMgr,
 		oracle,
 		&testBatcher{},
+		true,
 	)
 	if err != nil {
 		t.Fatal(err)

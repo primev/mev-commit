@@ -256,6 +256,13 @@ var (
 			"https://bloxroute.regulated.blxrbdn.com",
 		),
 	})
+
+	optionBidOptionsSlashEnabled = altsrc.NewBoolFlag(&cli.BoolFlag{
+		Name:    "bid-options-slash-enabled",
+		Usage:   "Enable slashing based on bid options (position constraints, shutterised bids)",
+		EnvVars: []string{"MEV_ORACLE_BID_OPTIONS_SLASH_ENABLED"},
+		Value:   false,
+	})
 )
 
 func main() {
@@ -288,6 +295,7 @@ func main() {
 		optionGasTipCap,
 		optionGasFeeCap,
 		optionRelayUrls,
+		optionBidOptionsSlashEnabled,
 	}
 	app := &cli.App{
 		Name:  "mev-oracle",
@@ -408,6 +416,7 @@ func launchOracleWithConfig(c *cli.Context) error {
 		DefaultGasTipCap:             gasTipCap,
 		DefaultGasFeeCap:             gasFeeCap,
 		RelayUrls:                    c.StringSlice(optionRelayUrls.Name),
+		BidOptionsSlashEnabled:       c.Bool(optionBidOptionsSlashEnabled.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

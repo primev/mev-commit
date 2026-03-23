@@ -63,6 +63,7 @@ type Options struct {
 	DefaultGasLimit              uint64
 	DefaultGasTipCap             *big.Int
 	DefaultGasFeeCap             *big.Int
+	BidOptionsSlashEnabled       bool
 }
 
 type Node struct {
@@ -269,6 +270,7 @@ func NewNode(opts *Options) (*Node, error) {
 		evtMgr,
 		oracleTransactorSession,
 		txmonitor.NewEVMHelperWithLogger(rawClient, nd.logger, contracts),
+		opts.BidOptionsSlashEnabled,
 	)
 	if err != nil {
 		nd.logger.Error("failed to instantiate updater", "error", err)
