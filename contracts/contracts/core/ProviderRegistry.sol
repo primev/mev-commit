@@ -483,37 +483,6 @@ contract ProviderRegistry is
         return result.length > 0;
     }
 
-    function _stake(address provider) internal {
-        require(providerRegistered[provider], ProviderNotRegistered(provider));
-        require(
-            withdrawalRequests[provider] == 0,
-            PendingWithdrawalRequest(provider)
-        );
-        providerStakes[provider] += msg.value;
-        emit FundsDeposited(provider, msg.value);
-
-        // Auto-convert reputation provider to standard if they reach minStake
-        if (reputationProviderApprover[provider] != address(0) && providerStakes[provider] >= minStake) {
-            address approver = reputationProviderApprover[provider];
-            delete reputationProviderApprover[provider];
-            if (approver != owner()) {
-                --approverLockCount[approver];
-            }
-        }
-    }
-
-    function _registerAndStake(address provider) internal {
-        require(
-            !providerRegistered[provider],
-            ProviderAlreadyRegistered(provider)
-        );
-        require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
-
-        providerStakes[provider] = msg.value;
-        providerRegistered[provider] = true;
-        emit ProviderRegistered(provider, msg.value);
-    }
-
     /// @dev Sets the minimum stake for reputation providers. Can only be called by the owner.
     function setReputationMinStake(uint256 _reputationMinStake) external onlyOwner {
         reputationMinStake = _reputationMinStake;
@@ -565,7 +534,7 @@ contract ProviderRegistry is
         emit ReputationProviderApproved(provider, msg.sender);
     }
 
-    /// @dev Remove a reputation provider. Callable by the approver or owner.
+    /// @dev Remove a reputation provider. Callable only by the approver.
     function removeReputationProvider(address provider) external whenNotPaused {
         address approver = reputationProviderApprover[provider];
         require(approver != address(0), ProviderIsNotReputationProvider(provider));
@@ -588,6 +557,37 @@ contract ProviderRegistry is
         }
 
         emit ReputationProviderRemoved(provider, approver);
+    }
+
+    function _stake(address provider) internal {
+        require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(
+            withdrawalRequests[provider] == 0,
+            PendingWithdrawalRequest(provider)
+        );
+        providerStakes[provider] += msg.value;
+        emit FundsDeposited(provider, msg.value);
+
+        // Auto-convert reputation provider to standard if they reach minStake
+        if (reputationProviderApprover[provider] != address(0) && providerStakes[provider] >= minStake) {
+            address approver = reputationProviderApprover[provider];
+            delete reputationProviderApprover[provider];
+            if (approver != owner()) {
+                --approverLockCount[approver];
+            }
+        }
+    }
+
+    function _registerAndStake(address provider) internal {
+        require(
+            !providerRegistered[provider],
+            ProviderAlreadyRegistered(provider)
+        );
+        require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
+
+        providerStakes[provider] = msg.value;
+        providerRegistered[provider] = true;
+        emit ProviderRegistered(provider, msg.value);
     }
 
     // solhint-disable-next-line no-empty-blocks
