@@ -78,7 +78,20 @@ interface IProviderRegistry {
     error PublicKeyLengthInvalid(uint256 exp, uint256 got);
     error SignatureLengthInvalid(uint256 exp, uint256 got);
     error BLSSignatureInvalid();
- 
+    error NoPendingReputationRequest(address provider);
+    error PendingReputationRequestExists(address provider);
+    error InsufficientReputationStake(uint256 stake, uint256 minStake);
+    error NotApproverOrOwner(address sender, address approver);
+    error ApproverHasActiveReputationProviders(address approver, uint256 count);
+    error ProviderIsNotReputationProvider(address provider);
+    error NotApprover(address sender);
+
+    event ReputationRegistrationRequested(address indexed provider, uint256 stakedAmount);
+    event ReputationRegistrationCancelled(address indexed provider, uint256 returnedAmount);
+    event ReputationProviderApproved(address indexed provider, address indexed approver);
+    event ReputationProviderRemoved(address indexed provider, address indexed approver);
+    event ReputationMinStakeUpdated(uint256 indexed newMinStake);
+
     function registerAndStake() external payable;
 
     function stake() external payable;

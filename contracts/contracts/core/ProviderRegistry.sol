@@ -249,6 +249,10 @@ contract ProviderRegistry is
             withdrawalRequests[msg.sender] == 0,
             UnstakeRequestExists(msg.sender)
         );
+        require(
+            approverLockCount[msg.sender] == 0,
+            ApproverHasActiveReputationProviders(msg.sender, approverLockCount[msg.sender])
+        );
         withdrawalRequests[msg.sender] = block.timestamp;
         emit Unstake(msg.sender, block.timestamp);
     }
@@ -272,6 +276,15 @@ contract ProviderRegistry is
         providerStakes[msg.sender] = 0;
         providerRegistered[msg.sender] = false;
         withdrawalRequests[msg.sender] = 0;
+
+        // Clear reputation status if applicable
+        address approver = reputationProviderApprover[msg.sender];
+        if (approver != address(0)) {
+            delete reputationProviderApprover[msg.sender];
+            if (approver != owner()) {
+                --approverLockCount[approver];
+            }
+        }
         require(preconfManager != address(0), PreconfManagerNotSet());
 
         uint256 providerPendingCommitmentsCount = PreconfManager(
@@ -408,12 +421,13 @@ contract ProviderRegistry is
         _registerAndStake(provider);
     }
 
-    /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
+    /// @dev Ensure the provider's balance is greater than their applicable minStake and no pending withdrawal
     function isProviderValid(address provider) public view {
         uint256 providerStake = providerStakes[provider];
+        uint256 effectiveMinStake = reputationProviderApprover[provider] != address(0) ? reputationMinStake : minStake;
         require(
-            providerStake >= minStake,
-            InsufficientStake(providerStake, minStake)
+            providerStake >= effectiveMinStake,
+            InsufficientStake(providerStake, effectiveMinStake)
         );
         require(
             withdrawalRequests[provider] == 0,
@@ -428,7 +442,8 @@ contract ProviderRegistry is
         for (uint256 i = 0; i < length; ++i) {
             address provider = providers[i];
             bool isRegistered = providerRegistered[provider];
-            bool hasStake = providerStakes[provider] >= minStake;
+            uint256 effectiveMinStake = reputationProviderApprover[provider] != address(0) ? reputationMinStake : minStake;
+            bool hasStake = providerStakes[provider] >= effectiveMinStake;
             bool noPendingWithdrawal = withdrawalRequests[provider] == 0;
             bool hasBLSKey = eoaToBlsPubkeys[provider].length > 0;
             validProviders[i] = isRegistered && hasStake && noPendingWithdrawal && hasBLSKey;
@@ -476,6 +491,15 @@ contract ProviderRegistry is
         );
         providerStakes[provider] += msg.value;
         emit FundsDeposited(provider, msg.value);
+
+        // Auto-convert reputation provider to standard if they reach minStake
+        if (reputationProviderApprover[provider] != address(0) && providerStakes[provider] >= minStake) {
+            address approver = reputationProviderApprover[provider];
+            delete reputationProviderApprover[provider];
+            if (approver != owner()) {
+                --approverLockCount[approver];
+            }
+        }
     }
 
     function _registerAndStake(address provider) internal {
@@ -488,6 +512,82 @@ contract ProviderRegistry is
         providerStakes[provider] = msg.value;
         providerRegistered[provider] = true;
         emit ProviderRegistered(provider, msg.value);
+    }
+
+    /// @dev Sets the minimum stake for reputation providers. Can only be called by the owner.
+    function setReputationMinStake(uint256 _reputationMinStake) external onlyOwner {
+        reputationMinStake = _reputationMinStake;
+        emit ReputationMinStakeUpdated(_reputationMinStake);
+    }
+
+    /// @dev Request registration as a reputation provider. Must send >= reputationMinStake.
+    function requestReputationRegistration() external payable whenNotPaused {
+        require(!providerRegistered[msg.sender], ProviderAlreadyRegistered(msg.sender));
+        require(pendingReputationStake[msg.sender] == 0, PendingReputationRequestExists(msg.sender));
+        require(reputationMinStake != 0, InsufficientReputationStake(0, 0));
+        require(msg.value >= reputationMinStake, InsufficientReputationStake(msg.value, reputationMinStake));
+
+        pendingReputationStake[msg.sender] = msg.value;
+        emit ReputationRegistrationRequested(msg.sender, msg.value);
+    }
+
+    /// @dev Cancel a pending reputation registration request and get ETH back.
+    function cancelReputationRegistration() external nonReentrant whenNotPaused {
+        uint256 amount = pendingReputationStake[msg.sender];
+        require(amount != 0, NoPendingReputationRequest(msg.sender));
+
+        delete pendingReputationStake[msg.sender];
+
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, StakeTransferFailed(msg.sender, amount));
+
+        emit ReputationRegistrationCancelled(msg.sender, amount);
+    }
+
+    /// @dev Approve a pending reputation provider. Callable by owner or a registered provider with >= minStake.
+    function approveReputationRegistration(address provider) external whenNotPaused {
+        uint256 amount = pendingReputationStake[provider];
+        require(amount != 0, NoPendingReputationRequest(provider));
+
+        if (msg.sender != owner()) {
+            require(providerRegistered[msg.sender], ProviderNotRegistered(msg.sender));
+            require(providerStakes[msg.sender] >= minStake, InsufficientStake(providerStakes[msg.sender], minStake));
+            ++approverLockCount[msg.sender];
+        }
+
+        delete pendingReputationStake[provider];
+
+        providerStakes[provider] = amount;
+        providerRegistered[provider] = true;
+        reputationProviderApprover[provider] = msg.sender;
+
+        emit ProviderRegistered(provider, amount);
+        emit ReputationProviderApproved(provider, msg.sender);
+    }
+
+    /// @dev Remove a reputation provider. Callable by the approver or owner.
+    function removeReputationProvider(address provider) external whenNotPaused {
+        address approver = reputationProviderApprover[provider];
+        require(approver != address(0), ProviderIsNotReputationProvider(provider));
+
+        require(msg.sender == approver, NotApprover(msg.sender));
+
+        delete reputationProviderApprover[provider];
+
+        if (approver != owner()) {
+            --approverLockCount[approver];
+        }
+
+        if (providerStakes[provider] == 0) {
+            // Fully slashed — just deregister
+            providerRegistered[provider] = false;
+        } else if (withdrawalRequests[provider] == 0) {
+            // Start the unstake process so they can withdraw after cooldown
+            withdrawalRequests[provider] = block.timestamp;
+            emit Unstake(provider, block.timestamp);
+        }
+
+        emit ReputationProviderRemoved(provider, approver);
     }
 
     // solhint-disable-next-line no-empty-blocks

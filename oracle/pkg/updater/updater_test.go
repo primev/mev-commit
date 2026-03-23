@@ -1474,7 +1474,7 @@ func TestBidOptions(t *testing.T) {
 					PositionConstraint: &bidderapiv1.PositionConstraint{
 						Anchor: bidderapiv1.PositionConstraint_ANCHOR_BOTTOM,
 						Basis:  bidderapiv1.PositionConstraint_BASIS_ABSOLUTE,
-						Value:  2,
+						Value:  1,
 					},
 				},
 			},
