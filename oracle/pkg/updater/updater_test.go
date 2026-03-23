@@ -214,6 +214,7 @@ func TestUpdater(t *testing.T) {
 		evtMgr,
 		oracle,
 		&testBatcher{},
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -423,6 +424,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		evtMgr,
 		oracle,
 		testBatcher,
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -632,6 +634,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		evtMgr,
 		oracle,
 		testBatcher,
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -809,6 +812,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		evtMgr,
 		oracle,
 		&testBatcher{},
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -994,6 +998,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		evtMgr,
 		oracle,
 		&testBatcher{},
+		false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -1086,6 +1091,7 @@ func TestComputeResidualAfterDecay(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		false,
 	)
 	if err != nil {
 		// The current NewUpdater only returns error on cache creation failure, unlikely here.
@@ -1574,18 +1580,6 @@ func TestBidOptions(t *testing.T) {
 		commitments = append(commitments, commitment)
 	}
 
-	register := &testWinnerRegister{
-		winners: []testWinner{
-			{
-				blockNum: 5,
-				winner: updater.Winner{
-					Winner: builderAddr.Bytes(),
-				},
-			},
-		},
-		settlements: make(chan testSettlement, 1),
-	}
-
 	body := &types.Body{Transactions: txns, Uncles: nil}
 
 	l1Client := &testEVMClient{
@@ -1618,93 +1612,128 @@ func TestBidOptions(t *testing.T) {
 		&pcABI,
 	)
 
-	oracle := &testOracle{
-		commitments: make(chan processedCommitment, 1),
-	}
+	for _, tc := range []struct {
+		name                   string
+		bidOptionsSlashEnabled bool
+	}{
+		{name: "enabled", bidOptionsSlashEnabled: true},
+		{name: "disabled", bidOptionsSlashEnabled: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			register := &testWinnerRegister{
+				winners: []testWinner{
+					{
+						blockNum: 5,
+						winner: updater.Winner{
+							Winner: builderAddr.Bytes(),
+						},
+					},
+				},
+				settlements: make(chan testSettlement, 1),
+			}
 
-	updtr, err := updater.NewUpdater(
-		slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
-		l1Client,
-		register,
-		evtMgr,
-		oracle,
-		&testBatcher{},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+			oracle := &testOracle{
+				commitments: make(chan processedCommitment, 1),
+			}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	done := updtr.Start(ctx)
+			updtr, err := updater.NewUpdater(
+				slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
+				l1Client,
+				register,
+				evtMgr,
+				oracle,
+				&testBatcher{},
+				tc.bidOptionsSlashEnabled,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	for idx, c := range commitments {
-		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			done := updtr.Start(ctx)
 
-		if c.Committer.Cmp(otherBuilderAddr) == 0 {
-			continue
-		}
+			for idx, c := range commitments {
+				if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
+					t.Fatal(err)
+				}
 
-		select {
-		case <-time.After(5 * time.Second):
-			t.Fatal("timeout")
-		case commitment := <-oracle.commitments:
-			if !bytes.Equal(commitment.commitmentIdx[:], c.CommitmentIndex[:]) {
-				t.Fatal("wrong commitment index")
-			}
-			if commitment.blockNum.Cmp(big.NewInt(5)) != 0 {
-				t.Fatal("wrong block number")
-			}
-			if commitment.builder != c.Committer {
-				t.Fatal("wrong builder")
-			}
-			if idx%2 == 0 && commitment.isSlash {
-				t.Fatal("wrong isSlash")
-			}
-			if (idx%2 == 1 && idx < 10) && !commitment.isSlash {
-				t.Fatal("wrong isSlash")
-			}
-			if commitment.residualDecay.Cmp(big.NewInt(50*updater.PRECISION)) != 0 {
-				t.Fatal("wrong residual decay")
-			}
-		}
+				if c.Committer.Cmp(otherBuilderAddr) == 0 {
+					continue
+				}
 
-		select {
-		case <-time.After(5 * time.Second):
-			t.Fatal("timeout")
-		case settlement := <-register.settlements:
-			if !bytes.Equal(settlement.commitmentIdx, c.CommitmentIndex[:]) {
-				t.Fatal("wrong commitment index")
-			}
-			if settlement.txHash != c.TxnHash {
-				t.Fatal("wrong txn hash")
-			}
-			if settlement.blockNum != 5 {
-				t.Fatal("wrong block number")
-			}
-			if !bytes.Equal(settlement.builder, c.Committer.Bytes()) {
-				t.Fatal("wrong builder")
-			}
-			if settlement.amount.Uint64() != 10 {
-				t.Fatal("wrong amount")
-			}
-			if idx%2 == 0 && settlement.settlementType != updater.SettlementTypeReward {
-				t.Fatal("wrong settlement type")
-			}
-			if (idx%2 == 1 && idx < 10) && settlement.settlementType != updater.SettlementTypeSlash {
-				t.Fatal("wrong settlement type")
-			}
-			if settlement.decayPercentage != 50*updater.PRECISION {
-				t.Fatal("wrong decay percentage")
-			}
-		}
-	}
+				select {
+				case <-time.After(5 * time.Second):
+					t.Fatal("timeout")
+				case commitment := <-oracle.commitments:
+					if !bytes.Equal(commitment.commitmentIdx[:], c.CommitmentIndex[:]) {
+						t.Fatal("wrong commitment index")
+					}
+					if commitment.blockNum.Cmp(big.NewInt(5)) != 0 {
+						t.Fatal("wrong block number")
+					}
+					if commitment.builder != c.Committer {
+						t.Fatal("wrong builder")
+					}
+					if tc.bidOptionsSlashEnabled {
+						if idx%2 == 0 && commitment.isSlash {
+							t.Fatal("wrong isSlash")
+						}
+						if (idx%2 == 1 && idx < 10) && !commitment.isSlash {
+							t.Fatal("wrong isSlash")
+						}
+					} else {
+						if commitment.isSlash {
+							t.Fatalf("expected no slash when bid options disabled, idx=%d", idx)
+						}
+					}
+					if commitment.residualDecay.Cmp(big.NewInt(50*updater.PRECISION)) != 0 {
+						t.Fatal("wrong residual decay")
+					}
+				}
 
-	cancel()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout")
+				select {
+				case <-time.After(5 * time.Second):
+					t.Fatal("timeout")
+				case settlement := <-register.settlements:
+					if !bytes.Equal(settlement.commitmentIdx, c.CommitmentIndex[:]) {
+						t.Fatal("wrong commitment index")
+					}
+					if settlement.txHash != c.TxnHash {
+						t.Fatal("wrong txn hash")
+					}
+					if settlement.blockNum != 5 {
+						t.Fatal("wrong block number")
+					}
+					if !bytes.Equal(settlement.builder, c.Committer.Bytes()) {
+						t.Fatal("wrong builder")
+					}
+					if settlement.amount.Uint64() != 10 {
+						t.Fatal("wrong amount")
+					}
+					if tc.bidOptionsSlashEnabled {
+						if idx%2 == 0 && settlement.settlementType != updater.SettlementTypeReward {
+							t.Fatal("wrong settlement type")
+						}
+						if (idx%2 == 1 && idx < 10) && settlement.settlementType != updater.SettlementTypeSlash {
+							t.Fatal("wrong settlement type")
+						}
+					} else {
+						if settlement.settlementType != updater.SettlementTypeReward {
+							t.Fatalf("expected reward when bid options disabled, got %s, idx=%d", settlement.settlementType, idx)
+						}
+					}
+					if settlement.decayPercentage != 50*updater.PRECISION {
+						t.Fatal("wrong decay percentage")
+					}
+				}
+			}
+
+			cancel()
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("timeout")
+			}
+		})
 	}
 }
