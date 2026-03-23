@@ -21,7 +21,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/proto"
+	// "google.golang.org/protobuf/proto"
 )
 
 type SettlementType string
@@ -309,17 +309,17 @@ func (u *Updater) handleOpenedCommitment(
 		revertableTxnsMap[txn] = true
 	}
 
-	opts := new(bidderapiv1.BidOptions)
-	if update.BidOptions != nil {
-		if err := proto.Unmarshal(update.BidOptions, opts); err != nil {
-			u.logger.Error(
-				"failed to unmarshal bid options",
-				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-				"error", err,
-			)
-			return err
-		}
-	}
+	// opts := new(bidderapiv1.BidOptions)
+	// if update.BidOptions != nil {
+	// 	if err := proto.Unmarshal(update.BidOptions, opts); err != nil {
+	// 		u.logger.Error(
+	// 			"failed to unmarshal bid options",
+	// 			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+	// 			"error", err,
+	// 		)
+	// 		return err
+	// 	}
+	// }
 
 	// Ensure Bundle is atomic and present in the block
 	for i := 0; i < len(commitmentTxnHashes); i++ {
@@ -339,18 +339,18 @@ func (u *Updater) handleOpenedCommitment(
 				"revertible", revertableTxnsMap[commitmentTxnHashes[i]],
 			)
 
-			for _, opt := range opts.Options {
-				if sOpt := opt.GetShutterisedBidOption(); sOpt != nil {
-					u.logger.Info(
-						"shutterised bid option present, skipping slash",
-						"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-						"txnHash", update.TxnHash,
-						"blockNumber", update.BlockNumber,
-						"shutter option", sOpt,
-					)
-					return nil
-				}
-			}
+			// for _, opt := range opts.Options {
+			// 	if sOpt := opt.GetShutterisedBidOption(); sOpt != nil {
+			// 		u.logger.Info(
+			// 			"shutterised bid option present, skipping slash",
+			// 			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+			// 			"txnHash", update.TxnHash,
+			// 			"blockNumber", update.BlockNumber,
+			// 			"shutter option", sOpt,
+			// 		)
+			// 		return nil
+			// 	}
+			// }
 
 			// The committer did not include the transactions in the block
 			// correctly, so this is a slash to be processed
@@ -362,41 +362,41 @@ func (u *Updater) handleOpenedCommitment(
 			)
 		}
 
-		for idx, opt := range opts.Options {
-			if opt.GetPositionConstraint() != nil {
-				if checkPositionConstraintSatisfied(opt.GetPositionConstraint(), txnDetails, txns) {
-					u.logger.Debug(
-						"positional constraint satisfied",
-						"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-						"txnHash", update.TxnHash,
-						"blockNumber", update.BlockNumber,
-						"constraint", opt.GetPositionConstraint(),
-					)
-					// Remove the satisfied constraint
-					opts.Options = append(opts.Options[:idx], opts.Options[idx+1:]...)
-					break
-				}
-			}
-		}
+		// for idx, opt := range opts.Options {
+		// 	if opt.GetPositionConstraint() != nil {
+		// 		if checkPositionConstraintSatisfied(opt.GetPositionConstraint(), txnDetails, txns) {
+		// 			u.logger.Debug(
+		// 				"positional constraint satisfied",
+		// 				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+		// 				"txnHash", update.TxnHash,
+		// 				"blockNumber", update.BlockNumber,
+		// 				"constraint", opt.GetPositionConstraint(),
+		// 			)
+		// 			// Remove the satisfied constraint
+		// 			opts.Options = append(opts.Options[:idx], opts.Options[idx+1:]...)
+		// 			break
+		// 		}
+		// 	}
+		// }
 	}
 
-	if len(opts.Options) > 0 {
-		u.logger.Info(
-			"not all positional constraints satisfied",
-			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-			"txnHash", update.TxnHash,
-			"blockNumber", update.BlockNumber,
-			"totalPositionalConstraintsLeft", len(opts.Options),
-		)
-		// The committer did not include the transactions in the block
-		// correctly, so this is a slash to be processed
-		return u.settle(
-			ctx,
-			update,
-			SettlementTypeSlash,
-			residualPercentage,
-		)
-	}
+	// if len(opts.Options) > 0 {
+	// 	u.logger.Info(
+	// 		"not all positional constraints satisfied",
+	// 		"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+	// 		"txnHash", update.TxnHash,
+	// 		"blockNumber", update.BlockNumber,
+	// 		"totalPositionalConstraintsLeft", len(opts.Options),
+	// 	)
+	// 	// The committer did not include the transactions in the block
+	// 	// correctly, so this is a slash to be processed
+	// 	return u.settle(
+	// 		ctx,
+	// 		update,
+	// 		SettlementTypeSlash,
+	// 		residualPercentage,
+	// 	)
+	// }
 
 	return u.settle(
 		ctx,
