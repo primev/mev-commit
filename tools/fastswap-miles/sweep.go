@@ -60,7 +60,18 @@ func indexBatch(
 		txHash := ev.Raw.TxHash.Hex()
 		blockNum := ev.Raw.BlockNumber
 
-		receipt, err := client.TransactionReceipt(ctx, ev.Raw.TxHash)
+		var receipt *types.Receipt
+		for attempt := 0; attempt < 3; attempt++ {
+			receipt, err = client.TransactionReceipt(ctx, ev.Raw.TxHash)
+			if err == nil {
+				break
+			}
+			if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "Too Many Requests") {
+				time.Sleep(time.Duration(attempt+1) * 2 * time.Second)
+				continue
+			}
+			break
+		}
 		if err != nil {
 			logger.Warn("receipt fetch failed, skipping gas cost", slog.String("tx", txHash), slog.Any("error", err))
 		}
@@ -72,7 +83,18 @@ func indexBatch(
 			)
 		}
 
-		header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
+		var header *types.Header
+		for attempt := 0; attempt < 3; attempt++ {
+			header, err = client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
+			if err == nil {
+				break
+			}
+			if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "Too Many Requests") {
+				time.Sleep(time.Duration(attempt+1) * 2 * time.Second)
+				continue
+			}
+			break
+		}
 		if err != nil {
 			logger.Warn("header fetch failed", slog.Uint64("block", blockNum), slog.Any("error", err))
 		}
