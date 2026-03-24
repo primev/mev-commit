@@ -43,7 +43,7 @@ type ethRow struct {
 	surplus    string
 	gasCost    sql.NullString
 	inputToken string
-	blockTS    time.Time
+	blockTS    sql.NullTime
 }
 
 type erc20Row struct {
@@ -53,7 +53,7 @@ type erc20Row struct {
 	surplus    string
 	gasCost    sql.NullString
 	inputToken string
-	blockTS    time.Time
+	blockTS    sql.NullTime
 }
 
 type tokenBatch struct {
