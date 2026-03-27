@@ -528,18 +528,30 @@ func registerAdminAPIs(mux *http.ServeMux, token string, sndr *sender.TxSender, 
 		defer fastTrackMutex.RUnlock()
 
 		if !allSlots && !optedInSlot {
+			slog.Info("fast-track: skipped", "reason", "not allSlots and not optedInSlot")
 			return false
 		}
 		if len(providers) == 0 {
+			slog.Info("fast-track: skipped", "reason", "no providers configured")
 			return false
+		}
+		cmtAddrs := make([]string, len(cmts))
+		for i, c := range cmts {
+			cmtAddrs[i] = common.HexToAddress(c.ProviderAddress).Hex()
+		}
+		provAddrs := make([]string, len(providers))
+		for i, p := range providers {
+			provAddrs[i] = p.Hex()
 		}
 		for _, p := range providers {
 			if slices.ContainsFunc(cmts, func(cmt *bidderapiv1.Commitment) bool {
 				return common.HexToAddress(cmt.ProviderAddress).Cmp(p) == 0
 			}) {
+				slog.Info("fast-track: MATCH", "matched", p.Hex(), "cmtAddrs", cmtAddrs, "providerList", provAddrs)
 				return true
 			}
 		}
+		slog.Info("fast-track: NO MATCH", "cmtAddrs", cmtAddrs, "providerList", provAddrs)
 		return false
 	}
 

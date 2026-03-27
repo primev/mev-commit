@@ -1012,7 +1012,20 @@ BID_LOOP:
 				}
 				cmt := bidStatus.Arg.(*bidderapiv1.Commitment)
 				txn.commitments = append(txn.commitments, cmt)
-				if t.fastTrack(txn.commitments, optedInSlot) && txn.Status != TxStatusPreConfirmed {
+				logger.Info("Commitment received, checking fast-track",
+					"provider", cmt.ProviderAddress,
+					"totalCommitments", len(txn.commitments),
+					"currentStatus", txn.Status,
+					"optedInSlot", optedInSlot,
+					"blockNumber", bidBlockNo,
+				)
+				ftResult := t.fastTrack(txn.commitments, optedInSlot)
+				logger.Info("Fast-track result",
+					"result", ftResult,
+					"statusCheck", txn.Status != TxStatusPreConfirmed,
+					"blockNumber", bidBlockNo,
+				)
+				if ftResult && txn.Status != TxStatusPreConfirmed {
 					txn.Status = TxStatusPreConfirmed
 					txn.BlockNumber = int64(bidBlockNo)
 					logger.Info(
