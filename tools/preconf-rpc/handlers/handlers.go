@@ -230,7 +230,7 @@ func (h *rpcMethodHandler) RegisterMethods(server *rpcserver.JSONRPCServer) {
 
 func getNextBlockPrice(blockPrices map[int64]float64) *big.Int {
 	for confidence, price := range blockPrices {
-		if confidence == 99 {
+		if confidence == 85 {
 			priceInWei := price * 1e9 // Convert Gwei to Wei
 			return new(big.Int).Mul(new(big.Int).SetUint64(uint64(priceInWei)), big.NewInt(21000))
 		}
@@ -244,11 +244,11 @@ func getMinMaxPrice(blockPrices map[int64]float64) (*big.Int, *big.Int) {
 	maxPrice := big.NewInt(0)
 
 	for confidence, price := range blockPrices {
-		if confidence == 90 {
+		if confidence == 70 {
 			minPriceInWei := price * 1e9 // Convert Gwei to Wei
 			minPrice = new(big.Int).SetUint64(uint64(minPriceInWei))
 		}
-		if confidence == 99 {
+		if confidence == 85 {
 			maxPriceInWei := price * 1e9 // Convert Gwei to Wei
 			maxPrice = new(big.Int).SetUint64(uint64(maxPriceInWei))
 		}

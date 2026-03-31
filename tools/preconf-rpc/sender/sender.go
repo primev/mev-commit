@@ -48,9 +48,10 @@ const (
 const (
 	blockTime                    = 12               // seconds, typical Ethereum block time
 	bidTimeout                   = 3 * time.Second  // timeout for bid operation
-	defaultConfidence            = 90               // default confidence level for the next block
-	confidenceSecondAttempt      = 95               // confidence level for the second attempt
-	confidenceSubsequentAttempts = 99               // confidence level for subsequent attempts
+	defaultConfidence            = 75               // default confidence level for the next block
+	defaultSwapConfidence        = 70               // default confidence level for fastswap transactions
+	confidenceSecondAttempt      = 80               // confidence level for the second attempt
+	confidenceSubsequentAttempts = 85               // confidence level for subsequent attempts
 	transactionTimeout           = 10 * time.Minute // timeout for transaction processing
 	maxAttemptsPerBlock          = 10               // maximum attempts per block
 	defaultRetryDelay            = 500 * time.Millisecond
@@ -1083,6 +1084,9 @@ func (t *TxSender) calculatePriceForNextBlock(
 
 	// default confidence level for the next block
 	confidence := defaultConfidence
+	if txn.Type == TxTypeFastSwap {
+		confidence = defaultSwapConfidence
+	}
 	isRetry := false
 
 	for i := len(attempts.attempts) - 1; i >= 0; i-- {
