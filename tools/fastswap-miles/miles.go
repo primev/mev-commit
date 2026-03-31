@@ -117,17 +117,24 @@ WHERE processed = false
 
 		if bidCostWei.Sign() == 0 {
 			if fastRPCSet[strings.ToLower(r.txHash)] {
-				cfg.Logger.Info("tx in FastRPC but bid not indexed yet, will retry",
+				if r.blockTS.Valid && time.Since(r.blockTS.Time) > 15*time.Minute {
+					cfg.Logger.Info("tx in FastRPC but bid never indexed, processing with 0 bid cost",
+						slog.String("tx", r.txHash), slog.String("user", r.user))
+					// fall through to normal miles calculation with bidCostWei = 0
+				} else {
+					cfg.Logger.Info("tx in FastRPC but bid not indexed yet, will retry",
+						slog.String("tx", r.txHash), slog.String("user", r.user))
+					continue
+				}
+			} else {
+				cfg.Logger.Info("tx not in FastRPC, skipping with 0 miles",
 					slog.String("tx", r.txHash), slog.String("user", r.user))
+				if !cfg.DryRun {
+					markProcessed(cfg.DB, r.txHash, weiToEth(surplusWei), 0, 0, "0")
+				}
+				processed++
 				continue
 			}
-			cfg.Logger.Info("tx not in FastRPC, skipping with 0 miles",
-				slog.String("tx", r.txHash), slog.String("user", r.user))
-			if !cfg.DryRun {
-				markProcessed(cfg.DB, r.txHash, weiToEth(surplusWei), 0, 0, "0")
-			}
-			processed++
-			continue
 		}
 
 		netProfit := new(big.Int).Sub(surplusWei, gasCostWei)
@@ -265,18 +272,25 @@ WHERE processed = false
 			bidCostWei := getBidCost(erc20BidMap, r.txHash)
 			if bidCostWei.Sign() == 0 {
 				if erc20FastRPCSet[strings.ToLower(r.txHash)] {
-					cfg.Logger.Info("erc20 tx in FastRPC but bid not indexed yet, will retry",
+					if r.blockTS.Valid && time.Since(r.blockTS.Time) > 15*time.Minute {
+						cfg.Logger.Info("erc20 tx in FastRPC but bid never indexed, processing with 0 bid cost",
+							slog.String("tx", r.txHash), slog.String("user", r.user))
+						// fall through with bidCostWei = 0
+					} else {
+						cfg.Logger.Info("erc20 tx in FastRPC but bid not indexed yet, will retry",
+							slog.String("tx", r.txHash), slog.String("user", r.user))
+						continue
+					}
+				} else {
+					cfg.Logger.Info("erc20 tx not in FastRPC, skipping with 0 miles",
 						slog.String("tx", r.txHash), slog.String("user", r.user))
-					continue // genuinely skip — will retry next cycle
+					surplusWei, _ := new(big.Int).SetString(r.surplus, 10)
+					if !cfg.DryRun {
+						markProcessed(cfg.DB, r.txHash, weiToEth(surplusWei), 0, 0, "0")
+					}
+					processed++
+					continue
 				}
-				cfg.Logger.Info("erc20 tx not in FastRPC, skipping with 0 miles",
-					slog.String("tx", r.txHash), slog.String("user", r.user))
-				surplusWei, _ := new(big.Int).SetString(r.surplus, 10)
-				if !cfg.DryRun {
-					markProcessed(cfg.DB, r.txHash, weiToEth(surplusWei), 0, 0, "0")
-				}
-				processed++
-				continue
 			}
 
 			userPaysGas := strings.EqualFold(r.inputToken, zeroAddr.Hex())
