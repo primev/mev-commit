@@ -241,7 +241,7 @@ func main() {
 			false,
 			"only update/compare rows where the existing DB row has is_lending=1 (ignores incompleteness filter)",
 		)
-		fetchTimeout        = flag.Int("fetch-timeout", 10, "Covalent API timeout in seconds per transaction")
+		fetchTimeout = flag.Int("fetch-timeout", 10, "Covalent API timeout in seconds per transaction")
 	)
 	flag.Parse()
 
