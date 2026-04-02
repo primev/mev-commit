@@ -1092,7 +1092,7 @@ WHERE LOWER(CAST(primary_class AS VARCHAR)) = 'not_found_retry';
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := map[string]struct{}{}
 	for rows.Next() {
 		var h string
@@ -1598,7 +1598,7 @@ func fetchTransaction(txHash0x, apiKey string) (*TxResponse, error) {
 		}
 
 		body, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		cancel()
 		if readErr != nil {
 			return nil, fmt.Errorf("read tx body: %w", readErr)
