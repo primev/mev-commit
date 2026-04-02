@@ -29,14 +29,23 @@ On-chain enrichment:
 - Covalent `transaction_v2` endpoint (ETH mainnet).
 
 ## Tombstone behavior for missing transactions (Covalent 404)
-If Covalent returns HTTP 404 with a "Transaction hash ... not found" message:
-- The tool can insert a placeholder row into `processed_l1_txns_v2` with:
-  - `l1_tx_hash = <hash_norm>` (no 0x)
-  - `primary_class = 'not_found'`
-  - other computed fields left NULL
-- This prevents repeated retries of transactions that never land on-chain.
+Tombstoning uses a two-phase lifecycle to distinguish transient Covalent outages
+from transactions that genuinely never landed on-chain:
 
-Age gate (anti-false-tombstone):
+1. **First 404** → `not_found_retry` (retryable; rediscovered on next run)
+2. **Second 404** (on a subsequent run) → `not_found` (permanent tombstone)
+
+This ensures a tx must fail across at least two separate runs before being
+permanently excluded.
+
+### Rate guard
+Only *new* 404s (first-time failures) count toward the error rate. If the new-404
+rate exceeds 10% of attempted transactions in a run, all new tombstones are
+suppressed — this signals a Covalent outage rather than genuinely missing txns.
+Repeat 404s (already `not_found_retry`) are upgraded to `not_found`
+unconditionally since they've failed across 2+ runs.
+
+### Age gate
 - Tombstone insertion is gated on block age using `mctransactions_sr.block_number`.
 - The tool queries StarRocks to get:
   - `head_block = MAX(block_number)` over `mctransactions_sr` for `confirmed/pre-confirmed`
@@ -79,6 +88,12 @@ Only updates (skip discovering/inserting missing txs):
 - `-print-sample N`: log N sample hashes for insert/update sets
 - `-only-old-lending`: restrict updates to rows where existing `is_lending=1`
 - `-compare-only-old-swapvol-gt0`: dry-run comparison filter for swap volume discrepancies
+
+## Tombstone rate guard
+If the Covalent 404 rate exceeds 10% of attempted transactions in a single run,
+**all tombstones are suppressed** for that run. This prevents mass false-tombstoning
+during Covalent outages where 404s are returned for valid on-chain transactions.
+Suppressed transactions are retried naturally on the next scheduled run.
 
 ## Notes
 - `processed_l1_txns_v2.l1_tx_hash` is stored as `hash_norm` (no `0x` prefix).
