@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var apiURL = "https://api.blocknative.com/gasprices/blockprices?chainid=1"
+var apiURL = "https://api.blocknative.com/gasprices/blockprices?chainid=1&confidenceLevels=70,75,80,85"
 
 type EstimatedPrice struct {
 	Confidence            int     `json:"confidence"`
@@ -142,11 +142,13 @@ func (b *BidPricer) syncEstimate(ctx context.Context) error {
 				b.mu.Lock()
 				for _, estimatedPrice := range price.EstimatedPrices {
 					switch estimatedPrice.Confidence {
-					case 90:
+					case 70:
 						b.currentEstimates[int64(estimatedPrice.Confidence)] = estimatedPrice.PriorityFeePerGasGwei
-					case 95:
+					case 75:
 						b.currentEstimates[int64(estimatedPrice.Confidence)] = estimatedPrice.PriorityFeePerGasGwei
-					case 99:
+					case 80:
+						b.currentEstimates[int64(estimatedPrice.Confidence)] = estimatedPrice.PriorityFeePerGasGwei
+					case 85:
 						b.currentEstimates[int64(estimatedPrice.Confidence)] = estimatedPrice.PriorityFeePerGasGwei
 					}
 					b.metrics.bidPrices.WithLabelValues(fmt.Sprintf("%d", estimatedPrice.Confidence)).Set(estimatedPrice.PriorityFeePerGasGwei)

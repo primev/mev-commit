@@ -396,9 +396,10 @@ func TestSender(t *testing.T) {
 
 	// Simulate a price estimate
 	testPricer.out <- map[int64]float64{
-		90: 1.0,
-		95: 1.5,
-		99: 2.0,
+		70: 0.8,
+		75: 1.0,
+		80: 1.5,
+		85: 2.0,
 	}
 
 	// Simulate transaction inclusion
@@ -486,9 +487,10 @@ func TestSender(t *testing.T) {
 
 	// Simulate a price estimate
 	testPricer.out <- map[int64]float64{
-		90: 1.0,
-		95: 1.5,
-		99: 2.0,
+		70: 0.8,
+		75: 1.0,
+		80: 1.5,
+		85: 2.0,
 	}
 
 	// Simulate a bid response
@@ -512,9 +514,10 @@ func TestSender(t *testing.T) {
 
 	// Simulate a price estimate
 	testPricer.out <- map[int64]float64{
-		90: 1.0,
-		95: 1.5,
-		99: 2.0,
+		70: 0.8,
+		75: 1.0,
+		80: 1.5,
+		85: 2.0,
 	}
 
 	// Simulate transaction inclusion
@@ -735,9 +738,10 @@ func TestIgnoreProvidersOnRetry(t *testing.T) {
 
 	// Simulate a price estimate
 	testPricer.out <- map[int64]float64{
-		90: 1.0,
-		95: 1.5,
-		99: 2.0,
+		70: 0.8,
+		75: 1.0,
+		80: 1.5,
+		85: 2.0,
 	}
 
 	// Simulate a bid response
@@ -769,9 +773,10 @@ func TestIgnoreProvidersOnRetry(t *testing.T) {
 
 	// Simulate a price estimate
 	testPricer.out <- map[int64]float64{
-		90: 1.0,
-		95: 1.5,
-		99: 2.0,
+		70: 0.8,
+		75: 1.0,
+		80: 1.5,
+		85: 2.0,
 	}
 
 	bidOp = <-bidderImpl.in

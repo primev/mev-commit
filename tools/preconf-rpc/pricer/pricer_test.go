@@ -22,8 +22,8 @@ func TestEstimatePrice(t *testing.T) {
 
 	prices := bp.EstimatePrice(ctx)
 
-	if len(prices) != 3 {
-		t.Fatalf("expected 3 confidence levels, got %d", len(prices))
+	if len(prices) != 4 {
+		t.Fatalf("expected 4 confidence levels, got %d", len(prices))
 	}
 
 	for confidence, price := range prices {
