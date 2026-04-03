@@ -468,6 +468,8 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 		"outputToken", intent.OutputToken.Hex(),
 		"inputAmt", intent.InputAmt.String(),
 		"outputAmount", barterResp.Route.OutputAmount,
+		"barterGasLimit", barterResp.GasLimit,
+		"barterGasEstimation", barterResp.Route.GasEstimation,
 		"gasLimit", gasLimit,
 		"gasFeeCap", gasFeeCap.String(),
 		"gasTipCap", gasTipCap.String(),
@@ -701,7 +703,8 @@ func (s *Service) HandleETHSwap(ctx context.Context, req ETHSwapRequest) (*ETHSw
 		"outputToken", req.OutputToken.Hex(),
 		"inputAmt", req.InputAmt.String(),
 		"outputAmount", barterResp.Route.OutputAmount,
-		"gasEstimation", barterResp.Route.GasEstimation,
+		"barterGasLimit", barterResp.GasLimit,
+		"barterGasEstimation", barterResp.Route.GasEstimation,
 		"gasLimit", gasLimit,
 	)
 
