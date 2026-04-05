@@ -162,6 +162,17 @@ target "l1-volume-indexer" {
   labels = get_labels("l1-volume-indexer")
 }
 
+target "fastswap-miles" {
+  inherits   = ["_common"]
+  context    = "./"
+  dockerfile = "Dockerfile.fastswap-miles"
+  contexts = {
+    builder_ctx = "target:mev-commit-builder"
+  }
+  tags   = [REPO_NAME != "" ? "${REGISTRY}/${REPO_NAME}:${TAG}-fastswap-miles" : "${REGISTRY}/fastswap-miles:${TAG}"]
+  labels = get_labels("fastswap-miles")
+}
+
 group "all" {
   targets = [
     "mev-commit-builder",
@@ -175,6 +186,7 @@ group "all" {
     "realbidder-emulator",
     "relay-emulator",
     "l1-volume-indexer",
+    "fastswap-miles",
     "snode"
   ]
 }
