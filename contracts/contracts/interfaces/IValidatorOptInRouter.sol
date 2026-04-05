@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-import {IVanillaRegistry} from "./IVanillaRegistry.sol";
+import {IVanillaRegistry} from "../upgrades/IVanillaRegistry.sol";
 import {IMevCommitAVS} from "./IMevCommitAVS.sol";
 import {IMevCommitMiddleware} from "./IMevCommitMiddleware.sol";
 
