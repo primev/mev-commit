@@ -20,7 +20,7 @@ abstract contract Gateway is IGateway, GatewayStorage,
     /// @notice The _recipient is transferred eth on the destination chain via solidity's send function (with built-in gas limit).
     /// Therefore the _recipient MUST be an EOA on the other chain to gauruntee a successful transfer.
     /// @notice If _recipient is a contract, manual withdrawal may be required on the counterparty chain.
-    /// @notice The caller of this function takes responsiblity for whatever address is specified as the _recipient.
+    /// @notice The caller of this function takes responsibility for whatever address is specified as the _recipient.
     /// That is, if _recipient is a contract with an immutable receiver that reverts, the user would be at fault for loss of funds.
     /// @param _recipient The address to receive the tokens.
     /// @param _amount The amount of Ether to transfer in wei.
