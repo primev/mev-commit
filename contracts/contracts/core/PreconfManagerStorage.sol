@@ -7,6 +7,9 @@ import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
 
 abstract contract PreconfManagerStorage {
+    /// @dev Maximum ratio of slash amount to bid amount
+    uint256 public constant MAX_SLASH_BID_RATIO = 100;
+
     // Represents the dispatch window in milliseconds
     uint64 public commitmentDispatchWindow;
 
