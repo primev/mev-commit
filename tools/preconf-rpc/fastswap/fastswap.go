@@ -376,9 +376,11 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 		}, nil
 	}
 
-	// 3. Parse gas limit and add buffer
-	gasLimit, _ := strconv.ParseUint(barterResp.GasLimit, 10, 64)
-	gasLimit += 100000 // Buffer for settlement contract overhead
+	// 3. Calculate gas limit from Barter's gas estimation + settlement overhead.
+	// Barter's GasEstimation covers their swap routing gas. We add 135k for
+	// settlement contract + permit2 overhead, then apply 2.5x on the estimation
+	// to cover variance across different swap routes.
+	gasLimit := uint64(float64(barterResp.Route.GasEstimation)*2.5) + 135000
 
 	// 4. Get nonce for executor wallet
 	// Use same logic as sender's hasCorrectNonce
@@ -694,9 +696,9 @@ func (s *Service) HandleETHSwap(ctx context.Context, req ETHSwapRequest) (*ETHSw
 		}, nil
 	}
 
-	// 3. Calculate gas limit with buffer
-	gasLimit, _ := strconv.ParseUint(barterResp.GasLimit, 10, 64)
-	gasLimit += 150000 // Buffer for ETH wrap + settlement contract overhead
+	// 3. Calculate gas limit from Barter's gas estimation + settlement overhead.
+	// ETH path has additional WETH wrap overhead (~17k) on top of permit path overhead.
+	gasLimit := uint64(float64(barterResp.Route.GasEstimation)*2.5) + 152000
 
 	s.logger.Info("ETH swap request processed",
 		"sender", req.Sender.Hex(),
