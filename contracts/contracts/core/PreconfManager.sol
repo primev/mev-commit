@@ -387,8 +387,10 @@ contract PreconfManager is
         commitment.isSettled = true;
         --commitmentsCount[commitment.committer];
 
+        uint256 maxSlash = commitment.bidAmt * MAX_SLASH_BID_RATIO;
+        uint256 effectiveSlash = commitment.slashAmt > maxSlash ? maxSlash : commitment.slashAmt;
         providerRegistry.slash(
-            commitment.slashAmt,
+            effectiveSlash,
             commitment.committer,
             payable(commitment.bidder)
         );

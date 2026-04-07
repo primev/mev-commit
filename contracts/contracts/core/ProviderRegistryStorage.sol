@@ -44,6 +44,18 @@ abstract contract ProviderRegistryStorage {
     /// @dev Mapping from a provider's EOA address to their BLS public keys
     mapping(address => bytes[]) public eoaToBlsPubkeys;
 
+    /// @dev Minimum stake for reputation providers
+    uint256 public reputationMinStake;
+
+    /// @dev Mapping from reputation provider to their approver (address(0) if not a reputation provider)
+    mapping(address => address) public reputationProviderApprover;
+
+    /// @dev Mapping from provider to pending reputation registration stake
+    mapping(address => uint256) public pendingReputationStake;
+
+    /// @dev Mapping from approver to number of active reputation providers they've approved
+    mapping(address => uint256) public approverLockCount;
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
-    uint256[48] private __gap;
+    uint256[44] private __gap;
 }
