@@ -2,14 +2,14 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {VanillaRegistry} from "../../../contracts/validator-registry/VanillaRegistry.sol";
+import {VanillaRegistryV2} from "../../../contracts/validator-registry/VanillaRegistryV2.sol";
 import {ValidatorOptInRouter} from "../../../contracts/validator-registry/ValidatorOptInRouter.sol";
 import {MevCommitAVS} from "../../../contracts/validator-registry/avs/MevCommitAVS.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {VanillaRegistryTest} from "../VanillaRegistryTest.sol";
+import {VanillaRegistryV2Test} from "../VanillaRegistryV2Test.sol";
 import {MevCommitAVSTest} from "../avs/MevCommitAVSTest.sol";
 import {IValidatorOptInRouter} from "../../../contracts/interfaces/IValidatorOptInRouter.sol";
-import {IVanillaRegistry} from "../../../contracts/interfaces/IVanillaRegistry.sol";
+import {IVanillaRegistryV2} from "../../../contracts/interfaces/IVanillaRegistryV2.sol";
 import {IMevCommitAVS} from "../../../contracts/interfaces/IMevCommitAVS.sol";
 import {IMevCommitMiddleware} from "../../../contracts/interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddleware} from "../../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
@@ -23,8 +23,8 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 contract RewardManagerTest is Test {
     RewardManager public rewardManager;
 
-    VanillaRegistry public vanillaRegistry;
-    VanillaRegistryTest public vanillaRegistryTest;
+    VanillaRegistryV2 public vanillaRegistry;
+    VanillaRegistryV2Test public vanillaRegistryTest;
     MevCommitAVS public mevCommitAVS;
     MevCommitAVSTest public mevCommitAVSTest;
     MevCommitMiddleware public mevCommitMiddleware;
@@ -67,7 +67,7 @@ contract RewardManagerTest is Test {
         user4 = address(0xabc);
         user5 = address(0xdef);
 
-        vanillaRegistryTest = new VanillaRegistryTest();
+        vanillaRegistryTest = new VanillaRegistryV2Test();
         vanillaRegistryTest.setUp();
         vanillaRegistry = vanillaRegistryTest.validatorRegistry();
 
@@ -96,7 +96,7 @@ contract RewardManagerTest is Test {
     }
 
     function testRMSetters() public {
-        IVanillaRegistry newRegistry = new VanillaRegistry();
+        IVanillaRegistryV2 newRegistry = new VanillaRegistryV2();
         vm.prank(owner);
         vm.expectEmit();
         emit VanillaRegistrySet(address(newRegistry));
@@ -177,7 +177,7 @@ contract RewardManagerTest is Test {
         emit RemovedFromAutoClaimBlacklist(user1);
         rewardManager.removeFromAutoClaimBlacklist(user1);
 
-        VanillaRegistry newRegistry = new VanillaRegistry();
+        VanillaRegistryV2 newRegistry = new VanillaRegistryV2();
         vm.prank(owner);
         vm.expectEmit();
         emit VanillaRegistrySet(address(newRegistry));
