@@ -12,6 +12,145 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+func TestDecideBidCheckOutcome(t *testing.T) {
+	tests := []struct {
+		name        string
+		userPaysGas bool
+		inFastRPC   bool
+		hasBlockTS  bool
+		txAge       time.Duration
+		want        bidCheckOutcome
+	}{
+		// Permit path: always treated as in-fastrpc, goes through bid-indexer grace
+		{
+			name:        "permit path, bid indexer lag, young row -> retry",
+			userPaysGas: false,
+			inFastRPC:   false, // even when fastrpc lookup returns false
+			hasBlockTS:  true,
+			txAge:       5 * time.Minute,
+			want:        bidCheckRetry,
+		},
+		{
+			name:        "permit path, bid never indexed, old row -> proceed",
+			userPaysGas: false,
+			inFastRPC:   false,
+			hasBlockTS:  true,
+			txAge:       30 * time.Minute,
+			want:        bidCheckProceed,
+		},
+		{
+			name:        "permit path with fastrpc hit and old row -> proceed",
+			userPaysGas: false,
+			inFastRPC:   true,
+			hasBlockTS:  true,
+			txAge:       30 * time.Minute,
+			want:        bidCheckProceed,
+		},
+		{
+			name:        "permit path, ancient row, not in fastrpc -> proceed (never orphan permit)",
+			userPaysGas: false,
+			inFastRPC:   false,
+			hasBlockTS:  true,
+			txAge:       48 * time.Hour,
+			want:        bidCheckProceed,
+		},
+		// ETH path, in fastrpc: goes through bid-indexer grace
+		{
+			name:        "eth path in fastrpc, young row -> retry",
+			userPaysGas: true,
+			inFastRPC:   true,
+			hasBlockTS:  true,
+			txAge:       10 * time.Minute,
+			want:        bidCheckRetry,
+		},
+		{
+			name:        "eth path in fastrpc, old row -> proceed",
+			userPaysGas: true,
+			inFastRPC:   true,
+			hasBlockTS:  true,
+			txAge:       30 * time.Minute,
+			want:        bidCheckProceed,
+		},
+		{
+			name:        "eth path in fastrpc, ancient row -> proceed",
+			userPaysGas: true,
+			inFastRPC:   true,
+			hasBlockTS:  true,
+			txAge:       72 * time.Hour,
+			want:        bidCheckProceed,
+		},
+		// ETH path, not in fastrpc: 24h orphan retry window
+		{
+			name:        "eth path not in fastrpc, young row -> retry",
+			userPaysGas: true,
+			inFastRPC:   false,
+			hasBlockTS:  true,
+			txAge:       1 * time.Hour,
+			want:        bidCheckRetry,
+		},
+		{
+			name:        "eth path not in fastrpc, just under 24h -> retry",
+			userPaysGas: true,
+			inFastRPC:   false,
+			hasBlockTS:  true,
+			txAge:       23*time.Hour + 59*time.Minute,
+			want:        bidCheckRetry,
+		},
+		{
+			name:        "eth path not in fastrpc, just over 24h -> orphan",
+			userPaysGas: true,
+			inFastRPC:   false,
+			hasBlockTS:  true,
+			txAge:       24*time.Hour + 1*time.Minute,
+			want:        bidCheckOrphan,
+		},
+		{
+			name:        "eth path not in fastrpc, very old -> orphan",
+			userPaysGas: true,
+			inFastRPC:   false,
+			hasBlockTS:  true,
+			txAge:       7 * 24 * time.Hour,
+			want:        bidCheckOrphan,
+		},
+		// Invalid block timestamp fallback behavior (matches pre-refactor code):
+		// in-fastrpc case retries (indeterminate age), not-in-fastrpc case orphans.
+		{
+			name:        "permit path, invalid blockTS -> retry (indeterminate)",
+			userPaysGas: false,
+			inFastRPC:   false,
+			hasBlockTS:  false,
+			txAge:       0,
+			want:        bidCheckRetry,
+		},
+		{
+			name:        "eth path in fastrpc, invalid blockTS -> retry",
+			userPaysGas: true,
+			inFastRPC:   true,
+			hasBlockTS:  false,
+			txAge:       0,
+			want:        bidCheckRetry,
+		},
+		{
+			name:        "eth path not in fastrpc, invalid blockTS -> orphan",
+			userPaysGas: true,
+			inFastRPC:   false,
+			hasBlockTS:  false,
+			txAge:       0,
+			want:        bidCheckOrphan,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := decideBidCheckOutcome(tc.userPaysGas, tc.inFastRPC, tc.hasBlockTS, tc.txAge)
+			if got != tc.want {
+				t.Errorf("decideBidCheckOutcome(userPaysGas=%v, inFastRPC=%v, hasBlockTS=%v, txAge=%v) = %v, want %v",
+					tc.userPaysGas, tc.inFastRPC, tc.hasBlockTS, tc.txAge, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestWeiToEth(t *testing.T) {
 	tests := []struct {
 		name     string
