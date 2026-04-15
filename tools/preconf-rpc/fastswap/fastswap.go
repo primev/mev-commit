@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	fastsettlementv3 "github.com/primev/mev-commit/contracts-abi/clients/FastSettlementV3"
+	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 )
 
@@ -32,16 +33,17 @@ type SwapCall = fastsettlementv3.IFastSettlementV3SwapCall
 
 // SwapRequest is the HTTP request body for the /fastswap endpoint.
 type SwapRequest struct {
-	User        common.Address `json:"user"`
-	InputToken  common.Address `json:"inputToken"`
-	OutputToken common.Address `json:"outputToken"`
-	InputAmt    *big.Int       `json:"inputAmt"`
-	UserAmtOut  *big.Int       `json:"userAmtOut"`
-	Recipient   common.Address `json:"recipient"`
-	Deadline    *big.Int       `json:"deadline"`
-	Nonce       *big.Int       `json:"nonce"`
-	Signature   []byte         `json:"signature"`          // EIP-712 Permit2 signature
-	Slippage    string         `json:"slippage,omitempty"` // User slippage percentage (e.g. "1.0" for 1%)
+	User          common.Address `json:"user"`
+	InputToken    common.Address `json:"inputToken"`
+	OutputToken   common.Address `json:"outputToken"`
+	InputAmt      *big.Int       `json:"inputAmt"`
+	UserAmtOut    *big.Int       `json:"userAmtOut"`
+	Recipient     common.Address `json:"recipient"`
+	Deadline      *big.Int       `json:"deadline"`
+	Nonce         *big.Int       `json:"nonce"`
+	Signature     []byte         `json:"signature"`               // EIP-712 Permit2 signature
+	Slippage      string         `json:"slippage,omitempty"`      // User slippage percentage (e.g. "1.0" for 1%)
+	TopPercentile int32          `json:"topPercentile,omitempty"` // If 1-100, apply top-of-block PositionConstraint at this percentile. 0 = disabled.
 }
 
 // ToIntent converts SwapRequest to the generated Intent type for ABI encoding.
@@ -455,6 +457,13 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 		Raw:         rawTxHex,
 		Type:        sender.TxTypeFastSwap,
 	}
+	if req.TopPercentile > 0 {
+		senderTx.Constraint = &bidderapiv1.PositionConstraint{
+			Anchor: bidderapiv1.PositionConstraint_ANCHOR_TOP,
+			Basis:  bidderapiv1.PositionConstraint_BASIS_PERCENTILE,
+			Value:  req.TopPercentile,
+		}
+	}
 
 	if err := s.txEnqueuer.Enqueue(ctx, senderTx); err != nil {
 		return &SwapResult{
@@ -476,6 +485,7 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 		"gasFeeCap", gasFeeCap.String(),
 		"gasTipCap", gasTipCap.String(),
 		"nonce", nonce,
+		"topPercentile", req.TopPercentile,
 	)
 
 	return &SwapResult{
@@ -497,16 +507,17 @@ func (s *Service) Handler() http.HandlerFunc {
 		}
 
 		var rawReq struct {
-			User        string `json:"user"`
-			InputToken  string `json:"inputToken"`
-			OutputToken string `json:"outputToken"`
-			InputAmt    string `json:"inputAmt"`
-			UserAmtOut  string `json:"userAmtOut"`
-			Recipient   string `json:"recipient"`
-			Deadline    string `json:"deadline"`
-			Nonce       string `json:"nonce"`
-			Signature   string `json:"signature"`
-			Slippage    string `json:"slippage"` // Optional
+			User          string `json:"user"`
+			InputToken    string `json:"inputToken"`
+			OutputToken   string `json:"outputToken"`
+			InputAmt      string `json:"inputAmt"`
+			UserAmtOut    string `json:"userAmtOut"`
+			Recipient     string `json:"recipient"`
+			Deadline      string `json:"deadline"`
+			Nonce         string `json:"nonce"`
+			Signature     string `json:"signature"`
+			Slippage      string `json:"slippage"`      // Optional
+			TopPercentile int32  `json:"topPercentile"` // Optional: 1-100 = apply top-of-block constraint, 0 = off
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&rawReq); err != nil {
@@ -565,17 +576,23 @@ func (s *Service) Handler() http.HandlerFunc {
 			return
 		}
 
+		if rawReq.TopPercentile < 0 || rawReq.TopPercentile > 100 {
+			http.Error(w, "topPercentile must be between 0 and 100", http.StatusBadRequest)
+			return
+		}
+
 		req := SwapRequest{
-			User:        common.HexToAddress(rawReq.User),
-			InputToken:  common.HexToAddress(rawReq.InputToken),
-			OutputToken: common.HexToAddress(rawReq.OutputToken),
-			InputAmt:    inputAmt,
-			UserAmtOut:  userAmtOut,
-			Recipient:   common.HexToAddress(rawReq.Recipient),
-			Deadline:    deadline,
-			Nonce:       nonce,
-			Signature:   signature,
-			Slippage:    rawReq.Slippage,
+			User:          common.HexToAddress(rawReq.User),
+			InputToken:    common.HexToAddress(rawReq.InputToken),
+			OutputToken:   common.HexToAddress(rawReq.OutputToken),
+			InputAmt:      inputAmt,
+			UserAmtOut:    userAmtOut,
+			Recipient:     common.HexToAddress(rawReq.Recipient),
+			Deadline:      deadline,
+			Nonce:         nonce,
+			Signature:     signature,
+			Slippage:      rawReq.Slippage,
+			TopPercentile: rawReq.TopPercentile,
 		}
 
 		result, err := s.HandleSwap(r.Context(), req)
