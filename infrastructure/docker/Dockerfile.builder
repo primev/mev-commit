@@ -42,6 +42,7 @@ ARG TARGETS="./oracle/cmd \
              ./p2p/integrationtest/provider \
              ./p2p/integrationtest/real-bidder \
              ./tools/l1-tx-volume-indexer \
+             ./tools/fastswap-miles \
              ./cl/cmd/singlenode"
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
