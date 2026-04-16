@@ -16,6 +16,59 @@ import (
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
+// orphanRetryWindow is how long we keep retrying a row whose L1 tx hasn't
+// shown up in the fastrpc DB yet. ETH-path swaps are user-submitted so the
+// fastrpc indexer can lag behind L1 by an unbounded amount; we treat a row as
+// a definitive orphan (0 miles) only after it has been missing this long.
+const orphanRetryWindow = 24 * time.Hour
+
+// bidIndexerGrace is how long we wait for the mev-commit bid indexer to catch
+// up before processing a row with bidCost=0.
+const bidIndexerGrace = 15 * time.Minute
+
+// bidCheckOutcome describes what to do with a row whose bid lookup returned 0.
+type bidCheckOutcome int
+
+const (
+	// bidCheckProceed means fall through and compute miles with whatever bid
+	// cost value we have (typically 0 because the indexer is behind).
+	bidCheckProceed bidCheckOutcome = iota
+	// bidCheckRetry means leave the row pending and reevaluate next cycle.
+	bidCheckRetry
+	// bidCheckOrphan means mark the row processed with 0 miles and move on —
+	// the tx did not go through fastrpc so no bid was ever placed.
+	bidCheckOrphan
+)
+
+// decideBidCheckOutcome encodes how we handle a row whose bid lookup returned 0.
+//
+//   - Permit-path rows (userPaysGas=false) are always executor-submitted via
+//     fastrpc by construction. A missing fastrpc row can only mean indexer lag,
+//     never a non-fastrpc submission, so they follow the bid-indexer grace path
+//     regardless of whether fastrpc has caught up yet.
+//   - ETH-path rows that ARE in fastrpc follow the same grace path.
+//   - ETH-path rows that are NOT in fastrpc retry for orphanRetryWindow before
+//     being marked as definitive orphans (the user genuinely bypassed fastrpc).
+//
+// hasBlockTS / txAge come from the row's block_timestamp column. When the
+// timestamp is invalid we fall back to bidCheckRetry in the in-fastrpc case
+// (indeterminate age; err on the side of retrying) and to bidCheckOrphan in
+// the not-in-fastrpc case (matches prior behavior).
+func decideBidCheckOutcome(userPaysGas, inFastRPC, hasBlockTS bool, txAge time.Duration) bidCheckOutcome {
+	txInFastRPC := !userPaysGas || inFastRPC
+	if txInFastRPC {
+		if hasBlockTS && txAge > bidIndexerGrace {
+			return bidCheckProceed
+		}
+		return bidCheckRetry
+	}
+	// ETH path, not in fastrpc
+	if hasBlockTS && txAge < orphanRetryWindow {
+		return bidCheckRetry
+	}
+	return bidCheckOrphan
+}
+
 // serviceConfig holds references shared across the miles processing pipeline.
 type serviceConfig struct {
 	Logger         *slog.Logger
@@ -116,19 +169,28 @@ WHERE processed = false
 		bidCostWei := getBidCost(bidMap, r.txHash)
 
 		if bidCostWei.Sign() == 0 {
-			if fastRPCSet[strings.ToLower(r.txHash)] {
-				if r.blockTS.Valid && time.Since(r.blockTS.Time) > 15*time.Minute {
-					cfg.Logger.Info("tx in FastRPC but bid never indexed, processing with 0 bid cost",
-						slog.String("tx", r.txHash), slog.String("user", r.user))
-					// fall through to normal miles calculation with bidCostWei = 0
-				} else {
-					cfg.Logger.Info("tx in FastRPC but bid not indexed yet, will retry",
-						slog.String("tx", r.txHash), slog.String("user", r.user))
-					continue
-				}
-			} else {
-				cfg.Logger.Info("tx not in FastRPC, skipping with 0 miles",
+			txAge := time.Duration(0)
+			if r.blockTS.Valid {
+				txAge = time.Since(r.blockTS.Time)
+			}
+			inFastRPC := fastRPCSet[strings.ToLower(r.txHash)]
+
+			switch decideBidCheckOutcome(userPaysGas, inFastRPC, r.blockTS.Valid, txAge) {
+			case bidCheckProceed:
+				cfg.Logger.Info("tx in FastRPC but bid never indexed, processing with 0 bid cost",
 					slog.String("tx", r.txHash), slog.String("user", r.user))
+				// fall through with bidCostWei = 0
+			case bidCheckRetry:
+				cfg.Logger.Info("tx bid lookup pending, will retry next cycle",
+					slog.String("tx", r.txHash), slog.String("user", r.user),
+					slog.Bool("in_fastrpc", inFastRPC),
+					slog.Bool("user_pays_gas", userPaysGas),
+					slog.Duration("age", txAge))
+				continue
+			case bidCheckOrphan:
+				cfg.Logger.Info("tx not in FastRPC after retry window, skipping with 0 miles",
+					slog.String("tx", r.txHash), slog.String("user", r.user),
+					slog.Duration("age", txAge))
 				if !cfg.DryRun {
 					markProcessed(cfg.DB, r.txHash, weiToEth(surplusWei), 0, 0, "0")
 				}
@@ -269,21 +331,31 @@ WHERE processed = false
 		var readyBidCosts []*big.Int
 
 		for _, r := range batch.Txs {
+			userPaysGas := strings.EqualFold(r.inputToken, zeroAddr.Hex())
 			bidCostWei := getBidCost(erc20BidMap, r.txHash)
 			if bidCostWei.Sign() == 0 {
-				if erc20FastRPCSet[strings.ToLower(r.txHash)] {
-					if r.blockTS.Valid && time.Since(r.blockTS.Time) > 15*time.Minute {
-						cfg.Logger.Info("erc20 tx in FastRPC but bid never indexed, processing with 0 bid cost",
-							slog.String("tx", r.txHash), slog.String("user", r.user))
-						// fall through with bidCostWei = 0
-					} else {
-						cfg.Logger.Info("erc20 tx in FastRPC but bid not indexed yet, will retry",
-							slog.String("tx", r.txHash), slog.String("user", r.user))
-						continue
-					}
-				} else {
-					cfg.Logger.Info("erc20 tx not in FastRPC, skipping with 0 miles",
+				txAge := time.Duration(0)
+				if r.blockTS.Valid {
+					txAge = time.Since(r.blockTS.Time)
+				}
+				inFastRPC := erc20FastRPCSet[strings.ToLower(r.txHash)]
+
+				switch decideBidCheckOutcome(userPaysGas, inFastRPC, r.blockTS.Valid, txAge) {
+				case bidCheckProceed:
+					cfg.Logger.Info("erc20 tx in FastRPC but bid never indexed, processing with 0 bid cost",
 						slog.String("tx", r.txHash), slog.String("user", r.user))
+					// fall through with bidCostWei = 0
+				case bidCheckRetry:
+					cfg.Logger.Info("erc20 tx bid lookup pending, will retry next cycle",
+						slog.String("tx", r.txHash), slog.String("user", r.user),
+						slog.Bool("in_fastrpc", inFastRPC),
+						slog.Bool("user_pays_gas", userPaysGas),
+						slog.Duration("age", txAge))
+					continue
+				case bidCheckOrphan:
+					cfg.Logger.Info("erc20 tx not in FastRPC after retry window, skipping with 0 miles",
+						slog.String("tx", r.txHash), slog.String("user", r.user),
+						slog.Duration("age", txAge))
 					surplusWei, _ := new(big.Int).SetString(r.surplus, 10)
 					if !cfg.DryRun {
 						markProcessed(cfg.DB, r.txHash, weiToEth(surplusWei), 0, 0, "0")
@@ -292,8 +364,6 @@ WHERE processed = false
 					continue
 				}
 			}
-
-			userPaysGas := strings.EqualFold(r.inputToken, zeroAddr.Hex())
 
 			gasCostWei := big.NewInt(0)
 			if !userPaysGas && r.gasCost.Valid && r.gasCost.String != "" {
