@@ -41,6 +41,31 @@ func TestMarkProcessed_DoesNotTouchFuelSubmittedAt(t *testing.T) {
 	}
 }
 
+// TestMarkProcessedFlagOnly_UpdatesOnlyProcessedColumn verifies that
+// markProcessedFlagOnly (used in the ERC20 path for rows whose surplus
+// tokens were already swept on a prior run) issues an UPDATE that only
+// mentions `processed = true` and leaves every other column untouched.
+// Touching other columns here would overwrite the row's existing
+// surplus_eth/net_profit_eth/miles/fuel_submitted_at with stale or empty
+// values from the current cycle's context.
+func TestMarkProcessedFlagOnly_UpdatesOnlyProcessedColumn(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectExec(regexp.QuoteMeta(
+		"UPDATE mevcommit_57173.fastswap_miles SET processed = true WHERE tx_hash = ?",
+	)).WithArgs("0xdead").WillReturnResult(sqlmock.NewResult(0, 1))
+
+	markProcessedFlagOnly(db, "0xdead")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sqlmock expectations: %v", err)
+	}
+}
+
 // TestSaveLastBlock_IsAtomicInsert verifies that saveLastBlock issues a
 // single INSERT (which the fastswap_miles_meta PRIMARY KEY table upserts
 // atomically) and NOT the old non-atomic DELETE-then-INSERT pattern. The

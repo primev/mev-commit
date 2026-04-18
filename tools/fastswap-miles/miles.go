@@ -347,6 +347,24 @@ WHERE processed = false
 		var readyBidCosts []*big.Int
 
 		for _, r := range batch.Txs {
+			// Already-submitted guard runs BEFORE batch aggregation. If a row's
+			// surplus tokens were already swept on a prior run (fuel_submitted_at
+			// is set), those tokens are no longer in the executor wallet.
+			// Including the row in readyTxs / readyTotalSum would make the new
+			// sweep quote for an amount the wallet can't supply, failing the
+			// batch or skewing pro-rata allocation for every other row. Skip
+			// entirely: mark processed=true and move on.
+			if r.fuelSubmittedAt.Valid {
+				cfg.Logger.Info("erc20 tx already submitted to Fuel previously, excluding from sweep batch",
+					slog.String("tx", r.txHash), slog.String("user", r.user),
+					slog.Time("fuel_submitted_at", r.fuelSubmittedAt.Time))
+				if !cfg.DryRun {
+					markProcessedFlagOnly(cfg.DB, r.txHash)
+				}
+				processed++
+				continue
+			}
+
 			userPaysGas := strings.EqualFold(r.inputToken, zeroAddr.Hex())
 			bidCostWei := getBidCost(erc20BidMap, r.txHash)
 			if bidCostWei.Sign() == 0 {
@@ -529,17 +547,9 @@ WHERE processed = false
 				continue
 			}
 
-			// Idempotency guard: if this row was already submitted to Fuel on
-			// a prior run, do NOT re-submit — just rebuild the derived columns.
-			if r.fuelSubmittedAt.Valid {
-				cfg.Logger.Info("erc20 tx already submitted to Fuel previously, skipping re-submission",
-					slog.String("tx", r.txHash), slog.String("user", r.user),
-					slog.Time("fuel_submitted_at", r.fuelSubmittedAt.Time),
-					slog.Int64("miles", miles.Int64()))
-				markProcessed(cfg.DB, r.txHash, surplusEth, netProfitEth, miles.Int64(), readyBidCosts[i].String())
-				processed++
-				continue
-			}
+			// Note: the fuel_submitted_at idempotency check runs upstream,
+			// before batch aggregation — rows with fuel_submitted_at set are
+			// never in readyTxs here.
 
 			err := submitToFuel(ctx, cfg.HTTPClient, cfg.FuelURL, cfg.FuelKey,
 				common.HexToAddress(r.user),

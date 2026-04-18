@@ -412,6 +412,20 @@ WHERE tx_hash = ?`,
 	}
 }
 
+// markProcessedFlagOnly flips only the `processed` column to true and touches
+// nothing else. It is used when a row was previously submitted to Fuel (its
+// fuel_submitted_at marker is set) but is currently back in the pending queue
+// because something reset processed=false. We don't want to recompute miles
+// (we can't — the ERC20 path's derived values come from a sweep that already
+// happened), and we mustn't re-submit to Fuel. Just stop the row from
+// being re-picked-up next cycle.
+func markProcessedFlagOnly(db *sql.DB, txHash string) {
+	_, err := db.Exec(`UPDATE mevcommit_57173.fastswap_miles SET processed = true WHERE tx_hash = ?`, txHash)
+	if err != nil {
+		log.Printf("markProcessedFlagOnly %s: %v", txHash, err)
+	}
+}
+
 // -------------------- Barter API --------------------
 
 type BarterResponse struct {

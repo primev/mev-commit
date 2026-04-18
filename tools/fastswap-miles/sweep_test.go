@@ -27,13 +27,15 @@ func newTestEvent() *fastsettlement.Fastsettlementv3IntentExecuted {
 	}
 }
 
-// TestInsertEvent_SkipsWhenRowExists verifies the critical idempotency
-// guarantee: when a row with this tx_hash already exists in fastswap_miles,
-// insertEvent must NOT execute an INSERT statement. This prevents the
-// StarRocks PRIMARY KEY upsert from wiping the existing row's `processed`
-// (and other derived) columns — the exact mechanism that caused the
-// 2026-04-16 double-credit incident.
-func TestInsertEvent_SkipsWhenRowExists(t *testing.T) {
+// TestInsertEvent_BackfillsNullMetadataOnExistingRow verifies the critical
+// idempotency guarantee: when a row with this tx_hash already exists in
+// fastswap_miles, insertEvent must NOT issue an INSERT (which would UPSERT
+// under StarRocks PK semantics, wiping derived columns and causing the
+// 2026-04-16 double-credit incident). Instead it issues a COALESCE-only
+// UPDATE that fills in NULL gas_cost or block_timestamp from a later rescan
+// while preserving every derived column (processed, miles, surplus_eth,
+// net_profit_eth, bid_cost, fuel_submitted_at).
+func TestInsertEvent_BackfillsNullMetadataOnExistingRow(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock.New: %v", err)
@@ -43,15 +45,19 @@ func TestInsertEvent_SkipsWhenRowExists(t *testing.T) {
 	txHash := "0xdead"
 	blockTS := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
 
-	// Expect the SELECT EXISTS check to fire and return true.
 	mock.ExpectQuery(regexp.QuoteMeta(
 		"SELECT EXISTS(SELECT 1 FROM mevcommit_57173.fastswap_miles WHERE tx_hash = ?)",
 	)).WithArgs(txHash).WillReturnRows(
 		sqlmock.NewRows([]string{"exists"}).AddRow(true),
 	)
-	// Note: we do NOT call mock.ExpectExec for the INSERT — if insertEvent
-	// wrongly tries to INSERT, sqlmock will fail the test with an unexpected
-	// query error.
+	// COALESCE UPDATE that only touches the two fields that can legitimately
+	// be NULL from a prior RPC-failed insert. No INSERT must fire.
+	mock.ExpectExec(regexp.QuoteMeta(
+		"UPDATE mevcommit_57173.fastswap_miles\n"+
+			"SET gas_cost = COALESCE(gas_cost, ?),\n"+
+			"    block_timestamp = COALESCE(block_timestamp, ?)\n"+
+			"WHERE tx_hash = ?",
+	)).WithArgs("1000", blockTS, txHash).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	if err := insertEvent(db, txHash, 12345, &blockTS, newTestEvent(), big.NewInt(1000), "eth_weth"); err != nil {
 		t.Fatalf("insertEvent returned error on existing row: %v", err)
