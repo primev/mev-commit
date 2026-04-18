@@ -362,14 +362,29 @@ func loadLastBlock(db *sql.DB) uint64 {
 	return v
 }
 
+// saveLastBlock persists the indexer's progress marker. The prior
+// DELETE-then-INSERT implementation was not atomic: a pod crash, SIGTERM
+// during rolling deploy, or transient DB error between the two statements
+// could vanish the `last_block` row. On the next startup loadLastBlock would
+// return 0, startBlock would fall back to the contract deployment block,
+// and the indexer would re-walk all history — re-inserting every event and
+// (before the insertEvent existence guard landed) wiping processed=true on
+// every row, causing mass re-submission to Fuel. This was the underlying
+// trigger for the 2026-04-16 double-credit incident.
+//
+// fastswap_miles_meta has PRIMARY KEY(k), so a plain INSERT is an atomic
+// upsert under StarRocks PK semantics. The DELETE is unnecessary and unsafe.
 func saveLastBlock(db *sql.DB, block uint64) {
-	_, _ = db.Exec(`DELETE FROM mevcommit_57173.fastswap_miles_meta WHERE k = 'last_block'`)
 	_, err := db.Exec(`INSERT INTO mevcommit_57173.fastswap_miles_meta (k, v) VALUES ('last_block', ?)`, fmt.Sprintf("%d", block))
 	if err != nil {
 		log.Printf("saveLastBlock: %v", err)
 	}
 }
 
+// markProcessed sets processed=true and populates the derived columns. It
+// intentionally does NOT touch fuel_submitted_at so that re-runs of the
+// pipeline (e.g. a row flipped back to processed=false by a reset SQL) can
+// rebuild the derived state without appearing to re-credit Fuel.
 func markProcessed(db *sql.DB, txHash string, surplusEth, netProfitEth float64, miles int64, bidCost string) {
 	_, err := db.Exec(`
 UPDATE mevcommit_57173.fastswap_miles
@@ -378,6 +393,22 @@ WHERE tx_hash = ?`,
 		surplusEth, netProfitEth, miles, bidCost, txHash)
 	if err != nil {
 		log.Printf("markProcessed %s: %v", txHash, err)
+	}
+}
+
+// markProcessedWithFuelSubmission is called only when submitToFuel has just
+// succeeded for this row. It sets fuel_submitted_at so future pipeline runs
+// (even after a reset of `processed`) skip the submitToFuel call and don't
+// double-credit the user.
+func markProcessedWithFuelSubmission(db *sql.DB, txHash string, surplusEth, netProfitEth float64, miles int64, bidCost string) {
+	_, err := db.Exec(`
+UPDATE mevcommit_57173.fastswap_miles
+SET surplus_eth = ?, net_profit_eth = ?, miles = ?, bid_cost = ?, processed = true,
+    fuel_submitted_at = CURRENT_TIMESTAMP
+WHERE tx_hash = ?`,
+		surplusEth, netProfitEth, miles, bidCost, txHash)
+	if err != nil {
+		log.Printf("markProcessedWithFuelSubmission %s: %v", txHash, err)
 	}
 }
 

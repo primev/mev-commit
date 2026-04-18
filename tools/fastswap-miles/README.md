@@ -174,3 +174,24 @@ go run ./tools/fastswap-miles/ \
 - **Caught-up guard**: Miles are only processed after the indexer has caught up to the chain tip, avoiding excessive Barter API calls during historical backfill.
 - **Graceful shutdown**: Catches SIGINT/SIGTERM, finishes current batch, then exits.
 - **Idempotent**: Re-running from the same start block is safe — inserts use `INSERT INTO` with primary key dedup.
+- **Fuel-submission idempotency** (three-layer defense built in response to the 2026-04-16 double-credit incident, in which an operator re-used the contract deployment block as `-start-block` on a pod restart, causing the indexer to re-walk all history):
+  1. `insertEvent` checks tx_hash existence before INSERT, skipping re-inserts. The `fastswap_miles` table uses StarRocks `PRIMARY KEY(tx_hash)` — an unconditional INSERT upserts the row and wipes columns (including `processed`, `miles`, `fuel_submitted_at`) not specified in the INSERT. Without this check, any block rescan — whether from an explicit `-start-block` flag, a manual reset, or any other trigger — destroys already-processed rows and causes mass re-submission to Fuel. This is the primary fix: re-walking history is now idempotent.
+  2. Each row carries a `fuel_submitted_at` timestamp set only when `submitToFuel` succeeds. The service skips re-submission for any row where it is non-null, even if `processed` is flipped back to false by any means. Backstop against future reset paths.
+  3. `saveLastBlock` issues a single atomic INSERT (fastswap_miles_meta has PRIMARY KEY(k) so INSERT upserts). The prior DELETE-then-INSERT pattern could vanish the `last_block` row if the pod died between the two statements. Hardening rather than incident root cause, but worth fixing.
+
+### Schema requirement
+
+Before deploying, ensure the DB has the `fuel_submitted_at` column. The service's SELECT queries require it:
+
+```sql
+ALTER TABLE mevcommit_57173.fastswap_miles
+    ADD COLUMN fuel_submitted_at DATETIME NULL;
+
+-- Backfill: mark every row that has already been submitted to Fuel so the
+-- service's idempotency check will skip re-submission.
+UPDATE mevcommit_57173.fastswap_miles
+SET fuel_submitted_at = CURRENT_TIMESTAMP
+WHERE miles > 0 AND fuel_submitted_at IS NULL;
+```
+
+The UPDATE is idempotent — safe to run multiple times (e.g. right before and after code deploy to catch rows processed in the gap window).

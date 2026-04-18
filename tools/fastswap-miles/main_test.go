@@ -6,11 +6,91 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/ethereum/go-ethereum/common"
 )
+
+// TestMarkProcessed_DoesNotTouchFuelSubmittedAt is the core idempotency
+// contract: the plain markProcessed function (used by orphan, no-profit,
+// sub-threshold, and already-submitted-retry paths) must never write to
+// fuel_submitted_at. That column is what tells a future run "Fuel already
+// has this row — don't re-submit."
+func TestMarkProcessed_DoesNotTouchFuelSubmittedAt(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	// Expect the UPDATE to omit fuel_submitted_at from its SET clause.
+	mock.ExpectExec(regexp.QuoteMeta(
+		"UPDATE mevcommit_57173.fastswap_miles\n"+
+			"SET surplus_eth = ?, net_profit_eth = ?, miles = ?, bid_cost = ?, processed = true\n"+
+			"WHERE tx_hash = ?",
+	)).WithArgs(0.01, 0.005, int64(0), "0", "0xdead").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	markProcessed(db, "0xdead", 0.01, 0.005, 0, "0")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sqlmock expectations: %v", err)
+	}
+}
+
+// TestSaveLastBlock_IsAtomicInsert verifies that saveLastBlock issues a
+// single INSERT (which the fastswap_miles_meta PRIMARY KEY table upserts
+// atomically) and NOT the old non-atomic DELETE-then-INSERT pattern. The
+// old pattern could leave last_block vanished if the pod was killed between
+// the two statements — on next startup the indexer would fall back to the
+// deployment block and re-scan all history, which combined with the
+// insertEvent upsert bug caused the 2026-04-16 double-credit incident.
+func TestSaveLastBlock_IsAtomicInsert(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	// Exactly one INSERT expected, no DELETE.
+	mock.ExpectExec(regexp.QuoteMeta(
+		"INSERT INTO mevcommit_57173.fastswap_miles_meta (k, v) VALUES ('last_block', ?)",
+	)).WithArgs("12345").WillReturnResult(sqlmock.NewResult(0, 1))
+
+	saveLastBlock(db, 12345)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sqlmock expectations: %v", err)
+	}
+}
+
+// TestMarkProcessedWithFuelSubmission_SetsFuelSubmittedAt verifies that the
+// success-path mark function sets fuel_submitted_at = CURRENT_TIMESTAMP so
+// future runs skip re-submission to Fuel.
+func TestMarkProcessedWithFuelSubmission_SetsFuelSubmittedAt(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectExec(regexp.QuoteMeta(
+		"UPDATE mevcommit_57173.fastswap_miles\n"+
+			"SET surplus_eth = ?, net_profit_eth = ?, miles = ?, bid_cost = ?, processed = true,\n"+
+			"    fuel_submitted_at = CURRENT_TIMESTAMP\n"+
+			"WHERE tx_hash = ?",
+	)).WithArgs(0.01, 0.005, int64(7), "1000", "0xdead").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	markProcessedWithFuelSubmission(db, "0xdead", 0.01, 0.005, 7, "1000")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sqlmock expectations: %v", err)
+	}
+}
 
 func TestDecideBidCheckOutcome(t *testing.T) {
 	tests := []struct {

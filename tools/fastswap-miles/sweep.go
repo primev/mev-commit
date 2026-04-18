@@ -131,6 +131,38 @@ func insertEvent(
 	gasCost *big.Int,
 	swapType string,
 ) error {
+	// CRITICAL: the fastswap_miles table uses StarRocks `PRIMARY KEY(tx_hash)`
+	// model, which means an unconditional INSERT UPSERTS the entire row and
+	// resets every column we don't specify (processed → false, miles → NULL,
+	// surplus_eth → NULL, bid_cost → NULL, fuel_submitted_at → NULL, …).
+	//
+	// If the indexer rescans a block (pod restart with last_block reset, an
+	// explicit -start-block flag going backward, meta row lost during a
+	// deploy, etc.) an unconditional INSERT would clobber already-processed
+	// rows back to the pending state — and the miles pipeline would then
+	// re-submit each one to Fuel, double-crediting users.
+	//
+	// The 2026-04-16 double-credit incident was caused by exactly this: the
+	// Docker-support deploy restarted the pod, the indexer re-walked historical
+	// blocks, and every re-inserted event wiped `processed` on the existing
+	// row. 78 events ended up re-submitted to Fuel for a single test user
+	// alone; the protocol-wide overcount was much larger.
+	//
+	// Fix: check for existence before inserting. The IntentExecuted events
+	// are immutable once L1-finalized, so a row already in the table is
+	// authoritative — we must never replace it.
+	var exists bool
+	err := db.QueryRow(
+		`SELECT EXISTS(SELECT 1 FROM mevcommit_57173.fastswap_miles WHERE tx_hash = ?)`,
+		txHash,
+	).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check existing row: %w", err)
+	}
+	if exists {
+		return nil
+	}
+
 	var tsVal interface{} = nil
 	if blockTS != nil {
 		tsVal = *blockTS
@@ -140,7 +172,7 @@ func insertEvent(
 		gcStr = gasCost.String()
 	}
 
-	_, err := db.Exec(`
+	_, err = db.Exec(`
 INSERT INTO mevcommit_57173.fastswap_miles (
   tx_hash, block_number, block_timestamp, user_address,
   input_token, output_token, input_amount, user_amt_out,
