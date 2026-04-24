@@ -270,7 +270,18 @@ func (s *Service) CallBarterAPI(ctx context.Context, intent Intent, slippageStr 
 	// Default slippage 0.5% if not provided
 	fraction := 0.995
 	if slippageStr != "" {
-		if val, err := strconv.ParseFloat(slippageStr, 64); err == nil && val >= 0 && val <= 100 {
+		val, err := strconv.ParseFloat(slippageStr, 64)
+		switch {
+		case err != nil || val < 0 || val > 100:
+			s.logger.Warn("invalid slippage, falling back to default", "value", slippageStr, "path", "executor-swap", "err", err)
+		default:
+			// Barter only accepts up to 2% slippage. Cap here so requests with a
+			// higher user tolerance still route; UserAmtOut still enforces the
+			// user's actual minimum and any excess flows through as surplus.
+			if val > 2.0 {
+				s.logger.Info("capping barter slippage to 2%", "requested", val, "path", "executor-swap")
+				val = 2.0
+			}
 			fraction = 1.0 - (val / 100.0)
 		}
 	}
@@ -597,7 +608,18 @@ func (s *Service) CallBarterAPIForETH(ctx context.Context, req ETHSwapRequest) (
 	// Default slippage 0.5% if not provided
 	fraction := 0.995
 	if req.Slippage != "" {
-		if val, err := strconv.ParseFloat(req.Slippage, 64); err == nil && val >= 0 && val <= 100 {
+		val, err := strconv.ParseFloat(req.Slippage, 64)
+		switch {
+		case err != nil || val < 0 || val > 100:
+			s.logger.Warn("invalid slippage, falling back to default", "value", req.Slippage, "path", "eth-swap", "err", err)
+		default:
+			// Barter only accepts up to 2% slippage. Cap here so requests with a
+			// higher user tolerance still route; UserAmtOut still enforces the
+			// user's actual minimum and any excess flows through as surplus.
+			if val > 2.0 {
+				s.logger.Info("capping barter slippage to 2%", "requested", val, "path", "eth-swap")
+				val = 2.0
+			}
 			fraction = 1.0 - (val / 100.0)
 		}
 	}
