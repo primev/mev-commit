@@ -52,6 +52,8 @@ const (
 	defaultSwapConfidence        = 70               // default confidence level for fastswap transactions
 	confidenceSecondAttempt      = 80               // confidence level for the second attempt
 	confidenceSubsequentAttempts = 85               // confidence level for subsequent attempts
+	topOfBlockSwapConfidence     = 80               // confidence level for top-of-block fastswap first attempt
+	topOfBlockSubsequentAttempts = 90               // confidence level for top-of-block fastswap retries
 	transactionTimeout           = 10 * time.Minute // timeout for transaction processing
 	maxAttemptsPerBlock          = 10               // maximum attempts per block
 	defaultRetryDelay            = 500 * time.Millisecond
@@ -1110,6 +1112,14 @@ func (t *TxSender) calculatePriceForNextBlock(
 
 	if optedInSlot {
 		confidence = confidenceSubsequentAttempts
+	}
+
+	if txn.Constraint != nil && txn.Type == TxTypeFastSwap {
+		if isRetry {
+			confidence = topOfBlockSubsequentAttempts
+		} else {
+			confidence = topOfBlockSwapConfidence
+		}
 	}
 
 	// If this is the first attempt for the next block, we add it to the history

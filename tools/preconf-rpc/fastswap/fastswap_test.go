@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/fastswap"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
 	"github.com/primev/mev-commit/x/util"
@@ -313,6 +314,48 @@ func TestHandleSwap(t *testing.T) {
 	require.Len(t, mockEnqueuer.enqueuedTxs, 1)
 	enqueuedTx := mockEnqueuer.enqueuedTxs[0]
 	require.Equal(t, mockSigner.address, enqueuedTx.Sender)
+	// Default (TopPercentile == 0): no PositionConstraint should be attached
+	require.Nil(t, enqueuedTx.Constraint)
+}
+
+func TestHandleSwap_TopPercentile(t *testing.T) {
+	barterResp := newTestBarterResponse()
+	srv := setupTestServer(t, barterResp)
+	defer srv.Close()
+
+	logger := util.NewTestLogger(os.Stdout)
+	settlementAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
+	svc := fastswap.NewService(srv.URL, "test-api-key", settlementAddr, 1, logger)
+
+	mockSigner := &mockSigner{address: common.HexToAddress("0xExecutorAddress")}
+	mockEnqueuer := &mockTxEnqueuer{}
+	mockTracker := &mockBlockTracker{nonce: 5, nextBaseFee: big.NewInt(30000000000)}
+	mockStore := &mockNonceStore{nonce: 4, hasTxs: true}
+	svc.SetExecutorDeps(mockSigner, mockEnqueuer, mockTracker, mockStore)
+
+	req := fastswap.SwapRequest{
+		User:          common.HexToAddress("0xUserAddress"),
+		InputToken:    common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
+		OutputToken:   common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"),
+		InputAmt:      big.NewInt(1000000000),
+		UserAmtOut:    big.NewInt(100),
+		Recipient:     common.HexToAddress("0xRecipientAddress"),
+		Deadline:      big.NewInt(1700000000),
+		Nonce:         big.NewInt(1),
+		Signature:     []byte{0x01, 0x02, 0x03, 0x04},
+		TopPercentile: 10,
+	}
+
+	result, err := svc.HandleSwap(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, "success", result.Status)
+
+	require.Len(t, mockEnqueuer.enqueuedTxs, 1)
+	enqueuedTx := mockEnqueuer.enqueuedTxs[0]
+	require.NotNil(t, enqueuedTx.Constraint, "Constraint should be set when TopPercentile > 0")
+	require.Equal(t, bidderapiv1.PositionConstraint_ANCHOR_TOP, enqueuedTx.Constraint.Anchor)
+	require.Equal(t, bidderapiv1.PositionConstraint_BASIS_PERCENTILE, enqueuedTx.Constraint.Basis)
+	require.Equal(t, int32(10), enqueuedTx.Constraint.Value)
 }
 
 func TestHandleSwap_NoExecutorDeps(t *testing.T) {
@@ -429,6 +472,101 @@ func TestHandler(t *testing.T) {
 	err := json.NewDecoder(w.Body).Decode(&result)
 	require.NoError(t, err)
 	require.Equal(t, "success", result.Status)
+}
+
+func TestHandler_TopPercentile(t *testing.T) {
+	barterResp := newTestBarterResponse()
+	srv := setupTestServer(t, barterResp)
+	defer srv.Close()
+
+	logger := util.NewTestLogger(os.Stdout)
+	settlementAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
+
+	baseReq := func(topPercentile string) string {
+		body := `{
+			"user": "0x0000000000000000000000000000000000000001",
+			"inputToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+			"outputToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+			"inputAmt": "1000000000",
+			"userAmtOut": "100",
+			"recipient": "0x0000000000000000000000000000000000000002",
+			"deadline": "1700000000",
+			"nonce": "1",
+			"signature": "0x01020304"`
+		if topPercentile != "" {
+			body += `, "topPercentile": ` + topPercentile
+		}
+		return body + `}`
+	}
+
+	t.Run("valid percentile sets constraint", func(t *testing.T) {
+		svc := fastswap.NewService(srv.URL, "test-api-key", settlementAddr, 1, logger)
+		mockEnqueuer := &mockTxEnqueuer{}
+		svc.SetExecutorDeps(
+			&mockSigner{address: common.HexToAddress("0xExecutorAddress")},
+			mockEnqueuer,
+			&mockBlockTracker{nonce: 0, nextBaseFee: big.NewInt(30000000000)},
+			&mockNonceStore{nonce: 0, hasTxs: false},
+		)
+
+		req := httptest.NewRequest(http.MethodPost, "/fastswap", strings.NewReader(baseReq("10")))
+		w := httptest.NewRecorder()
+		svc.Handler()(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+		require.Len(t, mockEnqueuer.enqueuedTxs, 1)
+		require.NotNil(t, mockEnqueuer.enqueuedTxs[0].Constraint)
+		require.Equal(t, int32(10), mockEnqueuer.enqueuedTxs[0].Constraint.Value)
+	})
+
+	t.Run("omitted field leaves constraint nil (backwards compat)", func(t *testing.T) {
+		svc := fastswap.NewService(srv.URL, "test-api-key", settlementAddr, 1, logger)
+		mockEnqueuer := &mockTxEnqueuer{}
+		svc.SetExecutorDeps(
+			&mockSigner{address: common.HexToAddress("0xExecutorAddress")},
+			mockEnqueuer,
+			&mockBlockTracker{nonce: 0, nextBaseFee: big.NewInt(30000000000)},
+			&mockNonceStore{nonce: 0, hasTxs: false},
+		)
+
+		req := httptest.NewRequest(http.MethodPost, "/fastswap", strings.NewReader(baseReq("")))
+		w := httptest.NewRecorder()
+		svc.Handler()(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+		require.Len(t, mockEnqueuer.enqueuedTxs, 1)
+		require.Nil(t, mockEnqueuer.enqueuedTxs[0].Constraint)
+	})
+
+	t.Run("zero value leaves constraint nil", func(t *testing.T) {
+		svc := fastswap.NewService(srv.URL, "test-api-key", settlementAddr, 1, logger)
+		mockEnqueuer := &mockTxEnqueuer{}
+		svc.SetExecutorDeps(
+			&mockSigner{address: common.HexToAddress("0xExecutorAddress")},
+			mockEnqueuer,
+			&mockBlockTracker{nonce: 0, nextBaseFee: big.NewInt(30000000000)},
+			&mockNonceStore{nonce: 0, hasTxs: false},
+		)
+
+		req := httptest.NewRequest(http.MethodPost, "/fastswap", strings.NewReader(baseReq("0")))
+		w := httptest.NewRecorder()
+		svc.Handler()(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+		require.Len(t, mockEnqueuer.enqueuedTxs, 1)
+		require.Nil(t, mockEnqueuer.enqueuedTxs[0].Constraint)
+	})
+
+	t.Run("out of range rejected", func(t *testing.T) {
+		svc := fastswap.NewService(srv.URL, "test-api-key", settlementAddr, 1, logger)
+		for _, val := range []string{"-1", "101", "500"} {
+			req := httptest.NewRequest(http.MethodPost, "/fastswap", strings.NewReader(baseReq(val)))
+			w := httptest.NewRecorder()
+			svc.Handler()(w, req)
+			require.Equal(t, http.StatusBadRequest, w.Code, "value=%s", val)
+			require.Contains(t, w.Body.String(), "topPercentile must be between 0 and 100")
+		}
+	})
 }
 
 func TestHandler_MethodNotAllowed(t *testing.T) {
