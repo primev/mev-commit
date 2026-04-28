@@ -14,27 +14,26 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// TestMarkProcessed_DoesNotTouchFuelSubmittedAt is the core idempotency
-// contract: the plain markProcessed function (used by orphan, no-profit,
-// sub-threshold, and already-submitted-retry paths) must never write to
-// fuel_submitted_at. That column is what tells a future run "Fuel already
-// has this row — don't re-submit."
-func TestMarkProcessed_DoesNotTouchFuelSubmittedAt(t *testing.T) {
+// TestMarkProcessed_WritesAllDerivedColumns verifies that markProcessed
+// updates every derived column (surplus_eth, net_profit_eth, miles, bid_cost)
+// and flips processed=true. Writing miles is what arms the idempotency check:
+// once miles is non-null, processMiles / processERC20Miles will skip the
+// submitToFuel call on any subsequent run (even if processed gets reset).
+func TestMarkProcessed_WritesAllDerivedColumns(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock.New: %v", err)
 	}
 	defer func() { _ = db.Close() }()
 
-	// Expect the UPDATE to omit fuel_submitted_at from its SET clause.
 	mock.ExpectExec(regexp.QuoteMeta(
 		"UPDATE mevcommit_57173.fastswap_miles\n"+
 			"SET surplus_eth = ?, net_profit_eth = ?, miles = ?, bid_cost = ?, processed = true\n"+
 			"WHERE tx_hash = ?",
-	)).WithArgs(0.01, 0.005, int64(0), "0", "0xdead").
+	)).WithArgs(0.01, 0.005, int64(7), "1000", "0xdead").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	markProcessed(db, "0xdead", 0.01, 0.005, 0, "0")
+	markProcessed(db, "0xdead", 0.01, 0.005, 7, "1000")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("sqlmock expectations: %v", err)
@@ -42,12 +41,12 @@ func TestMarkProcessed_DoesNotTouchFuelSubmittedAt(t *testing.T) {
 }
 
 // TestMarkProcessedFlagOnly_UpdatesOnlyProcessedColumn verifies that
-// markProcessedFlagOnly (used in the ERC20 path for rows whose surplus
-// tokens were already swept on a prior run) issues an UPDATE that only
-// mentions `processed = true` and leaves every other column untouched.
-// Touching other columns here would overwrite the row's existing
-// surplus_eth/net_profit_eth/miles/fuel_submitted_at with stale or empty
-// values from the current cycle's context.
+// markProcessedFlagOnly (used in the ERC20 idempotency path when a row's
+// miles are already recorded but processed got reset to false) issues an
+// UPDATE that only mentions `processed = true` and leaves every other column
+// untouched. Touching surplus_eth/net_profit_eth/bid_cost here would overwrite
+// the values that were derived from the original sweep — values we cannot
+// reproduce without re-sweeping.
 func TestMarkProcessedFlagOnly_UpdatesOnlyProcessedColumn(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -86,31 +85,6 @@ func TestSaveLastBlock_IsAtomicInsert(t *testing.T) {
 	)).WithArgs("12345").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	saveLastBlock(db, 12345)
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatalf("sqlmock expectations: %v", err)
-	}
-}
-
-// TestMarkProcessedWithFuelSubmission_SetsFuelSubmittedAt verifies that the
-// success-path mark function sets fuel_submitted_at = CURRENT_TIMESTAMP so
-// future runs skip re-submission to Fuel.
-func TestMarkProcessedWithFuelSubmission_SetsFuelSubmittedAt(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("sqlmock.New: %v", err)
-	}
-	defer func() { _ = db.Close() }()
-
-	mock.ExpectExec(regexp.QuoteMeta(
-		"UPDATE mevcommit_57173.fastswap_miles\n"+
-			"SET surplus_eth = ?, net_profit_eth = ?, miles = ?, bid_cost = ?, processed = true,\n"+
-			"    fuel_submitted_at = CURRENT_TIMESTAMP\n"+
-			"WHERE tx_hash = ?",
-	)).WithArgs(0.01, 0.005, int64(7), "1000", "0xdead").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	markProcessedWithFuelSubmission(db, "0xdead", 0.01, 0.005, 7, "1000")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("sqlmock expectations: %v", err)
@@ -343,6 +317,12 @@ func TestSubmitToFuel(t *testing.T) {
 
 		if req["name"] != "fast-swap-surplus" {
 			t.Errorf("expected name=fast-swap-surplus, got %v", req["name"])
+		}
+
+		// dedup_id must equal the tx hash so Fuul can drop duplicate submits.
+		txHashHex := common.HexToHash("0xabc").Hex()
+		if req["dedup_id"] != txHashHex {
+			t.Errorf("expected dedup_id=%s, got %v", txHashHex, req["dedup_id"])
 		}
 
 		args := req["args"].(map[string]any)

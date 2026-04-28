@@ -34,7 +34,7 @@ func newTestEvent() *fastsettlement.Fastsettlementv3IntentExecuted {
 // 2026-04-16 double-credit incident). Instead it issues a COALESCE-only
 // UPDATE that fills in NULL gas_cost or block_timestamp from a later rescan
 // while preserving every derived column (processed, miles, surplus_eth,
-// net_profit_eth, bid_cost, fuel_submitted_at).
+// net_profit_eth, bid_cost).
 func TestInsertEvent_BackfillsNullMetadataOnExistingRow(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {

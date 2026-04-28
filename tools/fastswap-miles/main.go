@@ -381,10 +381,10 @@ func saveLastBlock(db *sql.DB, block uint64) {
 	}
 }
 
-// markProcessed sets processed=true and populates the derived columns. It
-// intentionally does NOT touch fuel_submitted_at so that re-runs of the
-// pipeline (e.g. a row flipped back to processed=false by a reset SQL) can
-// rebuild the derived state without appearing to re-credit Fuel.
+// markProcessed sets processed=true and populates the derived columns. The
+// `miles` column doubles as our submitted-to-Fuel marker — once it's non-null,
+// the pipeline must never re-submit (idempotency check lives in processMiles /
+// processERC20Miles).
 func markProcessed(db *sql.DB, txHash string, surplusEth, netProfitEth float64, miles int64, bidCost string) {
 	_, err := db.Exec(`
 UPDATE mevcommit_57173.fastswap_miles
@@ -396,29 +396,12 @@ WHERE tx_hash = ?`,
 	}
 }
 
-// markProcessedWithFuelSubmission is called only when submitToFuel has just
-// succeeded for this row. It sets fuel_submitted_at so future pipeline runs
-// (even after a reset of `processed`) skip the submitToFuel call and don't
-// double-credit the user.
-func markProcessedWithFuelSubmission(db *sql.DB, txHash string, surplusEth, netProfitEth float64, miles int64, bidCost string) {
-	_, err := db.Exec(`
-UPDATE mevcommit_57173.fastswap_miles
-SET surplus_eth = ?, net_profit_eth = ?, miles = ?, bid_cost = ?, processed = true,
-    fuel_submitted_at = CURRENT_TIMESTAMP
-WHERE tx_hash = ?`,
-		surplusEth, netProfitEth, miles, bidCost, txHash)
-	if err != nil {
-		log.Printf("markProcessedWithFuelSubmission %s: %v", txHash, err)
-	}
-}
-
 // markProcessedFlagOnly flips only the `processed` column to true and touches
-// nothing else. It is used when a row was previously submitted to Fuel (its
-// fuel_submitted_at marker is set) but is currently back in the pending queue
-// because something reset processed=false. We don't want to recompute miles
-// (we can't — the ERC20 path's derived values come from a sweep that already
-// happened), and we mustn't re-submit to Fuel. Just stop the row from
-// being re-picked-up next cycle.
+// nothing else. It's used by the ERC20 idempotency path: when miles is already
+// recorded but processed got reset to false, we must NOT recompute the derived
+// columns (surplus_eth/net_profit_eth/bid_cost depend on the sweep result,
+// which we can't reproduce without re-sweeping). Just take the row out of the
+// pending queue.
 func markProcessedFlagOnly(db *sql.DB, txHash string) {
 	_, err := db.Exec(`UPDATE mevcommit_57173.fastswap_miles SET processed = true WHERE tx_hash = ?`, txHash)
 	if err != nil {
@@ -504,12 +487,18 @@ func submitToFuel(
 	txHash common.Hash,
 	miles *big.Int,
 ) error {
+	// dedup_id makes the submission idempotent on Fuul's side: if we ever send
+	// the same transaction twice (e.g. our service crashes between this call
+	// succeeding and markProcessed running), Fuul drops the duplicate instead
+	// of re-crediting the user. Belt-and-suspenders alongside our own
+	// miles-non-null idempotency check.
 	body := map[string]any{
 		"user": map[string]any{
 			"identifier_type": "evm_address",
 			"identifier":      user.Hex(),
 		},
-		"name": "fast-swap-surplus",
+		"name":     "fast-swap-surplus",
+		"dedup_id": txHash.Hex(),
 		"args": map[string]any{
 			"value": map[string]any{
 				"amount": miles.String(),

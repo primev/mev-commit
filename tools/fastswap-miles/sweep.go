@@ -134,7 +134,7 @@ func insertEvent(
 	// CRITICAL: the fastswap_miles table uses StarRocks `PRIMARY KEY(tx_hash)`
 	// model, which means an unconditional INSERT UPSERTS the entire row and
 	// resets every column we don't specify (processed → false, miles → NULL,
-	// surplus_eth → NULL, bid_cost → NULL, fuel_submitted_at → NULL, …).
+	// surplus_eth → NULL, bid_cost → NULL, …).
 	//
 	// If the indexer rescans a block (pod restart with last_block reset, an
 	// explicit -start-block flag going backward, meta row lost during a
@@ -165,8 +165,8 @@ func insertEvent(
 	// gas_cost or block_timestamp IF they were previously NULL (which happens
 	// when indexBatch caught a transient receipt/header RPC failure on the
 	// first pass). This preserves every derived column (processed, miles,
-	// surplus_eth, net_profit_eth, bid_cost, fuel_submitted_at) — so a rescan
-	// can heal partial metadata without destroying pipeline state.
+	// surplus_eth, net_profit_eth, bid_cost) — so a rescan can heal partial
+	// metadata without destroying pipeline state.
 	var exists bool
 	err := db.QueryRow(
 		`SELECT EXISTS(SELECT 1 FROM mevcommit_57173.fastswap_miles WHERE tx_hash = ?)`,
