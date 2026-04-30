@@ -131,6 +131,23 @@ func insertEvent(
 	gasCost *big.Int,
 	swapType string,
 ) error {
+	// CRITICAL: the fastswap_miles table uses StarRocks `PRIMARY KEY(tx_hash)`
+	// model, which means an unconditional INSERT UPSERTS the entire row and
+	// resets every column we don't specify (processed → false, miles → NULL,
+	// surplus_eth → NULL, bid_cost → NULL, …).
+	//
+	// If the indexer rescans a block (pod restart with last_block reset, an
+	// explicit -start-block flag going backward, meta row lost during a
+	// deploy, etc.) an unconditional INSERT would clobber already-processed
+	// rows back to the pending state — and the miles pipeline would then
+	// re-submit each one to Fuel, double-crediting users.
+	//
+	// The 2026-04-16 double-credit incident was caused by exactly this: the
+	// Docker-support deploy restarted the pod, the indexer re-walked historical
+	// blocks, and every re-inserted event wiped `processed` on the existing
+	// row. 78 events ended up re-submitted to Fuel for a single test user
+	// alone; the protocol-wide overcount was much larger.
+	//
 	var tsVal interface{} = nil
 	if blockTS != nil {
 		tsVal = *blockTS
@@ -140,7 +157,42 @@ func insertEvent(
 		gcStr = gasCost.String()
 	}
 
-	_, err := db.Exec(`
+	// Fix: check for existence before inserting. The IntentExecuted event
+	// args themselves are immutable once L1-finalized, so the row's core
+	// fields (user, tokens, amounts, surplus) must never be replaced.
+	//
+	// For rows that already exist: run a COALESCE-only UPDATE that fills in
+	// gas_cost or block_timestamp IF they were previously NULL (which happens
+	// when indexBatch caught a transient receipt/header RPC failure on the
+	// first pass). This preserves every derived column (processed, miles,
+	// surplus_eth, net_profit_eth, bid_cost) — so a rescan can heal partial
+	// metadata without destroying pipeline state.
+	var exists bool
+	err := db.QueryRow(
+		`SELECT EXISTS(SELECT 1 FROM mevcommit_57173.fastswap_miles WHERE tx_hash = ?)`,
+		txHash,
+	).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check existing row: %w", err)
+	}
+	if exists {
+		// Backfill only the two fields that can legitimately arrive NULL from
+		// transient RPC failures. COALESCE(col, newVal) keeps the existing
+		// value if it's non-NULL, and substitutes newVal otherwise. If newVal
+		// is also NULL (we still don't have fresh data), the column is
+		// unchanged — no-op.
+		_, err := db.Exec(`
+UPDATE mevcommit_57173.fastswap_miles
+SET gas_cost = COALESCE(gas_cost, ?),
+    block_timestamp = COALESCE(block_timestamp, ?)
+WHERE tx_hash = ?`, gcStr, tsVal, txHash)
+		if err != nil {
+			return fmt.Errorf("backfill null metadata: %w", err)
+		}
+		return nil
+	}
+
+	_, err = db.Exec(`
 INSERT INTO mevcommit_57173.fastswap_miles (
   tx_hash, block_number, block_timestamp, user_address,
   input_token, output_token, input_amount, user_amt_out,

@@ -97,6 +97,7 @@ type ethRow struct {
 	gasCost    sql.NullString
 	inputToken string
 	blockTS    sql.NullTime
+	miles      sql.NullInt64
 }
 
 type erc20Row struct {
@@ -107,6 +108,7 @@ type erc20Row struct {
 	gasCost    sql.NullString
 	inputToken string
 	blockTS    sql.NullTime
+	miles      sql.NullInt64
 }
 
 type tokenBatch struct {
@@ -119,7 +121,7 @@ type tokenBatch struct {
 
 func processMiles(ctx context.Context, cfg *serviceConfig) (int, error) {
 	rows, err := cfg.DB.QueryContext(ctx, `
-SELECT tx_hash, user_address, surplus, gas_cost, input_token, block_timestamp
+SELECT tx_hash, user_address, surplus, gas_cost, input_token, block_timestamp, miles
 FROM mevcommit_57173.fastswap_miles
 WHERE processed = false
   AND swap_type = 'eth_weth'
@@ -133,7 +135,7 @@ WHERE processed = false
 	var pending []ethRow
 	for rows.Next() {
 		var r ethRow
-		if err := rows.Scan(&r.txHash, &r.user, &r.surplus, &r.gasCost, &r.inputToken, &r.blockTS); err != nil {
+		if err := rows.Scan(&r.txHash, &r.user, &r.surplus, &r.gasCost, &r.inputToken, &r.blockTS, &r.miles); err != nil {
 			return 0, err
 		}
 		pending = append(pending, r)
@@ -243,6 +245,22 @@ WHERE processed = false
 			continue
 		}
 
+		// Idempotency guard: if this row already has miles set (even if
+		// `processed` got flipped back to false by a reset SQL), do NOT
+		// re-submit to Fuel — just refresh the derived columns. miles is only
+		// ever written after a successful Fuel submission (or as 0 for the
+		// no-credit terminal paths), so a non-null value means we already
+		// settled this row's outcome.
+		if r.miles.Valid {
+			cfg.Logger.Info("tx already has miles recorded, skipping re-submission",
+				slog.String("tx", r.txHash), slog.String("user", r.user),
+				slog.Int64("recorded_miles", r.miles.Int64),
+				slog.Int64("recomputed_miles", miles.Int64()))
+			markProcessed(cfg.DB, r.txHash, surplusEth, netProfitEth, r.miles.Int64, bidCostWei.String())
+			processed++
+			continue
+		}
+
 		err := submitToFuel(ctx, cfg.HTTPClient, cfg.FuelURL, cfg.FuelKey,
 			common.HexToAddress(r.user),
 			common.HexToHash(r.txHash),
@@ -268,7 +286,7 @@ func processERC20Miles(ctx context.Context, cfg *serviceConfig) (int, error) {
 	processed := 0
 
 	rows, err := cfg.DB.QueryContext(ctx, `
-SELECT tx_hash, user_address, output_token, surplus, gas_cost, input_token, block_timestamp
+SELECT tx_hash, user_address, output_token, surplus, gas_cost, input_token, block_timestamp, miles
 FROM mevcommit_57173.fastswap_miles
 WHERE processed = false
   AND swap_type = 'erc20'
@@ -282,7 +300,7 @@ WHERE processed = false
 	var pending []erc20Row
 	for rows.Next() {
 		var r erc20Row
-		if err := rows.Scan(&r.txHash, &r.user, &r.token, &r.surplus, &r.gasCost, &r.inputToken, &r.blockTS); err != nil {
+		if err := rows.Scan(&r.txHash, &r.user, &r.token, &r.surplus, &r.gasCost, &r.inputToken, &r.blockTS, &r.miles); err != nil {
 			return processed, err
 		}
 		pending = append(pending, r)
@@ -331,6 +349,26 @@ WHERE processed = false
 		var readyBidCosts []*big.Int
 
 		for _, r := range batch.Txs {
+			// Already-settled guard runs BEFORE batch aggregation. If a row's
+			// surplus tokens were already swept on a prior run (miles is
+			// non-null), those tokens are no longer in the executor wallet.
+			// Including the row in readyTxs / readyTotalSum would make the new
+			// sweep quote for an amount the wallet can't supply, failing the
+			// batch or skewing pro-rata allocation for every other row. Skip
+			// entirely: just re-flip processed=true and preserve every other
+			// column (surplus_eth/net_profit_eth/bid_cost depend on the actual
+			// sweep result, which we can't recompute without re-sweeping).
+			if r.miles.Valid {
+				cfg.Logger.Info("erc20 tx already has miles recorded, excluding from sweep batch",
+					slog.String("tx", r.txHash), slog.String("user", r.user),
+					slog.Int64("recorded_miles", r.miles.Int64))
+				if !cfg.DryRun {
+					markProcessedFlagOnly(cfg.DB, r.txHash)
+				}
+				processed++
+				continue
+			}
+
 			userPaysGas := strings.EqualFold(r.inputToken, zeroAddr.Hex())
 			bidCostWei := getBidCost(erc20BidMap, r.txHash)
 			if bidCostWei.Sign() == 0 {
@@ -512,6 +550,10 @@ WHERE processed = false
 				processed++
 				continue
 			}
+
+			// Note: the miles-non-null idempotency check runs upstream, before
+			// batch aggregation — rows with miles already recorded are never
+			// in readyTxs here.
 
 			err := submitToFuel(ctx, cfg.HTTPClient, cfg.FuelURL, cfg.FuelKey,
 				common.HexToAddress(r.user),

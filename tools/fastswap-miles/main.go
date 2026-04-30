@@ -362,14 +362,29 @@ func loadLastBlock(db *sql.DB) uint64 {
 	return v
 }
 
+// saveLastBlock persists the indexer's progress marker. The prior
+// DELETE-then-INSERT implementation was not atomic: a pod crash, SIGTERM
+// during rolling deploy, or transient DB error between the two statements
+// could vanish the `last_block` row. On the next startup loadLastBlock would
+// return 0, startBlock would fall back to the contract deployment block,
+// and the indexer would re-walk all history — re-inserting every event and
+// (before the insertEvent existence guard landed) wiping processed=true on
+// every row, causing mass re-submission to Fuel. This was the underlying
+// trigger for the 2026-04-16 double-credit incident.
+//
+// fastswap_miles_meta has PRIMARY KEY(k), so a plain INSERT is an atomic
+// upsert under StarRocks PK semantics. The DELETE is unnecessary and unsafe.
 func saveLastBlock(db *sql.DB, block uint64) {
-	_, _ = db.Exec(`DELETE FROM mevcommit_57173.fastswap_miles_meta WHERE k = 'last_block'`)
 	_, err := db.Exec(`INSERT INTO mevcommit_57173.fastswap_miles_meta (k, v) VALUES ('last_block', ?)`, fmt.Sprintf("%d", block))
 	if err != nil {
 		log.Printf("saveLastBlock: %v", err)
 	}
 }
 
+// markProcessed sets processed=true and populates the derived columns. The
+// `miles` column doubles as our submitted-to-Fuel marker — once it's non-null,
+// the pipeline must never re-submit (idempotency check lives in processMiles /
+// processERC20Miles).
 func markProcessed(db *sql.DB, txHash string, surplusEth, netProfitEth float64, miles int64, bidCost string) {
 	_, err := db.Exec(`
 UPDATE mevcommit_57173.fastswap_miles
@@ -378,6 +393,19 @@ WHERE tx_hash = ?`,
 		surplusEth, netProfitEth, miles, bidCost, txHash)
 	if err != nil {
 		log.Printf("markProcessed %s: %v", txHash, err)
+	}
+}
+
+// markProcessedFlagOnly flips only the `processed` column to true and touches
+// nothing else. It's used by the ERC20 idempotency path: when miles is already
+// recorded but processed got reset to false, we must NOT recompute the derived
+// columns (surplus_eth/net_profit_eth/bid_cost depend on the sweep result,
+// which we can't reproduce without re-sweeping). Just take the row out of the
+// pending queue.
+func markProcessedFlagOnly(db *sql.DB, txHash string) {
+	_, err := db.Exec(`UPDATE mevcommit_57173.fastswap_miles SET processed = true WHERE tx_hash = ?`, txHash)
+	if err != nil {
+		log.Printf("markProcessedFlagOnly %s: %v", txHash, err)
 	}
 }
 
@@ -459,12 +487,18 @@ func submitToFuel(
 	txHash common.Hash,
 	miles *big.Int,
 ) error {
+	// dedup_id makes the submission idempotent on Fuul's side: if we ever send
+	// the same transaction twice (e.g. our service crashes between this call
+	// succeeding and markProcessed running), Fuul drops the duplicate instead
+	// of re-crediting the user. Belt-and-suspenders alongside our own
+	// miles-non-null idempotency check.
 	body := map[string]any{
 		"user": map[string]any{
 			"identifier_type": "evm_address",
 			"identifier":      user.Hex(),
 		},
-		"name": "fast-swap-surplus",
+		"name":     "fast-swap-surplus",
+		"dedup_id": txHash.Hex(),
 		"args": map[string]any{
 			"value": map[string]any{
 				"amount": miles.String(),
