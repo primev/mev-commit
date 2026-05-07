@@ -394,9 +394,11 @@ WHERE processed = false
 					cfg.Logger.Info("erc20 tx not in FastRPC after retry window, skipping with 0 miles",
 						slog.String("tx", r.txHash), slog.String("user", r.user),
 						slog.Duration("age", txAge))
-					surplusWei, _ := new(big.Int).SetString(r.surplus, 10)
 					if !cfg.DryRun {
-						markProcessed(cfg.DB, r.txHash, weiToEth(surplusWei), 0, 0, "0")
+						// surplus_eth=0 because surplus is in raw output-token units;
+						// converting it via weiToEth (as the prior code did) yields a
+						// nonsense value for non-ETH outputs (e.g. PEPE 14,413 ETH).
+						markProcessed(cfg.DB, r.txHash, 0, 0, 0, "0")
 					}
 					processed++
 					continue
