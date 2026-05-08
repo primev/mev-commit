@@ -927,7 +927,14 @@ func (t *TxSender) sendBid(
 		logger.Debug("FastSwap transaction - skipping balance check", "sender", txn.Sender.Hex())
 	}
 
-	state := sim.Latest
+	// Pin simulation to the blockTracker's known latest block to avoid
+	// stale state when the sim node lags behind the WS-connected blockTracker.
+	latestBlockNumber := t.blockTracker.LatestBlockNumber()
+	state := sim.AtBlock(latestBlockNumber)
+	if bidBlockNo >= latestBlockNumber+2 {
+		// Missed slot — intermediate block doesn't exist yet, use pending state
+		state = sim.Pending
+	}
 	if latestBaseFee.Sign() > 0 && feePerGas.Cmp(latestBaseFee) < 0 {
 		state = sim.Pending
 	}
@@ -939,17 +946,30 @@ func (t *TxSender) sendBid(
 		logs, isSwap, err := t.simulator.Simulate(ctx, txn.Raw, state)
 		if err != nil {
 			txn.simFailed = true
-			logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
+
+			// If the tx has commitments for the previous block and sim fails on the
+			// next block, retry with delay to allow for inclusion confirmation.
 			if len(txn.commitments) > 0 && txn.commitments[0].BlockNumber+1 == int64(bidBlockNo) {
-				// Could happen that it takes time to get confirmation of txn inclusion
-				// so simulation would return error but we should retry after a delay to allow
-				// the transaction to be included
+				logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
 				return bidResult{}, &errRetry{
 					err:        fmt.Errorf("failed to simulate transaction: %w", err),
 					retryAfter: 2 * time.Second,
 				}
 			}
-			return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
+
+			// NonRetryableError means the tx itself is invalid (revert, bad request) — fatal.
+			var nonRetryable *sim.NonRetryableError
+			if errors.As(err, &nonRetryable) {
+				logger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
+				return bidResult{}, fmt.Errorf("failed to simulate transaction: %w", err)
+			}
+
+			// Transient error (sim node hasn't ingested block yet, network issue) — retryable.
+			logger.Warn("Simulation transient error, will retry", "error", err, "blockNumber", bidBlockNo)
+			return bidResult{}, &errRetry{
+				err:        fmt.Errorf("failed to simulate transaction: %w", err),
+				retryAfter: 100 * time.Millisecond,
+			}
 		}
 		txn.simFailed = false
 		if !isRetry {
