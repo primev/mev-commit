@@ -88,6 +88,15 @@ type serviceConfig struct {
 	FundsRecipient common.Address
 	SettlementAddr common.Address
 	MaxGasGwei     uint64
+
+	// Sweep redesign components. Optional in the sense that nil values are
+	// tolerated by every consumer (sweep loop, miles processor) so this
+	// foundation commit can land without any of them being wired up yet —
+	// production wiring lives in the integration commit's main.go.
+	PriceOracle   *priceOracle
+	CostEstimator *costEstimator
+	GasBuffer     *gasBuffer
+	SweepClock    *sweepClock
 }
 
 type ethRow struct {

@@ -8,8 +8,8 @@ import (
 )
 
 // Tier classifies a token by price-stability profile. The tier drives sweep
-// cadence, the percentile of recent sweep gas used to estimate per-user cost
-// at miles-awarding time, and the gas cap above which sweeps are deferred.
+// cadence, the gas-cap percentile applied during sweep timing, and the
+// fallback behavior for the upfront cost estimate.
 type Tier int
 
 const (
@@ -31,13 +31,37 @@ func (t Tier) String() string {
 	}
 }
 
-// tokenConfig holds the per-token sweep parameters. Values are tuned by tier
-// and refined per token where the realized data justifies a different default.
+// GasCapPercentile returns the percentile of recent L1 gas observations above
+// which sweep attempts are deferred. Stable tokens are most selective (only
+// sweep at the cheapest 25% of recent gas); volatile tokens sweep at almost
+// any gas (only blocked at the top 25%). The lookback window for the
+// percentile computation is the cadence period (or 6h for volatile).
+func (t Tier) GasCapPercentile() int {
+	switch t {
+	case TierStable:
+		return 25
+	case TierBlueChip:
+		return 50
+	case TierVolatile:
+		return 75
+	default:
+		return 75
+	}
+}
+
+// tokenConfig holds the per-token sweep parameters.
 type tokenConfig struct {
-	Tier               Tier
-	SweepCadence       time.Duration // target maximum interval between sweeps
-	CostEstimatePctile int           // percentile of recent sweep gas to use as upfront cost estimate
-	ExpectedBatchSize  int           // assumed batch size for per-user cost dilution
+	Tier Tier
+
+	// SweepCadence is the target maximum interval between sweep attempts.
+	// During this window, the sweep loop deliberately waits for the batch to
+	// grow. After cadence elapses, the loop attempts to sweep subject to
+	// profitability and gas-cap checks. Force-sweep happens at 1.5×cadence.
+	//
+	// A zero value means "no cadence floor" — try every cycle. Used for
+	// volatile tokens where price risk dominates batching benefit; force-sweep
+	// for those is a fixed 6h since last attempt (handled in the scheduler).
+	SweepCadence time.Duration
 }
 
 // L1 mainnet token addresses for the configured set.
@@ -56,45 +80,62 @@ var (
 	pepeAddr  = common.HexToAddress("0x6982508145454ce325ddbe47a25d4ec3d2311933")
 )
 
-// tokenConfigs maps known L1 token addresses (lowercased hex) to their sweep
-// configuration. Lookup is case-insensitive via lookupTokenConfig. Unknown
-// tokens fall through to defaultTokenConfig.
+// tokenConfigs maps known L1 token addresses to their sweep configuration.
+// Unknown addresses fall through to defaultTokenConfig.
 //
-// Cadence values are derived from the Apr 13-27 stable-volume window:
-//   - USDC (~31 swaps/day): daily yields ~30-row batches.
-//   - USDT (~17 swaps/day): every 2d yields ~34-row batches.
-//   - DAI  (~8 swaps/day, mostly 1-3/day): every 5d yields ~38-row batches.
-//   - Blue chips (3-15 swaps/day): daily is reasonable; batch sizes are smaller.
-//   - Volatile (low/sporadic volume): 6h to limit price-risk exposure.
-//
-// CostEstimatePctile and ExpectedBatchSize together set how much "buffer" the
-// protocol keeps when paying out miles upfront. Stables use a low percentile
-// (p40) and a generous batch-size assumption (30) because their realized cost
-// is consistent and batches reliably exceed 30; the difference is protocol
-// upside. Volatiles use p75 and batch-size 1 — the worst-case assumption.
+// Cadence values are calibrated against the Apr 13-27 stable-volume window:
+//   - USDC (~31 swaps/day): daily cadence yields ~30-row batches.
+//   - USDT (~17 swaps/day): 48h yields ~34-row batches.
+//   - DAI  (~8 swaps/day):  48h yields ~15-row batches (compromise between
+//     the daily-default preference and the value of larger batches).
+//   - Blue chips: 24h with smaller batches.
+//   - Volatile / unknowns: zero cadence (every cycle eligible) with 6h
+//     force-sweep, because price risk dominates batching benefit.
 var tokenConfigs = map[common.Address]tokenConfig{
-	usdcAddr:  {TierStable, 24 * time.Hour, 40, 30},
-	usdtAddr:  {TierStable, 48 * time.Hour, 40, 30},
-	daiAddr:   {TierStable, 120 * time.Hour, 40, 30},
-	wbtcAddr:  {TierBlueChip, 24 * time.Hour, 50, 3},
-	arbAddr:   {TierBlueChip, 24 * time.Hour, 50, 3},
-	linkAddr:  {TierBlueChip, 24 * time.Hour, 50, 3},
-	compAddr:  {TierBlueChip, 24 * time.Hour, 50, 3},
-	uniAddr:   {TierBlueChip, 24 * time.Hour, 50, 3},
-	sushiAddr: {TierBlueChip, 24 * time.Hour, 50, 3},
-	inchAddr:  {TierBlueChip, 24 * time.Hour, 50, 3},
-	yfiAddr:   {TierBlueChip, 24 * time.Hour, 50, 3},
-	pepeAddr:  {TierVolatile, 6 * time.Hour, 75, 1},
+	usdcAddr:  {TierStable, 24 * time.Hour},
+	usdtAddr:  {TierStable, 48 * time.Hour},
+	daiAddr:   {TierStable, 48 * time.Hour},
+	wbtcAddr:  {TierBlueChip, 24 * time.Hour},
+	arbAddr:   {TierBlueChip, 24 * time.Hour},
+	linkAddr:  {TierBlueChip, 24 * time.Hour},
+	compAddr:  {TierBlueChip, 24 * time.Hour},
+	uniAddr:   {TierBlueChip, 24 * time.Hour},
+	sushiAddr: {TierBlueChip, 24 * time.Hour},
+	inchAddr:  {TierBlueChip, 24 * time.Hour},
+	yfiAddr:   {TierBlueChip, 24 * time.Hour},
+	pepeAddr:  {TierVolatile, 0},
 }
 
 // defaultTokenConfig is used when an output token is not in tokenConfigs.
-// Conservative defaults: treat as volatile, sweep every 6h, assume size-1
-// batches at p75 of recent costs.
+// Conservative defaults: treat as volatile, no cadence floor.
 var defaultTokenConfig = tokenConfig{
-	Tier:               TierVolatile,
-	SweepCadence:       6 * time.Hour,
-	CostEstimatePctile: 75,
-	ExpectedBatchSize:  1,
+	Tier:         TierVolatile,
+	SweepCadence: 0,
+}
+
+// volatileForceSweepInterval is the time since last sweep attempt at which a
+// volatile token's gas cap is dropped (profitability still required).
+const volatileForceSweepInterval = 6 * time.Hour
+
+// forceSweepInterval returns the time-since-last-sweep at which the gas cap
+// is dropped (profitability remains the only check). For stable/bluechip
+// tokens this is 1.5× cadence; for volatile tokens it is a fixed 6h.
+func (c tokenConfig) forceSweepInterval() time.Duration {
+	if c.SweepCadence == 0 {
+		return volatileForceSweepInterval
+	}
+	return c.SweepCadence + c.SweepCadence/2
+}
+
+// gasCapLookback returns the lookback window for computing the gas cap
+// percentile. For stable/bluechip tokens this matches the cadence period
+// (so "cheap relative to gas during the period we'd actually consider
+// sweeping"). For volatile tokens it is 6h.
+func (c tokenConfig) gasCapLookback() time.Duration {
+	if c.SweepCadence == 0 {
+		return volatileForceSweepInterval
+	}
+	return c.SweepCadence
 }
 
 // lookupTokenConfig returns the configuration for a token address, case
@@ -109,4 +150,22 @@ func lookupTokenConfig(addr common.Address) tokenConfig {
 		return cfg
 	}
 	return defaultTokenConfig
+}
+
+// isWhitelisted reports whether the token is explicitly listed in
+// tokenConfigs (rather than falling through to defaultTokenConfig). Used to
+// gate upfront miles awarding: only whitelisted output tokens are eligible,
+// because an attacker who mints their own token and controls its on-chain
+// liquidity could otherwise extract miles for surplus that has no realizable
+// ETH value. Unknown tokens defer to sweep time, where the realized swap
+// result is the source of truth (and where attacker tokens never sweep
+// because Barter can't quote them and the profitability gate blocks).
+func isWhitelisted(addr common.Address) bool {
+	if _, ok := tokenConfigs[addr]; ok {
+		return true
+	}
+	if _, ok := tokenConfigs[common.HexToAddress(strings.ToLower(addr.Hex()))]; ok {
+		return true
+	}
+	return false
 }
