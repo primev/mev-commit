@@ -238,6 +238,32 @@ func main() {
 			defer func() { _ = db.Close() }()
 			cfg.DB = db
 
+			// Sweep-redesign components. All four can operate in dry-run
+			// mode (their actions are guarded behind cfg.DryRun checks at
+			// the call sites that mutate state).
+			priceOracle, err := newPriceOracle(client, weth, logger)
+			if err != nil {
+				return fmt.Errorf("newPriceOracle: %w", err)
+			}
+			cfg.PriceOracle = priceOracle
+			cfg.CostEstimator = newCostEstimator(db, logger)
+			cfg.GasBuffer = newGasBuffer(db, logger)
+			cfg.SweepClock = newSweepClock()
+			reconciliation := newReconciliationMonitor(db, logger,
+				strings.ToLower(executorAddr.Hex()))
+
+			sweepLoopRunner, err := newSweepLoop(cfg)
+			if err != nil {
+				return fmt.Errorf("newSweepLoop: %w", err)
+			}
+
+			// Background goroutines. Each respects ctx cancellation; the
+			// outer cancel() in the SIGTERM handler cascades shutdown.
+			go cfg.CostEstimator.Run(ctx)
+			go cfg.GasBuffer.Run(ctx)
+			go cfg.SweepClock.Run(ctx, db, logger)
+			go reconciliation.Run(ctx)
+
 			filterer, err := fastsettlement.NewFastsettlementv3Filterer(settlementAddr, client)
 			if err != nil {
 				return fmt.Errorf("NewFastsettlementv3Filterer: %w", err)
@@ -307,6 +333,16 @@ func main() {
 				// Only process miles when we've caught up to chain tip to avoid
 				// hammering the Barter API while still indexing old blocks.
 				if startBlock > head {
+					// Per-cycle gas observation feeds the buffer that drives
+					// the cadence-sweep gas-cap percentile. Best-effort —
+					// occasional miss is fine since the buffer holds 50h of
+					// samples at 12s cadence (~15K samples).
+					if gasPrice, err := client.SuggestGasPrice(ctx); err == nil {
+						cfg.GasBuffer.Observe(gasPrice)
+					} else {
+						logger.Debug("gas observation skipped", slog.Any("error", err))
+					}
+
 					ethProcessed, err := processMiles(ctx, cfg)
 					if err != nil {
 						logger.Error("processMiles error", slog.Any("error", err))
@@ -322,6 +358,12 @@ func main() {
 					if erc20Processed > 0 {
 						logger.Info("processed ERC20 token sweeps", slog.Int("count", erc20Processed))
 					}
+
+					// Cadence-based sweep of accumulated surplus from
+					// upfront-awarded rows. Cheap when cadence isn't met
+					// (in-memory check, no RPC); fires only at most once
+					// per cadence period per token.
+					sweepLoopRunner.RunOnce(ctx)
 				}
 			}
 		},
