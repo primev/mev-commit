@@ -570,7 +570,12 @@ func submitToFuel(
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+	// 409 = Fuul saw this dedup_id before and dropped the duplicate; the
+	// prior submission already credited the user, so treat as success and
+	// let the caller markProcessed. Otherwise the row retries forever.
+	if resp.StatusCode != http.StatusOK &&
+		resp.StatusCode != http.StatusCreated &&
+		resp.StatusCode != http.StatusConflict {
 		return fmt.Errorf("fuel API status %d", resp.StatusCode)
 	}
 	return nil
