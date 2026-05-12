@@ -90,6 +90,10 @@ func (c *costEstimator) Get(token string) costEstimate {
 // over the configured lookback window. This is the only method that touches
 // the database; intended to be called periodically by a background goroutine.
 func (c *costEstimator) Refresh(ctx context.Context) error {
+	// Filter to ETH-input rows so per_row_oh isolates pure sweep_overhead.
+	// ERC20-input rows have user_gas baked into (surplus_eth - net_profit_eth),
+	// which would inflate the estimate and cause the miles formula (which
+	// deducts user_gas separately) to over-deduct.
 	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(`
 SELECT output_token,
        COUNT(*) as n,
@@ -105,6 +109,7 @@ FROM (
     AND surplus_eth > 0
     AND surplus_eth IS NOT NULL
     AND surplus_eth < 1.0
+    AND input_token = '0x0000000000000000000000000000000000000000'
     AND block_timestamp >= NOW() - INTERVAL %d DAY
 ) t
 GROUP BY output_token`, costEstimateLookbackDays))
