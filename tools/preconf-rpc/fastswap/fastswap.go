@@ -126,7 +126,7 @@ type sourceFee struct {
 
 // minGasLimit prevents OOG from the EIP-150 63/64 cascade on simple routes
 // where Barter's small GasEstimation produces a tight gasLimit.
-const minGasLimit = 400_000
+const minGasLimit = 525_000
 
 // Mainnet WETH address
 var mainnetWETH = common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
