@@ -12,18 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// sweepBidGlobalPercentile is the percentile of recent fastswap bid costs
-// used as a proxy for a sweep tx's bid. The sweep tx is just another
-// fastswap, so the per-user-tx bid distribution is the right reference
-// population. p75 (under-promise) — same direction the cron uses for the
-// dashboard's bid-cost estimate.
+// Percentile of recent fastswap bid_cost used as the per-sweep bid proxy
+// (the sweep tx is itself a fastswap). p75 = under-promise.
 const sweepBidGlobalPercentile = 0.75
 
-// sweepBidFallbackEth is the per-sweep bid used when the global percentile
-// query returns nothing (cold start, freshly-deployed pod with empty
-// fastswap_miles). Mirrors the cron's FALLBACK_BID_COST_ETH in
-// fastprotocolapp/.../miles-estimate-gas/route.ts — post-fix p75 of
-// realized bid distribution.
+// Fallback bid used when the percentile query returns NULL (cold start /
+// no processed rows yet). Post-fix realized p75 ≈ 4e-5 ETH.
 const sweepBidFallbackEth = 4e-5
 
 // costEstimateLookbackDays is the rolling window over which per-token sweep
@@ -113,29 +107,10 @@ func (c *costEstimator) Get(token string) costEstimate {
 }
 
 // Refresh recomputes per-token estimates from realized fastswap_miles data
-// over the configured lookback window. This is the only method that touches
-// the database; intended to be called periodically by a background goroutine.
-//
-// PerRowOverhead is the sum of two terms:
-//
-//  1. Per-row sweep gas overhead — pro-rata share of the L1 gas the executor
-//     paid to convert this row's surplus tokens to ETH. Computed as the
-//     per-token p25 (or p75 on low data) of `surplus_eth − net_profit_eth −
-//     bid_cost/1e18` across processed ETH-input ERC20-output rows.
-//
-//  2. Per-row sweep bid contribution — the preconf bid the executor pays to
-//     submit the sweep tx itself, amortized across the user rows in the
-//     matching batch. The sweep tx IS a fastswap, so we proxy its bid with
-//     the p75 of recent realized bid_cost across all processed fastswap
-//     rows (tight distribution, far more samples than executor sweeps
-//     alone), then multiply by per-token sweep count and divide by
-//     per-token user-row count to get the per-row contribution.
-//
-// Both terms scale together with batch size — low-volume tokens have a small
-// number of user rows per sweep so the per-row contribution is high, and
-// high-volume tokens dilute both. The miles formula in
-// `awardUpfrontERC20Miles` subtracts the combined value, so the sweep tx's
-// own bid no longer falls on the protocol's books silently.
+// over the configured lookback window. PerRowOverhead is the sum of two
+// terms: per-token p25/p75 of pro-rata sweep gas (existing) plus per-token
+// (n_sweeps × global_bid_p75 / n_user_rows) for the sweep tx's own bid.
+// Both scale together with batch size.
 func (c *costEstimator) Refresh(ctx context.Context) error {
 	// Filter to ETH-input rows so per_row_oh isolates pure sweep_overhead.
 	// ERC20-input rows have user_gas baked into (surplus_eth - net_profit_eth),
@@ -224,136 +199,60 @@ GROUP BY output_token`, costEstimateLookbackDays))
 	return nil
 }
 
-// computePerTokenSweepBidEth returns the per-row sweep bid contribution (in
-// ETH) for each output token, over the same lookback window used for
-// PerRowOverhead.
-//
-// For each output_token T:
-//
-//	per_row_sweep_bid_eth(T) = (n_sweeps(T) × global_bid_p75_eth) / n_user_rows(T)
-//
-// Why a global percentile and not the realized per-sweep bid: the sweep tx
-// IS a fastswap, so the distribution of all user-row bids is the right
-// reference population. It's tight (memory: stddev/mean ≈ 24%) and has
-// orders of magnitude more samples than the executor-sweep subset alone,
-// so a percentile across the broader set is at least as accurate as
-// looking up each sweep's realized bid via tx_view — and avoids the JOIN
-// entirely. p75 mirrors the cron's same-purpose proxy on the frontend.
-//
-// "Executor sweep" = a row in fastswap_miles whose user_address is the
-// executor and whose output_token is WETH; its input_token is the ERC20
-// being swept (which equals the user's output_token).
+// computePerTokenSweepBidEth returns per-row sweep bid contribution (ETH)
+// keyed by lowercased output_token. Single round trip: joins per-token
+// executor sweep counts × per-token user-row counts × global bid p75 (with
+// fallback when no processed rows exist).
 func (c *costEstimator) computePerTokenSweepBidEth(ctx context.Context) (map[string]float64, error) {
-	bidEth, err := c.queryGlobalBidPercentileEth(ctx)
+	query := fmt.Sprintf(`
+SELECT s.token, s.n_sweeps, u.n_users, COALESCE(b.p, %f) AS bid_p75
+FROM (
+  SELECT LOWER(input_token) AS token, COUNT(*) AS n_sweeps
+  FROM mevcommit_57173.fastswap_miles
+  WHERE LOWER(user_address) = ?
+    AND swap_type = 'eth_weth'
+    AND LOWER(output_token) = ?
+    AND block_timestamp >= NOW() - INTERVAL %d DAY
+  GROUP BY input_token
+) s
+JOIN (
+  SELECT LOWER(output_token) AS token, COUNT(*) AS n_users
+  FROM mevcommit_57173.fastswap_miles
+  WHERE swap_type = 'erc20'
+    AND LOWER(user_address) != ?
+    AND block_timestamp >= NOW() - INTERVAL %d DAY
+  GROUP BY output_token
+) u ON u.token = s.token
+CROSS JOIN (
+  SELECT percentile_approx(CAST(bid_cost AS DOUBLE)/1e18, %f) AS p
+  FROM mevcommit_57173.fastswap_miles
+  WHERE processed = 1
+    AND bid_cost IS NOT NULL
+    AND CAST(bid_cost AS DOUBLE) > 0
+    AND block_timestamp >= NOW() - INTERVAL %d DAY
+) b
+`, sweepBidFallbackEth, costEstimateLookbackDays, costEstimateLookbackDays,
+		sweepBidGlobalPercentile, costEstimateLookbackDays)
+
+	rows, err := c.db.QueryContext(ctx, query, c.executorAddr, c.wethAddr, c.executorAddr)
 	if err != nil {
-		c.logger.Warn("global bid percentile query failed; using fallback",
-			slog.Any("error", err), slog.Float64("fallback_eth", sweepBidFallbackEth))
-		bidEth = sweepBidFallbackEth
-	}
-
-	sweepCountByToken, err := c.queryExecutorSweepCounts(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("query executor sweep counts: %w", err)
-	}
-	if len(sweepCountByToken) == 0 {
-		return map[string]float64{}, nil
-	}
-
-	userRowsByToken, err := c.queryUserRowCounts(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("query user row counts: %w", err)
-	}
-
-	perRowByToken := make(map[string]float64, len(sweepCountByToken))
-	for token, nSweeps := range sweepCountByToken {
-		nRows := userRowsByToken[token]
-		if nSweeps <= 0 || nRows <= 0 {
-			continue
-		}
-		perRowByToken[token] = float64(nSweeps) * bidEth / float64(nRows)
-	}
-	return perRowByToken, nil
-}
-
-// queryGlobalBidPercentileEth returns the chosen percentile of realized bid
-// costs (in ETH) across processed fastswap rows in the lookback window.
-// Returns 0 when no rows are available so the caller can substitute a
-// fallback.
-func (c *costEstimator) queryGlobalBidPercentileEth(ctx context.Context) (float64, error) {
-	var p float64
-	row := c.db.QueryRowContext(ctx, fmt.Sprintf(`
-SELECT percentile_approx(CAST(bid_cost AS DOUBLE)/1e18, %f) AS p
-FROM mevcommit_57173.fastswap_miles
-WHERE processed = 1
-  AND bid_cost IS NOT NULL
-  AND CAST(bid_cost AS DOUBLE) > 0
-  AND block_timestamp >= NOW() - INTERVAL %d DAY
-`, sweepBidGlobalPercentile, costEstimateLookbackDays))
-	if err := row.Scan(&p); err != nil {
-		return 0, err
-	}
-	if !(p > 0) {
-		return 0, fmt.Errorf("percentile returned non-positive value: %v", p)
-	}
-	return p, nil
-}
-
-// queryExecutorSweepCounts returns the number of sweeps the executor has
-// performed per swept-token (= user's output_token) over the lookback window.
-func (c *costEstimator) queryExecutorSweepCounts(ctx context.Context) (map[string]int, error) {
-	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(`
-SELECT LOWER(input_token) AS swept_token, COUNT(*) AS n_sweeps
-FROM mevcommit_57173.fastswap_miles
-WHERE LOWER(user_address) = ?
-  AND swap_type = 'eth_weth'
-  AND LOWER(output_token) = ?
-  AND block_timestamp >= NOW() - INTERVAL %d DAY
-GROUP BY input_token
-`, costEstimateLookbackDays), c.executorAddr, c.wethAddr)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query per-token sweep bid: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	out := make(map[string]int)
+	out := make(map[string]float64)
 	for rows.Next() {
 		var token string
-		var n int
-		if err := rows.Scan(&token, &n); err != nil {
-			c.logger.Warn("scan executor sweep count failed", slog.Any("error", err))
+		var nSweeps, nUsers int
+		var bidEth float64
+		if err := rows.Scan(&token, &nSweeps, &nUsers, &bidEth); err != nil {
+			c.logger.Warn("scan per-token sweep bid failed", slog.Any("error", err))
 			continue
 		}
-		out[token] = n
-	}
-	return out, rows.Err()
-}
-
-// queryUserRowCounts returns the number of non-executor user rows per
-// output_token over the lookback window — the divisor in the per-row sweep
-// bid calculation.
-func (c *costEstimator) queryUserRowCounts(ctx context.Context) (map[string]int, error) {
-	rows, err := c.db.QueryContext(ctx, fmt.Sprintf(`
-SELECT LOWER(output_token) AS output_token, COUNT(*) AS n_rows
-FROM mevcommit_57173.fastswap_miles
-WHERE swap_type = 'erc20'
-  AND LOWER(user_address) != ?
-  AND block_timestamp >= NOW() - INTERVAL %d DAY
-GROUP BY output_token
-`, costEstimateLookbackDays), c.executorAddr)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	out := make(map[string]int)
-	for rows.Next() {
-		var token string
-		var n int
-		if err := rows.Scan(&token, &n); err != nil {
-			c.logger.Warn("scan user row count failed", slog.Any("error", err))
+		if nSweeps <= 0 || nUsers <= 0 || bidEth <= 0 {
 			continue
 		}
-		out[token] = n
+		out[token] = float64(nSweeps) * bidEth / float64(nUsers)
 	}
 	return out, rows.Err()
 }
