@@ -88,6 +88,15 @@ type serviceConfig struct {
 	FundsRecipient common.Address
 	SettlementAddr common.Address
 	MaxGasGwei     uint64
+
+	// New (sweep redesign): upfront pricing + cost estimation + sweep
+	// scheduling components. All optional in the sense that nil values
+	// degrade gracefully — the miles loop simply defers every row to the
+	// legacy sweep-time path. Production wiring lives in main.go.
+	PriceOracle   *priceOracle
+	CostEstimator *costEstimator
+	GasBuffer     *gasBuffer
+	SweepClock    *sweepClock
 }
 
 type ethRow struct {
@@ -103,18 +112,14 @@ type ethRow struct {
 type erc20Row struct {
 	txHash     string
 	user       string
-	token      string
+	token      string // output_token
 	surplus    string
 	gasCost    sql.NullString
 	inputToken string
+	inputAmt   string // raw input token units (or ETH wei when input is ETH)
+	userAmtOut string // raw output token units delivered to user
 	blockTS    sql.NullTime
 	miles      sql.NullInt64
-}
-
-type tokenBatch struct {
-	Token    string
-	TotalSum *big.Int
-	Txs      []erc20Row
 }
 
 // -------------------- ETH/WETH Miles --------------------
@@ -282,11 +287,66 @@ WHERE processed = false
 
 // -------------------- ERC20 Miles --------------------
 
+// erc20CycleStats counts the outcomes of one processERC20Miles invocation.
+// Logged at the end of the cycle as `erc20_cycle_summary` so deployment can
+// be monitored at a glance: a steady stream of upfront_awarded with low
+// deferred_no_chainlink confirms the upfront path is doing its job; spikes
+// in deferred_not_whitelisted indicate user activity on novel tokens worth
+// investigating.
+type erc20CycleStats struct {
+	idempotentSkipped       int
+	bidRetried              int
+	orphaned                int
+	upfrontAwarded          int
+	upfrontNoProfit         int
+	upfrontSubThreshold     int
+	upfrontFuelFailed       int
+	deferredNotWhitelisted  int
+	deferredNoChainlink     int
+	deferredInvalidEvent    int
+	deferredNoTokenDecimals int
+	deferredOtherReason     int
+	deferredAwarded         int
+	deferredBadSurplus      int
+}
+
+func (s *erc20CycleStats) noteDeferralSource(source string) {
+	switch source {
+	case "deferred:not_whitelisted":
+		s.deferredNotWhitelisted++
+	case "deferred:no_chainlink":
+		s.deferredNoChainlink++
+	case "deferred:invalid_event":
+		s.deferredInvalidEvent++
+	case "deferred:no_token_decim":
+		s.deferredNoTokenDecimals++
+	default:
+		s.deferredOtherReason++
+	}
+}
+
+func (s *erc20CycleStats) total() int {
+	return s.idempotentSkipped + s.bidRetried + s.orphaned +
+		s.upfrontAwarded + s.upfrontNoProfit + s.upfrontSubThreshold + s.upfrontFuelFailed +
+		s.deferredNotWhitelisted + s.deferredNoChainlink + s.deferredInvalidEvent +
+		s.deferredNoTokenDecimals + s.deferredOtherReason + s.deferredAwarded +
+		s.deferredBadSurplus
+}
+
+// processERC20Miles handles all pending erc20-output rows. Each row is routed
+// either to the upfront-awarding path (when the priceOracle returns a value)
+// or to the deferred batch path (legacy sweep-then-pro-rata logic, used for
+// non-whitelisted output tokens and whitelisted tokens that lack a Chainlink
+// feed). The deferred path is unchanged behavior — it still triggers its own
+// sweep when the batch becomes profitable. The cadence-based sweep loop
+// (sweep_loop.go) operates independently, sweeping accumulated balance from
+// upfront-awarded rows once per cadence interval.
 func processERC20Miles(ctx context.Context, cfg *serviceConfig) (int, error) {
 	processed := 0
+	stats := erc20CycleStats{}
 
 	rows, err := cfg.DB.QueryContext(ctx, `
-SELECT tx_hash, user_address, output_token, surplus, gas_cost, input_token, block_timestamp, miles
+SELECT tx_hash, user_address, output_token, surplus, gas_cost, input_token, input_amount, user_amt_out, block_timestamp, miles
 FROM mevcommit_57173.fastswap_miles
 WHERE processed = false
   AND swap_type = 'erc20'
@@ -300,7 +360,7 @@ WHERE processed = false
 	var pending []erc20Row
 	for rows.Next() {
 		var r erc20Row
-		if err := rows.Scan(&r.txHash, &r.user, &r.token, &r.surplus, &r.gasCost, &r.inputToken, &r.blockTS, &r.miles); err != nil {
+		if err := rows.Scan(&r.txHash, &r.user, &r.token, &r.surplus, &r.gasCost, &r.inputToken, &r.inputAmt, &r.userAmtOut, &r.blockTS, &r.miles); err != nil {
 			return processed, err
 		}
 		pending = append(pending, r)
@@ -313,24 +373,6 @@ WHERE processed = false
 		return processed, nil
 	}
 
-	batches := make(map[string]*tokenBatch)
-	for _, r := range pending {
-		surplusWei, ok := new(big.Int).SetString(r.surplus, 10)
-		if !ok || surplusWei.Sign() <= 0 {
-			cfg.Logger.Warn("bad surplus", slog.String("surplus", r.surplus), slog.String("tx", r.txHash))
-			continue
-		}
-		if _, exists := batches[r.token]; !exists {
-			batches[r.token] = &tokenBatch{
-				Token:    r.token,
-				TotalSum: big.NewInt(0),
-				Txs:      make([]erc20Row, 0),
-			}
-		}
-		batches[r.token].TotalSum.Add(batches[r.token].TotalSum, surplusWei)
-		batches[r.token].Txs = append(batches[r.token].Txs, r)
-	}
-
 	allErc20Hashes := make([]string, len(pending))
 	for i, r := range pending {
 		allErc20Hashes[i] = r.txHash
@@ -338,241 +380,461 @@ WHERE processed = false
 	erc20BidMap := batchLookupBidCosts(cfg.Logger, cfg.DB, allErc20Hashes)
 	erc20FastRPCSet := batchCheckFastRPC(cfg.Logger, cfg.DB, allErc20Hashes)
 
-	for token, batch := range batches {
-		totalOriginalGasCost := big.NewInt(0)
-		totalOriginalBidCost := big.NewInt(0)
-
-		// First pass: separate rows into ready, pending-bid, and not-in-fastrpc.
-		// Pending-bid rows are excluded from the batch so they retry next cycle.
-		var readyTxs []erc20Row
-		var readyGasCosts []*big.Int
-		var readyBidCosts []*big.Int
-
-		for _, r := range batch.Txs {
-			// Already-settled guard runs BEFORE batch aggregation. If a row's
-			// surplus tokens were already swept on a prior run (miles is
-			// non-null), those tokens are no longer in the executor wallet.
-			// Including the row in readyTxs / readyTotalSum would make the new
-			// sweep quote for an amount the wallet can't supply, failing the
-			// batch or skewing pro-rata allocation for every other row. Skip
-			// entirely: just re-flip processed=true and preserve every other
-			// column (surplus_eth/net_profit_eth/bid_cost depend on the actual
-			// sweep result, which we can't recompute without re-sweeping).
-			if r.miles.Valid {
-				cfg.Logger.Info("erc20 tx already has miles recorded, excluding from sweep batch",
-					slog.String("tx", r.txHash), slog.String("user", r.user),
-					slog.Int64("recorded_miles", r.miles.Int64))
-				if !cfg.DryRun {
-					markProcessedFlagOnly(cfg.DB, r.txHash)
-				}
-				processed++
-				continue
+	// First pass: route every row through bid/orphan checks; rows that survive
+	// either get awarded upfront (priceOracle eligible) or land in a per-token
+	// deferred bucket for the legacy sweep-time pro-rata path.
+	deferredByToken := make(map[string][]deferredErc20Row)
+	for _, r := range pending {
+		// Idempotency: a row with miles already recorded was settled on a
+		// prior run. Just re-flip processed and preserve all derived columns;
+		// we can't recompute surplus_eth / net_profit_eth without re-sweeping.
+		if r.miles.Valid {
+			cfg.Logger.Info("erc20 tx already has miles recorded, skipping",
+				slog.String("tx", r.txHash), slog.String("user", r.user),
+				slog.Int64("recorded_miles", r.miles.Int64))
+			if !cfg.DryRun {
+				markProcessedFlagOnly(cfg.DB, r.txHash)
 			}
-
-			userPaysGas := strings.EqualFold(r.inputToken, zeroAddr.Hex())
-			bidCostWei := getBidCost(erc20BidMap, r.txHash)
-			if bidCostWei.Sign() == 0 {
-				txAge := time.Duration(0)
-				if r.blockTS.Valid {
-					txAge = time.Since(r.blockTS.Time)
-				}
-				inFastRPC := erc20FastRPCSet[strings.ToLower(r.txHash)]
-
-				switch decideBidCheckOutcome(userPaysGas, inFastRPC, r.blockTS.Valid, txAge) {
-				case bidCheckProceed:
-					cfg.Logger.Info("erc20 tx in FastRPC but bid never indexed, processing with 0 bid cost",
-						slog.String("tx", r.txHash), slog.String("user", r.user))
-					// fall through with bidCostWei = 0
-				case bidCheckRetry:
-					cfg.Logger.Info("erc20 tx bid lookup pending, will retry next cycle",
-						slog.String("tx", r.txHash), slog.String("user", r.user),
-						slog.Bool("in_fastrpc", inFastRPC),
-						slog.Bool("user_pays_gas", userPaysGas),
-						slog.Duration("age", txAge))
-					continue
-				case bidCheckOrphan:
-					cfg.Logger.Info("erc20 tx not in FastRPC after retry window, skipping with 0 miles",
-						slog.String("tx", r.txHash), slog.String("user", r.user),
-						slog.Duration("age", txAge))
-					if !cfg.DryRun {
-						// surplus_eth=0 because surplus is in raw output-token units;
-						// converting it via weiToEth (as the prior code did) yields a
-						// nonsense value for non-ETH outputs (e.g. PEPE 14,413 ETH).
-						markProcessed(cfg.DB, r.txHash, 0, 0, 0, "0")
-					}
-					processed++
-					continue
-				}
-			}
-
-			gasCostWei := big.NewInt(0)
-			if !userPaysGas && r.gasCost.Valid && r.gasCost.String != "" {
-				if gc, ok := new(big.Int).SetString(r.gasCost.String, 10); ok {
-					gasCostWei = gc
-				}
-			}
-
-			readyTxs = append(readyTxs, r)
-			readyGasCosts = append(readyGasCosts, gasCostWei)
-			readyBidCosts = append(readyBidCosts, bidCostWei)
-
-			totalOriginalGasCost.Add(totalOriginalGasCost, gasCostWei)
-			totalOriginalBidCost.Add(totalOriginalBidCost, bidCostWei)
-		}
-
-		if len(readyTxs) == 0 {
-			continue
-		}
-
-		// Recalculate TotalSum for only the ready rows
-		readyTotalSum := big.NewInt(0)
-		for _, r := range readyTxs {
-			surplusWei, _ := new(big.Int).SetString(r.surplus, 10)
-			readyTotalSum.Add(readyTotalSum, surplusWei)
-		}
-
-		reqBody := barterRequest{
-			Source:            token,
-			Target:            cfg.WETH.Hex(),
-			SellAmount:        readyTotalSum.String(),
-			Recipient:         cfg.ExecutorAddr.Hex(),
-			Origin:            cfg.ExecutorAddr.Hex(),
-			MinReturnFraction: 0.98,
-			Deadline:          fmt.Sprintf("%d", time.Now().Add(10*time.Minute).Unix()),
-		}
-
-		barterResp, err := callBarter(ctx, cfg.HTTPClient, cfg.BarterURL, cfg.BarterKey, reqBody)
-		if err != nil {
-			cfg.Logger.Warn("callBarter failed", slog.String("token", token), slog.Any("error", err))
-			continue
-		}
-
-		gasLimit, err := strconv.ParseUint(barterResp.GasLimit, 10, 64)
-		if err != nil {
-			cfg.Logger.Warn("invalid gasLimit from barter", slog.String("gasLimit", barterResp.GasLimit))
-			continue
-		}
-		gasLimit += 50000
-
-		gasPrice, err := cfg.Client.SuggestGasPrice(ctx)
-		if err != nil {
-			cfg.Logger.Warn("suggest gas price failed", slog.Any("error", err))
-			continue
-		}
-
-		expectedGasCost := new(big.Int).Mul(big.NewInt(int64(gasLimit)), gasPrice)
-		expectedEthReturn, ok := new(big.Int).SetString(barterResp.MinReturn, 10)
-		if !ok {
-			cfg.Logger.Warn("invalid MinReturn from barter", slog.String("minReturn", barterResp.MinReturn))
-			continue
-		}
-
-		totalSweepCosts := new(big.Int).Add(expectedGasCost, totalOriginalBidCost)
-		totalSweepCosts.Add(totalSweepCosts, totalOriginalGasCost)
-
-		if expectedEthReturn.Cmp(totalSweepCosts) <= 0 {
-			cfg.Logger.Info("token sweep not yet profitable",
-				slog.String("token", token),
-				slog.Float64("return_eth", weiToEth(expectedEthReturn)),
-				slog.Float64("total_cost_eth", weiToEth(totalSweepCosts)))
-			continue
-		}
-
-		var actualEthReturn *big.Int
-		var actualSwapGasCost *big.Int
-
-		if cfg.DryRun {
-			cfg.Logger.Info("simulated sweep",
-				slog.String("amount", readyTotalSum.String()),
-				slog.String("token", token),
-				slog.Float64("return_eth", weiToEth(expectedEthReturn)),
-				slog.Float64("gas_eth", weiToEth(expectedGasCost)))
-			actualEthReturn = expectedEthReturn
-			actualSwapGasCost = expectedGasCost
-		} else {
-			actualEthReturn, actualSwapGasCost, err = submitFastSwapSweep(ctx, cfg.Logger, cfg.Client, cfg.L1Client, cfg.HTTPClient, cfg.Signer, cfg.ExecutorAddr, common.HexToAddress(token), readyTotalSum, cfg.FastSwapURL, cfg.FundsRecipient, cfg.SettlementAddr, barterResp, cfg.MaxGasGwei)
-			if err != nil {
-				cfg.Logger.Error("failed to sweep token", slog.String("token", token), slog.Any("error", err))
-				continue
-			}
-			cfg.Logger.Info("FastSwap sweep success",
-				slog.String("token", token),
-				slog.Float64("return_eth", weiToEth(actualEthReturn)),
-				slog.Float64("gas_eth", weiToEth(actualSwapGasCost)))
-		}
-
-		for i, r := range readyTxs {
-			surplusWei, _ := new(big.Int).SetString(r.surplus, 10)
-
-			txGrossEth := new(big.Int).Mul(actualEthReturn, surplusWei)
-			txGrossEth.Div(txGrossEth, readyTotalSum)
-
-			txOverheadGas := new(big.Int).Mul(actualSwapGasCost, surplusWei)
-			txOverheadGas.Div(txOverheadGas, readyTotalSum)
-
-			txNetProfit := new(big.Int).Sub(txGrossEth, readyGasCosts[i])
-			txNetProfit.Sub(txNetProfit, readyBidCosts[i])
-			txNetProfit.Sub(txNetProfit, txOverheadGas)
-
-			surplusEth := weiToEth(txGrossEth)
-			netProfitEth := weiToEth(txNetProfit)
-
-			if txNetProfit.Sign() <= 0 {
-				cfg.Logger.Info("no profit for subset tx",
-					slog.String("tx", r.txHash), slog.String("user", r.user),
-					slog.Float64("gross_eth", surplusEth), slog.Float64("net_profit_eth", netProfitEth))
-				if !cfg.DryRun {
-					markProcessed(cfg.DB, r.txHash, surplusEth, netProfitEth, 0, readyBidCosts[i].String())
-				}
-				processed++
-				continue
-			}
-
-			userShare := new(big.Int).Mul(txNetProfit, big.NewInt(90))
-			userShare.Div(userShare, big.NewInt(100))
-
-			miles := new(big.Int).Div(userShare, big.NewInt(weiPerPoint))
-			if miles.Sign() <= 0 {
-				cfg.Logger.Info("sub-threshold subset tx",
-					slog.String("tx", r.txHash), slog.String("user", r.user),
-					slog.Float64("gross_eth", surplusEth), slog.Float64("net_profit_eth", netProfitEth))
-				if !cfg.DryRun {
-					markProcessed(cfg.DB, r.txHash, surplusEth, netProfitEth, 0, readyBidCosts[i].String())
-				}
-				processed++
-				continue
-			}
-
-			cfg.Logger.Info("awarding miles for subset tx",
-				slog.Int64("miles", miles.Int64()), slog.String("user", r.user),
-				slog.String("tx", r.txHash), slog.Float64("gross_eth", surplusEth),
-				slog.Float64("net_profit_eth", netProfitEth))
-
-			if cfg.DryRun {
-				processed++
-				continue
-			}
-
-			// Note: the miles-non-null idempotency check runs upstream, before
-			// batch aggregation — rows with miles already recorded are never
-			// in readyTxs here.
-
-			err := submitToFuel(ctx, cfg.HTTPClient, cfg.FuelURL, cfg.FuelKey,
-				common.HexToAddress(r.user),
-				common.HexToHash(r.txHash),
-				miles,
-			)
-			if err != nil {
-				cfg.Logger.Error("fuel submit failed, will retry next cycle",
-					slog.String("tx", r.txHash), slog.Any("error", err))
-				continue // don't mark processed — retry next cycle
-			}
-			markProcessed(cfg.DB, r.txHash, surplusEth, netProfitEth, miles.Int64(), readyBidCosts[i].String())
+			stats.idempotentSkipped++
 			processed++
+			continue
 		}
+
+		userPaysGas := strings.EqualFold(r.inputToken, zeroAddr.Hex())
+		bidCostWei := getBidCost(erc20BidMap, r.txHash)
+		if bidCostWei.Sign() == 0 {
+			txAge := time.Duration(0)
+			if r.blockTS.Valid {
+				txAge = time.Since(r.blockTS.Time)
+			}
+			inFastRPC := erc20FastRPCSet[strings.ToLower(r.txHash)]
+
+			switch decideBidCheckOutcome(userPaysGas, inFastRPC, r.blockTS.Valid, txAge) {
+			case bidCheckProceed:
+				cfg.Logger.Info("erc20 tx in FastRPC but bid never indexed, processing with 0 bid cost",
+					slog.String("tx", r.txHash), slog.String("user", r.user))
+				// fall through with bidCostWei = 0
+			case bidCheckRetry:
+				cfg.Logger.Info("erc20 tx bid lookup pending, will retry next cycle",
+					slog.String("tx", r.txHash), slog.String("user", r.user),
+					slog.Bool("in_fastrpc", inFastRPC),
+					slog.Bool("user_pays_gas", userPaysGas),
+					slog.Duration("age", txAge))
+				stats.bidRetried++
+				continue
+			case bidCheckOrphan:
+				cfg.Logger.Info("erc20 tx not in FastRPC after retry window, skipping with 0 miles",
+					slog.String("tx", r.txHash), slog.String("user", r.user),
+					slog.Duration("age", txAge))
+				if !cfg.DryRun {
+					// surplus_eth=0 because raw surplus is in output-token
+					// units and weiToEth would yield nonsense for non-ETH
+					// outputs (e.g. PEPE 14,413 ETH). The orphan's surplus
+					// tokens stay in the executor wallet and become
+					// protocol revenue when the cadence sweep eventually
+					// fires for this token.
+					markProcessed(cfg.DB, r.txHash, 0, 0, 0, "0")
+				}
+				stats.orphaned++
+				processed++
+				continue
+			}
+		}
+
+		gasCostWei := big.NewInt(0)
+		// CRITICAL: ETH-input swaps (userPaysGas) MUST NOT subtract gas_cost.
+		// The user paid that L1 gas from their own wallet, not from protocol
+		// revenue. Mirroring this exactly is what the backtest validated as
+		// +18% miles to users; getting it wrong showed -12%.
+		if !userPaysGas && r.gasCost.Valid && r.gasCost.String != "" {
+			if gc, ok := new(big.Int).SetString(r.gasCost.String, 10); ok {
+				gasCostWei = gc
+			}
+		}
+
+		surplusWei, ok := new(big.Int).SetString(r.surplus, 10)
+		if !ok || surplusWei.Sign() <= 0 {
+			cfg.Logger.Warn("bad surplus", slog.String("surplus", r.surplus), slog.String("tx", r.txHash))
+			stats.deferredBadSurplus++
+			continue
+		}
+
+		// Try upfront pricing. nil priceOracle (e.g. dry-run misconfiguration)
+		// causes everything to defer — same as a non-whitelisted token.
+		if cfg.PriceOracle != nil {
+			outputAddr := common.HexToAddress(r.token)
+			inputAddr := common.HexToAddress(r.inputToken)
+			inputAmtBig, _ := new(big.Int).SetString(r.inputAmt, 10)
+			userAmtOutBig, _ := new(big.Int).SetString(r.userAmtOut, 10)
+			surplusEthWei, eligible, source := cfg.PriceOracle.PriceSurplusEth(
+				ctx, inputAddr, outputAddr, inputAmtBig, userAmtOutBig, surplusWei,
+			)
+			if eligible {
+				outcome := awardUpfrontERC20Miles(ctx, cfg, r, surplusEthWei, gasCostWei, bidCostWei, source)
+				switch outcome {
+				case upfrontAwarded:
+					stats.upfrontAwarded++
+					processed++
+				case upfrontNoProfit:
+					stats.upfrontNoProfit++
+					processed++
+				case upfrontSubThreshold:
+					stats.upfrontSubThreshold++
+					processed++
+				case upfrontFuelFailed:
+					stats.upfrontFuelFailed++
+				}
+				continue
+			}
+			cfg.Logger.Debug("erc20 row deferred to sweep-time pricing",
+				slog.String("tx", r.txHash), slog.String("token", r.token),
+				slog.String("reason", source))
+			stats.noteDeferralSource(source)
+		} else {
+			stats.deferredOtherReason++
+		}
+
+		deferredByToken[r.token] = append(deferredByToken[r.token], deferredErc20Row{
+			row:     r,
+			gas:     gasCostWei,
+			bid:     bidCostWei,
+			surplus: surplusWei,
+		})
+	}
+
+	// Second pass: legacy sweep-then-pro-rata path for rows the priceOracle
+	// could not value upfront. Per-token batch, exactly the prior behavior.
+	for token, rows := range deferredByToken {
+		n, err := processDeferredERC20Batch(ctx, cfg, token, rows)
+		if err != nil {
+			cfg.Logger.Warn("deferred erc20 batch failed",
+				slog.String("token", token), slog.Any("error", err))
+		}
+		stats.deferredAwarded += n
+		processed += n
+	}
+
+	// One-line cycle summary. Grep this in Groundcover to see at a glance
+	// whether the upfront path is working and what's flowing through each
+	// branch. Quiet cycles (nothing pending) emit nothing.
+	if stats.total() > 0 {
+		cfg.Logger.Info("erc20_cycle_summary",
+			slog.Int("total", stats.total()),
+			slog.Int("upfront_awarded", stats.upfrontAwarded),
+			slog.Int("upfront_no_profit", stats.upfrontNoProfit),
+			slog.Int("upfront_sub_threshold", stats.upfrontSubThreshold),
+			slog.Int("upfront_fuel_failed", stats.upfrontFuelFailed),
+			slog.Int("deferred_awarded", stats.deferredAwarded),
+			slog.Int("deferred_not_whitelisted", stats.deferredNotWhitelisted),
+			slog.Int("deferred_no_chainlink", stats.deferredNoChainlink),
+			slog.Int("deferred_no_token_decim", stats.deferredNoTokenDecimals),
+			slog.Int("deferred_invalid_event", stats.deferredInvalidEvent),
+			slog.Int("deferred_other", stats.deferredOtherReason),
+			slog.Int("deferred_bad_surplus", stats.deferredBadSurplus),
+			slog.Int("idempotent_skipped", stats.idempotentSkipped),
+			slog.Int("bid_retried", stats.bidRetried),
+			slog.Int("orphaned", stats.orphaned))
 	}
 
 	return processed, nil
+}
+
+// deferredErc20Row carries the parsed wei values alongside the raw row, so
+// the deferred batch processor doesn't have to re-parse strings.
+type deferredErc20Row struct {
+	row     erc20Row
+	gas     *big.Int // wei; zero for ETH-input (userPaysGas)
+	bid     *big.Int // wei
+	surplus *big.Int // raw output-token units
+}
+
+// upfrontOutcome describes how awardUpfrontERC20Miles handled a row, used
+// for cycle-summary stats.
+type upfrontOutcome int
+
+const (
+	// upfrontAwarded — positive miles posted to Fuel and row marked processed.
+	upfrontAwarded upfrontOutcome = iota
+	// upfrontNoProfit — net was non-positive; row settled with miles=0.
+	upfrontNoProfit
+	// upfrontSubThreshold — net positive but below the per-mile floor;
+	// row settled with miles=0.
+	upfrontSubThreshold
+	// upfrontFuelFailed — Fuel submission errored; row stays pending for
+	// retry next cycle.
+	upfrontFuelFailed
+)
+
+// awardUpfrontERC20Miles applies the new design's per-row formula and posts
+// miles immediately.
+//
+//	net = surplus_eth - deductible_user_gas - user_bid - estimated_overhead
+//	miles = max(0, net × 0.9 / weiPerPoint)
+//
+// estimated_overhead comes from the per-token p25 of realized sweep overhead
+// (costEstimator). The protocol absorbs variance between estimate and
+// realized; reconciliationMonitor catches drift over weeks.
+func awardUpfrontERC20Miles(
+	ctx context.Context,
+	cfg *serviceConfig,
+	r erc20Row,
+	surplusEthWei, gasCostWei, bidCostWei *big.Int,
+	pricingSource string,
+) upfrontOutcome {
+	overheadFloat := costEstimateLastResort
+	overheadSource := "default_no_data"
+	if cfg.CostEstimator != nil {
+		est := cfg.CostEstimator.Get(r.token)
+		overheadFloat = est.PerRowOverhead
+		overheadSource = est.Source
+	}
+	overheadWei := ethFloatToWei(overheadFloat)
+
+	netProfit := new(big.Int).Sub(surplusEthWei, gasCostWei)
+	netProfit.Sub(netProfit, bidCostWei)
+	netProfit.Sub(netProfit, overheadWei)
+
+	surplusEth := weiToEth(surplusEthWei)
+	netProfitEth := weiToEth(netProfit)
+
+	if netProfit.Sign() <= 0 {
+		cfg.Logger.Info("no upfront profit",
+			slog.String("tx", r.txHash), slog.String("user", r.user),
+			slog.String("token", r.token),
+			slog.String("pricing", pricingSource),
+			slog.String("overhead_src", overheadSource),
+			slog.Float64("surplus_eth", surplusEth),
+			slog.Float64("overhead_eth", overheadFloat),
+			slog.Float64("net_profit_eth", netProfitEth))
+		if !cfg.DryRun {
+			markProcessed(cfg.DB, r.txHash, surplusEth, netProfitEth, 0, bidCostWei.String())
+		}
+		return upfrontNoProfit
+	}
+
+	userShare := new(big.Int).Mul(netProfit, big.NewInt(90))
+	userShare.Div(userShare, big.NewInt(100))
+
+	miles := new(big.Int).Div(userShare, big.NewInt(weiPerPoint))
+	if miles.Sign() <= 0 {
+		cfg.Logger.Info("sub-threshold upfront",
+			slog.String("tx", r.txHash), slog.String("user", r.user),
+			slog.String("token", r.token),
+			slog.String("pricing", pricingSource),
+			slog.Float64("surplus_eth", surplusEth),
+			slog.Float64("net_profit_eth", netProfitEth))
+		if !cfg.DryRun {
+			markProcessed(cfg.DB, r.txHash, surplusEth, netProfitEth, 0, bidCostWei.String())
+		}
+		return upfrontSubThreshold
+	}
+
+	cfg.Logger.Info("awarding upfront erc20 miles",
+		slog.Int64("miles", miles.Int64()),
+		slog.String("user", r.user), slog.String("tx", r.txHash),
+		slog.String("token", r.token),
+		slog.String("pricing", pricingSource),
+		slog.String("overhead_src", overheadSource),
+		slog.Float64("surplus_eth", surplusEth),
+		slog.Float64("overhead_eth", overheadFloat),
+		slog.Float64("net_profit_eth", netProfitEth))
+
+	if cfg.DryRun {
+		return upfrontAwarded
+	}
+
+	if err := submitToFuel(ctx, cfg.HTTPClient, cfg.FuelURL, cfg.FuelKey,
+		common.HexToAddress(r.user),
+		common.HexToHash(r.txHash),
+		miles,
+	); err != nil {
+		cfg.Logger.Error("fuel submit failed, will retry next cycle",
+			slog.String("tx", r.txHash), slog.Any("error", err))
+		return upfrontFuelFailed
+	}
+	markProcessed(cfg.DB, r.txHash, surplusEth, netProfitEth, miles.Int64(), bidCostWei.String())
+	return upfrontAwarded
+}
+
+// processDeferredERC20Batch is the legacy sweep-then-pro-rata path for rows
+// the priceOracle couldn't value upfront. Behavior matches the prior
+// processERC20Miles batch logic exactly — per-token Barter quote,
+// profitability gate that includes user gas and bid cost, sweep submission,
+// pro-rata miles per row.
+func processDeferredERC20Batch(ctx context.Context, cfg *serviceConfig, token string, rows []deferredErc20Row) (int, error) {
+	if len(rows) == 0 {
+		return 0, nil
+	}
+
+	processed := 0
+	totalOriginalGasCost := big.NewInt(0)
+	totalOriginalBidCost := big.NewInt(0)
+	readyTotalSum := big.NewInt(0)
+	for _, d := range rows {
+		totalOriginalGasCost.Add(totalOriginalGasCost, d.gas)
+		totalOriginalBidCost.Add(totalOriginalBidCost, d.bid)
+		readyTotalSum.Add(readyTotalSum, d.surplus)
+	}
+
+	reqBody := barterRequest{
+		Source:            token,
+		Target:            cfg.WETH.Hex(),
+		SellAmount:        readyTotalSum.String(),
+		Recipient:         cfg.ExecutorAddr.Hex(),
+		Origin:            cfg.ExecutorAddr.Hex(),
+		MinReturnFraction: 0.98,
+		Deadline:          fmt.Sprintf("%d", time.Now().Add(10*time.Minute).Unix()),
+	}
+
+	barterResp, err := callBarter(ctx, cfg.HTTPClient, cfg.BarterURL, cfg.BarterKey, reqBody)
+	if err != nil {
+		// "Amount too low" is Barter's response when the input is below its
+		// per-token minimum and is the normal steady state for early/small
+		// batches — log at debug so it doesn't flood the warn stream. Other
+		// errors (timeouts, 5xx, malformed responses) still bubble up to the
+		// caller's warn log.
+		if isBarterAmountTooLow(err) {
+			cfg.Logger.Debug("deferred batch under barter minimum",
+				slog.String("token", token),
+				slog.Int("batch_size", len(rows)),
+				slog.String("amount", readyTotalSum.String()))
+			return processed, nil
+		}
+		return processed, fmt.Errorf("callBarter: %w", err)
+	}
+
+	gasLimit, err := strconv.ParseUint(barterResp.GasLimit, 10, 64)
+	if err != nil {
+		return processed, fmt.Errorf("invalid gasLimit %q: %w", barterResp.GasLimit, err)
+	}
+	gasLimit += 50000
+
+	gasPrice, err := cfg.Client.SuggestGasPrice(ctx)
+	if err != nil {
+		return processed, fmt.Errorf("suggest gas price: %w", err)
+	}
+
+	expectedGasCost := new(big.Int).Mul(big.NewInt(int64(gasLimit)), gasPrice)
+	expectedEthReturn, ok := new(big.Int).SetString(barterResp.MinReturn, 10)
+	if !ok {
+		return processed, fmt.Errorf("invalid MinReturn from barter: %s", barterResp.MinReturn)
+	}
+
+	totalSweepCosts := new(big.Int).Add(expectedGasCost, totalOriginalBidCost)
+	totalSweepCosts.Add(totalSweepCosts, totalOriginalGasCost)
+
+	if expectedEthReturn.Cmp(totalSweepCosts) <= 0 {
+		// Debug-only: counts in erc20_cycle_summary's deferred_other_reason
+		// are the info-level signal that deferred rows are accumulating
+		// without being profitable.
+		cfg.Logger.Debug("deferred token sweep not yet profitable",
+			slog.String("token", token),
+			slog.Int("batch_size", len(rows)),
+			slog.Float64("return_eth", weiToEth(expectedEthReturn)),
+			slog.Float64("total_cost_eth", weiToEth(totalSweepCosts)))
+		return processed, nil
+	}
+
+	var actualEthReturn, actualSwapGasCost *big.Int
+	if cfg.DryRun {
+		cfg.Logger.Info("simulated deferred sweep",
+			slog.String("amount", readyTotalSum.String()),
+			slog.String("token", token),
+			slog.Float64("return_eth", weiToEth(expectedEthReturn)),
+			slog.Float64("gas_eth", weiToEth(expectedGasCost)))
+		actualEthReturn = expectedEthReturn
+		actualSwapGasCost = expectedGasCost
+	} else {
+		actualEthReturn, actualSwapGasCost, err = submitFastSwapSweep(ctx, cfg.Logger, cfg.Client, cfg.L1Client, cfg.HTTPClient, cfg.Signer, cfg.ExecutorAddr, common.HexToAddress(token), readyTotalSum, cfg.FastSwapURL, cfg.FundsRecipient, cfg.SettlementAddr, barterResp, cfg.MaxGasGwei)
+		if err != nil {
+			return processed, fmt.Errorf("submit sweep: %w", err)
+		}
+		cfg.Logger.Info("deferred sweep success",
+			slog.String("token", token),
+			slog.Int("batch_size", len(rows)),
+			slog.Float64("return_eth", weiToEth(actualEthReturn)),
+			slog.Float64("gas_eth", weiToEth(actualSwapGasCost)))
+		// Cadence sweep loop should not double-sweep this token immediately;
+		// mark its clock now so it respects the cadence floor.
+		if cfg.SweepClock != nil {
+			cfg.SweepClock.MarkSwept(common.HexToAddress(token), time.Now())
+		}
+	}
+
+	for _, d := range rows {
+		txGrossEth := new(big.Int).Mul(actualEthReturn, d.surplus)
+		txGrossEth.Div(txGrossEth, readyTotalSum)
+
+		txOverheadGas := new(big.Int).Mul(actualSwapGasCost, d.surplus)
+		txOverheadGas.Div(txOverheadGas, readyTotalSum)
+
+		txNetProfit := new(big.Int).Sub(txGrossEth, d.gas)
+		txNetProfit.Sub(txNetProfit, d.bid)
+		txNetProfit.Sub(txNetProfit, txOverheadGas)
+
+		surplusEth := weiToEth(txGrossEth)
+		netProfitEth := weiToEth(txNetProfit)
+
+		if txNetProfit.Sign() <= 0 {
+			cfg.Logger.Info("no profit for deferred subset tx",
+				slog.String("tx", d.row.txHash), slog.String("user", d.row.user),
+				slog.Float64("gross_eth", surplusEth), slog.Float64("net_profit_eth", netProfitEth))
+			if !cfg.DryRun {
+				markProcessed(cfg.DB, d.row.txHash, surplusEth, netProfitEth, 0, d.bid.String())
+			}
+			processed++
+			continue
+		}
+
+		userShare := new(big.Int).Mul(txNetProfit, big.NewInt(90))
+		userShare.Div(userShare, big.NewInt(100))
+		miles := new(big.Int).Div(userShare, big.NewInt(weiPerPoint))
+		if miles.Sign() <= 0 {
+			cfg.Logger.Info("sub-threshold deferred subset tx",
+				slog.String("tx", d.row.txHash), slog.String("user", d.row.user),
+				slog.Float64("gross_eth", surplusEth), slog.Float64("net_profit_eth", netProfitEth))
+			if !cfg.DryRun {
+				markProcessed(cfg.DB, d.row.txHash, surplusEth, netProfitEth, 0, d.bid.String())
+			}
+			processed++
+			continue
+		}
+
+		cfg.Logger.Info("awarding deferred miles for subset tx",
+			slog.Int64("miles", miles.Int64()), slog.String("user", d.row.user),
+			slog.String("tx", d.row.txHash), slog.Float64("gross_eth", surplusEth),
+			slog.Float64("net_profit_eth", netProfitEth))
+
+		if cfg.DryRun {
+			processed++
+			continue
+		}
+
+		if err := submitToFuel(ctx, cfg.HTTPClient, cfg.FuelURL, cfg.FuelKey,
+			common.HexToAddress(d.row.user),
+			common.HexToHash(d.row.txHash),
+			miles,
+		); err != nil {
+			cfg.Logger.Error("fuel submit failed, will retry next cycle",
+				slog.String("tx", d.row.txHash), slog.Any("error", err))
+			continue
+		}
+		markProcessed(cfg.DB, d.row.txHash, surplusEth, netProfitEth, miles.Int64(), d.bid.String())
+		processed++
+	}
+
+	return processed, nil
+}
+
+// ethFloatToWei converts a float ETH amount to wei (big.Int). Used to bring
+// the cost-estimator's float overhead into the wei domain where the rest of
+// the miles arithmetic lives.
+func ethFloatToWei(eth float64) *big.Int {
+	wei, _ := new(big.Float).Mul(big.NewFloat(eth), big.NewFloat(1e18)).Int(nil)
+	if wei == nil {
+		return big.NewInt(0)
+	}
+	return wei
 }
 
 // -------------------- Bid Cost / FastRPC Lookups --------------------
