@@ -124,6 +124,10 @@ type sourceFee struct {
 
 // ============ Service ============
 
+// minGasLimit prevents OOG from the EIP-150 63/64 cascade on simple routes
+// where Barter's small GasEstimation produces a tight gasLimit.
+const minGasLimit = 525_000
+
 // Mainnet WETH address
 var mainnetWETH = common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
 
@@ -393,7 +397,7 @@ func (s *Service) HandleSwap(ctx context.Context, req SwapRequest) (*SwapResult,
 	// Barter's GasEstimation covers their swap routing gas. We add 135k for
 	// settlement contract + permit2 overhead, then apply 2.5x on the estimation
 	// to cover variance across different swap routes.
-	gasLimit := uint64(float64(barterResp.Route.GasEstimation)*2.5) + 135000
+	gasLimit := max(uint64(float64(barterResp.Route.GasEstimation)*2.5)+135000, minGasLimit)
 
 	// 4. Get nonce for executor wallet
 	// Use same logic as sender's hasCorrectNonce
@@ -737,7 +741,7 @@ func (s *Service) HandleETHSwap(ctx context.Context, req ETHSwapRequest) (*ETHSw
 
 	// 3. Calculate gas limit from Barter's gas estimation + settlement overhead.
 	// ETH path has additional WETH wrap overhead (~17k) on top of permit path overhead.
-	gasLimit := uint64(float64(barterResp.Route.GasEstimation)*2.5) + 152000
+	gasLimit := max(uint64(float64(barterResp.Route.GasEstimation)*2.5)+152000, minGasLimit)
 
 	s.logger.Info("ETH swap request processed",
 		"sender", req.Sender.Hex(),
