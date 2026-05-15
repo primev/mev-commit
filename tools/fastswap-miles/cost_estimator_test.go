@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func newTestEstimator() *costEstimator {
@@ -16,7 +18,7 @@ func newTestEstimator() *costEstimator {
 
 func TestCostEstimator_Get_NoData_FallsBackToLastResort(t *testing.T) {
 	// Exercise the real constructor so it's not unused.
-	c := newCostEstimator(nil, slog.Default())
+	c := newCostEstimator(nil, slog.Default(), common.Address{}, common.Address{})
 	got := c.Get("0xdeadbeef")
 	if got.Source != "default_no_data" {
 		t.Errorf("source = %q, want default_no_data", got.Source)
@@ -89,5 +91,21 @@ func TestCostEstimateLastResort_Reasonable(t *testing.T) {
 	// novel-token swap will be modest, low enough that it's not impossible.
 	if costEstimateLastResort < 1e-4 || costEstimateLastResort > 1e-2 {
 		t.Errorf("costEstimateLastResort = %v, expected within [1e-4, 1e-2] sanity range", costEstimateLastResort)
+	}
+}
+
+func TestCostEstimator_Constructor_LowercasesAddresses(t *testing.T) {
+	// Sweep-bid lookup queries compare against LOWER(user_address) and
+	// LOWER(output_token), so the addresses stored on the estimator MUST be
+	// lowercased. A mixed-case stored value would silently match zero rows
+	// and the sweep bid term would never fire.
+	exec := common.HexToAddress("0x959DAD78D5B68986a43cD270134A2704a990aa68")
+	weth := common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
+	c := newCostEstimator(nil, slog.Default(), exec, weth)
+	if c.executorAddr != strings.ToLower(exec.Hex()) {
+		t.Errorf("executorAddr = %q, want %q", c.executorAddr, strings.ToLower(exec.Hex()))
+	}
+	if c.wethAddr != strings.ToLower(weth.Hex()) {
+		t.Errorf("wethAddr = %q, want %q", c.wethAddr, strings.ToLower(weth.Hex()))
 	}
 }

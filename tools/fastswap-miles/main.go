@@ -246,7 +246,7 @@ func main() {
 				return fmt.Errorf("newPriceOracle: %w", err)
 			}
 			cfg.PriceOracle = priceOracle
-			cfg.CostEstimator = newCostEstimator(db, logger)
+			cfg.CostEstimator = newCostEstimator(db, logger, executorAddr, weth)
 			cfg.GasBuffer = newGasBuffer(db, logger)
 			cfg.SweepClock = newSweepClock()
 			reconciliation := newReconciliationMonitor(db, logger,
