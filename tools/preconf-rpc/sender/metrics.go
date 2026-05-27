@@ -40,13 +40,13 @@ func newMetrics() *metrics {
 			Subsystem: "sender",
 			Name:      "preconfirmation_durations_provider_ms",
 			Help:      "Duration taken for pre-confirmation by provider in milliseconds.",
-		}, []string{"provider"}),
+		}, []string{"provider", "name"}),
 		preconfCountsProvider: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "fastrpc",
 			Subsystem: "sender",
 			Name:      "preconfirmation_counts_provider_total",
 			Help:      "Total number of pre-confirmations by provider.",
-		}, []string{"provider"}),
+		}, []string{"provider", "name"}),
 		blockAttemptsToConfirmation: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: "fastrpc",
 			Subsystem: "sender",
