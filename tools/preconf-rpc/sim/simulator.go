@@ -64,6 +64,11 @@ var (
 	Pending SimState = "pending"
 )
 
+// AtBlock returns a SimState that pins simulation to a specific block number.
+func AtBlock(blockNumber uint64) SimState {
+	return SimState(fmt.Sprintf("0x%x", blockNumber))
+}
+
 // Simulator is the external rethsim simulator with fallback support
 type Simulator struct {
 	apiURLs []string
