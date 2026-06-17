@@ -7,7 +7,7 @@ toolchain go1.24.0
 require (
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/google/go-cmp v0.6.0
-	github.com/lib/pq v1.10.9
+	github.com/lib/pq v1.12.3
 	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/primev/mev-commit/x v0.0.1
 	github.com/prometheus/client_golang v1.19.1
