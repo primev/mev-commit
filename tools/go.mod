@@ -8,7 +8,7 @@ require (
 	github.com/cloudflare/circl v1.5.0
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/gorilla/mux v1.8.1
-	github.com/hashicorp/go-retryablehttp v0.7.7
+	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/primev/mev-commit/bridge/standard v0.0.1 // indirect
