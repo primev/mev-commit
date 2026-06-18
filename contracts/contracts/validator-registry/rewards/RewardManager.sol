@@ -8,7 +8,7 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {VanillaRegistryStorage} from "../VanillaRegistryStorage.sol";
+import {VanillaRegistryStorageV2} from "../VanillaRegistryStorageV2.sol";
 import {MevCommitAVSStorage} from "../avs/MevCommitAVSStorage.sol";
 import {MevCommitMiddlewareStorage} from "../middleware/MevCommitMiddlewareStorage.sol";
 
@@ -203,7 +203,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
 
     function _setVanillaRegistry(address vanillaRegistry) internal {
         require(vanillaRegistry != address(0), InvalidAddress());
-        _vanillaRegistry = VanillaRegistryStorage(vanillaRegistry);
+        _vanillaRegistry = VanillaRegistryStorageV2(vanillaRegistry);
         emit VanillaRegistrySet(vanillaRegistry);
     }
 

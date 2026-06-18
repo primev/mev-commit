@@ -172,7 +172,7 @@
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct IVanillaRegistry.StakedValidator",
+        "internalType": "struct IVanillaRegistryV2.StakedValidator",
         "components": [
           {
             "name": "exists",

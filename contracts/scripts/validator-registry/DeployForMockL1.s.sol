@@ -8,7 +8,7 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {VanillaRegistry} from "../../contracts/validator-registry/VanillaRegistry.sol";
+import {VanillaRegistryV2} from "../../contracts/validator-registry/VanillaRegistryV2.sol";
 import {ValidatorOptInRouter} from "../../contracts/validator-registry/ValidatorOptInRouter.sol";
 
 contract AlwaysFalseAVS {
@@ -35,14 +35,14 @@ contract DeployForMockL1 is Script {
         address owner = msg.sender;
 
         address vanillaRegistryProxy = Upgrades.deployUUPSProxy(
-            "VanillaRegistry.sol",
+            "VanillaRegistryV2.sol",
             abi.encodeCall(
-                VanillaRegistry.initialize,
+                VanillaRegistryV2.initialize,
                 (minStake, slashOracle, slashReceiver, unstakePeriodBlocks, payoutPeriodBlocks, owner)
             )
         );
-        console.log("_VanillaRegistry:", vanillaRegistryProxy);
-        VanillaRegistry vanillaRegistry = VanillaRegistry(payable(vanillaRegistryProxy));
+        console.log("_VanillaRegistryV2:", vanillaRegistryProxy);
+        VanillaRegistryV2 vanillaRegistry = VanillaRegistryV2(payable(vanillaRegistryProxy));
 
         address[] memory stakers = new address[](1);
         stakers[0] = owner;

@@ -2,13 +2,13 @@
 pragma solidity 0.8.26;
 
 import {Test} from"forge-std/Test.sol";
-import {VanillaRegistry} from"../../contracts/validator-registry/VanillaRegistry.sol";
+import {VanillaRegistryV2} from"../../contracts/validator-registry/VanillaRegistryV2.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
+import {IVanillaRegistryV2} from "../../contracts/interfaces/IVanillaRegistryV2.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
-contract VanillaRegistryTest is Test {
-    VanillaRegistry public validatorRegistry;
+contract VanillaRegistryV2Test is Test {
+    VanillaRegistryV2 public validatorRegistry;
     address public owner;
     address public user1;
     address public user2;
@@ -46,10 +46,10 @@ contract VanillaRegistryTest is Test {
         assertEq(user2BLSKey.length, 48);
         
         address proxy = Upgrades.deployUUPSProxy(
-            "VanillaRegistry.sol",
-            abi.encodeCall(VanillaRegistry.initialize, (MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, PAYOUT_PERIOD, owner))
+            "VanillaRegistryV2.sol",
+            abi.encodeCall(VanillaRegistryV2.initialize, (MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, PAYOUT_PERIOD, owner))
         );
-        validatorRegistry = VanillaRegistry(payable(proxy));
+        validatorRegistry = VanillaRegistryV2(payable(proxy));
     }
 
     function testSecondInitialize() public {
@@ -66,7 +66,7 @@ contract VanillaRegistryTest is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
 
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.SenderIsNotWhitelistedStaker.selector, user1));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.SenderIsNotWhitelistedStaker.selector, user1));
         vm.prank(user1);
         validatorRegistry.stake{value: MIN_STAKE}(validators);
 
@@ -100,7 +100,7 @@ contract VanillaRegistryTest is Test {
         validators[0] = user2BLSKey;
 
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.SenderIsNotWhitelistedStaker.selector, user1));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.SenderIsNotWhitelistedStaker.selector, user1));
         validatorRegistry.stake{value: MIN_STAKE}(validators);
         vm.stopPrank();
 
@@ -197,7 +197,7 @@ contract VanillaRegistryTest is Test {
         validators[0] = user1BLSKey;
 
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakeTooLowForNumberOfKeys.selector, MIN_STAKE/2, MIN_STAKE));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.StakeTooLowForNumberOfKeys.selector, MIN_STAKE/2, MIN_STAKE));
         validatorRegistry.stake{value: MIN_STAKE/2}(validators);
 
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
@@ -209,11 +209,11 @@ contract VanillaRegistryTest is Test {
         assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
 
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakeTooLowForNumberOfKeys.selector, 0, 1));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.StakeTooLowForNumberOfKeys.selector, 0, 1));
         validatorRegistry.addStake{value: 0}(validators);
 
         vm.prank(user2);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.SenderIsNotWithdrawalAddress.selector, user2, user1));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.SenderIsNotWithdrawalAddress.selector, user2, user1));
         validatorRegistry.addStake{value: MIN_STAKE/2}(validators);
 
         vm.prank(user1);
@@ -231,7 +231,7 @@ contract VanillaRegistryTest is Test {
         assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 0);
 
         vm.startPrank(user2);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user2BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustExist.selector, user2BLSKey));
         validatorRegistry.unstake(validators);
         vm.stopPrank();
         assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 0);
@@ -242,7 +242,7 @@ contract VanillaRegistryTest is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.startPrank(user2);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.SenderIsNotWithdrawalAddress.selector, user2, user1));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.SenderIsNotWithdrawalAddress.selector, user2, user1));
         validatorRegistry.unstake(validators);
         vm.stopPrank();
     }
@@ -270,7 +270,7 @@ contract VanillaRegistryTest is Test {
         bothValidators[0] = user1BLSKey;
         bothValidators[1] = user2BLSKey;
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.SenderIsNotWithdrawalAddress.selector, user1, user2));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.SenderIsNotWithdrawalAddress.selector, user1, user2));
         validatorRegistry.unstake(bothValidators);
     }
 
@@ -285,7 +285,7 @@ contract VanillaRegistryTest is Test {
         vm.roll(500);
 
         vm.prank(user2);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector, 
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.WithdrawalAddressMismatch.selector, 
         user1, // actual from validator record
         user2)); // expected from msg.sender
         validatorRegistry.withdraw(validators);
@@ -318,7 +318,7 @@ contract VanillaRegistryTest is Test {
         bothValidators[0] = user1BLSKey;
         bothValidators[1] = user2BLSKey;
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector,
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.WithdrawalAddressMismatch.selector,
         user2, // actual from validator record
         user1)); // expected from msg.sender
         validatorRegistry.withdraw(bothValidators);
@@ -332,7 +332,7 @@ contract VanillaRegistryTest is Test {
         validators[0] = user1BLSKey;
 
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.MustUnstakeToWithdraw.selector));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.MustUnstakeToWithdraw.selector));
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
     }
@@ -378,14 +378,14 @@ contract VanillaRegistryTest is Test {
         vm.stopPrank();
 
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorCannotBeUnstaking.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorCannotBeUnstaking.selector, user1BLSKey));
         validatorRegistry.unstake(validators);
         vm.stopPrank();
 
         vm.roll(500);
 
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorCannotBeUnstaking.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorCannotBeUnstaking.selector, user1BLSKey));
         validatorRegistry.unstake(validators);
         vm.stopPrank();
     }
@@ -407,14 +407,14 @@ contract VanillaRegistryTest is Test {
         assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
 
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustNotExist.selector, user1BLSKey));
         validatorRegistry.stake{value: MIN_STAKE}(validators);
         vm.stopPrank();
 
         vm.roll(500);
 
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustNotExist.selector, user1BLSKey));
         validatorRegistry.stake{value: MIN_STAKE}(validators);
         vm.stopPrank();
 
@@ -425,7 +425,7 @@ contract VanillaRegistryTest is Test {
 
         vm.deal(user2, 10 ether);
         vm.startPrank(user2);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustNotExist.selector, user1BLSKey));
         validatorRegistry.stake{value: MIN_STAKE}(validators);
         vm.stopPrank();
 
@@ -483,7 +483,7 @@ contract VanillaRegistryTest is Test {
     }
 
     function testSlashMinStakeIncreased() public {
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustExist.selector, user1BLSKey));
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.prank(SLASH_ORACLE);
@@ -514,7 +514,7 @@ contract VanillaRegistryTest is Test {
     function testUnauthorizedSlash() public {
         testSelfStake();
 
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.SenderIsNotSlashOracle.selector, user2, SLASH_ORACLE));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.SenderIsNotSlashOracle.selector, user2, SLASH_ORACLE));
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.prank(user2);
@@ -705,7 +705,7 @@ contract VanillaRegistryTest is Test {
     function testGetBlocksTillWithdrawAllowed() public {
         testSelfStake();
 
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.MustUnstakeToWithdraw.selector));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.MustUnstakeToWithdraw.selector));
         validatorRegistry.getBlocksTillWithdrawAllowed(user2BLSKey);
 
         assertEq(block.number, 1);
@@ -734,7 +734,7 @@ contract VanillaRegistryTest is Test {
         assertEq(blocksTillWithdraw, 1);
 
         vm.startPrank(user1);
-        vm.expectRevert(IVanillaRegistry.WithdrawingTooSoon.selector);
+        vm.expectRevert(IVanillaRegistryV2.WithdrawingTooSoon.selector);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
 
@@ -793,7 +793,7 @@ contract VanillaRegistryTest is Test {
 
         vm.roll(30);
         vm.prank(user1);
-        vm.expectRevert(IVanillaRegistry.WithdrawingTooSoon.selector);
+        vm.expectRevert(IVanillaRegistryV2.WithdrawingTooSoon.selector);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
 
@@ -937,7 +937,7 @@ contract VanillaRegistryTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(
-            abi.encodeWithSelector(IVanillaRegistry.ValidatorCannotBeUnstaking.selector, user1BLSKey)
+            abi.encodeWithSelector(IVanillaRegistryV2.ValidatorCannotBeUnstaking.selector, user1BLSKey)
         );
         validatorRegistry.addStake{value: MIN_STAKE}(validators);
     }
@@ -959,7 +959,7 @@ contract VanillaRegistryTest is Test {
         vm.deal(user1, 100 wei);
 
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakeTooLowForNumberOfKeys.selector, 80, 90));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.StakeTooLowForNumberOfKeys.selector, 80, 90));
         validatorRegistry.stake{value: 80 wei}(validators);
 
         assertEq(address(validatorRegistry).balance, 0);
@@ -999,7 +999,7 @@ contract VanillaRegistryTest is Test {
         validators[1] = user2BLSKey;
 
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustExist.selector, user1BLSKey));
         validatorRegistry.forceWithdrawalAsOwner(validators, user1);
 
         testMultiStake();
@@ -1015,13 +1015,13 @@ contract VanillaRegistryTest is Test {
         validatorRegistry.forceWithdrawalAsOwner(validators, user1);
 
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawingTooSoon.selector));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.WithdrawingTooSoon.selector));
         validatorRegistry.forceWithdrawalAsOwner(validators, user1);
 
         vm.roll(200);
 
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector, user1, user2));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.WithdrawalAddressMismatch.selector, user1, user2));
         validatorRegistry.forceWithdrawalAsOwner(validators, user2);
 
         assertEq(address(validatorRegistry).balance, 6 ether);
@@ -1052,7 +1052,7 @@ contract VanillaRegistryTest is Test {
         assertEq(owner.balance, ownerBefore);
 
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustExist.selector, user1BLSKey));
         validatorRegistry.forceWithdrawalAsOwner(validators, user1);
     }
 
@@ -1066,7 +1066,7 @@ contract VanillaRegistryTest is Test {
 
         vm.roll(500);
 
-        IVanillaRegistry.StakedValidator memory stakedValidator = validatorRegistry.getStakedValidator(user1BLSKey);
+        IVanillaRegistryV2.StakedValidator memory stakedValidator = validatorRegistry.getStakedValidator(user1BLSKey);
         assertTrue(stakedValidator.exists);
         assertEq(stakedValidator.balance, 0);
         assertEq(stakedValidator.withdrawalAddress, user1);
@@ -1102,7 +1102,7 @@ contract VanillaRegistryTest is Test {
 
         vm.roll(200);
 
-        IVanillaRegistry.StakedValidator memory stakedValidator = validatorRegistry.getStakedValidator(user1BLSKey);
+        IVanillaRegistryV2.StakedValidator memory stakedValidator = validatorRegistry.getStakedValidator(user1BLSKey);
         assertTrue(stakedValidator.exists);
         assertEq(stakedValidator.balance, 2 ether);
         assertEq(stakedValidator.withdrawalAddress, user1);
@@ -1145,17 +1145,17 @@ contract VanillaRegistryTest is Test {
 
         vm.deal(user1, 3 * MIN_STAKE);
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustNotExist.selector, user1BLSKey));
         validatorRegistry.stake{value: 3 * MIN_STAKE}(validators);
 
         vm.deal(owner, 3 * MIN_STAKE);
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user1BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustNotExist.selector, user1BLSKey));
         validatorRegistry.delegateStake{value: 3 * MIN_STAKE}(validators, user1);
 
         validators[2] = user2BLSKey;
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user2BLSKey));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.ValidatorRecordMustNotExist.selector, user2BLSKey));
         validatorRegistry.stake{value: 3 * MIN_STAKE}(validators);
 
         validators[2] = user3BLSKey;
@@ -1176,7 +1176,7 @@ contract VanillaRegistryTest is Test {
         validatorRegistry.whitelistStakers(stakers);
 
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakerAlreadyWhitelisted.selector, user1));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.StakerAlreadyWhitelisted.selector, user1));
         validatorRegistry.whitelistStakers(stakers);
     }
 
@@ -1184,7 +1184,7 @@ contract VanillaRegistryTest is Test {
         vm.prank(owner);
         address[] memory stakers = new address[](1);
         stakers[0] = user1;
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakerNotWhitelisted.selector, user1));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistryV2.StakerNotWhitelisted.selector, user1));
         validatorRegistry.removeWhitelistedStakers(stakers);
     }
 

@@ -34,7 +34,7 @@ extract_and_save_abi "$BASE_DIR/out/SettlementGateway.sol/SettlementGateway.json
 # Extract ABI for L1Gateway.json
 extract_and_save_abi "$BASE_DIR/out/L1Gateway.sol/L1Gateway.json" "$ABI_DIR/L1Gateway.abi"
 
-extract_and_save_abi "$BASE_DIR/out/VanillaRegistry.sol/VanillaRegistry.json" "$ABI_DIR/VanillaRegistry.abi"
+extract_and_save_abi "$BASE_DIR/out/VanillaRegistryV2.sol/VanillaRegistryV2.json" "$ABI_DIR/VanillaRegistry.abi"
 
 extract_and_save_abi "$BASE_DIR/out/BlockTracker.sol/BlockTracker.json" "$ABI_DIR/BlockTracker.abi"
 

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-import {VanillaRegistryStorage} from "../VanillaRegistryStorage.sol";
+import {VanillaRegistryStorageV2} from "../VanillaRegistryStorageV2.sol";
 import {MevCommitAVSStorage} from "../avs/MevCommitAVSStorage.sol";
 import {MevCommitMiddlewareStorage} from "../middleware/MevCommitMiddlewareStorage.sol";
 
 contract RewardManagerStorage {
 
     /// Storage reference to the VanillaRegistry contract.
-    VanillaRegistryStorage internal _vanillaRegistry;
+    VanillaRegistryStorageV2 internal _vanillaRegistry;
 
     /// Storage reference to the MevCommitAVS contract.
     MevCommitAVSStorage internal _mevCommitAVS;
