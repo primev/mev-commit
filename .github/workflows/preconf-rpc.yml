@@ -1,0 +1,180 @@
+name: preconf-rpc
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'tools/preconf-rpc/**'
+      - 'x/**'
+      - 'contracts-abi/**'
+      - 'infrastructure/docker/Dockerfile.rpc'
+      - 'infrastructure/docker/Dockerfile.builder'
+      - 'infrastructure/docker/docker-bake.hcl'
+      - '.github/workflows/preconf-rpc.yml'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even without code changes'
+        type: boolean
+        default: false
+      skip_infra_pr:
+        description: 'Skip creating infra PR'
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io/primev
+  IMAGE_NAME: preconf-rpc
+  INFRA_REPO: primev/infra
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: go.work.sum
+
+      - name: Run Tests
+        run: go test -race -v ./tools/preconf-rpc/...
+
+  build-push:
+    name: Build & Push
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+      image_url: ${{ steps.meta.outputs.image_url }}
+      short_sha: ${{ steps.meta.outputs.short_sha }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Generate Image Metadata
+        id: meta
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          TAG="main-${SHORT_SHA}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "image_url=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${TAG}"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Image
+        working-directory: infrastructure/docker
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          GIT_BRANCH: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+        run: |
+          docker buildx bake preconf-rpc \
+            --set "preconf-rpc.tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}" \
+            --set "preconf-rpc.tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" \
+            --set "*.platform=linux/amd64" \
+            --push
+
+          echo "### Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** \`${TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+  create-infra-pr:
+    name: Create Infra PR
+    needs: build-push
+    runs-on: ubuntu-24.04
+    if: ${{ github.event.inputs.skip_infra_pr != 'true' }}
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.INFRA_APP_ID }}
+          private-key: ${{ secrets.INFRA_APP_PRIVATE_KEY }}
+          owner: primev
+          repositories: infra
+
+      - name: Checkout Infra Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: infra
+
+      - name: Update Image Tag
+        working-directory: infra
+        env:
+          NEW_TAG: ${{ needs.build-push.outputs.image_tag }}
+          NEW_REPO: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: |
+          # Update repository and tag in prod-values.yaml
+          # The image section is NOT encrypted, so we can edit directly
+          sed -i "s|repository:.*|repository: ${NEW_REPO}|" charts/mev-commit-preconf-rpc/prod-values.yaml
+          sed -i "s|tag:.*|tag: ${NEW_TAG}|" charts/mev-commit-preconf-rpc/prod-values.yaml
+          
+          echo "Updated prod-values.yaml:"
+          grep -A2 "^image:" charts/mev-commit-preconf-rpc/prod-values.yaml
+
+      - name: Create Pull Request
+        working-directory: infra
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          NEW_TAG: ${{ needs.build-push.outputs.image_tag }}
+          SHORT_SHA: ${{ needs.build-push.outputs.short_sha }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          BRANCH_NAME="preconf-rpc-${SHORT_SHA}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git checkout -b "${BRANCH_NAME}"
+          git add charts/mev-commit-preconf-rpc/prod-values.yaml
+          git commit -m "chore(preconf-rpc): bump image to ${NEW_TAG}
+
+          Source commit: ${{ github.server_url }}/${{ github.repository }}/commit/${SOURCE_COMMIT}"
+          
+          git push origin "${BRANCH_NAME}"
+          
+          gh pr create \
+            --title "chore(preconf-rpc): bump image to ${NEW_TAG}" \
+            --body "## Automated Image Update
+          
+          **New Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${NEW_TAG}\`
+          **Source Commit:** [${{ github.repository }}@${SHORT_SHA}](${{ github.server_url }}/${{ github.repository }}/commit/${SOURCE_COMMIT})
+          
+          ---
+          _This PR was automatically created by the preconf-rpc CI workflow._" \
+            --base main \
+            --head "${BRANCH_NAME}"
+          
+          echo "### Infra PR Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Branch: \`${BRANCH_NAME}\`" >> $GITHUB_STEP_SUMMARY
