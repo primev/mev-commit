@@ -74,7 +74,7 @@ funding:
 # Storage
 persistence:
   enabled: true
-  storageClass: "openebs-nvme-disk2"
+  storageClass: "premium-rwo"
   accessMode: ReadWriteOnce
   size: 10Gi
 

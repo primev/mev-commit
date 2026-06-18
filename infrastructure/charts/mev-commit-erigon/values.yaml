@@ -114,7 +114,7 @@ image:
 
 storage:
   size: 100Gi
-  storageClassName: openebs-nvme-disk2
+  storageClassName: premium-rwo
   accessMode: ReadWriteOnce
 
 security:
