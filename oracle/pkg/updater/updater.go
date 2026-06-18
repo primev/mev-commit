@@ -200,7 +200,7 @@ func checkPositionConstraintSatisfied(
 				return true
 			}
 		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-			if txnDetails.PosInBlock >= len(txns)-int(c.Value) {
+			if txnDetails.PosInBlock >= len(txns)-1-int(c.Value) {
 				return true
 			}
 		}
@@ -211,7 +211,7 @@ func checkPositionConstraintSatisfied(
 				return true
 			}
 		case bidderapiv1.PositionConstraint_ANCHOR_BOTTOM:
-			if txnDetails.PosInBlock >= (len(txns)*(100-int(c.Value)))/100 {
+			if txnDetails.PosInBlock >= ((len(txns)-1)*(100-int(c.Value)))/100 {
 				return true
 			}
 		}

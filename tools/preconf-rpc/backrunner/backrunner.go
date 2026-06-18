@@ -25,6 +25,7 @@ var builders = map[common.Address]string{
 	common.HexToAddress("0x2445e5e28890De3e93F39fCA817639c470F4d3b9"): "iobuilder",
 	common.HexToAddress("0xB3998135372F1eE16Cb510af70ed212b5155Af62"): "titan",
 	common.HexToAddress("0x570e531fB805B5eEbD5F29Eaa2766fBeB4977ddE"): "quasar",
+	common.HexToAddress("0x9934Db4Dc89470c5C5921763764d7541629E3A46"): "eureka",
 }
 
 type Store interface {
