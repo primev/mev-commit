@@ -246,8 +246,9 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 	pointsByVaultList := []map[string]interface{}{}
 	for vault, points := range pointsByVault {
 		pointsByVaultList = append(pointsByVaultList, map[string]interface{}{
-			"vault_address": vault,
-			"points":        points,
+			"vault_address":   vault,
+			"points":          points,
+			"network_address": "0x9101eda106A443A0fA82375936D0D1680D5a64F5",
 		})
 	}
 
@@ -293,9 +294,9 @@ func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blo
 		SELECT vault, registry_type, opted_in_block, opted_out_block
 		FROM validator_records
 		WHERE registry_type = 'symbiotic'
-		  AND (pubkey = ? OR adder = ?)
+		  AND adder = ?
 		  AND opted_in_block <= ?
-	`, receiverAddr, receiverAddr, blockNum)
+	`, receiverAddr, blockNum)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -410,6 +411,21 @@ func (p *PointsAPI) GetTotalPointsStats(w http.ResponseWriter, r *http.Request) 
 	if err := rows.Err(); err != nil {
 		http.Error(w, "DB iteration error", http.StatusInternalServerError)
 		return
+	}
+
+	// Add bonus points (1000 points per unique pubkey)
+	var pubkeyBonus int64
+	pubkeyCountQuery := `
+		SELECT COUNT(DISTINCT pubkey) * 1000
+		FROM validator_records
+		WHERE registry_type = 'symbiotic'
+		  AND opted_in_block <= ?
+	`
+	if err := p.db.QueryRow(pubkeyCountQuery, blockNum).Scan(&pubkeyBonus); err != nil {
+		p.logger.Error("failed to calculate pubkey bonus", "error", err)
+	} else {
+		totalPoints += pubkeyBonus
+		p.logger.Info("added pubkey bonus to total points", "bonus", pubkeyBonus)
 	}
 
 	resp := map[string]interface{}{
