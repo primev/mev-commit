@@ -46,6 +46,11 @@ CREATE TABLE IF NOT EXISTS commitments (
 	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
 );`
 
+// commitments are always looked up, replaced and cascade-deleted by transaction_hash,
+// which Postgres does not index automatically for a foreign key.
+var commitmentsIndex = `
+CREATE INDEX IF NOT EXISTS idx_commitments_transaction_hash ON commitments (transaction_hash);`
+
 var balancesTable = `
 CREATE TABLE IF NOT EXISTS balances (
 	account TEXT PRIMARY KEY,
@@ -102,6 +107,7 @@ func New(db *sql.DB) (*rpcstore, error) {
 	for _, table := range []string{
 		transactionsTable,
 		commitmentsTable,
+		commitmentsIndex,
 		balancesTable,
 		subsidiesTable,
 		simulationLogs,
@@ -372,31 +378,18 @@ func (s *rpcstore) StoreTransaction(
 		return fmt.Errorf("transaction %s not found for update", txn.Hash().Hex())
 	}
 
+	// Reconcile the stored commitments with the finalized set: drop any partial commitments
+	// persisted while bidding, then write the final set. A failed transaction writes nothing,
+	// so it no longer retains commitments from an abandoned block attempt.
+	deleteCommitments := `DELETE FROM commitments WHERE transaction_hash = $1;`
+	if _, err := dbTxn.ExecContext(ctx, deleteCommitments, txn.Hash().Hex()); err != nil {
+		_ = dbTxn.Rollback()
+		return fmt.Errorf("failed to delete existing commitments for transaction %s: %w", txn.Hash().Hex(), err)
+	}
 	if txn.Status != sender.TxStatusFailed {
-		for _, commitment := range commitments {
-			insertCommitment := `
-			INSERT INTO commitments (commitment_digest, transaction_hash, provider_address, commitment_data)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (commitment_digest) DO UPDATE SET commitment_data = EXCLUDED.commitment_data;
-			`
-			commitmentData, err := proto.Marshal(commitment)
-			if err != nil {
-				_ = dbTxn.Rollback()
-				return fmt.Errorf("failed to marshal commitment: %w", err)
-			}
-
-			_, err = dbTxn.ExecContext(
-				ctx,
-				insertCommitment,
-				commitment.CommitmentDigest,
-				txn.Hash().Hex(),
-				commitment.ProviderAddress,
-				commitmentData,
-			)
-			if err != nil {
-				_ = dbTxn.Rollback()
-				return fmt.Errorf("failed to insert commitment for transaction %s: %w", txn.Hash().Hex(), err)
-			}
+		if err := insertCommitments(ctx, dbTxn, txn.Hash().Hex(), commitments); err != nil {
+			_ = dbTxn.Rollback()
+			return err
 		}
 	}
 
@@ -416,6 +409,98 @@ func (s *rpcstore) StoreTransaction(
 			_ = dbTxn.Rollback()
 			return fmt.Errorf("failed to insert simulation logs for transaction %s: %w", txn.Hash().Hex(), err)
 		}
+	}
+
+	if err := dbTxn.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// execer is satisfied by both *sql.DB and *sql.Tx so commitment inserts can run either
+// standalone or inside a wider database transaction.
+type execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+// insertCommitments upserts each commitment for the given transaction hash. A conflicting
+// commitment digest updates the stored data so re-persisting the same commitment is
+// idempotent.
+func insertCommitments(
+	ctx context.Context,
+	db execer,
+	txnHash string,
+	commitments []*bidderapiv1.Commitment,
+) error {
+	insertCommitment := `
+	INSERT INTO commitments (commitment_digest, transaction_hash, provider_address, commitment_data)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT (commitment_digest) DO UPDATE SET commitment_data = EXCLUDED.commitment_data;
+	`
+	for _, commitment := range commitments {
+		commitmentData, err := proto.Marshal(commitment)
+		if err != nil {
+			return fmt.Errorf("failed to marshal commitment: %w", err)
+		}
+
+		if _, err := db.ExecContext(
+			ctx,
+			insertCommitment,
+			commitment.CommitmentDigest,
+			txnHash,
+			commitment.ProviderAddress,
+			commitmentData,
+		); err != nil {
+			return fmt.Errorf("failed to insert commitment for transaction %s: %w", txnHash, err)
+		}
+	}
+	return nil
+}
+
+// AppendCommitment records a single commitment for a transaction, adding to any already
+// stored for the current block attempt. It is called as each commitment arrives while a
+// block is still pending. The transaction row must already exist (added via
+// AddQueuedTransaction) to satisfy the foreign key on the commitments table.
+func (s *rpcstore) AppendCommitment(
+	ctx context.Context,
+	txnHash common.Hash,
+	commitment *bidderapiv1.Commitment,
+) error {
+	return insertCommitments(ctx, s.db, txnHash.Hex(), []*bidderapiv1.Commitment{commitment})
+}
+
+// StoreCommitments atomically replaces the stored commitments for a transaction with the
+// given set. It is used on a block change during bidding to drop the previous block's
+// commitments and record the new block's set, so that mevcommit_getTransactionCommitments
+// reflects the current block attempt; within a block, commitments are added incrementally
+// via AppendCommitment. The transaction row must already exist (added via
+// AddQueuedTransaction) to satisfy the foreign key on the commitments table. An empty set
+// is a no-op; StoreTransaction reconciles the final set (including clearing commitments for
+// a failed transaction) once the transaction settles.
+func (s *rpcstore) StoreCommitments(
+	ctx context.Context,
+	txnHash common.Hash,
+	commitments []*bidderapiv1.Commitment,
+) error {
+	if len(commitments) == 0 {
+		return nil
+	}
+
+	dbTxn, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	deleteCommitments := `DELETE FROM commitments WHERE transaction_hash = $1;`
+	if _, err := dbTxn.ExecContext(ctx, deleteCommitments, txnHash.Hex()); err != nil {
+		_ = dbTxn.Rollback()
+		return fmt.Errorf("failed to delete existing commitments for transaction %s: %w", txnHash.Hex(), err)
+	}
+
+	if err := insertCommitments(ctx, dbTxn, txnHash.Hex(), commitments); err != nil {
+		_ = dbTxn.Rollback()
+		return err
 	}
 
 	if err := dbTxn.Commit(); err != nil {

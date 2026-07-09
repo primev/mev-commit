@@ -32,6 +32,7 @@ type mockStore struct {
 	nonce            map[common.Address]uint64
 	balances         map[common.Address]*big.Int
 	byHash           map[common.Hash]*sender.Transaction
+	commitments      map[common.Hash][]*bidderapiv1.Commitment
 	preconfirmedTxns chan result
 }
 
@@ -40,6 +41,7 @@ func newMockStore() *mockStore {
 		queued:           make(map[common.Address][]*sender.Transaction),
 		nonce:            make(map[common.Address]uint64),
 		balances:         make(map[common.Address]*big.Int),
+		commitments:      make(map[common.Hash][]*bidderapiv1.Commitment),
 		preconfirmedTxns: make(chan result, 10),
 		byHash:           make(map[common.Hash]*sender.Transaction),
 	}
@@ -145,6 +147,38 @@ func (m *mockStore) StoreTransaction(
 	}
 	m.byHash[txn.Hash()] = txn
 	return nil
+}
+
+func (m *mockStore) StoreCommitments(
+	_ context.Context,
+	txnHash common.Hash,
+	commitments []*bidderapiv1.Commitment,
+) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	stored := make([]*bidderapiv1.Commitment, len(commitments))
+	copy(stored, commitments)
+	m.commitments[txnHash] = stored
+	return nil
+}
+
+func (m *mockStore) AppendCommitment(
+	_ context.Context,
+	txnHash common.Hash,
+	commitment *bidderapiv1.Commitment,
+) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.commitments[txnHash] = append(m.commitments[txnHash], commitment)
+	return nil
+}
+
+func (m *mockStore) storedCommitments(txnHash common.Hash) []*bidderapiv1.Commitment {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	stored := make([]*bidderapiv1.Commitment, len(m.commitments[txnHash]))
+	copy(stored, m.commitments[txnHash])
+	return stored
 }
 
 func (m *mockStore) GetTransactionByHash(
@@ -456,6 +490,11 @@ func TestSender(t *testing.T) {
 	// Check that the commitments are as expected
 	if len(res.commitments) != 2 {
 		t.Fatalf("expected 2 commitments, got %d", len(res.commitments))
+	}
+	// The commitments should also have been persisted incrementally as they arrived,
+	// so they are queryable via mevcommit_getTransactionCommitments while pending.
+	if stored := st.storedCommitments(tx1.Hash()); len(stored) != 2 {
+		t.Fatalf("expected 2 commitments persisted during bidding, got %d", len(stored))
 	}
 
 	tx2 := &sender.Transaction{
