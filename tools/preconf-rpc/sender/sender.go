@@ -162,6 +162,8 @@ type Store interface {
 	AddBalance(ctx context.Context, account common.Address, amount *big.Int) error
 	DeductBalance(ctx context.Context, account common.Address, amount *big.Int) error
 	StoreTransaction(ctx context.Context, txn *Transaction, commitments []*bidderapiv1.Commitment, logs []*types.Log) error
+	StoreCommitments(ctx context.Context, txnHash common.Hash, commitments []*bidderapiv1.Commitment) error
+	AppendCommitment(ctx context.Context, txnHash common.Hash, commitment *bidderapiv1.Commitment) error
 	GetTransactionByHash(ctx context.Context, txnHash common.Hash) (*Transaction, error)
 	StoreReceipt(ctx context.Context, receipt *types.Receipt) error
 }
@@ -1008,13 +1010,24 @@ BID_LOOP:
 			}
 			switch bidStatus.Type {
 			case bidder.BidStatusCommitment:
-				if len(txn.commitments) > 0 {
-					if txn.commitments[0].BlockNumber != int64(bidBlockNo) {
-						txn.commitments = nil // clear previous commitments for new block
-					}
+				blockChanged := len(txn.commitments) > 0 &&
+					txn.commitments[0].BlockNumber != int64(bidBlockNo)
+				if blockChanged {
+					txn.commitments = nil // clear previous commitments for new block
 				}
 				cmt := bidStatus.Arg.(*bidderapiv1.Commitment)
 				txn.commitments = append(txn.commitments, cmt)
+				// Persist commitments as they arrive so partial commitments are queryable via
+				// mevcommit_getTransactionCommitments while the block is still pending. On a
+				// block change replace the previous block's set; within a block append the new
+				// commitment.
+				if blockChanged {
+					if err := t.store.StoreCommitments(ctx, txn.Hash(), txn.commitments); err != nil {
+						logger.Error("Failed to store commitments", "error", err)
+					}
+				} else if err := t.store.AppendCommitment(ctx, txn.Hash(), cmt); err != nil {
+					logger.Error("Failed to store commitment", "error", err)
+				}
 				if t.fastTrack(txn.commitments, optedInSlot) && txn.Status != TxStatusPreConfirmed {
 					txn.Status = TxStatusPreConfirmed
 					txn.BlockNumber = int64(bidBlockNo)

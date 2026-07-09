@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -14,6 +15,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/primev/mev-commit/tools/preconf-rpc/rpcserver"
 	"github.com/primev/mev-commit/tools/preconf-rpc/sender"
+	"github.com/primev/mev-commit/tools/preconf-rpc/store"
 )
 
 const (
@@ -756,16 +758,15 @@ func (h *rpcMethodHandler) handleGetTxCommitments(
 	txHash := common.HexToHash(txHashStr)
 
 	commitments, err := h.store.GetTransactionCommitments(ctx, txHash)
+	if errors.Is(err, store.ErrNotFound) {
+		h.logger.Info("No commitments found for transaction", "txHash", txHash)
+		return json.RawMessage("[]"), false, nil
+	}
 	if err != nil {
 		return nil, false, rpcserver.NewJSONErr(
 			rpcserver.CodeCustomError,
 			"failed to get transaction commitments",
 		)
-	}
-
-	if len(commitments) == 0 {
-		h.logger.Info("No commitments found for transaction", "txHash", txHash)
-		return json.RawMessage("[]"), false, nil
 	}
 
 	commitmentsJSON, err := json.Marshal(commitments)

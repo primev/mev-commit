@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -532,6 +533,121 @@ func TestStore(t *testing.T) {
 
 		if diff := cmp.Diff(receipt, retrievedReceipt, cmpopts.IgnoreUnexported(types.Receipt{}, big.Int{})); diff != "" {
 			t.Fatalf("receipt mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("StoreCommitments", func(t *testing.T) {
+		txn3 := types.NewTransaction(
+			0,
+			common.HexToAddress("0x1111111111111111111111111111111111111111"),
+			big.NewInt(1000000000),
+			21000,
+			big.NewInt(1000000000),
+			nil,
+		)
+		rawTxn3, err := txn3.MarshalBinary()
+		if err != nil {
+			t.Fatalf("failed to marshal transaction: %v", err)
+		}
+		wrappedTxn3 := &sender.Transaction{
+			Transaction: txn3,
+			Raw:         hex.EncodeToString(rawTxn3),
+			Sender:      common.HexToAddress("0x2222222222222222222222222222222222222222"),
+			Type:        sender.TxTypeRegular,
+			Status:      sender.TxStatusPending,
+		}
+		// The transaction row must exist to satisfy the commitments foreign key.
+		if err := st.AddQueuedTransaction(context.Background(), wrappedTxn3); err != nil {
+			t.Fatalf("failed to queue transaction: %v", err)
+		}
+
+		commitment := func(provider, digest string, block int64) *bidderapiv1.Commitment {
+			return &bidderapiv1.Commitment{
+				TxHashes:         []string{txn3.Hash().Hex()},
+				BidAmount:        big.NewInt(1000000000).String(),
+				BlockNumber:      block,
+				ProviderAddress:  provider,
+				CommitmentDigest: digest,
+			}
+		}
+		countCommitments := func(stage string) int {
+			got, err := st.GetTransactionCommitments(context.Background(), txn3.Hash())
+			if err != nil {
+				t.Fatalf("failed to get commitments %s: %v", stage, err)
+			}
+			return len(got)
+		}
+
+		// AppendCommitment adds a single commitment for the current block attempt.
+		if err := st.AppendCommitment(context.Background(), txn3.Hash(), commitment("0xaaaa", "0xcommit-a", 1)); err != nil {
+			t.Fatalf("failed to append first commitment: %v", err)
+		}
+		if err := st.AppendCommitment(context.Background(), txn3.Hash(), commitment("0xbbbb", "0xcommit-b", 1)); err != nil {
+			t.Fatalf("failed to append second commitment: %v", err)
+		}
+		if n := countCommitments("after appends"); n != 2 {
+			t.Fatalf("expected 2 commitments after appends, got %d", n)
+		}
+		// Re-appending the same digest is idempotent (upsert, not duplicate).
+		if err := st.AppendCommitment(context.Background(), txn3.Hash(), commitment("0xaaaa", "0xcommit-a", 1)); err != nil {
+			t.Fatalf("failed to re-append commitment: %v", err)
+		}
+		if n := countCommitments("after idempotent append"); n != 2 {
+			t.Fatalf("expected 2 commitments after idempotent append, got %d", n)
+		}
+
+		// StoreCommitments replaces the previous block's set rather than appending.
+		replaced := []*bidderapiv1.Commitment{
+			commitment("0xcccc", "0xcommit-c", 2),
+			commitment("0xdddd", "0xcommit-d", 2),
+		}
+		if err := st.StoreCommitments(context.Background(), txn3.Hash(), replaced); err != nil {
+			t.Fatalf("failed to store replaced commitments: %v", err)
+		}
+		got, err := st.GetTransactionCommitments(context.Background(), txn3.Hash())
+		if err != nil {
+			t.Fatalf("failed to get commitments after replace: %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("expected 2 commitments after replace, got %d", len(got))
+		}
+		for _, c := range got {
+			if c.CommitmentDigest == "0xcommit-a" || c.CommitmentDigest == "0xcommit-b" {
+				t.Fatalf("stale commitment %s should have been replaced", c.CommitmentDigest)
+			}
+		}
+
+		// An empty set is a no-op and must not clear the last known commitments.
+		if err := st.StoreCommitments(context.Background(), txn3.Hash(), nil); err != nil {
+			t.Fatalf("failed to store empty commitments: %v", err)
+		}
+		if n := countCommitments("after empty store"); n != 2 {
+			t.Fatalf("expected 2 commitments after empty store, got %d", n)
+		}
+
+		// StoreTransaction reconciles to the finalized set, dropping the partial
+		// commitments persisted while bidding (no union with an earlier block attempt).
+		wrappedTxn3.Status = sender.TxStatusPreConfirmed
+		wrappedTxn3.BlockNumber = 2
+		if err := st.StoreTransaction(context.Background(), wrappedTxn3, []*bidderapiv1.Commitment{commitment("0xeeee", "0xcommit-e", 2)}, nil); err != nil {
+			t.Fatalf("failed to store preconfirmed transaction: %v", err)
+		}
+		got, err = st.GetTransactionCommitments(context.Background(), txn3.Hash())
+		if err != nil {
+			t.Fatalf("failed to get commitments after finalize: %v", err)
+		}
+		if len(got) != 1 || got[0].CommitmentDigest != "0xcommit-e" {
+			t.Fatalf("expected only the finalized commitment, got %d: %+v", len(got), got)
+		}
+
+		// A failed transaction clears its commitments so none linger from bidding.
+		wrappedTxn3.Status = sender.TxStatusFailed
+		wrappedTxn3.Details = "failed"
+		if err := st.StoreTransaction(context.Background(), wrappedTxn3, nil, nil); err != nil {
+			t.Fatalf("failed to store failed transaction: %v", err)
+		}
+		if _, err := st.GetTransactionCommitments(context.Background(), txn3.Hash()); !errors.Is(err, store.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound after failed transaction cleared commitments, got %v", err)
 		}
 	})
 }
