@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -203,7 +204,7 @@ func (b *BidderClient) Bid(
 	ctx context.Context,
 	bidAmount *big.Int,
 	slashAmount *big.Int,
-	rawTx string,
+	rawTxs []string,
 	opts *BidOpts,
 ) (chan BidStatus, error) {
 	if opts == nil {
@@ -264,7 +265,7 @@ func (b *BidderClient) Bid(
 		bidReq := &bidderapiv1.Bid{
 			Amount:              bidAmount.String(),
 			BlockNumber:         int64(blkNumber),
-			RawTransactions:     []string{rawTx},
+			RawTransactions:     rawTxs,
 			DecayStartTimestamp: nowFunc().Add(200 * time.Millisecond).UnixMilli(),
 			SlashAmount:         slashAmount.String(),
 			RevertingTxHashes:   opts.RevertingTxHashes,
@@ -366,6 +367,22 @@ type SettlementMsg struct {
 	IsSlash         bool
 }
 
+// splitTxnHashes splits the comma-joined transaction_hashes value of a
+// notification. A bid with multiple raw transactions produces one
+// commitment that carries all transaction hashes in one joined string.
+// Empty entries are removed.
+func splitTxnHashes(joined string) []string {
+	parts := strings.Split(joined, ",")
+	hashes := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		hashes = append(hashes, p)
+	}
+	return hashes
+}
+
 func (b *BidderClient) SubscribeSettlements(ctx context.Context) <-chan SettlementMsg {
 	outCh := make(chan SettlementMsg)
 
@@ -394,14 +411,25 @@ func (b *BidderClient) SubscribeSettlements(ctx context.Context) <-chan Settleme
 				return
 			}
 
-			txHash := msg.Value.Fields["transaction_hashes"].GetStringValue()
+			txHashes := splitTxnHashes(msg.Value.Fields["transaction_hashes"].GetStringValue())
+			if len(txHashes) == 0 {
+				b.logger.Error("settlement notification has no transaction hashes, skipping")
+				continue
+			}
 			provider := msg.Value.Fields["provider"].GetStringValue()
 			isSlash := msg.Value.Fields["is_slashed"].GetBoolValue()
 
-			outCh <- SettlementMsg{
-				TransactionHash: txHash,
-				Provider:        provider,
-				IsSlash:         isSlash,
+			for _, txHash := range txHashes {
+				select {
+				case outCh <- SettlementMsg{
+					TransactionHash: txHash,
+					Provider:        provider,
+					IsSlash:         isSlash,
+				}:
+				case <-ctx.Done():
+					b.logger.Info("settlement subscription context done")
+					return
+				}
 			}
 		}
 	}()
@@ -413,6 +441,11 @@ type PaymentMsg struct {
 	TransactionHash string
 	Payment         *big.Int
 	Refund          *big.Int
+	// BundleTxnHashes lists all transaction hashes covered by the same
+	// payment notification. For a single transaction bid it has one
+	// entry. The payment and refund amounts are the aggregate values
+	// for the full list.
+	BundleTxnHashes []string
 }
 
 func (b *BidderClient) SubscribePayments(ctx context.Context) <-chan PaymentMsg {
@@ -443,7 +476,11 @@ func (b *BidderClient) SubscribePayments(ctx context.Context) <-chan PaymentMsg 
 				return
 			}
 
-			txHash := msg.Value.Fields["transaction_hashes"].GetStringValue()
+			txHashes := splitTxnHashes(msg.Value.Fields["transaction_hashes"].GetStringValue())
+			if len(txHashes) == 0 {
+				b.logger.Error("payment notification has no transaction hashes, skipping")
+				continue
+			}
 			paymentStr := msg.Value.Fields["payment"].GetStringValue()
 			refundStr := msg.Value.Fields["refund"].GetStringValue()
 
@@ -456,10 +493,18 @@ func (b *BidderClient) SubscribePayments(ctx context.Context) <-chan PaymentMsg 
 				refund = big.NewInt(0)
 			}
 
-			outCh <- PaymentMsg{
-				TransactionHash: txHash,
-				Payment:         payment,
-				Refund:          refund,
+			for _, txHash := range txHashes {
+				select {
+				case outCh <- PaymentMsg{
+					TransactionHash: txHash,
+					Payment:         new(big.Int).Set(payment),
+					Refund:          new(big.Int).Set(refund),
+					BundleTxnHashes: txHashes,
+				}:
+				case <-ctx.Done():
+					b.logger.Info("payment subscription context done")
+					return
+				}
 			}
 		}
 	}()

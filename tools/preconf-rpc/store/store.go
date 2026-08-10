@@ -39,12 +39,39 @@ CREATE TABLE IF NOT EXISTS mcTransactions (
 
 var commitmentsTable = `
 CREATE TABLE IF NOT EXISTS commitments (
-	commitment_digest TEXT PRIMARY KEY,
+	commitment_digest TEXT,
 	transaction_hash TEXT,
 	provider_address TEXT,
 	commitment_data BYTEA,
+	PRIMARY KEY (commitment_digest, transaction_hash),
 	FOREIGN KEY (transaction_hash) REFERENCES mcTransactions (hash) ON DELETE CASCADE
 );`
+
+// commitmentsPKMigration widens the primary key of the commitments table
+// from (commitment_digest) to (commitment_digest, transaction_hash). One
+// bundle bid produces one commitment digest that covers many transactions,
+// so the digest alone is not unique. The block is idempotent: it only
+// alters the table when the current primary key differs from the target.
+var commitmentsPKMigration = `
+DO $$
+DECLARE
+	pk_name TEXT;
+	pk_cols TEXT[];
+BEGIN
+	SELECT c.conname,
+	       (SELECT array_agg(a.attname::text ORDER BY k.ord)
+	        FROM unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)
+	        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum)
+	INTO pk_name, pk_cols
+	FROM pg_constraint c
+	WHERE c.conrelid = 'commitments'::regclass AND c.contype = 'p';
+
+	IF pk_name IS NOT NULL AND pk_cols <> ARRAY['commitment_digest', 'transaction_hash'] THEN
+		EXECUTE format('ALTER TABLE commitments DROP CONSTRAINT %I', pk_name);
+		ALTER TABLE commitments ADD PRIMARY KEY (commitment_digest, transaction_hash);
+	END IF;
+END
+$$;`
 
 var balancesTable = `
 CREATE TABLE IF NOT EXISTS balances (
@@ -113,6 +140,10 @@ func New(db *sql.DB) (*rpcstore, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if _, err := db.Exec(commitmentsPKMigration); err != nil {
+		return nil, fmt.Errorf("failed to migrate commitments primary key: %w", err)
 	}
 
 	return &rpcstore{
@@ -377,7 +408,7 @@ func (s *rpcstore) StoreTransaction(
 			insertCommitment := `
 			INSERT INTO commitments (commitment_digest, transaction_hash, provider_address, commitment_data)
 			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (commitment_digest) DO UPDATE SET commitment_data = EXCLUDED.commitment_data;
+			ON CONFLICT (commitment_digest, transaction_hash) DO UPDATE SET commitment_data = EXCLUDED.commitment_data;
 			`
 			commitmentData, err := proto.Marshal(commitment)
 			if err != nil {
@@ -1032,6 +1063,104 @@ func (r *rpcstore) UpdateSettlementPayment(
 	}
 
 	return nil
+}
+
+// GetBidAmountsForTxns returns the stored bid amount for each of the given
+// transaction hashes. The amount comes from the stored commitment data,
+// which holds the per-transaction share for bundle bids. A transaction
+// can have commitment rows under more than one digest, for example a
+// bundle share and a later solo retry. The result comes from one digest
+// only: among the digests whose rows cover every given hash, the one
+// with the most recent commitment dispatch timestamp wins, and the
+// digest text breaks a timestamp tie deterministically. The commitments
+// table has no timestamp or serial column, so the dispatch timestamp
+// inside the stored commitment data is the recency source. If no digest
+// covers every given hash, the result is empty and the caller falls
+// back to its own split rule.
+func (r *rpcstore) GetBidAmountsForTxns(
+	ctx context.Context,
+	txnHashes []common.Hash,
+) (map[common.Hash]*big.Int, error) {
+	wanted := make(map[common.Hash]struct{}, len(txnHashes))
+	hashes := make([]string, 0, len(txnHashes))
+	for _, h := range txnHashes {
+		if _, seen := wanted[h]; seen {
+			continue
+		}
+		wanted[h] = struct{}{}
+		hashes = append(hashes, h.Hex())
+	}
+
+	query := `
+	SELECT commitment_digest, transaction_hash, commitment_data
+	FROM commitments
+	WHERE transaction_hash = ANY($1);
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(hashes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bid amounts for transactions: %w", err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	type digestGroup struct {
+		amounts  map[common.Hash]*big.Int
+		dispatch int64
+	}
+	groups := make(map[string]*digestGroup)
+	for rows.Next() {
+		var (
+			digest         string
+			txnHash        string
+			commitmentData []byte
+		)
+		if err := rows.Scan(&digest, &txnHash, &commitmentData); err != nil {
+			return nil, fmt.Errorf("failed to scan commitment row: %w", err)
+		}
+		commitment := &bidderapiv1.Commitment{}
+		if err := proto.Unmarshal(commitmentData, commitment); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal commitment data: %w", err)
+		}
+		amount, ok := new(big.Int).SetString(commitment.BidAmount, 10)
+		if !ok {
+			continue
+		}
+		group, found := groups[digest]
+		if !found {
+			group = &digestGroup{amounts: make(map[common.Hash]*big.Int)}
+			groups[digest] = group
+		}
+		group.amounts[common.HexToHash(txnHash)] = amount
+		if commitment.DispatchTimestamp > group.dispatch {
+			group.dispatch = commitment.DispatchTimestamp
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating commitment rows: %w", err)
+	}
+
+	var (
+		winner       *digestGroup
+		winnerDigest string
+	)
+	for digest, group := range groups {
+		if len(group.amounts) != len(wanted) {
+			continue
+		}
+		betterTime := winner == nil || group.dispatch > winner.dispatch
+		tieBreak := winner != nil && group.dispatch == winner.dispatch && digest > winnerDigest
+		if betterTime || tieBreak {
+			winner = group
+			winnerDigest = digest
+		}
+	}
+	if winner == nil {
+		return map[common.Hash]*big.Int{}, nil
+	}
+
+	return winner.amounts, nil
 }
 
 func (r *rpcstore) StoreReceipt(

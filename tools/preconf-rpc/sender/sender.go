@@ -25,6 +25,7 @@ import (
 	"github.com/primev/mev-commit/tools/preconf-rpc/sim"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 )
 
 type TxType int
@@ -57,6 +58,7 @@ const (
 	transactionTimeout           = 10 * time.Minute // timeout for transaction processing
 	maxAttemptsPerBlock          = 10               // maximum attempts per block
 	defaultRetryDelay            = 500 * time.Millisecond
+	maxBundleSize                = 5 // maximum number of transactions in one bundle bid
 )
 
 var (
@@ -172,7 +174,7 @@ type Bidder interface {
 		ctx context.Context,
 		bidAmount *big.Int,
 		slashAmount *big.Int,
-		rawTx string,
+		rawTxs []string,
 		opts *bidder.BidOpts,
 	) (chan bidder.BidStatus, error)
 	ConnectedProviders(ctx context.Context) ([]string, error)
@@ -251,6 +253,7 @@ type TxSender struct {
 	metrics           *metrics
 	explorerSubmitter ExplorerSubmitter
 	logEncryptionKey  []byte
+	bundleBids        bool
 }
 
 func noOpFastTrack(_ []*bidderapiv1.Commitment, _ bool) bool {
@@ -269,6 +272,7 @@ func NewTxSender(
 	settlementChainId *big.Int,
 	explorerSubmitter ExplorerSubmitter,
 	logEncryptionKey []byte,
+	bundleBids bool,
 	logger *slog.Logger,
 ) (*TxSender, error) {
 	txnAttemptHistory, err := lru.New[common.Hash, *txnAttempt](1000)
@@ -306,6 +310,7 @@ func NewTxSender(
 		metrics:           newMetrics(),
 		explorerSubmitter: explorerSubmitter,
 		logEncryptionKey:  logEncryptionKey,
+		bundleBids:        bundleBids,
 	}, nil
 }
 
@@ -594,6 +599,124 @@ func (t *TxSender) markCompleted(txn *Transaction) {
 	t.metrics.inflightTransactions.Dec()
 }
 
+// bundleMember is the slot of one transaction in a bundle bid batch. The
+// batch leader writes the cost, result and error fields before it closes
+// the batch done channel. Followers read their slot only after the done
+// channel is closed. The fastTracked flag records that the member got
+// enough commitments to be stored and signaled as preconfirmed while
+// the bid status loop was still open.
+type bundleMember struct {
+	txn         *Transaction
+	cancel      <-chan struct{}
+	cost        *big.Int
+	res         bidResult
+	err         error
+	fastTracked bool
+	// storedCommitments is the number of commitments that the
+	// fast-track write persisted. Later bundle commitments append in
+	// memory only; the success gate compares this count with the live
+	// count and stores the grown set again.
+	storedCommitments int
+}
+
+// bundleBatch groups the transactions that share one bundle bid attempt.
+// The first member is the leader. The leader performs the bid for the
+// whole batch and closes the done channel when every member slot is set.
+type bundleBatch struct {
+	members []*bundleMember
+	done    chan struct{}
+}
+
+func (b *bundleBatch) leader() *Transaction {
+	return b.members[0].txn
+}
+
+func (b *bundleBatch) member(txn *Transaction) *bundleMember {
+	for _, m := range b.members {
+		if m.txn == txn {
+			return m
+		}
+	}
+	return nil
+}
+
+// bundleEligible reports whether a transaction can join a bundle bid.
+// Only regular transactions without a position constraint are eligible.
+// All other transactions follow the solo bid path. The freshness check
+// (no previous commitments) runs later, after the inflight mark, because
+// the commitments field is only safe to read for transactions that no
+// other goroutine owns.
+func (t *TxSender) bundleEligible(txn *Transaction) bool {
+	return txn.Type == TxTypeRegular && txn.Constraint == nil
+}
+
+// acquireWorkerSlots takes count worker pool slots before any goroutine
+// starts. It returns false if the context ended first. In that case it
+// puts the slots it already took back into the pool, so the caller can
+// release every inflight mark safely: no goroutine has started. The
+// context check before each select makes a context that is already done
+// win deterministically; a select with a free pool slot and a done
+// context picks a case at random.
+func (t *TxSender) acquireWorkerSlots(ctx context.Context, count int) bool {
+	release := func(held int) {
+		for ; held > 0; held-- {
+			<-t.workerPool
+		}
+	}
+	for held := 0; held < count; held++ {
+		if ctx.Err() != nil {
+			release(held)
+			return false
+		}
+		select {
+		case <-ctx.Done():
+			release(held)
+			return false
+		case t.workerPool <- struct{}{}:
+		}
+	}
+	return true
+}
+
+// dispatchMarked takes one worker pool slot and starts the worker
+// goroutine for a transaction that is already marked inflight. It
+// returns false if the context ended before a slot was free. In that
+// case the caller must release the inflight marks of the members that
+// did not get a goroutine.
+func (t *TxSender) dispatchMarked(ctx context.Context, txn *Transaction, cancel <-chan struct{}, batch *bundleBatch) bool {
+	if !t.acquireWorkerSlots(ctx, 1) {
+		return false
+	}
+	t.startMarked(ctx, txn, cancel, batch)
+	return true
+}
+
+// startMarked starts the worker goroutine for a transaction that is
+// already marked inflight and already holds one worker pool slot. The
+// goroutine puts the slot back when it ends.
+func (t *TxSender) startMarked(ctx context.Context, txn *Transaction, cancel <-chan struct{}, batch *bundleBatch) {
+	t.eg.Go(func() error {
+		defer func() { <-t.workerPool }()
+		defer t.triggerSender() // Trigger to reprocess after this transaction
+		defer t.markCompleted(txn)
+
+		t.logger.Info("Processing transaction", "sender", txn.Sender.Hex(), "type", txn.Type)
+		if err := t.processTransaction(ctx, txn, cancel, batch); err != nil {
+			t.logger.Error("Failed to process transaction", "sender", txn.Sender.Hex(), "error", err)
+			txn.Status = TxStatusFailed
+			txn.Details = err.Error()
+			t.clearBlockAttemptHistory(txn, time.Now())
+			// The terminal status write must survive the cancellation
+			// that caused the failure. A write on the cancelled
+			// context fails, the row keeps its old status, and the
+			// queue never selects it again: the failure would stay
+			// invisible.
+			return t.store.StoreTransaction(context.WithoutCancel(ctx), txn, nil, nil)
+		}
+		return nil
+	})
+}
+
 func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 	txns, err := t.store.GetQueuedTransactions(ctx)
 	if err != nil {
@@ -606,7 +729,95 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 		return
 	}
 	t.logger.Debug("Processing queued transactions", "count", len(txns))
+
+	var solo, eligible []*Transaction
 	for _, txn := range txns {
+		if t.bundleBids && t.bundleEligible(txn) {
+			eligible = append(eligible, txn)
+		} else {
+			solo = append(solo, txn)
+		}
+	}
+	if len(eligible) == 1 {
+		// A single eligible transaction cannot form a bundle.
+		solo = append(solo, eligible[0])
+		eligible = nil
+	}
+
+	release := func(members []*bundleMember) {
+		for _, m := range members {
+			t.markCompleted(m.txn)
+		}
+	}
+
+	for start := 0; start < len(eligible); start += maxBundleSize {
+		end := min(start+maxBundleSize, len(eligible))
+		// Build the roster under processMu. The historical check and the
+		// inflight mark run here, in the same order the solo goroutine
+		// uses. After this loop the roster is fixed.
+		roster := make([]*bundleMember, 0, end-start)
+		var preMarked []*bundleMember
+		for _, txn := range eligible[start:end] {
+			if t.historicalTxns.Contains(txn.Hash()) {
+				t.logger.Warn("Transaction already processed historically, skipping", "hash", txn.Hash().Hex())
+				continue
+			}
+			canExecute, cancel := t.markInflight(txn)
+			if !canExecute {
+				// Transaction is already being processed or sender has an inflight transaction
+				continue
+			}
+			if len(txn.commitments) > 0 {
+				// Not a fresh transaction. It keeps its inflight mark
+				// and follows the solo path.
+				preMarked = append(preMarked, &bundleMember{txn: txn, cancel: cancel})
+				continue
+			}
+			roster = append(roster, &bundleMember{txn: txn, cancel: cancel})
+		}
+		if len(roster) == 1 {
+			// A single member cannot form a bundle.
+			preMarked = append(preMarked, roster[0])
+			roster = nil
+		}
+		var batch *bundleBatch
+		if len(roster) > 1 {
+			batch = &bundleBatch{
+				members: roster,
+				done:    make(chan struct{}),
+			}
+		}
+		// All-or-nothing dispatch for the batch: every roster member
+		// gets its worker pool slot before any member goroutine starts.
+		// A partial dispatch would let the leader bid for a member that
+		// has no goroutine and whose inflight mark is released, and the
+		// next tick would re-dispatch that member: a duplicate bid.
+		// When the acquisition fails no goroutine has started, so every
+		// inflight mark can be released and the next tick retries the
+		// whole batch.
+		if len(roster) > 0 {
+			if !t.acquireWorkerSlots(ctx, len(roster)) {
+				release(roster)
+				release(preMarked)
+				t.logger.Info("Context cancelled, stopping transaction processing")
+				return
+			}
+			// The leader is started first so that the batch never runs
+			// without its leader goroutine.
+			for _, m := range roster {
+				t.startMarked(ctx, m.txn, m.cancel, batch)
+			}
+		}
+		for i, m := range preMarked {
+			if !t.dispatchMarked(ctx, m.txn, m.cancel, nil) {
+				release(preMarked[i:])
+				t.logger.Info("Context cancelled, stopping transaction processing")
+				return
+			}
+		}
+	}
+
+	for _, txn := range solo {
 		txn := txn // capture range variable
 		select {
 		case <-ctx.Done():
@@ -630,12 +841,17 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 				defer t.markCompleted(txn)
 
 				t.logger.Info("Processing transaction", "sender", txn.Sender.Hex(), "type", txn.Type)
-				if err := t.processTransaction(ctx, txn, cancel); err != nil {
+				if err := t.processTransaction(ctx, txn, cancel, nil); err != nil {
 					t.logger.Error("Failed to process transaction", "sender", txn.Sender.Hex(), "error", err)
 					txn.Status = TxStatusFailed
 					txn.Details = err.Error()
 					t.clearBlockAttemptHistory(txn, time.Now())
-					return t.store.StoreTransaction(ctx, txn, nil, nil)
+					// The terminal status write must survive the
+					// cancellation that caused the failure. A write on
+					// the cancelled context fails, the row keeps its
+					// old status, and the queue never selects it
+					// again: the failure would stay invisible.
+					return t.store.StoreTransaction(context.WithoutCancel(ctx), txn, nil, nil)
 				}
 				return nil
 			})
@@ -643,7 +859,7 @@ func (t *TxSender) processQueuedTransactions(ctx context.Context) {
 	}
 }
 
-func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction, cancel <-chan struct{}) error {
+func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction, cancel <-chan struct{}, batch *bundleBatch) error {
 	var (
 		result bidResult
 		err    error
@@ -660,10 +876,34 @@ func (t *TxSender) processTransaction(ctx context.Context, txn *Transaction, can
 
 BID_LOOP:
 	for {
-		result, err = t.sendBid(ctx, txn)
+		switch {
+		case batch == nil:
+			result, err = t.sendBid(ctx, txn)
+		case batch.leader() == txn:
+			// The leader sends one bid for the whole batch and fills
+			// every member slot. The batch is spent after the first
+			// iteration; later iterations use the solo path.
+			result, err = t.sendBundleBid(ctx, batch)
+			batch = nil
+		default:
+			// Followers wait for the leader to close the done channel.
+			// The wait is bounded by the leader's bid timeout. Cancel
+			// and context signals are handled by the select below.
+			<-batch.done
+			m := batch.member(txn)
+			result, err = m.res, m.err
+			batch = nil
+		}
 		switch {
 		case err != nil:
-			if retryErr, ok := err.(*errRetry); ok {
+			if errors.Is(err, errBundleAborted) {
+				// The bundle never placed a bid for this member. The
+				// attempt state is already rolled back, so the next
+				// iteration runs a solo bid with first-attempt
+				// semantics.
+				logger.Warn("Bundle aborted before the bid, retrying solo")
+				retryTicker.Reset(defaultRetryDelay)
+			} else if retryErr, ok := err.(*errRetry); ok {
 				logger.Warn(
 					"Retrying bid due to error",
 					"error", retryErr.err,
@@ -677,29 +917,63 @@ BID_LOOP:
 			}
 		case txn.noOfProviders == len(txn.commitments):
 			if result.optedInSlot {
-				if txn.Status != TxStatusPreConfirmed {
-					t.metrics.timeToFirstPreconfirmation.Observe(float64(time.Since(result.startTime).Milliseconds()))
-				}
-				// This means that all builders have committed to the bid and it
-				// is a primev opted in slot. We can safely proceed to inform the
-				// user that the txn was successfully sent and will be processed
-				txn.Status = TxStatusPreConfirmed
-				txn.BlockNumber = int64(result.blockNumber)
-				logger.Info(
-					"Transaction pre-confirmed",
-					"blockNumber", result.blockNumber,
-					"bidAmount", result.bidAmount.String(),
-				)
-				if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
-					return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
-				}
-				t.signalReceiptAvailable(txn.Hash())
-				if err := t.explorerSubmitter.Submit(
-					ctx,
-					txn.Transaction,
-					txn.Sender,
-				); err != nil {
-					t.logger.Error("Failed to submit tx to explorer", "error", err)
+				if result.fastTracked {
+					// The batch leader already stored this member's
+					// preconfirmation, signaled its receipt and
+					// submitted it to the explorer when the member
+					// was fast-tracked. A repeat store here can run
+					// with a context that is already done, and its
+					// failure would flip the stored preconfirmation
+					// to a failed state. So the member skips that
+					// work and only resets the retry ticker below.
+					logger.Info(
+						"Fast-tracked bundle member keeps its stored preconfirmation",
+						"blockNumber", result.blockNumber,
+						"bidAmount", result.bidAmount.String(),
+					)
+					if len(txn.commitments) > result.fastTrackCommitments {
+						// More commitments arrived after the
+						// fast-track write and exist in memory only.
+						// Store the grown set, so the receipt API
+						// shows every commitment, like the solo path.
+						// The write must survive a done context, and
+						// a failure only logs a warning: it must
+						// never flip the stored preconfirmation to a
+						// failed state.
+						if err := t.store.StoreTransaction(
+							context.WithoutCancel(ctx), txn, txn.commitments, txn.logs,
+						); err != nil {
+							logger.Warn(
+								"Failed to store late bundle commitments",
+								"error", err,
+							)
+						}
+					}
+				} else {
+					if txn.Status != TxStatusPreConfirmed {
+						t.metrics.timeToFirstPreconfirmation.Observe(float64(time.Since(result.startTime).Milliseconds()))
+					}
+					// This means that all builders have committed to the bid and it
+					// is a primev opted in slot. We can safely proceed to inform the
+					// user that the txn was successfully sent and will be processed
+					txn.Status = TxStatusPreConfirmed
+					txn.BlockNumber = int64(result.blockNumber)
+					logger.Info(
+						"Transaction pre-confirmed",
+						"blockNumber", result.blockNumber,
+						"bidAmount", result.bidAmount.String(),
+					)
+					if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
+						return fmt.Errorf("failed to store preconfirmed transaction: %w", err)
+					}
+					t.signalReceiptAvailable(txn.Hash())
+					if err := t.explorerSubmitter.Submit(
+						ctx,
+						txn.Transaction,
+						txn.Sender,
+					); err != nil {
+						t.logger.Error("Failed to submit tx to explorer", "error", err)
+					}
 				}
 			}
 			retryTicker.Reset(result.timeUntillNextBlock + 1*time.Second)
@@ -718,6 +992,24 @@ BID_LOOP:
 		}
 		select {
 		case <-ctx.Done():
+			if txn.Status == TxStatusPreConfirmed &&
+				txn.Type != TxTypeDeposit && txn.Type != TxTypeInstantBridge {
+				// The preconfirmation for this transaction is stored
+				// and signaled. A shutdown must not revert it to a
+				// failed state, so the loop ends without an error.
+				// This holds for the solo path and for bundle members
+				// in the same way. Only TxTypeDeposit and
+				// TxTypeInstantBridge are excluded: they run their
+				// post-loop obligation, the AddBalance credit or the
+				// bridge Transfer, after this loop, and the queue only
+				// selects pending transactions again. A silent success
+				// here would skip that step forever. Those two types
+				// return the context error, become visibly failed, and
+				// the user can retry them. Every other type, such as a
+				// preconfirmed fastswap, has no post-loop work and
+				// keeps its preconfirmation.
+				return nil
+			}
 			return ctx.Err()
 		case <-cancel:
 			return ErrTransactionCancelled
@@ -785,12 +1077,33 @@ func (e *errRetry) Error() string {
 	return fmt.Sprintf("retry after %s: %v", e.retryAfter, e.err)
 }
 
+// errBundleAborted tells a bundle member that the bundle bid was
+// aborted before any bid went out. The member did not use up a real
+// bid attempt, so its next solo bid must run with first-attempt
+// semantics: it simulates again and sets noOfProviders from the live
+// provider set. This keeps the zero-commitment outcome of the solo
+// bid from passing the noOfProviders == len(commitments) success gate
+// as 0 == 0.
+var errBundleAborted = errors.New("bundle aborted before bid placement")
+
 type bidResult struct {
 	startTime           time.Time
 	timeUntillNextBlock time.Duration
 	blockNumber         uint64
 	optedInSlot         bool
 	bidAmount           *big.Int
+	// fastTracked marks a bundle member result whose preconfirmation
+	// the batch leader already stored and signaled per member. The
+	// success gate must not repeat that work: a repeat store can run
+	// after the context ends, and its failure would flip the stored
+	// preconfirmation to a failed state. The solo path never sets it.
+	fastTracked bool
+	// fastTrackCommitments is the number of commitments that the
+	// fast-track write persisted for this member. When more
+	// commitments arrive before the bid loop ends, the success gate
+	// stores the grown set again, so the receipt API shows every
+	// commitment, like the solo path.
+	fastTrackCommitments int
 }
 
 func (t *TxSender) sendBid(
@@ -953,15 +1266,8 @@ func (t *TxSender) sendBid(
 		}
 		txn.simFailed = false
 		if !isRetry {
-			providers, err := t.bidder.ConnectedProviders(ctx)
-			if err != nil {
-				logger.Error("Failed to get connected providers", "error", err)
-				return bidResult{}, fmt.Errorf("failed to get connected providers: %w", err)
-			}
 			txn.logs = logs
 			txn.isSwap = isSwap
-			txn.noOfProviders = len(providers)
-			t.metrics.connectedProviders.Set(float64(len(providers)))
 			// We could have already made a attempt on the previous block but the block
 			// update hasn't happened yet. This means that the bid might fail, but
 			// we should retain the previous commitments. Only clear if we get new
@@ -969,12 +1275,27 @@ func (t *TxSender) sendBid(
 		}
 	}
 
+	// The success gate compares noOfProviders with the commitment
+	// count. A retry that never set noOfProviders must not let a
+	// zero-commitment outcome pass that gate as zero equals zero. So
+	// the provider count comes from the live provider set on every
+	// first attempt and on every retry that has no provider count yet.
+	if !isRetry || txn.noOfProviders == 0 {
+		providers, err := t.bidder.ConnectedProviders(ctx)
+		if err != nil {
+			logger.Error("Failed to get connected providers", "error", err)
+			return bidResult{}, fmt.Errorf("failed to get connected providers: %w", err)
+		}
+		txn.noOfProviders = len(providers)
+		t.metrics.connectedProviders.Set(float64(len(providers)))
+	}
+
 	bidStart := time.Now()
 	bidC, err := t.bidder.Bid(
 		cctx,
 		cost,
 		slashAmount,
-		strings.TrimPrefix(txn.Raw, "0x"),
+		[]string{strings.TrimPrefix(txn.Raw, "0x")},
 		&bidder.BidOpts{
 			WaitForOptIn:      false,
 			BlockNumber:       uint64(bidBlockNo),
@@ -1066,6 +1387,344 @@ BID_LOOP:
 	return result, nil
 }
 
+// sendBundleBid sends one bid that carries the raw transactions of all
+// batch members. It runs in the goroutine of the batch leader. It writes
+// a result or an error into the slot of every member and closes the batch
+// done channel when it returns. The return values are the slot values of
+// the leader. A member that fails a pre-check drops out of the bundle and
+// receives the same error the solo path produces for that failure.
+func (t *TxSender) sendBundleBid(ctx context.Context, batch *bundleBatch) (bidResult, error) {
+	defer close(batch.done)
+
+	start := time.Now()
+	leader := batch.members[0]
+	logger := t.logger.With(
+		"leaderTransactionHash", leader.txn.Hash().Hex(),
+		"bundleSize", len(batch.members),
+	)
+
+	distribute := func(members []*bundleMember, err error) {
+		for _, m := range members {
+			m.err = err
+		}
+	}
+
+	timeToOptIn, err := t.bidder.Estimate()
+	if err != nil {
+		logger.Warn("Failed to estimate time to opt-in", "error", err)
+		// If we cannot estimate the time to opt-in, we assume a default value and
+		// proceed with the bid process. The default value should be higher than
+		// the typical block time to ensure we consider the next slot as a non-opt-in slot.
+		timeToOptIn = blockTime * 32
+	}
+
+	bidBlockNo, timeUntilNextBlock, err := t.blockTracker.NextBlockNumber()
+	if err != nil {
+		logger.Error("Failed to get next block number", "error", err)
+		distribute(batch.members, &errRetry{
+			err:        fmt.Errorf("failed to get next block number: %w", err),
+			retryAfter: time.Second,
+		})
+		return leader.res, leader.err
+	}
+	logger.Debug("Next block info", "bidBlockNo", bidBlockNo, "timeUntilNextBlock", timeUntilNextBlock)
+
+	if timeUntilNextBlock <= 500*time.Millisecond {
+		logger.Warn("Next block time is too short, skipping bid", "timeUntilNextBlock", timeUntilNextBlock)
+		distribute(batch.members, &errRetry{
+			err:        fmt.Errorf("next block time is too short: %s", timeUntilNextBlock),
+			retryAfter: defaultRetryDelay,
+		})
+		return leader.res, leader.err
+	}
+
+	prices := t.pricer.EstimatePrice(ctx)
+
+	// Allow for certain level of tolerance w.r.t timestamps
+	optedInSlot := math.Abs(float64(timeToOptIn)-float64(timeUntilNextBlock.Seconds())) < float64(blockTime/3)
+
+	cctx, cancel := context.WithTimeout(ctx, t.getBidTimeout())
+	defer cancel()
+
+	nextBaseFee := t.blockTracker.NextBaseFee()
+	latestBaseFee := t.blockTracker.LatestBaseFee()
+	if nextBaseFee.Sign() == 0 {
+		nextBaseFee = latestBaseFee
+	}
+
+	// Per-member pre-checks. A member that fails a check keeps its own
+	// error and is left out of the bundle. This filters transactions
+	// that would make the providers reject the full bundle.
+	active := make([]*bundleMember, 0, len(batch.members))
+	for _, m := range batch.members {
+		mlogger := t.logger.With(
+			"transactionHash", m.txn.Hash().Hex(),
+			"sender", m.txn.Sender.Hex(),
+			"type", m.txn.Type,
+		)
+
+		// Every drop below this price calculation rolls the recorded
+		// block attempt back: the member leaves the bundle before any
+		// bid goes out, so its solo retry must run with first-attempt
+		// semantics and set noOfProviders from the live provider set.
+		cost, _, err := t.calculatePriceForNextBlock(m.txn, bidBlockNo, prices, optedInSlot)
+		if err != nil {
+			mlogger.Error("Failed to calculate price for next block", "error", err)
+			if errors.Is(err, ErrTimeoutExceeded) || errors.Is(err, ErrMaxAttemptsPerBlockExceeded) {
+				// We propagate these errors as is. A timeout records
+				// no attempt, so there is nothing to roll back.
+				m.err = err
+			} else {
+				// The failed price lookup recorded an attempt for
+				// this block, but no bid goes out for this member.
+				t.rollbackBlockAttempt(m.txn, bidBlockNo)
+				m.err = &errRetry{
+					err:        fmt.Errorf("failed to calculate price: %w", err),
+					retryAfter: time.Second,
+				}
+			}
+			continue
+		}
+
+		feePerGas := effectiveFeePerGas(m.txn.Transaction)
+		if nextBaseFee.Sign() > 0 && feePerGas.Cmp(nextBaseFee) < 0 {
+			mlogger.Warn(
+				"Fee per gas too low for next block",
+				"feePerGas", feePerGas.String(),
+				"nextBaseFee", nextBaseFee.String(),
+			)
+			t.rollbackBlockAttempt(m.txn, bidBlockNo)
+			m.err = &errRetry{
+				err: fmt.Errorf(
+					"fee per gas too low for next block: %s min %s",
+					feePerGas.String(),
+					nextBaseFee.String(),
+				),
+				retryAfter: timeUntilNextBlock,
+			}
+			continue
+		}
+
+		// Bundle members are always regular transactions, so the balance
+		// check mirrors the regular solo path.
+		if !t.store.HasBalance(ctx, m.txn.Sender, cost) {
+			mlogger.Error("Insufficient balance for sender")
+			t.rollbackBlockAttempt(m.txn, bidBlockNo)
+			m.err = fmt.Errorf("insufficient balance for sender: %s", m.txn.Sender.Hex())
+			continue
+		}
+
+		state := sim.Latest
+		if latestBaseFee.Sign() > 0 && feePerGas.Cmp(latestBaseFee) < 0 {
+			state = sim.Pending
+		}
+
+		logs, isSwap, err := t.simulator.Simulate(ctx, m.txn.Raw, state)
+		if err != nil {
+			m.txn.simFailed = true
+			mlogger.Error("Failed to simulate transaction", "error", err, "blockNumber", bidBlockNo)
+			t.rollbackBlockAttempt(m.txn, bidBlockNo)
+			m.err = fmt.Errorf("failed to simulate transaction: %w", err)
+			continue
+		}
+		m.txn.simFailed = false
+		m.txn.logs = logs
+		m.txn.isSwap = isSwap
+		m.cost = cost
+		active = append(active, m)
+	}
+
+	if len(active) < 2 {
+		logger.Info("Not enough members left for a bundle bid", "active", len(active))
+		// The per-member price calculation consumed one block attempt
+		// for each survivor, but no bid went out. Roll the attempt
+		// back so the solo retry runs as a first attempt.
+		for _, m := range active {
+			t.rollbackBlockAttempt(m.txn, bidBlockNo)
+		}
+		distribute(active, errBundleAborted)
+		return leader.res, leader.err
+	}
+
+	providers, err := t.bidder.ConnectedProviders(ctx)
+	if err != nil {
+		logger.Error("Failed to get connected providers", "error", err)
+		distribute(active, fmt.Errorf("failed to get connected providers: %w", err))
+		return leader.res, leader.err
+	}
+	t.metrics.connectedProviders.Set(float64(len(providers)))
+
+	// The bid amount is the sum of the per-member costs. Each member
+	// hash is listed as revertable, which matches the solo path where
+	// each bid lists its own transaction hash.
+	totalCost := big.NewInt(0)
+	rawTxs := make([]string, 0, len(active))
+	revertingTxHashes := make([]string, 0, len(active))
+	for _, m := range active {
+		m.txn.noOfProviders = len(providers)
+		totalCost = new(big.Int).Add(totalCost, m.cost)
+		rawTxs = append(rawTxs, strings.TrimPrefix(m.txn.Raw, "0x"))
+		revertingTxHashes = append(revertingTxHashes, m.txn.Hash().Hex())
+	}
+
+	bidStart := time.Now()
+	bidC, err := t.bidder.Bid(
+		cctx,
+		totalCost,
+		big.NewInt(0),
+		rawTxs,
+		&bidder.BidOpts{
+			WaitForOptIn:      false,
+			BlockNumber:       bidBlockNo,
+			RevertingTxHashes: revertingTxHashes,
+			DecayDuration:     t.getBidTimeout() * 2,
+		},
+	)
+	if err != nil {
+		logger.Error("Failed to place bundle bid", "error", err)
+		// The members retry on the solo path after a short delay.
+		distribute(active, &errRetry{
+			err:        fmt.Errorf("failed to place bundle bid: %w", err),
+			retryAfter: defaultRetryDelay,
+		})
+		return leader.res, leader.err
+	}
+
+	commitmentCount := 0
+BID_LOOP:
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("Context cancelled while waiting for bid status")
+			// A fast-tracked member already has its preconfirmation
+			// stored and signaled. It gets its success result, the
+			// same result the solo path returns for a fast-tracked
+			// transaction. Only members that are not resolved get
+			// the context error.
+			for _, m := range active {
+				if m.fastTracked {
+					m.res = bidResult{
+						bidAmount:            m.cost,
+						blockNumber:          bidBlockNo,
+						startTime:            start,
+						timeUntillNextBlock:  timeUntilNextBlock,
+						optedInSlot:          optedInSlot,
+						fastTracked:          true,
+						fastTrackCommitments: m.storedCommitments,
+					}
+					continue
+				}
+				m.err = ctx.Err()
+			}
+			return leader.res, leader.err
+		case bidStatus, more := <-bidC:
+			if !more {
+				logger.Info("Bid channel closed, no more bid statuses")
+				break BID_LOOP
+			}
+			switch bidStatus.Type {
+			case bidder.BidStatusCommitment:
+				cmt := bidStatus.Arg.(*bidderapiv1.Commitment)
+				commitmentCount++
+				for _, m := range active {
+					t.appendMemberCommitment(ctx, m, cmt, bidBlockNo, optedInSlot, start)
+				}
+				t.metrics.preconfDurationsProvider.WithLabelValues(cmt.ProviderAddress).Set(float64(time.Since(bidStart).Milliseconds()))
+				t.metrics.preconfCountsProvider.WithLabelValues(cmt.ProviderAddress).Inc()
+			case bidder.BidStatusCancelled:
+				logger.Warn("Bid context cancelled by the bidder")
+				break BID_LOOP
+			case bidder.BidStatusFailed:
+				logger.Error("Bid failed", "error", bidStatus.Arg)
+				break BID_LOOP
+			}
+		}
+	}
+	logger.Info(
+		"Bundle bid operation complete",
+		"noOfProviders", len(providers),
+		"noOfCommitments", commitmentCount,
+		"blockNumber", bidBlockNo,
+		"optedInSlot", optedInSlot,
+	)
+
+	for _, m := range active {
+		if len(m.txn.commitments) > 0 && m.txn.isSwap {
+			if err := t.backrunner.Backrun(ctx, m.txn.Raw, m.txn.commitments); err != nil {
+				logger.Error("Failed to backrun transaction", "error", err)
+			}
+			logger.Info("Backrun operation initiated for transaction", "hash", m.txn.Hash().Hex())
+		}
+		m.res = bidResult{
+			bidAmount:            m.cost,
+			blockNumber:          bidBlockNo,
+			startTime:            start,
+			timeUntillNextBlock:  timeUntilNextBlock,
+			optedInSlot:          optedInSlot,
+			fastTracked:          m.fastTracked,
+			fastTrackCommitments: m.storedCommitments,
+		}
+	}
+
+	return leader.res, leader.err
+}
+
+// appendMemberCommitment stores a copy of a bundle commitment on one
+// member with the bid amount replaced by the member's own share. The sum
+// of the member shares equals the aggregate bundle bid amount.
+func (t *TxSender) appendMemberCommitment(
+	ctx context.Context,
+	m *bundleMember,
+	cmt *bidderapiv1.Commitment,
+	bidBlockNo uint64,
+	optedInSlot bool,
+	start time.Time,
+) {
+	txn := m.txn
+	if len(txn.commitments) > 0 {
+		if txn.commitments[0].BlockNumber != int64(bidBlockNo) {
+			txn.commitments = nil // clear previous commitments for new block
+		}
+	}
+	memberCmt, ok := proto.Clone(cmt).(*bidderapiv1.Commitment)
+	if !ok {
+		t.logger.Error("Failed to clone commitment", "transactionHash", txn.Hash().Hex())
+		return
+	}
+	memberCmt.BidAmount = m.cost.String()
+	txn.commitments = append(txn.commitments, memberCmt)
+	if !t.fastTrack(txn.commitments, optedInSlot) {
+		return
+	}
+	m.fastTracked = true
+	if txn.Status != TxStatusPreConfirmed {
+		txn.Status = TxStatusPreConfirmed
+		txn.BlockNumber = int64(bidBlockNo)
+		t.logger.Info(
+			"Transaction fast-tracked based on commitments",
+			"transactionHash", txn.Hash().Hex(),
+			"blockNumber", bidBlockNo,
+			"bidAmount", m.cost.String(),
+		)
+		if err := t.store.StoreTransaction(ctx, txn, txn.commitments, txn.logs); err != nil {
+			t.logger.Error("Failed to store fast-tracked transaction", "error", err)
+		}
+		// Record how many commitments the fast-track write covered.
+		// The success gate stores the set again when it grew after
+		// this write.
+		m.storedCommitments = len(txn.commitments)
+		t.signalReceiptAvailable(txn.Hash())
+		t.metrics.timeToFirstPreconfirmation.Observe(float64(time.Since(start).Milliseconds()))
+		if err := t.explorerSubmitter.Submit(
+			ctx,
+			txn.Transaction,
+			txn.Sender,
+		); err != nil {
+			t.logger.Error("Failed to submit fast-tracked tx to explorer", "error", err)
+		}
+	}
+}
+
 func (t *TxSender) calculatePriceForNextBlock(
 	txn *Transaction,
 	bidBlockNo uint64,
@@ -1146,9 +1805,48 @@ func (t *TxSender) calculatePriceForNextBlock(
 	)
 }
 
+// rollbackBlockAttempt undoes one recorded attempt for a block. The
+// bundle pre-check records an attempt through calculatePriceForNextBlock
+// before the bundle bid goes out. When the bundle aborts before the bid,
+// that attempt did not happen, so the next solo bid for the same block
+// must see first-attempt state. The entry is removed when no attempts
+// remain, which keeps clearBlockAttemptHistory safe: it reads the first
+// element of a non-empty attempts list.
+func (t *TxSender) rollbackBlockAttempt(txn *Transaction, bidBlockNo uint64) {
+	attempts, found := t.txnAttemptHistory.Get(txn.Hash())
+	if !found {
+		return
+	}
+
+	for i := len(attempts.attempts) - 1; i >= 0; i-- {
+		if attempts.attempts[i].blockNumber != bidBlockNo {
+			continue
+		}
+		attempts.attempts[i].attempts--
+		if attempts.attempts[i].attempts <= 0 {
+			attempts.attempts = append(attempts.attempts[:i], attempts.attempts[i+1:]...)
+		}
+		break
+	}
+
+	if len(attempts.attempts) == 0 {
+		_ = t.txnAttemptHistory.Remove(txn.Hash())
+		return
+	}
+	_ = t.txnAttemptHistory.Add(txn.Hash(), attempts)
+}
+
 func (t *TxSender) clearBlockAttemptHistory(txn *Transaction, endTime time.Time) {
 	attempts, found := t.txnAttemptHistory.Get(txn.Hash())
 	if !found {
+		// A rollback of the only recorded attempt removes the entry,
+		// so a terminal drop can land here without one. The user
+		// notification and the historical record must still happen:
+		// the historical record keeps the queue from processing the
+		// same hash again. Only the metrics that read the entry are
+		// skipped.
+		t.notifier.NotifyTransactionStatus(txn, 0, 0, 0)
+		_ = t.historicalTxns.Add(txn.Hash(), struct{}{})
 		return
 	}
 

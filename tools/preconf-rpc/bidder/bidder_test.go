@@ -195,6 +195,10 @@ func TestBidderClient(t *testing.T) {
 	_, _ = rand.Read(buf)
 	txString := hex.EncodeToString(buf)
 
+	buf2 := make([]byte, 32)
+	_, _ = rand.Read(buf2)
+	txString2 := hex.EncodeToString(buf2)
+
 	rpcServices.topo = &debugapiv1.TopologyResponse{
 		Topology: topoVal,
 	}
@@ -207,7 +211,7 @@ func TestBidderClient(t *testing.T) {
 		t.Fatalf("expected 2 providers, got %d", len(providers))
 	}
 
-	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString, nil)
+	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), []string{txString, txString2}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,8 +246,14 @@ waitLoop:
 			if bid.BlockNumber != 11 {
 				t.Fatalf("expected block number 11, got %d", bid.BlockNumber)
 			}
+			if len(bid.RawTransactions) != 2 {
+				t.Fatalf("expected 2 raw transactions, got %d", len(bid.RawTransactions))
+			}
 			if bid.RawTransactions[0] != txString {
 				t.Fatalf("expected raw transaction %x, got %s", buf, bid.RawTransactions[0])
+			}
+			if bid.RawTransactions[1] != txString2 {
+				t.Fatalf("expected raw transaction %x, got %s", buf2, bid.RawTransactions[1])
 			}
 			rpcServices.commitmentChan <- &bidderapiv1.Commitment{
 				BlockNumber: 11,
@@ -261,4 +271,101 @@ waitLoop:
 
 	cancel()
 	<-done
+}
+
+func TestSubscribeSettlementsSplit(t *testing.T) {
+	t.Parallel()
+
+	rpcServices := &testRPCServices{
+		notificationChan: make(chan *notificationsapiv1.Notification),
+	}
+	bidderClient := bidder.NewBidderClient(
+		util.NewTestLogger(os.Stdout),
+		rpcServices,
+		rpcServices,
+		rpcServices,
+		&testBlockNumberGetter{blockNumber: 10},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	settlements := bidderClient.SubscribeSettlements(ctx)
+
+	val, err := structpb.NewStruct(map[string]interface{}{
+		"transaction_hashes": "aaa,bbb",
+		"provider":           "provider1",
+		"is_slashed":         true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rpcServices.notificationChan <- &notificationsapiv1.Notification{
+		Topic: "transaction_settled",
+		Value: val,
+	}
+
+	for _, want := range []string{"aaa", "bbb"} {
+		msg := <-settlements
+		if msg.TransactionHash != want {
+			t.Fatalf("expected transaction hash %s, got %s", want, msg.TransactionHash)
+		}
+		if msg.Provider != "provider1" {
+			t.Fatalf("expected provider provider1, got %s", msg.Provider)
+		}
+		if !msg.IsSlash {
+			t.Fatal("expected is slashed to be true")
+		}
+	}
+}
+
+func TestSubscribePaymentsSplit(t *testing.T) {
+	t.Parallel()
+
+	rpcServices := &testRPCServices{
+		notificationChan: make(chan *notificationsapiv1.Notification),
+	}
+	bidderClient := bidder.NewBidderClient(
+		util.NewTestLogger(os.Stdout),
+		rpcServices,
+		rpcServices,
+		rpcServices,
+		&testBlockNumberGetter{blockNumber: 10},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	payments := bidderClient.SubscribePayments(ctx)
+
+	val, err := structpb.NewStruct(map[string]interface{}{
+		"transaction_hashes": "aaa,bbb",
+		"payment":            "100",
+		"refund":             "40",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rpcServices.notificationChan <- &notificationsapiv1.Notification{
+		Topic: "transaction_payment",
+		Value: val,
+	}
+
+	for _, want := range []string{"aaa", "bbb"} {
+		msg := <-payments
+		if msg.TransactionHash != want {
+			t.Fatalf("expected transaction hash %s, got %s", want, msg.TransactionHash)
+		}
+		if msg.Payment.Cmp(big.NewInt(100)) != 0 {
+			t.Fatalf("expected payment 100, got %s", msg.Payment)
+		}
+		if msg.Refund.Cmp(big.NewInt(40)) != 0 {
+			t.Fatalf("expected refund 40, got %s", msg.Refund)
+		}
+		if len(msg.BundleTxnHashes) != 2 || msg.BundleTxnHashes[0] != "aaa" || msg.BundleTxnHashes[1] != "bbb" {
+			t.Fatalf("expected bundle hashes [aaa bbb], got %v", msg.BundleTxnHashes)
+		}
+	}
 }

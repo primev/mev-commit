@@ -277,6 +277,13 @@ var (
 		EnvVars: []string{"PRECONF_RPC_LOG_ENCRYPTION_KEY"},
 	}
 
+	optionBundleBids = &cli.BoolFlag{
+		Name:    "bundle-bids",
+		Usage:   "Send one bundle bid for multiple pending transactions. Set to false to send one bid per transaction.",
+		EnvVars: []string{"PRECONF_RPC_BUNDLE_BIDS"},
+		Value:   true,
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -411,6 +418,7 @@ func main() {
 			optionAuthToken,
 			optionSimulationURLs,
 			optionUseInlineSimulation,
+			optionBundleBids,
 			optionBackrunnerAPIURL,
 			optionBackrunnerRPCURL,
 			optionBackrunnerAPIKey,
@@ -536,6 +544,7 @@ func main() {
 				Token:                  c.String(optionAuthToken.Name),
 				SimulatorURLs:          c.StringSlice(optionSimulationURLs.Name),
 				UseInlineSimulation:    c.Bool(optionUseInlineSimulation.Name),
+				BundleBids:             c.Bool(optionBundleBids.Name),
 				BackrunnerAPIURL:       c.String(optionBackrunnerAPIURL.Name),
 				BackrunnerRPC:          c.String(optionBackrunnerRPCURL.Name),
 				BackrunnerAPIKey:       c.String(optionBackrunnerAPIKey.Name),
