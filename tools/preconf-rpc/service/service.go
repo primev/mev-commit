@@ -81,6 +81,7 @@ type Config struct {
 	Token                  string
 	SimulatorURLs          []string
 	UseInlineSimulation    bool
+	BundleBids             bool
 	BackrunnerRPC          string
 	BackrunnerAPIURL       string
 	BackrunnerAPIKey       string
@@ -355,6 +356,7 @@ func New(config *Config) (*Service, error) {
 		settlementChainID,
 		expSubmitter,
 		config.LogEncryptionKey,
+		config.BundleBids,
 		config.Logger.With("module", "txsender"),
 	)
 	if err != nil {

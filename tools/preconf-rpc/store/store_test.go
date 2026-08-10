@@ -534,4 +534,143 @@ func TestStore(t *testing.T) {
 			t.Fatalf("receipt mismatch (-want +got):\n%s", diff)
 		}
 	})
+
+	t.Run("CommitmentsCompositePK", func(t *testing.T) {
+		// Recreate the legacy schema state with a single column primary key.
+		if _, err := db.Exec(`ALTER TABLE commitments DROP CONSTRAINT commitments_pkey`); err != nil {
+			t.Fatalf("failed to drop composite primary key: %v", err)
+		}
+		if _, err := db.Exec(`ALTER TABLE commitments ADD PRIMARY KEY (commitment_digest)`); err != nil {
+			t.Fatalf("failed to add legacy primary key: %v", err)
+		}
+
+		// The init path must widen the primary key again. It must also be
+		// idempotent, so run it twice.
+		for i := 0; i < 2; i++ {
+			if _, err := store.New(db); err != nil {
+				t.Fatalf("failed to run store init on legacy schema: %v", err)
+			}
+		}
+
+		txn3 := types.NewTransaction(
+			0,
+			common.HexToAddress("0x1111111111111111111111111111111111111111"),
+			big.NewInt(3000000000),
+			21000,
+			big.NewInt(3000000000),
+			nil,
+		)
+		rawTxn3, err := txn3.MarshalBinary()
+		if err != nil {
+			t.Fatalf("failed to marshal transaction: %v", err)
+		}
+		wrappedTxn3 := &sender.Transaction{
+			Transaction: txn3,
+			Raw:         hex.EncodeToString(rawTxn3),
+			Sender:      common.HexToAddress("0x9999999999999999999999999999999999999999"),
+			Type:        sender.TxTypeRegular,
+			Status:      sender.TxStatusPending,
+		}
+		if err := st.AddQueuedTransaction(context.Background(), wrappedTxn3); err != nil {
+			t.Fatalf("failed to add queued transaction: %v", err)
+		}
+		wrappedTxn3.Status = sender.TxStatusPreConfirmed
+		wrappedTxn3.BlockNumber = 1
+
+		// One bundle commitment covers many transactions with one digest.
+		// Each transaction stores its own share of the bid amount.
+		sharedDigest := commitments[0].CommitmentDigest
+		bundleCommitment := &bidderapiv1.Commitment{
+			TxHashes:         []string{txn1.Hash().Hex(), txn3.Hash().Hex()},
+			BidAmount:        big.NewInt(250000000).String(),
+			BlockNumber:      1,
+			CommitmentDigest: sharedDigest,
+		}
+		if err := st.StoreTransaction(
+			context.Background(),
+			wrappedTxn3,
+			[]*bidderapiv1.Commitment{bundleCommitment},
+			nil,
+		); err != nil {
+			t.Fatalf("failed to store transaction with shared digest commitment: %v", err)
+		}
+
+		var count int
+		if err := db.QueryRow(
+			`SELECT COUNT(*) FROM commitments WHERE commitment_digest = $1`,
+			sharedDigest,
+		).Scan(&count); err != nil {
+			t.Fatalf("failed to count commitments: %v", err)
+		}
+		if count != 2 {
+			t.Fatalf("expected 2 commitment rows for shared digest, got %d", count)
+		}
+
+		amounts, err := st.GetBidAmountsForTxns(
+			context.Background(),
+			[]common.Hash{txn1.Hash(), txn3.Hash()},
+		)
+		if err != nil {
+			t.Fatalf("failed to get bid amounts: %v", err)
+		}
+		if len(amounts) != 2 {
+			t.Fatalf("expected 2 bid amounts, got %d", len(amounts))
+		}
+		if amounts[txn3.Hash()].Cmp(big.NewInt(250000000)) != 0 {
+			t.Fatalf("expected bid amount 250000000 for txn3, got %s", amounts[txn3.Hash()])
+		}
+		if amounts[txn1.Hash()].Cmp(big.NewInt(1000000000)) != 0 {
+			t.Fatalf("expected bid amount 1000000000 for txn1, got %s", amounts[txn1.Hash()])
+		}
+
+		// A solo retry stores a second commitment row for txn3 under
+		// its own digest with a different amount. The bundle lookup
+		// must keep returning the bundle digest's shares: the solo
+		// digest does not cover both hashes, so it cannot win.
+		soloRetryCommitment := &bidderapiv1.Commitment{
+			TxHashes:          []string{txn3.Hash().Hex()},
+			BidAmount:         big.NewInt(999999999).String(),
+			BlockNumber:       2,
+			CommitmentDigest:  "0x5555555555555555555555555555555555555555555555555555555555555555",
+			DispatchTimestamp: time.Now().UnixMilli(),
+		}
+		if err := st.StoreTransaction(
+			context.Background(),
+			wrappedTxn3,
+			[]*bidderapiv1.Commitment{soloRetryCommitment},
+			nil,
+		); err != nil {
+			t.Fatalf("failed to store solo retry commitment: %v", err)
+		}
+
+		amounts, err = st.GetBidAmountsForTxns(
+			context.Background(),
+			[]common.Hash{txn1.Hash(), txn3.Hash()},
+		)
+		if err != nil {
+			t.Fatalf("failed to get bid amounts: %v", err)
+		}
+		if len(amounts) != 2 {
+			t.Fatalf("expected 2 bid amounts, got %d", len(amounts))
+		}
+		if amounts[txn3.Hash()].Cmp(big.NewInt(250000000)) != 0 {
+			t.Fatalf("expected bundle share 250000000 for txn3, got %s", amounts[txn3.Hash()])
+		}
+		if amounts[txn1.Hash()].Cmp(big.NewInt(1000000000)) != 0 {
+			t.Fatalf("expected bid amount 1000000000 for txn1, got %s", amounts[txn1.Hash()])
+		}
+
+		// A lookup for txn3 alone must return the most recent digest
+		// that covers it: the solo retry.
+		soloAmounts, err := st.GetBidAmountsForTxns(
+			context.Background(),
+			[]common.Hash{txn3.Hash()},
+		)
+		if err != nil {
+			t.Fatalf("failed to get solo bid amount: %v", err)
+		}
+		if soloAmounts[txn3.Hash()].Cmp(big.NewInt(999999999)) != 0 {
+			t.Fatalf("expected solo retry amount 999999999 for txn3, got %s", soloAmounts[txn3.Hash()])
+		}
+	})
 }
