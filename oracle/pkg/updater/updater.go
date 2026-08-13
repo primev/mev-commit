@@ -216,6 +216,9 @@ func checkPositionConstraintSatisfied(
 			}
 		}
 	case bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE:
+		if txnDetails.TotalGas == 0 {
+			return false
+		}
 		gasUsed := gasUsedUntil(txnDetails.PosInBlock, txns)
 		gasPercentile := (gasUsed * 100) / txnDetails.TotalGas
 		txnGasPercentile := (txnDetails.GasUsed * 100) / txnDetails.TotalGas
@@ -302,6 +305,9 @@ func (u *Updater) handleOpenedCommitment(
 	)
 
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
+	for i, h := range commitmentTxnHashes {
+		commitmentTxnHashes[i] = strings.TrimPrefix(strings.TrimSpace(h), "0x")
+	}
 	u.logger.Debug("commitmentTxnHashes", "commitmentTxnHashes", commitmentTxnHashes)
 	revertableTxns := strings.Split(update.RevertingTxHashes, ",")
 	u.logger.Debug("revertableTxns", "revertableTxns", revertableTxns)
@@ -309,7 +315,7 @@ func (u *Updater) handleOpenedCommitment(
 	// Create a map for revertable transactions
 	revertableTxnsMap := make(map[string]bool)
 	for _, txn := range revertableTxns {
-		revertableTxnsMap[txn] = true
+		revertableTxnsMap[strings.TrimPrefix(strings.TrimSpace(txn), "0x")] = true
 	}
 
 	var opts *bidderapiv1.BidOptions
@@ -371,22 +377,23 @@ func (u *Updater) handleOpenedCommitment(
 		}
 
 		if u.bidOptionsSlashEnabled {
-			for idx, opt := range opts.Options {
-				if opt.GetPositionConstraint() != nil {
-					if checkPositionConstraintSatisfied(opt.GetPositionConstraint(), txnDetails, txns) {
-						u.logger.Debug(
-							"positional constraint satisfied",
-							"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-							"txnHash", update.TxnHash,
-							"blockNumber", update.BlockNumber,
-							"constraint", opt.GetPositionConstraint(),
-						)
-						// Remove the satisfied constraint
-						opts.Options = append(opts.Options[:idx], opts.Options[idx+1:]...)
-						break
-					}
+			var remaining []*bidderapiv1.BidOption
+			satisfied := false
+			for _, opt := range opts.Options {
+				if !satisfied && opt.GetPositionConstraint() != nil && checkPositionConstraintSatisfied(opt.GetPositionConstraint(), txnDetails, txns) {
+					u.logger.Debug(
+						"positional constraint satisfied",
+						"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+						"txnHash", update.TxnHash,
+						"blockNumber", update.BlockNumber,
+						"constraint", opt.GetPositionConstraint(),
+					)
+					satisfied = true
+				} else {
+					remaining = append(remaining, opt)
 				}
 			}
+			opts.Options = remaining
 		}
 	}
 
@@ -556,7 +563,11 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 			u.logger.Debug("received batch receipts", "duration", time.Since(start).Seconds())
 			for _, result := range results {
 				if result.Err != nil {
-					u.logger.Error("failed to get receipt for txn", "txnHash", result.Receipt.TxHash.Hex(), "error", result.Err)
+					txnHashStr := "unknown"
+					if result.Receipt != nil {
+						txnHashStr = result.Receipt.TxHash.Hex()
+					}
+					u.logger.Error("failed to get receipt for txn", "txnHash", txnHashStr, "error", result.Err)
 					continue
 				}
 
