@@ -65,7 +65,7 @@ func (e *EVMHelperImpl) BatchReceipts(ctx context.Context, txHashes []common.Has
 	for attempts := 0; attempts < 50; attempts++ {
 		e.logger.Debug("Attempting batch call", "attempt", attempts+1)
 		// Execute the batch request
-		err = e.client.Client().BatchCallContext(context.Background(), batch)
+		err = e.client.Client().BatchCallContext(ctx, batch)
 		if err != nil {
 			e.logger.Error("Batch call attempt failed", "attempt", attempts+1, "error", err)
 			time.Sleep(1 * time.Second)
