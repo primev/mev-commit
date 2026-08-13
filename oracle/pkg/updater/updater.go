@@ -563,7 +563,11 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 			u.logger.Debug("received batch receipts", "duration", time.Since(start).Seconds())
 			for _, result := range results {
 				if result.Err != nil {
-					u.logger.Error("failed to get receipt for txn", "txnHash", result.Receipt.TxHash.Hex(), "error", result.Err)
+					txnHashStr := "unknown"
+					if result.Receipt != nil {
+						txnHashStr = result.Receipt.TxHash.Hex()
+					}
+					u.logger.Error("failed to get receipt for txn", "txnHash", txnHashStr, "error", result.Err)
 					continue
 				}
 
