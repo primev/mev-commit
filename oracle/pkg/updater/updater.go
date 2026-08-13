@@ -216,6 +216,9 @@ func checkPositionConstraintSatisfied(
 			}
 		}
 	case bidderapiv1.PositionConstraint_BASIS_GAS_PERCENTILE:
+		if txnDetails.TotalGas == 0 {
+			return false
+		}
 		gasUsed := gasUsedUntil(txnDetails.PosInBlock, txns)
 		gasPercentile := (gasUsed * 100) / txnDetails.TotalGas
 		txnGasPercentile := (txnDetails.GasUsed * 100) / txnDetails.TotalGas
